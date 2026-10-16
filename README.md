@@ -57,7 +57,9 @@ LSM Paguyuban Pizza Sandy Shores adalah wadah persatuan, pemberdayaan, dan advok
 
 ## 🔐 Akses Panel Administrator
 
-Kunjungi endpoint `/admin` atau klik ikon gembok di bagian footer untuk mengakses dashboard pengelola portal.
+Akses panel admin bersifat rahasia dan tidak ditampilkan secara publik di footer. Untuk membuka panel:
+- Buka URL: `/#admin` atau `/admin`
+- Atau gunakan kombinasi tombol shortcut rahasia: `Ctrl + Shift + A` (atau `Alt + A`)
 
 ---
 

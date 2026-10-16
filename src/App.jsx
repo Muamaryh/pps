@@ -74,13 +74,22 @@ export default function App() {
       }
     }
 
+    function handleKeyDown(e) {
+      if ((e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a")) || (e.altKey && (e.key === "a" || e.key === "A"))) {
+        e.preventDefault();
+        setAdminModalOpen((prev) => !prev);
+      }
+    }
+
     checkAdminRoute();
     window.addEventListener("popstate", checkAdminRoute);
     window.addEventListener("hashchange", checkAdminRoute);
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener("popstate", checkAdminRoute);
       window.removeEventListener("hashchange", checkAdminRoute);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
 
