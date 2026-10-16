@@ -1,20 +1,41 @@
 import React, { useState, useEffect } from "react";
 import { BookOpen, Users, Camera, MapPin, Store, HeartHandshake, ShieldCheck } from "lucide-react";
 
-export default function Hero({ heading: _heading, subtext }) {
+export default function Hero({ heading: _heading, subtext, heroPillars }) {
   // Typewriter effect state (3 distinct lines)
   const targetLine1 = "LEMBAGA SWADAYA MASYARAKAT";
   const targetLine2 = "PAGUYUBAN PIZZA";
   const targetLine3 = "SANDY SHORES";
 
+  const defaultHeroPillars = [
+    { label: "Wilayah Kerja", title: "Sandy Shores & Sekitarnya" },
+    { label: "Pemberdayaan UMKM", title: "Pengelolaan Lapak Warga" },
+    { label: "Solidaritas Sosial", title: "Aksi Gotong Royong Warga" },
+    { label: "Advokasi Aspirasi", title: "Mitra Dialog Pemerintah Kota" }
+  ];
+
+  const pillarMeta = [
+    { icon: MapPin, bg: "bg-[#FACC15] text-[#111827]", iconColor: "text-[#DC2626]" },
+    { icon: Store, bg: "bg-[#DC2626] text-white", iconColor: "text-[#FACC15]" },
+    { icon: HeartHandshake, bg: "bg-[#FACC15] text-[#111827]", iconColor: "text-[#DC2626]" },
+    { icon: ShieldCheck, bg: "bg-[#DC2626] text-white", iconColor: "text-[#FACC15]" },
+  ];
+
+  const activePillars = heroPillars && heroPillars.length === 4 ? heroPillars : defaultHeroPillars;
+
   const [text1, setText1] = useState("");
   const [text2, setText2] = useState("");
   const [text3, setText3] = useState("");
-  const [step, setStep] = useState(1); // 1 = typing line 1, 2 = typing line 2, 3 = typing line 3, 4 = completed
+  const [step, setStep] = useState(0); // 0 = logo arrival animation, 1 = line 1, 2 = line 2, 3 = line 3, 4 = completed
 
   useEffect(() => {
     let timeout;
-    if (step === 1) {
+    if (step === 0) {
+      // Tunggu animasi kedatangan logo mendarat mantap (~450ms) baru mulai ketik baris 1
+      timeout = setTimeout(() => {
+        setStep(1);
+      }, 450);
+    } else if (step === 1) {
       if (text1.length < targetLine1.length) {
         timeout = setTimeout(() => {
           setText1(targetLine1.slice(0, text1.length + 1));
@@ -62,8 +83,17 @@ export default function Hero({ heading: _heading, subtext }) {
         {/* Lapisan solid gelap agar teks putih, kuning, & merah sangat tajam terbaca di kedua mode tanpa gradasi */}
         <div className="absolute inset-0 bg-black/60" />
 
-        {/* Kalimat Utama Berada Tepat di Depan pps.jpg dengan Efek Typing 3 Baris Rapi */}
-        <div className="relative z-10 max-w-5xl px-3 sm:px-6 py-4 flex flex-col items-center justify-center min-h-[110px] sm:min-h-[160px] md:min-h-[200px]">
+        {/* Kalimat Utama Berada Tepat di Depan pps.jpg dengan Logo & Efek Typing 3 Baris Rapi */}
+        <div className="relative z-10 max-w-5xl px-3 sm:px-6 py-4 flex flex-col items-center justify-center">
+          {/* Logo PPS di atas Judul Banner dengan Animasi Kedatangan */}
+          <div className="mb-2.5 sm:mb-4 select-none animate-logo-arrival">
+            <img
+              src="/logo.png"
+              alt="Logo LSM Paguyuban Pizza Sandy Shores"
+              className="w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 object-contain hover:scale-110 hover:-rotate-3 transition-all duration-300 cursor-pointer"
+            />
+          </div>
+
           <h1 className="leading-[1.1] uppercase w-full flex flex-col items-center justify-center">
             {/* Baris 1: LEMBAGA SWADAYA MASYARAKAT (Typing Putih) */}
             <span className="block font-heading text-base sm:text-2xl md:text-3xl lg:text-4xl text-white tracking-widest font-black uppercase mb-1 sm:mb-2 drop-shadow-[0_4px_14px_rgba(0,0,0,0.95)]">
@@ -127,55 +157,30 @@ export default function Hero({ heading: _heading, subtext }) {
         </div>
       </div>
 
-      {/* 3. 4 Pilar Fokus Lapangan (Liquid Glass + Brutalism Card) */}
+      {/* 3. 4 Pilar Fokus Lapangan (Dinamis dari Admin Dashboard) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 w-full">
-        <div className="card-brutal p-5 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0">
-            <MapPin size={20} className="text-[#DC2626]" />
-          </div>
-          <div>
-            <div className="card-label text-[11px] mb-1 text-slate-700 dark:text-slate-300">Wilayah Kerja</div>
-            <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100">
-              Sandy Shores & Sekitarnya
+        {activePillars.map((pilar, idx) => {
+          const meta = pillarMeta[idx % pillarMeta.length];
+          const Icon = meta.icon;
+          return (
+            <div
+              key={idx}
+              className="card-brutal p-5 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex items-start gap-3.5"
+            >
+              <div className={`w-10 h-10 rounded ${meta.bg} border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0`}>
+                <Icon size={20} className={meta.iconColor} />
+              </div>
+              <div>
+                <div className="card-label text-[11px] mb-1 text-slate-700 dark:text-slate-300">
+                  {pilar.label}
+                </div>
+                <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100">
+                  {pilar.title}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-
-        <div className="card-brutal p-5 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded bg-[#DC2626] text-white border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0">
-            <Store size={20} className="text-[#FACC15]" />
-          </div>
-          <div>
-            <div className="card-label text-[11px] mb-1 text-slate-700 dark:text-slate-300">Pemberdayaan UMKM</div>
-            <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100">
-              Pengelolaan Lapak Warga
-            </div>
-          </div>
-        </div>
-
-        <div className="card-brutal p-5 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0">
-            <HeartHandshake size={20} className="text-[#DC2626]" />
-          </div>
-          <div>
-            <div className="card-label text-[11px] mb-1 text-slate-700 dark:text-slate-300">Solidaritas Sosial</div>
-            <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100">
-              Aksi Gotong Royong Warga
-            </div>
-          </div>
-        </div>
-
-        <div className="card-brutal p-5 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded bg-[#DC2626] text-white border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0">
-            <ShieldCheck size={20} className="text-[#FACC15]" />
-          </div>
-          <div>
-            <div className="card-label text-[11px] mb-1 text-slate-700 dark:text-slate-300">Advokasi Aspirasi</div>
-            <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100">
-              Mitra Dialog Pemerintah Kota
-            </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
     </section>
   );

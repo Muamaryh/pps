@@ -65,15 +65,81 @@ export const defaultData = {
     }
   ],
 
+  // 4 Pilar Fokus Lapangan (Hero)
+  heroPillars: [
+    { label: "Wilayah Kerja", title: "Sandy Shores & Sekitarnya" },
+    { label: "Pemberdayaan UMKM", title: "Pengelolaan Lapak Warga" },
+    { label: "Solidaritas Sosial", title: "Aksi Gotong Royong Warga" },
+    { label: "Advokasi Aspirasi", title: "Mitra Dialog Pemerintah Kota" }
+  ],
+
+  // Header Section Tentang Kami
+  aboutHeader: {
+    label: "TENTANG KAMI",
+    title: "Profil & Arah Gerakan PPS",
+    badge: "MANIFESTO RESMI"
+  },
+
+  // 3 Program Unggulan (Tentang Kami)
+  aboutPillars: [
+    {
+      badge: "Kepedulian Warga",
+      title: "Solidaritas & Aksi Sosial",
+      desc: "Menghidupkan gotong royong warga melalui bakti sosial, pertemuan rutin, serta kepedulian nyata bagi warga yang membutuhkan di kawasan Sandy Shores.",
+      status: "Program Aktif Berkelanjutan"
+    },
+    {
+      badge: "Kemandirian Usaha",
+      title: "Pemberdayaan UMKM",
+      desc: "Mendorong kemandirian ekonomi warga melalui penyediaan stand usaha, pengelolaan lapak dagang berizin, serta pembinaan keterampilan usaha lokal.",
+      status: "Program Aktif Berkelanjutan"
+    },
+    {
+      badge: "Jembatan Komunikasi",
+      title: "Advokasi & Aspirasi Kota",
+      desc: "Menjadi mitra dialog yang konstruktif bagi Government Ime City dalam menyalurkan suara warga demi terciptanya kebijakan publik yang adil dan terbuka.",
+      status: "Program Aktif Berkelanjutan"
+    }
+  ],
+
+  // Visi & Misi Lembaga
+  visionMission: {
+    visionLabel: "Visi Komunitas",
+    visionTitle: "“Terwujudnya Masyarakat Sandy Shores yang Kompak, Mandiri, dan Bermartabat Bersama.”",
+    visionDesc: "Kemajuan suatu kawasan bertumpu pada solidaritas warganya. Melalui gotong royong dan keterbukaan, LSM Paguyuban Pizza Sandy Shores berikhtiar merangkul setiap potensi demi lingkungan yang tertib, harmonis, dan mandiri.",
+    missionTitle: "Misi Pokok Lembaga:",
+    missionItems: [
+      "Menampung dan memperjuangkan aspirasi warga secara bertanggung jawab ke otoritas kota.",
+      "Membuka ruang usaha mandiri melalui fasilitas stan & lapak UMKM warga berizin.",
+      "Menggerakkan aksi sosial, pertemuan warga, dan kegiatan kebersamaan yang teratur."
+    ]
+  },
+
+  charterTitle: "Naskah Pendirian & Penjelasan Lengkap LSM",
+
   adminPass: "pps123123"
 };
+
+export function mergeWithDefaults(cloudData) {
+  if (!cloudData) return defaultData;
+  return {
+    ...defaultData,
+    ...cloudData,
+    heroPillars: cloudData.heroPillars || defaultData.heroPillars,
+    aboutHeader: { ...defaultData.aboutHeader, ...(cloudData.aboutHeader || {}) },
+    aboutPillars: cloudData.aboutPillars || defaultData.aboutPillars,
+    visionMission: { ...defaultData.visionMission, ...(cloudData.visionMission || {}) },
+    charterTitle: cloudData.charterTitle || defaultData.charterTitle,
+  };
+}
 
 export async function loadCloudData() {
   try {
     const docRef = doc(db, ...CONFIG_DOC_PATH);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      let data = sanitizeSandyShores(docSnap.data());
+      let rawData = sanitizeSandyShores(docSnap.data());
+      let data = mergeWithDefaults(rawData);
       // Ensure navLinks has the Discord & Daftar Anggota links if not already present
       if (!data.navLinks || !data.navLinks.includes("discord.gg")) {
         data.navLinks = defaultData.navLinks;
@@ -89,7 +155,7 @@ export async function loadCloudData() {
     const cached = localStorage.getItem("pps_cached_data");
     if (cached) {
       try { 
-        let parsed = sanitizeSandyShores(JSON.parse(cached));
+        let parsed = mergeWithDefaults(sanitizeSandyShores(JSON.parse(cached)));
         if (!parsed.navLinks || !parsed.navLinks.includes("discord.gg")) {
           parsed.navLinks = defaultData.navLinks;
         }

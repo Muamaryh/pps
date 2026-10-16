@@ -10,6 +10,7 @@ import LightboxModal from "./components/LightboxModal";
 import AdminModal from "./components/AdminModal";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
+import PizzaLoader from "./components/PizzaLoader";
 
 export default function App() {
   const [data, setData] = useState(defaultData);
@@ -39,13 +40,20 @@ export default function App() {
   // Load Firestore Cloud Data on Mount
   useEffect(() => {
     async function fetchData() {
+      const startTime = Date.now();
       try {
         const cloud = await loadCloudData();
         setData(cloud);
       } catch (err) {
         console.warn("Using fallback data due to:", err);
       } finally {
-        setLoading(false);
+        const elapsed = Date.now() - startTime;
+        const minWait = 1100; // Minimum duration to enjoy the pizza eating animation smoothly
+        if (elapsed < minWait) {
+          setTimeout(() => setLoading(false), minWait - elapsed);
+        } else {
+          setLoading(false);
+        }
       }
     }
     fetchData();
@@ -142,21 +150,24 @@ export default function App() {
       {/* Main Content (Wide edge-to-edge max-w-[98%] 2xl:max-w-[1600px]) */}
       <main className="flex-1 w-full max-w-[98%] 2xl:max-w-[1600px] mx-auto px-2 sm:px-4 md:px-6 py-4 sm:py-6">
         {loading ? (
-          <div className="py-28 flex flex-col items-center justify-center">
-            <div className="card-brutal p-8 text-center max-w-sm w-full bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569]">
-              <div className="w-10 h-10 border-[3px] border-[#1A1A1A] border-t-[#FACC15] rounded-full animate-spin mx-auto mb-4" />
-              <p className="font-heading font-extrabold text-sm uppercase tracking-wider text-slate-900 dark:text-white">
-                Memuat Portal PPS...
-              </p>
-            </div>
-          </div>
+          <PizzaLoader />
         ) : (
           <>
             {/* Hero Section */}
-            <Hero heading={data.heading} subtext={data.subtext} />
+            <Hero
+              heading={data.heading}
+              subtext={data.subtext}
+              heroPillars={data.heroPillars}
+            />
 
             {/* Tentang Kami Section */}
-            <About aboutText={data.aboutText} />
+            <About
+              aboutText={data.aboutText}
+              aboutHeader={data.aboutHeader}
+              aboutPillars={data.aboutPillars}
+              visionMission={data.visionMission}
+              charterTitle={data.charterTitle}
+            />
 
             {/* Struktur Organisasi Section */}
             <OrgStructure org={data.org} onOpenLightbox={handleOpenLightbox} />
