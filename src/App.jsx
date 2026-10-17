@@ -79,13 +79,27 @@ export default function App() {
       const hash = window.location.hash.toLowerCase();
       if (path === "/admin" || path.endsWith("/admin") || hash === "#/admin" || hash === "#admin") {
         setAdminModalOpen(true);
+      } else {
+        setAdminModalOpen(false);
       }
     }
 
     function handleKeyDown(e) {
       if ((e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a")) || (e.altKey && (e.key === "a" || e.key === "A"))) {
         e.preventDefault();
-        setAdminModalOpen((prev) => !prev);
+        setAdminModalOpen((prev) => {
+          const next = !prev;
+          if (next) {
+            if (!window.location.pathname.includes("/admin")) {
+              window.history.pushState(null, "", "/admin");
+            }
+          } else {
+            if (window.location.pathname.includes("/admin") || window.location.hash.includes("admin")) {
+              window.history.pushState(null, "", "/");
+            }
+          }
+          return next;
+        });
       }
     }
 

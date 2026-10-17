@@ -349,8 +349,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
         }
       }
       onDataSaved(formData);
-      onShowToast("Seluruh data berhasil disimpan ke Cloud!", "success");
-      onClose();
+      onShowToast("Perubahan berhasil disimpan ke Cloud!", "success");
     } catch (err) {
       console.error(err);
       const msg = err?.message || "Gagal menyimpan data ke Cloud.";
@@ -1132,8 +1131,9 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                     type="button"
                     onClick={onClose}
                     className="btn btn-secondary text-xs py-2 px-4 border-2 border-black dark:border-[#475569]"
+                    title="Tutup panel admin dan lihat website utama"
                   >
-                    Batal
+                    Tutup Panel
                   </button>
                   <button
                     type="button"
@@ -1142,7 +1142,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                     className="btn text-xs py-2 px-4 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] disabled:opacity-50"
                   >
                     <Save size={15} className="text-[#DC2626]" />
-                    <span>{isSaving ? "Menyimpan..." : "Simpan Perubahan"}</span>
+                    <span>{isSaving ? "Menyimpan ke Cloud..." : "Simpan Perubahan"}</span>
                   </button>
                 </div>
               </div>
