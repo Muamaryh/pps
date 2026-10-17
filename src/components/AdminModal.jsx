@@ -195,7 +195,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
         {
           title: "Judul Kegiatan Baru",
           desc: "Keterangan dokumentasi kegiatan.",
-          date: "Kamis, 15 Oktober 2026",
+          date: "Sabtu, 17 Oktober 2026",
           location: "SS Area",
           photo: ""
         },

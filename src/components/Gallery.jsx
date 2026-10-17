@@ -102,9 +102,45 @@ function GalleryCard({ item, onOpenLightbox }) {
   );
 }
 
+const INDO_MONTHS = {
+  januari: 0, februari: 1, maret: 2, april: 3, mei: 4, juni: 5,
+  juli: 6, agustus: 7, september: 8, oktober: 9, november: 10, desember: 11
+};
+
+function parseDateScore(item) {
+  const str = item?.date || "";
+  const m = String(str).match(/(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const mon = INDO_MONTHS[m[2].toLowerCase()];
+    const year = parseInt(m[3], 10);
+    if (mon !== undefined && !isNaN(day) && !isNaN(year)) {
+      return new Date(year, mon, day).getTime();
+    }
+  }
+  const p = Date.parse(str);
+  if (!isNaN(p)) return p;
+  return Date.now();
+}
+
 export default function Gallery({ gallery = [], onOpenLightbox }) {
-  // Urutan dokumentasi tampil sesuai daftar admin (foto baru di bawah)
-  const displayGallery = gallery;
+  // Dokumentasi waktu terbaru selalu tampil di awal (terdepan)
+  const displayGallery = React.useMemo(() => {
+    const indexed = gallery.map((item, originalIndex) => ({
+      item,
+      originalIndex,
+      score: parseDateScore(item),
+    }));
+
+    indexed.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score; // Waktu terbaru di awal
+      }
+      return a.originalIndex - b.originalIndex;
+    });
+
+    return indexed.map((x) => x.item);
+  }, [gallery]);
 
   return (
     <section id="gallery" className="py-10 sm:py-14 w-full scroll-mt-24">
