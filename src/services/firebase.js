@@ -3,7 +3,7 @@
 // ==========================================================================
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBtipNgmsCRHweROy71Wz1a1WMe9nimMew",
@@ -133,35 +133,92 @@ export function mergeWithDefaults(cloudData) {
   };
 }
 
+// Helper: split items into safe chunks well under the 1MB Firestore limit (~350KB each)
+function chunkArray(items, maxChunkBytes = 350000) {
+  const chunks = [];
+  let currentChunk = [];
+  let currentSize = 0;
+  for (const item of items) {
+    const itemSize = JSON.stringify(item).length;
+    if (currentChunk.length > 0 && currentSize + itemSize > maxChunkBytes) {
+      chunks.push(currentChunk);
+      currentChunk = [item];
+      currentSize = itemSize;
+    } else {
+      currentChunk.push(item);
+      currentSize += itemSize;
+    }
+  }
+  if (currentChunk.length > 0) chunks.push(currentChunk);
+  return chunks;
+}
+
 export async function loadCloudData() {
   try {
     const docRef = doc(db, ...CONFIG_DOC_PATH);
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      let rawData = sanitizeSandyShores(docSnap.data());
-      let data = mergeWithDefaults(rawData);
-      // Ensure navLinks has the Discord & Daftar Anggota links if not already present
-      if (!data.navLinks || !data.navLinks.includes("discord.gg")) {
-        data.navLinks = defaultData.navLinks;
+
+    let rawData = docSnap.exists() ? docSnap.data() : { ...defaultData };
+    let data = mergeWithDefaults(sanitizeSandyShores(rawData));
+
+    // 1. Load Org members from separate doc if available
+    try {
+      const orgSnap = await getDoc(doc(db, "pps_website", "org"));
+      if (orgSnap.exists() && Array.isArray(orgSnap.data()?.items)) {
+        data.org = orgSnap.data().items;
       }
-      localStorage.setItem("pps_cached_data", JSON.stringify(data));
-      return data;
-    } else {
-      await setDoc(docRef, defaultData);
-      return defaultData;
+    } catch (e) {
+      console.warn("Notice loading org collection:", e);
     }
+
+    // 2. Load Gallery from chunks or separate doc if available
+    try {
+      const metaSnap = await getDoc(doc(db, "pps_website", "gallery_meta"));
+      if (metaSnap.exists()) {
+        const { chunkCount } = metaSnap.data();
+        const promises = [];
+        for (let i = 0; i < (chunkCount || 1); i++) {
+          promises.push(getDoc(doc(db, "pps_website", "gallery_" + i)));
+        }
+        const chunkSnaps = await Promise.all(promises);
+        let loadedGallery = [];
+        chunkSnaps.forEach((s) => {
+          if (s.exists() && Array.isArray(s.data()?.items)) {
+            loadedGallery = loadedGallery.concat(s.data().items);
+          }
+        });
+        if (loadedGallery.length > 0) {
+          data.gallery = loadedGallery;
+        }
+      } else {
+        const galSnap = await getDoc(doc(db, "pps_website", "gallery"));
+        if (galSnap.exists() && Array.isArray(galSnap.data()?.items)) {
+          data.gallery = galSnap.data().items;
+        }
+      }
+    } catch (e) {
+      console.warn("Notice loading gallery collection:", e);
+    }
+
+    // Ensure navLinks has Discord & Daftar Anggota
+    if (!data.navLinks || !data.navLinks.includes("discord.gg")) {
+      data.navLinks = defaultData.navLinks;
+    }
+
+    localStorage.setItem("pps_cached_data", JSON.stringify(data));
+    return data;
   } catch (err) {
     console.warn("Firestore connection notice, using local cache or default fallback:", err);
     const cached = localStorage.getItem("pps_cached_data");
     if (cached) {
-      try { 
+      try {
         let parsed = mergeWithDefaults(sanitizeSandyShores(JSON.parse(cached)));
         if (!parsed.navLinks || !parsed.navLinks.includes("discord.gg")) {
           parsed.navLinks = defaultData.navLinks;
         }
         return parsed;
-      } catch { 
-        return defaultData; 
+      } catch {
+        return defaultData;
       }
     }
     return defaultData;
@@ -169,15 +226,82 @@ export async function loadCloudData() {
 }
 
 export async function saveCloudData(newData) {
-  const docRef = doc(db, ...CONFIG_DOC_PATH);
-  await setDoc(docRef, newData);
-  localStorage.setItem("pps_cached_data", JSON.stringify(newData));
-  return true;
+  try {
+    // 1. Save Org to pps_website/org (Dedicated 1MB limit for members)
+    const orgItems = newData.org || [];
+    await setDoc(doc(db, "pps_website", "org"), {
+      items: orgItems,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // 2. Save Gallery with automatic chunking (Uncapped capacity, supports unlimited photos!)
+    const galleryItems = newData.gallery || [];
+    const chunks = chunkArray(galleryItems, 350000);
+    const chunkCount = Math.max(chunks.length, 1);
+
+    await setDoc(doc(db, "pps_website", "gallery_meta"), {
+      chunkCount: chunks.length,
+      totalItems: galleryItems.length,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const chunkPromises = chunks.map((chunk, i) =>
+      setDoc(doc(db, "pps_website", "gallery_" + i), {
+        items: chunk,
+        updatedAt: new Date().toISOString(),
+      })
+    );
+    await Promise.all(chunkPromises);
+
+    if (chunks.length > 0) {
+      await setDoc(doc(db, "pps_website", "gallery"), {
+        items: chunks[0],
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    // Clean up any old unused chunks (if total chunks decreased)
+    for (let i = chunks.length; i < 15; i++) {
+      try {
+        await deleteDoc(doc(db, "pps_website", "gallery_" + i));
+      } catch {}
+    }
+
+    // 3. Save clean config to pps_website/config (Text-only, ~3KB, never hits 1MB limit!)
+    const cleanConfig = { ...newData };
+    delete cleanConfig.org;
+    delete cleanConfig.gallery;
+    cleanConfig._storageVersion = 2;
+    cleanConfig.updatedAt = new Date().toISOString();
+
+    await setDoc(doc(db, ...CONFIG_DOC_PATH), cleanConfig);
+
+    // 4. Update local cache
+    localStorage.setItem("pps_cached_data", JSON.stringify(newData));
+    return true;
+  } catch (err) {
+    console.error("Critical error in saveCloudData:", err);
+    throw err;
+  }
 }
 
 export async function resetCloudData() {
-  const docRef = doc(db, ...CONFIG_DOC_PATH);
-  await setDoc(docRef, defaultData);
+  const cleanConfig = { ...defaultData };
+  delete cleanConfig.org;
+  delete cleanConfig.gallery;
+  cleanConfig._storageVersion = 2;
+  await setDoc(doc(db, ...CONFIG_DOC_PATH), cleanConfig);
+
+  await setDoc(doc(db, "pps_website", "org"), { items: defaultData.org || [] });
+
+  await setDoc(doc(db, "pps_website", "gallery_meta"), {
+    chunkCount: 1,
+    totalItems: (defaultData.gallery || []).length,
+    updatedAt: new Date().toISOString(),
+  });
+  await setDoc(doc(db, "pps_website", "gallery_0"), { items: defaultData.gallery || [] });
+  await setDoc(doc(db, "pps_website", "gallery"), { items: defaultData.gallery || [] });
+
   localStorage.setItem("pps_cached_data", JSON.stringify(defaultData));
   return defaultData;
 }

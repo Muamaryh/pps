@@ -103,8 +103,8 @@ function GalleryCard({ item, onOpenLightbox }) {
 }
 
 export default function Gallery({ gallery = [], onOpenLightbox }) {
-  // Newest added items shown first (reversed chronological order)
-  const sortedGallery = [...gallery].reverse();
+  // Urutan dokumentasi tampil sesuai daftar admin (foto baru di bawah)
+  const displayGallery = gallery;
 
   return (
     <section id="gallery" className="py-10 sm:py-14 w-full scroll-mt-24">
@@ -119,13 +119,13 @@ export default function Gallery({ gallery = [], onOpenLightbox }) {
           </h2>
         </div>
         <div className="badge-brutal bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000]">
-          {gallery.length} DOKUMENTASI
+          {displayGallery.length} DOKUMENTASI
         </div>
       </div>
 
-      {/* Gallery Grid (Newest documentation first) */}
+      {/* Gallery Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-        {sortedGallery.map((item, idx) => (
+        {displayGallery.map((item, idx) => (
           <GalleryCard key={idx} item={item} onOpenLightbox={onOpenLightbox} />
         ))}
       </div>
