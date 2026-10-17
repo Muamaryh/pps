@@ -73,7 +73,6 @@ export default function FloatingActions({ discordUrl, registerUrl }) {
             </div>
             <div className="flex flex-col text-left">
               <span className="leading-tight">Gabung Discord Kami</span>
-              <span className="text-[10px] font-sans font-bold text-white/80 lowercase tracking-normal">Komunitas & Voice Sandy Shores</span>
             </div>
             <ExternalLink size={13} className="opacity-75 group-hover:opacity-100 ml-1 transition-opacity shrink-0" />
           </a>
@@ -91,8 +90,7 @@ export default function FloatingActions({ discordUrl, registerUrl }) {
               <UserPlus size={15} />
             </div>
             <div className="flex flex-col text-left">
-              <span className="leading-tight">Daftar Menjadi Anggota</span>
-              <span className="text-[10px] font-sans font-bold text-gray-800 lowercase tracking-normal">Formulir Rekrutmen LSM PPS</span>
+              <span className="leading-tight">Daftar Menjadi Anggota LSM PPS</span>
             </div>
             <ExternalLink size={13} className="text-[#111827] opacity-75 group-hover:opacity-100 ml-1 transition-opacity shrink-0" />
           </a>
