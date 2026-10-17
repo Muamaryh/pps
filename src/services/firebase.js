@@ -320,3 +320,92 @@ export async function resetCloudData() {
   localStorage.setItem("pps_cached_data", JSON.stringify(defaultData));
   return defaultData;
 }
+
+// ==========================================================================
+// SUBMISSIONS MANAGEMENT (Lapak UMKM & Request Meeting - IME Roleplay)
+// ==========================================================================
+
+export async function submitServiceRequest(requestData) {
+  const newTicketId = "PPS-" + Math.floor(1000 + Math.random() * 9000);
+  const newEntry = {
+    id: newTicketId,
+    ...requestData,
+    status: "pending", // "pending" | "approved" | "rejected" | "completed"
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const docRef = doc(db, "pps_website", "submissions");
+    const docSnap = await getDoc(docRef);
+    let existing = [];
+    if (docSnap.exists() && Array.isArray(docSnap.data()?.items)) {
+      existing = docSnap.data().items;
+    }
+
+    // Keep up to 40 recent tickets to stay safely under document limits
+    const updated = [newEntry, ...existing].slice(0, 40);
+
+    await setDoc(docRef, {
+      items: updated,
+      updatedAt: new Date().toISOString(),
+    });
+
+    localStorage.setItem("pps_local_submissions", JSON.stringify(updated));
+    return newEntry;
+  } catch (err) {
+    console.warn("Saving submission to local cache as fallback:", err);
+    const local = JSON.parse(localStorage.getItem("pps_local_submissions") || "[]");
+    const updated = [newEntry, ...local].slice(0, 40);
+    localStorage.setItem("pps_local_submissions", JSON.stringify(updated));
+    return newEntry;
+  }
+}
+
+export async function loadSubmissions() {
+  try {
+    const docRef = doc(db, "pps_website", "submissions");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists() && Array.isArray(docSnap.data()?.items)) {
+      localStorage.setItem("pps_local_submissions", JSON.stringify(docSnap.data().items));
+      return docSnap.data().items;
+    }
+  } catch (err) {
+    console.warn("Notice loading submissions:", err);
+  }
+  return JSON.parse(localStorage.getItem("pps_local_submissions") || "[]");
+}
+
+export async function updateSubmissions(items) {
+  try {
+    const docRef = doc(db, "pps_website", "submissions");
+    await setDoc(docRef, {
+      items,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("Notice updating submissions in cloud:", err);
+  }
+  localStorage.setItem("pps_local_submissions", JSON.stringify(items));
+  return items;
+}
+
+export async function searchSubmissions(query) {
+  if (!query || !query.trim()) return [];
+  const clean = query.trim().toUpperCase().replace(/^#/, "");
+  const cleanDigits = query.replace(/[^0-9]/g, "");
+  const all = await loadSubmissions();
+
+  return all.filter((item) => {
+    const itemId = (item.id || "").toUpperCase().replace(/^#/, "");
+    const itemPhone = (item.phoneNumber || "").replace(/[^0-9]/g, "");
+    const itemName = (item.characterName || "").toLowerCase();
+
+    // 1. Match Ticket ID (e.g. PPS-1234, 1234)
+    if (itemId === clean || itemId.includes(clean)) return true;
+    // 2. Match Phone Number digits
+    if (cleanDigits.length >= 4 && itemPhone && itemPhone.includes(cleanDigits)) return true;
+    // 3. Match Character Name
+    if (clean.length >= 3 && itemName.includes(query.trim().toLowerCase())) return true;
+    return false;
+  });
+}

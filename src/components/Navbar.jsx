@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Sun, Moon, Menu, X } from "lucide-react";
+import { Sun, Moon, Menu, X, Store } from "lucide-react";
 
-export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme }) {
+export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme, onOpenServicePortal }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
 
@@ -129,6 +129,18 @@ export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme }
                 </a>
               );
             })}
+            {/* Layanan Portal Button (Lapak UMKM & Request Meeting) */}
+            {onOpenServicePortal && (
+              <button
+                type="button"
+                onClick={onOpenServicePortal}
+                className="font-heading font-black text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 ml-0.5"
+                title="Daftar Lapak UMKM & Request Audiensi IC"
+              >
+                <Store size={13} className="shrink-0 text-[#FACC15]" />
+                <span>Layanan</span>
+              </button>
+            )}
           </div>
 
           {/* Circular Theme Toggle Button */}
@@ -183,6 +195,23 @@ export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme }
               </a>
             );
           })}
+
+          {onOpenServicePortal && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenServicePortal();
+              }}
+              className="mt-1 font-heading font-black text-xs uppercase tracking-wider py-2.5 px-3.5 rounded-full border-2 border-black bg-[#DC2626] text-white shadow-[2px_2px_0px_#000] flex items-center justify-between transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <Store size={14} className="text-[#FACC15]" />
+                <span>Layanan Warga (Lapak & Meeting)</span>
+              </div>
+              <span className="text-[10px] font-mono bg-white/20 px-2 py-0.5 rounded-full">BUKA</span>
+            </button>
+          )}
         </div>
       )}
     </header>

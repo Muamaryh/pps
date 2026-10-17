@@ -8,6 +8,7 @@ import Gallery from "./components/Gallery";
 import Footer from "./components/Footer";
 import LightboxModal from "./components/LightboxModal";
 import AdminModal from "./components/AdminModal";
+import ServicePortalModal from "./components/ServicePortalModal";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
@@ -73,14 +74,33 @@ export default function App() {
   // Admin Route Management (/admin or #/admin)
   const [adminModalOpen, setAdminModalOpen] = useState(false);
 
+  // Portal Layanan Warga (Lapak UMKM & Request Meeting) (/layanan or #/layanan)
+  const [servicePortalOpen, setServicePortalOpen] = useState(false);
+
   useEffect(() => {
-    function checkAdminRoute() {
+    function checkRoutes() {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
+
+      // 1. Check Admin Route
       if (path === "/admin" || path.endsWith("/admin") || hash === "#/admin" || hash === "#admin") {
         setAdminModalOpen(true);
       } else {
         setAdminModalOpen(false);
+      }
+
+      // 2. Check Service Portal Route (/layanan, /umkm, /meeting)
+      if (
+        path === "/layanan" ||
+        path.endsWith("/layanan") ||
+        hash === "#/layanan" ||
+        hash === "#layanan" ||
+        path === "/umkm" ||
+        path === "/meeting"
+      ) {
+        setServicePortalOpen(true);
+      } else {
+        setServicePortalOpen(false);
       }
     }
 
@@ -103,14 +123,14 @@ export default function App() {
       }
     }
 
-    checkAdminRoute();
-    window.addEventListener("popstate", checkAdminRoute);
-    window.addEventListener("hashchange", checkAdminRoute);
+    checkRoutes();
+    window.addEventListener("popstate", checkRoutes);
+    window.addEventListener("hashchange", checkRoutes);
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener("popstate", checkAdminRoute);
-      window.removeEventListener("hashchange", checkAdminRoute);
+      window.removeEventListener("popstate", checkRoutes);
+      window.removeEventListener("hashchange", checkRoutes);
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, []);
@@ -118,6 +138,20 @@ export default function App() {
   function handleCloseAdminModal() {
     setAdminModalOpen(false);
     if (window.location.pathname.includes("/admin") || window.location.hash.includes("admin")) {
+      window.history.pushState(null, "", "/");
+    }
+  }
+
+  function handleOpenServicePortal() {
+    setServicePortalOpen(true);
+    if (!window.location.pathname.includes("/layanan")) {
+      window.history.pushState(null, "", "/layanan");
+    }
+  }
+
+  function handleCloseServicePortal() {
+    setServicePortalOpen(false);
+    if (window.location.pathname.includes("/layanan") || window.location.hash.includes("layanan")) {
       window.history.pushState(null, "", "/");
     }
   }
@@ -159,6 +193,7 @@ export default function App() {
         navLinks={data.navLinks}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        onOpenServicePortal={handleOpenServicePortal}
       />
 
       {/* Main Content (Wide edge-to-edge max-w-[98%] 2xl:max-w-[1600px]) */}
@@ -192,8 +227,11 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Action Buttons: Discord & Daftar Anggota (Bottom Right) */}
-      <FloatingActions discordUrl={discordUrl} registerUrl={registerUrl} />
+      {/* Floating Action Buttons: Discord & Daftar Anggota */}
+      <FloatingActions
+        discordUrl={discordUrl}
+        registerUrl={registerUrl}
+      />
 
       {/* Footer */}
       <Footer brand={data.brand} />
@@ -206,6 +244,13 @@ export default function App() {
         desc={lightbox.desc}
         location={lightbox.location}
         onClose={handleCloseLightbox}
+      />
+
+      {/* Portal Layanan Warga: Lapak UMKM & Request Meeting (GTA V IME Roleplay) */}
+      <ServicePortalModal
+        isOpen={servicePortalOpen}
+        onClose={handleCloseServicePortal}
+        onShowToast={showToast}
       />
 
       {/* Admin CMS Modal */}

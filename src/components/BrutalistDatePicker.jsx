@@ -8,13 +8,67 @@ const INDO_MONTHS = [
 ];
 const DAY_HEADERS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
-export default function BrutalistDatePicker({ value, onChange, placeholder = "Pilih / ketik tanggal..." }) {
+export default function BrutalistDatePicker({
+  value,
+  onChange,
+  placeholder = "Pilih / ketik tanggal...",
+  readOnlyInput = false,
+  dropUp = "auto",
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
+  const [autoDropUp, setAutoDropUp] = useState(false);
 
   // Initialize calendar view year and month
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth()); // 0-indexed
+
+  // Check dropUp placement
+  useEffect(() => {
+    if (dropUp === true || dropUp === false) return;
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      // Calendar height is ~300px; if space below is insufficient, open upward
+      if (spaceBelow < 320 && rect.top > 280) {
+        setAutoDropUp(true);
+      } else {
+        setAutoDropUp(false);
+      }
+    }
+  }, [isOpen, dropUp]);
+
+  const effectiveDropUp = typeof dropUp === "boolean" ? dropUp : autoDropUp;
+
+  // Auto scroll slightly if needed when dropUp is active so top is not clipped
+  useEffect(() => {
+    if (isOpen && effectiveDropUp && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.top < 280) {
+        containerRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [isOpen, effectiveDropUp]);
+
+  // Sync view to selected value on open
+  useEffect(() => {
+    if (isOpen && value && typeof value === "string") {
+      const match = value.match(/(\d{1,2})\s+([A-Za-z'’]+)\s+(\d{4})/);
+      if (match) {
+        const parsedMonthName = match[2];
+        const parsedYear = parseInt(match[3], 10);
+        const parsedMonthIdx = INDO_MONTHS.findIndex(
+          (m) => m.toLowerCase() === parsedMonthName.toLowerCase()
+        );
+        if (parsedMonthIdx !== -1) {
+          setViewMonth(parsedMonthIdx);
+        }
+        if (parsedYear) {
+          setViewYear(parsedYear);
+        }
+      }
+    }
+  }, [isOpen, value]);
 
   // Close calendar popover on outside click
   useEffect(() => {
@@ -77,6 +131,28 @@ export default function BrutalistDatePicker({ value, onChange, placeholder = "Pi
     setIsOpen(false);
   }
 
+  // Parse currently selected value to highlight the date
+  let selectedDayNumber = null;
+  let isCurrentMonthAndYearSelected = false;
+
+  if (value && typeof value === "string") {
+    const match = value.match(/(\d{1,2})\s+([A-Za-z'’]+)\s+(\d{4})/);
+    if (match) {
+      const parsedDay = parseInt(match[1], 10);
+      const parsedMonthName = match[2];
+      const parsedYear = parseInt(match[3], 10);
+
+      const parsedMonthIdx = INDO_MONTHS.findIndex(
+        (m) => m.toLowerCase() === parsedMonthName.toLowerCase()
+      );
+
+      if (parsedMonthIdx === viewMonth && parsedYear === viewYear) {
+        selectedDayNumber = parsedDay;
+        isCurrentMonthAndYearSelected = true;
+      }
+    }
+  }
+
   // Calculate calendar grid for viewYear & viewMonth
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay(); // 0 for Sunday
@@ -89,29 +165,36 @@ export default function BrutalistDatePicker({ value, onChange, placeholder = "Pi
   }
 
   return (
-    <div className="relative w-full" ref={containerRef}>
-      {/* Input Field with Calendar Trigger Button */}
-      <div className="flex items-center gap-1.5">
-        <input
-          type="text"
-          value={value || ""}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="input-field flex-1 text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
-        />
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="btn-icon w-9 h-9 min-w-9 min-h-9 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer"
-          title="Buka Kalender"
+    <div className={`relative w-full ${isOpen ? "z-30" : ""}`} ref={containerRef}>
+      {/* Unified Single Input Container with Integrated Calendar Icon */}
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left rounded bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000] hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:translate-x-[2px] active:translate-y-[2px] transition-all focus:outline-none focus:ring-2 focus:ring-[#FACC15] cursor-pointer ${
+          isOpen ? "ring-2 ring-[#DC2626] dark:ring-[#FACC15]" : ""
+        }`}
+        title="Buka Kalender Pemilih Tanggal"
+        aria-label="Pilih tanggal kegiatan"
+      >
+        <span className={`truncate pr-1 ${value ? "text-slate-900 dark:text-slate-100 font-extrabold" : "text-slate-400"}`}>
+          {value || placeholder}
+        </span>
+        <div
+          className={`w-6 h-6 rounded bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0 shadow-[1px_1px_0px_#000] transition-colors duration-200 ${
+            isOpen ? "bg-[#DC2626] text-white" : ""
+          }`}
         >
-          <CalendarIcon size={16} />
-        </button>
-      </div>
+          <CalendarIcon size={14} />
+        </div>
+      </button>
 
       {/* Brutalist Calendar Popover */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-[#FFF9F2] dark:bg-[#161820] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[5px_5px_0px_#000000] p-3 rounded-md animate-in fade-in zoom-in-95 duration-100">
+        <div
+          className={`absolute left-0 ${
+            effectiveDropUp ? "bottom-full mb-2" : "top-full mt-2"
+          } z-[90] w-72 bg-[#FFF9F2] dark:bg-[#161820] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] p-3 rounded-md animate-in fade-in zoom-in-95 duration-100 select-none`}
+        >
           {/* Calendar Header */}
           <div className="flex items-center justify-between gap-1 mb-2.5 pb-2 border-b-2 border-black/15 dark:border-slate-700/60">
             <button
@@ -158,13 +241,19 @@ export default function BrutalistDatePicker({ value, onChange, placeholder = "Pi
                 return <div key={idx} className="w-8 h-8" />;
               }
               const isSunday = idx % 7 === 0;
+              const isSelected = isCurrentMonthAndYearSelected && selectedDayNumber === cell;
+
               return (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleSelectDay(cell)}
-                  className={`w-8 h-8 rounded text-xs font-heading font-extrabold flex items-center justify-center border border-black/30 dark:border-slate-700/60 hover:border-black hover:bg-[#FACC15] hover:text-[#111827] hover:shadow-[1px_1px_0px_#000] transition-all cursor-pointer ${
-                    isSunday ? "text-[#DC2626] dark:text-[#EF4444]" : "text-slate-900 dark:text-slate-100"
+                  className={`w-8 h-8 rounded text-xs font-heading font-extrabold flex items-center justify-center border transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-black scale-105"
+                      : isSunday
+                      ? "border-black/30 dark:border-slate-700/60 hover:border-black hover:bg-[#FACC15] hover:text-[#111827] hover:shadow-[1px_1px_0px_#000] text-[#DC2626] dark:text-[#EF4444]"
+                      : "border-black/30 dark:border-slate-700/60 hover:border-black hover:bg-[#FACC15] hover:text-[#111827] hover:shadow-[1px_1px_0px_#000] text-slate-900 dark:text-slate-100"
                   }`}
                 >
                   {cell}
