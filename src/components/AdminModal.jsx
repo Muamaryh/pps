@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, ArrowUp, ArrowDown } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut } from "lucide-react";
 import { saveCloudData, resetCloudData } from "../services/firebase";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 
@@ -171,18 +171,6 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     onShowToast("Anggota dihapus dari daftar", "info");
   }
 
-  function handleMoveMember(index, direction) {
-    setFormData((prev) => {
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= prev.org.length) return prev;
-      const newOrg = [...prev.org];
-      const temp = newOrg[index];
-      newOrg[index] = newOrg[targetIndex];
-      newOrg[targetIndex] = temp;
-      return { ...prev, org: newOrg };
-    });
-  }
-
   function handleMemberChange(index, field, value) {
     setFormData((prev) => {
       const newOrg = [...prev.org];
@@ -204,17 +192,17 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     setFormData((prev) => ({
       ...prev,
       gallery: [
-        ...prev.gallery,
         {
           title: "Judul Kegiatan Baru",
           desc: "Keterangan dokumentasi kegiatan.",
           date: "Kamis, 15 Oktober 2026",
           location: "SS Area",
           photo: ""
-        }
+        },
+        ...prev.gallery
       ]
     }));
-    onShowToast("Baris dokumentasi baru ditambahkan di bagian bawah", "info");
+    onShowToast("Baris dokumentasi baru ditambahkan di paling atas", "info");
   }
 
   function handleRemoveGallery(index) {
@@ -224,18 +212,6 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       return { ...prev, gallery: newGal };
     });
     onShowToast("Dokumentasi dihapus dari daftar", "info");
-  }
-
-  function handleMoveGallery(index, direction) {
-    setFormData((prev) => {
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= prev.gallery.length) return prev;
-      const newGal = [...prev.gallery];
-      const temp = newGal[index];
-      newGal[index] = newGal[targetIndex];
-      newGal[targetIndex] = temp;
-      return { ...prev, gallery: newGal };
-    });
   }
 
   function handleGalleryChange(index, field, value) {
@@ -851,34 +827,14 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                           <span className="card-label text-[11px] text-slate-700 dark:text-slate-300">
                             Anggota #{idx + 1}
                           </span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              disabled={idx === 0}
-                              onClick={() => handleMoveMember(idx, -1)}
-                              title="Pindah ke Atas"
-                              className="btn btn-secondary text-xs p-1 border-2 border-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700"
-                            >
-                              <ArrowUp size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={idx === (formData.org?.length || 0) - 1}
-                              onClick={() => handleMoveMember(idx, 1)}
-                              title="Pindah ke Bawah"
-                              className="btn btn-secondary text-xs p-1 border-2 border-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700"
-                            >
-                              <ArrowDown size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveMember(idx)}
-                              className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] hover:bg-[#DC2626] hover:text-white"
-                            >
-                              <Trash2 size={12} />
-                              <span>Hapus</span>
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMember(idx)}
+                            className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] hover:bg-[#DC2626] hover:text-white"
+                          >
+                            <Trash2 size={12} />
+                            <span>Hapus</span>
+                          </button>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -970,36 +926,16 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                       >
                         <div className="flex items-center justify-between">
                           <span className="card-label text-[11px] text-slate-700 dark:text-slate-300">
-                            Dokumentasi #{idx + 1}
+                            Dokumentasi #{formData.gallery.length - idx}
                           </span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              disabled={idx === 0}
-                              onClick={() => handleMoveGallery(idx, -1)}
-                              title="Pindah ke Atas"
-                              className="btn btn-secondary text-xs p-1 border-2 border-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700"
-                            >
-                              <ArrowUp size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={idx === (formData.gallery?.length || 0) - 1}
-                              onClick={() => handleMoveGallery(idx, 1)}
-                              title="Pindah ke Bawah"
-                              className="btn btn-secondary text-xs p-1 border-2 border-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-700"
-                            >
-                              <ArrowDown size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveGallery(idx)}
-                              className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] hover:bg-[#DC2626] hover:text-white"
-                            >
-                              <Trash2 size={12} />
-                              <span>Hapus</span>
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGallery(idx)}
+                            className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] hover:bg-[#DC2626] hover:text-white"
+                          >
+                            <Trash2 size={12} />
+                            <span>Hapus</span>
+                          </button>
                         </div>
 
                         <div>

@@ -153,6 +153,14 @@ function chunkArray(items, maxChunkBytes = 350000) {
   return chunks;
 }
 
+// Helper: normalize gallery order so newest documentation is always at index 0 (top)
+function normalizeGalleryOrder(gallery) {
+  if (Array.isArray(gallery) && gallery.length > 1 && gallery[0]?.title?.includes("AYO DEMO")) {
+    return [...gallery].reverse();
+  }
+  return gallery;
+}
+
 export async function loadCloudData() {
   try {
     const docRef = doc(db, ...CONFIG_DOC_PATH);
@@ -188,16 +196,20 @@ export async function loadCloudData() {
           }
         });
         if (loadedGallery.length > 0) {
-          data.gallery = loadedGallery;
+          data.gallery = normalizeGalleryOrder(loadedGallery);
         }
       } else {
         const galSnap = await getDoc(doc(db, "pps_website", "gallery"));
         if (galSnap.exists() && Array.isArray(galSnap.data()?.items)) {
-          data.gallery = galSnap.data().items;
+          data.gallery = normalizeGalleryOrder(galSnap.data().items);
         }
       }
     } catch (e) {
       console.warn("Notice loading gallery collection:", e);
+    }
+
+    if (data.gallery) {
+      data.gallery = normalizeGalleryOrder(data.gallery);
     }
 
     // Ensure navLinks has Discord & Daftar Anggota
@@ -213,6 +225,9 @@ export async function loadCloudData() {
     if (cached) {
       try {
         let parsed = mergeWithDefaults(sanitizeSandyShores(JSON.parse(cached)));
+        if (parsed.gallery) {
+          parsed.gallery = normalizeGalleryOrder(parsed.gallery);
+        }
         if (!parsed.navLinks || !parsed.navLinks.includes("discord.gg")) {
           parsed.navLinks = defaultData.navLinks;
         }
