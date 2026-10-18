@@ -176,26 +176,25 @@ export default function MembersDirectoryModal({
           <div className="p-4 sm:p-6 overflow-y-auto flex-1">
             {isLoading ? (
               <div className="py-10 sm:py-14 flex flex-col items-center justify-center text-center px-4 animate-in fade-in duration-300">
-                {/* Unique Animated PPS Pizza Emblem */}
-                <div className="relative mb-5">
+                {/* Unique Animated PPS Pizza Emblem - Bingkai dan logo loncat bersamaan secara utuh */}
+                <div className="relative mb-5 animate-bounce" style={{ animationDuration: "1.8s" }}>
                   {/* Subtle glowing halo */}
-                  <div className="absolute inset-0 rounded-full bg-[#FACC15] blur-xl opacity-35 animate-ping" />
+                  <div className="absolute inset-0 rounded-full bg-[#FACC15] blur-xl opacity-35" />
 
                   {/* Rotating dashed brutalist ring */}
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-[3px] border-dashed border-[#DC2626] animate-[spin_8s_linear_infinite] flex items-center justify-center bg-amber-50 dark:bg-[#161820] shadow-[4px_4px_0px_#000]" />
-
-                  {/* Inner logo badge with pulse */}
-                  <div className="absolute inset-2 sm:inset-2.5 rounded-full bg-white dark:bg-[#1F222C] border-2 border-black flex items-center justify-center p-2.5 shadow-inner">
-                    <img
-                      src="/logo.png"
-                      alt="PPS Logo"
-                      className="w-full h-full object-contain animate-bounce"
-                      style={{ animationDuration: "2.2s" }}
-                    />
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-[3px] border-dashed border-[#DC2626] animate-[spin_8s_linear_infinite] flex items-center justify-center bg-amber-50 dark:bg-[#161820] shadow-[4px_4px_0px_#000]">
+                    {/* Inner logo badge with frame - menyatu bersama logo */}
+                    <div className="w-16 h-16 sm:w-19 sm:h-19 rounded-full bg-white dark:bg-[#1F222C] border-2 border-black flex items-center justify-center p-2.5 shadow-inner">
+                      <img
+                        src="/logo.png"
+                        alt="PPS Logo"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
                   </div>
 
                   {/* Corner mini floating pizza badge */}
-                  <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-[#FACC15] border-2 border-black flex items-center justify-center text-sm shadow-[1.5px_1.5px_0px_#000] animate-pulse">
+                  <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-[#FACC15] border-2 border-black flex items-center justify-center text-sm shadow-[1.5px_1.5px_0px_#000]">
                     🍕
                   </div>
                 </div>
