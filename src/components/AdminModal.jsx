@@ -323,6 +323,11 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
 
       if (savedHash.toLowerCase() === targetHash.toLowerCase()) {
         setIsAuthenticated(true);
+      } else {
+        // Password telah diubah! Hapus token sesi lama di perangkat ini
+        localStorage.removeItem(ADMIN_STORAGE_KEY);
+        sessionStorage.removeItem(ADMIN_STORAGE_KEY);
+        setIsAuthenticated(false);
       }
     }
     checkAutoLogin();
