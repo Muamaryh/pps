@@ -418,13 +418,19 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     setIsApplyingPassword(true);
     try {
       const newHash = await hashPassword(newPassword);
-      setFormData((prev) => {
-        const updated = { ...prev, adminPassHash: newHash };
-        delete updated.adminPass;
-        return updated;
-      });
+      const updatedFormData = {
+        ...formData,
+        adminPassHash: newHash,
+      };
+      delete updatedFormData.adminPass;
 
-      // Update current session with new hash so user stays logged in
+      // Langsung simpan ke Database terpusat secara otomatis!
+      await saveCloudData(updatedFormData);
+
+      setFormData(updatedFormData);
+      onDataSaved(updatedFormData);
+
+      // Update current session with new hash so current admin stays logged in
       if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
         localStorage.setItem(ADMIN_STORAGE_KEY, newHash);
       } else {
@@ -434,10 +440,10 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       setNewPassword("");
       setConfirmPassword("");
       setShowPasswordForm(false);
-      onShowToast("Password baru berhasil dienkripsi SHA-256! Klik 'Simpan Perubahan' di bawah untuk menyimpan perubahan.", "success");
+      onShowToast("Password baru berhasil dienkripsi & disimpan ke Database! Semua perangkat lain otomatis ter-logout.", "success");
     } catch (err) {
       console.error(err);
-      onShowToast("Gagal memproses enkripsi password.", "error");
+      onShowToast("Gagal menyimpan password ke database: " + (err?.message || ""), "error");
     } finally {
       setIsApplyingPassword(false);
     }
@@ -2332,7 +2338,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                             onClick={handleApplyNewPassword}
                             className="btn text-xs py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
                           >
-                            {isApplyingPassword ? "Memproses..." : "Terapkan Enkripsi & Update"}
+                            {isApplyingPassword ? "Menyimpan ke Database..." : "Simpan & Terapkan Password Baru"}
                           </button>
                           <button
                             type="button"
