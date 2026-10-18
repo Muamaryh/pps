@@ -102,7 +102,7 @@ function GalleryCard({ item, onOpenLightbox }) {
             {/* Hover Action Pill */}
             <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded bg-[#DC2626] text-white border-2 border-black opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-heading font-black text-xs shadow-sm">
               <ZoomIn size={12} />
-              <span>Detail & Foto ({photos.length})</span>
+              <span>Lihat Foto {photos.length > 1 ? `(${photos.length})` : ""}</span>
             </div>
           </>
         ) : (
@@ -145,7 +145,7 @@ function GalleryCard({ item, onOpenLightbox }) {
           )}
         </div>
 
-        {/* Footer: Waktu & Lokasi + Tombol Buka Arsip Slider */}
+        {/* Footer: Waktu & Lokasi + Tombol Lihat Foto */}
         <div className="pt-3 border-t-2 border-dashed border-[#1A1A1A]/15 dark:border-slate-700/60 flex items-end justify-between gap-2.5 text-xs font-heading font-bold text-slate-700 dark:text-slate-300">
           <div className="flex flex-col gap-1 min-w-0 flex-1">
             {/* Waktu (Logo Kalender) */}
@@ -166,7 +166,7 @@ function GalleryCard({ item, onOpenLightbox }) {
             onClick={handleCardClick}
             className="badge-brutal text-[10px] py-1 px-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-black font-black cursor-pointer shadow-sm active:translate-x-[1px] active:translate-y-[1px] shrink-0 self-center"
           >
-            {photos.length > 1 ? `Buka Slider (${photos.length})` : "Buka Arsip"}
+            Lihat Foto
           </button>
         </div>
       </div>

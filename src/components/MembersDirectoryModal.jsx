@@ -83,7 +83,7 @@ export default function MembersDirectoryModal({
                   </span>
                   <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
-                    LIVE CLOUD
+                    TERVERIFIKASI
                   </span>
                 </div>
                 <h3 className="font-heading font-black text-sm sm:text-base md:text-lg text-slate-950 dark:text-slate-100 uppercase tracking-tight">
@@ -113,7 +113,7 @@ export default function MembersDirectoryModal({
                 </span>
               </div>
               <span className="text-[11px] text-slate-600 dark:text-slate-400 hidden md:inline">
-                Tersinkronisasi otomatis dari cloud database resmi PAPS.
+                Tersinkronisasi otomatis dari database resmi LSM PPS.
               </span>
             </div>
 
@@ -175,13 +175,62 @@ export default function MembersDirectoryModal({
           {/* Member Cards Grid */}
           <div className="p-4 sm:p-6 overflow-y-auto flex-1">
             {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 animate-pulse">
-                {[...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="p-4 rounded-lg bg-slate-100 dark:bg-[#161820] border-2 border-black/20 h-40"
-                  />
-                ))}
+              <div className="py-10 sm:py-14 flex flex-col items-center justify-center text-center px-4 animate-in fade-in duration-300">
+                {/* Unique Animated PPS Pizza Emblem */}
+                <div className="relative mb-5">
+                  {/* Subtle glowing halo */}
+                  <div className="absolute inset-0 rounded-full bg-[#FACC15] blur-xl opacity-35 animate-ping" />
+
+                  {/* Rotating dashed brutalist ring */}
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-[3px] border-dashed border-[#DC2626] animate-[spin_8s_linear_infinite] flex items-center justify-center bg-amber-50 dark:bg-[#161820] shadow-[4px_4px_0px_#000]" />
+
+                  {/* Inner logo badge with pulse */}
+                  <div className="absolute inset-2 sm:inset-2.5 rounded-full bg-white dark:bg-[#1F222C] border-2 border-black flex items-center justify-center p-2.5 shadow-inner">
+                    <img
+                      src="/logo.png"
+                      alt="PPS Logo"
+                      className="w-full h-full object-contain animate-bounce"
+                      style={{ animationDuration: "2.2s" }}
+                    />
+                  </div>
+
+                  {/* Corner mini floating pizza badge */}
+                  <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-[#FACC15] border-2 border-black flex items-center justify-center text-sm shadow-[1.5px_1.5px_0px_#000] animate-pulse">
+                    🍕
+                  </div>
+                </div>
+
+                {/* Loading Status Pill */}
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2.5px_2.5px_0px_#000] font-heading font-black text-xs uppercase tracking-wider mb-2">
+                  <span className="w-2 h-2 rounded-full bg-[#DC2626] animate-ping" />
+                  <span>Memuat Data Anggota Resmi...</span>
+                </div>
+
+                <h4 className="font-heading font-black text-base sm:text-lg uppercase text-slate-900 dark:text-slate-100 tracking-tight">
+                  Sinkronisasi Direktori Paguyuban
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm mt-1 mb-6">
+                  Menghubungkan ke arsip database resmi LSM Paguyuban Pizza Sandy Shores. Mohon tunggu sebentar...
+                </p>
+
+                {/* Shimmer skeleton card previews */}
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 opacity-60 pointer-events-none">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="card-brutal p-3.5 bg-slate-100 dark:bg-[#1A1D27] border-[2px] border-black/25 dark:border-white/10 flex flex-col gap-3 relative overflow-hidden"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-slate-300 dark:bg-slate-700 animate-pulse shrink-0" />
+                        <div className="flex-1 flex flex-col gap-1.5">
+                          <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded w-3/4 animate-pulse" />
+                          <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-1/2 animate-pulse" />
+                        </div>
+                      </div>
+                      <div className="h-12 bg-slate-200/80 dark:bg-slate-800/80 rounded-md border border-black/10 dark:border-white/5 animate-pulse" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : filteredMembers.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center text-center">

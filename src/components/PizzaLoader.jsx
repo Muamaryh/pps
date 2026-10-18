@@ -6,7 +6,7 @@ export default function PizzaLoader() {
   const flavorTexts = [
     "Menyiapkan potongan pizza hangat...",
     "Sedang memuat data lapangan Sandy Shores...",
-    "Menghubungkan ke arsip cloud Paguyuban...",
+    "Menghubungkan ke arsip database Paguyuban...",
     "Sebentar lagi siap disajikan..."
   ];
 

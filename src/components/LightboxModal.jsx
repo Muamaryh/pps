@@ -76,14 +76,14 @@ export default function LightboxModal({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150 overflow-y-auto"
+      className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150 overflow-y-auto"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative max-w-4xl w-full max-h-[94vh] flex flex-col items-center gap-3 animate-in zoom-in-95 duration-150 my-auto"
+        className="relative max-w-4xl w-fit max-h-[94vh] flex flex-col items-center gap-2.5 animate-in zoom-in-95 duration-150 my-auto"
       >
         {/* Top Floating Bar: Counter & Close Button */}
-        <div className="w-full flex items-center justify-between pb-1">
+        <div className="w-full flex items-center justify-between pb-1 px-1">
           {allPhotos.length > 1 ? (
             <div className="badge-brutal text-xs py-1 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5">
               <ImageIcon size={14} />
@@ -105,47 +105,47 @@ export default function LightboxModal({
           </button>
         </div>
 
-        {/* Main Image Viewport with Next/Prev Arrows */}
+        {/* Main Image Viewport with Next/Prev Arrows - Frame wraps snugly to image with no black letterbox */}
         <div
-          className="relative w-full flex items-center justify-center select-none"
+          className="relative inline-flex items-center justify-center select-none max-w-full"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Previous Button (Large tactile brutalist) */}
-          {allPhotos.length > 1 && (
-            <button
-              type="button"
-              onClick={handlePrev}
-              className="absolute left-2 sm:left-4 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 sm:border-3 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
-              aria-label="Foto Sebelumnya"
-              title="Foto Sebelumnya (Panah Kiri)"
-            >
-              <ChevronLeft size={24} className="stroke-[3]" />
-            </button>
-          )}
-
-          {/* Active Image */}
-          <div className="w-full flex items-center justify-center overflow-hidden rounded-lg border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000] bg-black max-h-[52vh] sm:max-h-[58vh]">
+          {/* Active Image Frame */}
+          <div className="relative inline-block overflow-hidden rounded-xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000] bg-white/5 max-w-full leading-none">
             <img
               key={currentIndex}
               src={currentPhoto}
               alt={caption ? `${caption} - Foto ${currentIndex + 1}` : "Foto Kegiatan"}
-              className="max-h-[52vh] sm:max-h-[58vh] w-auto max-w-full object-contain animate-in fade-in duration-200"
+              className="max-h-[62vh] sm:max-h-[68vh] w-auto max-w-[92vw] sm:max-w-3xl h-auto object-contain block animate-in fade-in duration-200"
             />
-          </div>
 
-          {/* Next Button (Large tactile brutalist) */}
-          {allPhotos.length > 1 && (
-            <button
-              type="button"
-              onClick={handleNext}
-              className="absolute right-2 sm:right-4 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 sm:border-3 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
-              aria-label="Foto Berikutnya"
-              title="Foto Berikutnya (Panah Kanan)"
-            >
-              <ChevronRight size={24} className="stroke-[3]" />
-            </button>
-          )}
+            {/* Previous Button inside photo frame */}
+            {allPhotos.length > 1 && (
+              <button
+                type="button"
+                onClick={handlePrev}
+                className="absolute left-2 sm:left-3.5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+                aria-label="Foto Sebelumnya"
+                title="Foto Sebelumnya (Panah Kiri)"
+              >
+                <ChevronLeft size={22} className="stroke-[3]" />
+              </button>
+            )}
+
+            {/* Next Button inside photo frame */}
+            {allPhotos.length > 1 && (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="absolute right-2 sm:right-3.5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+                aria-label="Foto Berikutnya"
+                title="Foto Berikutnya (Panah Kanan)"
+              >
+                <ChevronRight size={22} className="stroke-[3]" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Thumbnail Strip (if more than 1 photo) */}

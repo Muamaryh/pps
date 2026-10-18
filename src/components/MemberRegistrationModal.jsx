@@ -203,7 +203,7 @@ export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }
         phone: formData.phone.trim(),
       });
       if (onShowToast) {
-        onShowToast("Pendaftaran Anggota berhasil dikirim ke Cloud Database!", "success");
+        onShowToast("Pendaftaran Anggota berhasil dikirim ke Database!", "success");
       }
     } catch (err) {
       console.error("Submit member error:", err);
@@ -404,7 +404,7 @@ export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }
                     Pendaftaran Anggota Paguyuban Pizza Sandy Shores (PAPS):
                   </strong>
                   <p className="mt-0.5">
-                    Unggah foto KTP IC Anda untuk pemindaian otomatis (OCR). Setelah submit, berkas Anda langsung tersimpan ke Cloud Database resmi LSM PPS.
+                    Unggah foto KTP IC Anda untuk pemindaian otomatis (OCR). Setelah submit, berkas Anda langsung tersimpan ke database resmi LSM PPS.
                   </p>
                 </div>
               </div>
@@ -613,7 +613,7 @@ export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }
                 className="btn w-full py-3 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black font-heading font-black text-sm uppercase shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 <Send size={16} />
-                <span>{isSubmitting ? "Mengirim ke Cloud..." : "Kirim Formulir Pendaftaran Anggota"}</span>
+                <span>{isSubmitting ? "Mengirim Formulir..." : "Kirim Formulir Pendaftaran Anggota"}</span>
               </button>
             </form>
           )}

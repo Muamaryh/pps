@@ -25,7 +25,7 @@ import {
   CreditCard,
   ChevronDown,
   ScanLine,
-  UploadCloud,
+  Upload,
 } from "lucide-react";
 import { submitServiceRequest, searchSubmissions, loadSubmissions } from "../services/firebase";
 import BrutalistSelect from "./BrutalistSelect";
@@ -828,7 +828,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
                     <div className="p-3 rounded bg-amber-50/70 dark:bg-[#181B24] border-2 border-dashed border-[#1A1A1A] dark:border-slate-600 flex flex-col gap-2.5">
                       <div className="leading-tight">
                         <label className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5 uppercase">
-                          <UploadCloud size={15} className="text-[#DC2626]" />
+                          <Upload size={15} className="text-[#DC2626]" />
                           <span>Unggah Foto / Screenshot KTP IC</span>
                         </label>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
@@ -882,7 +882,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
                           </div>
                         ) : (
                           <label className="w-full py-4 px-3 rounded border-2 border-dashed border-black dark:border-slate-500 bg-white dark:bg-[#20232E] hover:bg-amber-50/50 dark:hover:bg-slate-800 flex flex-col items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer shadow-[2px_2px_0px_#000] transition-colors">
-                            <UploadCloud size={24} className="text-[#DC2626] mb-1 animate-bounce" />
+                            <Upload size={24} className="text-[#DC2626] mb-1 animate-bounce" />
                             <span className="font-heading font-black text-xs uppercase tracking-wide text-slate-900 dark:text-slate-100">
                               Klik untuk Pilih / Unggah Gambar KTP IC
                             </span>
@@ -1399,7 +1399,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
                     <div className="p-3 rounded bg-red-50/60 dark:bg-[#181B24] border-2 border-dashed border-[#1A1A1A] dark:border-slate-600 flex flex-col gap-2.5">
                       <div className="leading-tight">
                         <label className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5 uppercase">
-                          <UploadCloud size={15} className="text-[#DC2626]" />
+                          <Upload size={15} className="text-[#DC2626]" />
                           <span>Unggah Foto / Screenshot KTP IC Pemohon</span>
                         </label>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
@@ -1453,7 +1453,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
                           </div>
                         ) : (
                           <label className="w-full py-4 px-3 rounded border-2 border-dashed border-black dark:border-slate-500 bg-white dark:bg-[#20232E] hover:bg-red-50/40 dark:hover:bg-slate-800 flex flex-col items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer shadow-[2px_2px_0px_#000] transition-colors">
-                            <UploadCloud size={24} className="text-[#DC2626] mb-1 animate-bounce" />
+                            <Upload size={24} className="text-[#DC2626] mb-1 animate-bounce" />
                             <span className="font-heading font-black text-xs uppercase tracking-wide text-slate-900 dark:text-slate-100">
                               Klik untuk Pilih / Unggah Gambar KTP IC
                             </span>

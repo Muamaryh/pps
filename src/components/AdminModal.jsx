@@ -130,16 +130,16 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     setConfirmModal({
       isOpen: true,
       title: "Hapus Anggota Dari Database",
-      message: `Apakah Anda yakin ingin menghapus data anggota "${memberName || memberId}"? Data profil dan arsip KTP ini akan dihapus permanen dari Cloud Database pendaftaran-paps.`,
+      message: `Apakah Anda yakin ingin menghapus data anggota "${memberName || memberId}"? Data profil dan arsip KTP ini akan dihapus permanen dari Database Anggota LSM PPS.`,
       confirmText: "Ya, Hapus Anggota",
       variant: "danger",
       onConfirm: async () => {
         try {
           await deleteMemberCloud(memberId);
-          onShowToast(`Data anggota ${memberName || memberId} berhasil dihapus dari cloud.`, "info");
+          onShowToast(`Data anggota ${memberName || memberId} berhasil dihapus.`, "info");
         } catch (err) {
           console.error("Gagal menghapus anggota:", err);
-          onShowToast("Gagal menghapus anggota dari cloud.", "error");
+          onShowToast("Gagal menghapus anggota dari database.", "error");
         }
       },
     });
@@ -194,7 +194,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     setSubmissions(updated);
     await updateSubmissions(updated);
     if (newStatus !== "pending") {
-      onShowToast(`Status tiket #${id} diubah ke ${newStatus}. Foto KTP otomatis dibersihkan dari cloud.`, "success");
+      onShowToast(`Status tiket #${id} diubah ke ${newStatus}. Foto KTP otomatis dibersihkan dari arsip.`, "success");
     } else {
       onShowToast(`Status tiket #${id} diubah ke ${newStatus}`, "info");
     }
@@ -214,7 +214,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     });
     setSubmissions(updated);
     await updateSubmissions(updated);
-    onShowToast(`Foto KTP tiket #${id} berhasil dibersihkan dari cloud.`, "info");
+    onShowToast(`Foto KTP tiket #${id} berhasil dibersihkan dari arsip.`, "info");
   }
 
   async function handleUpdateSubmissionNote(id, note) {
@@ -429,7 +429,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       setNewPassword("");
       setConfirmPassword("");
       setShowPasswordForm(false);
-      onShowToast("Password baru berhasil dienkripsi SHA-256! Klik 'Simpan Perubahan' di bawah untuk memperbarui ke Cloud.", "success");
+      onShowToast("Password baru berhasil dienkripsi SHA-256! Klik 'Simpan Perubahan' di bawah untuk menyimpan perubahan.", "success");
     } catch (err) {
       console.error(err);
       onShowToast("Gagal memproses enkripsi password.", "error");
@@ -677,10 +677,10 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
         sessionStorage.setItem(ADMIN_STORAGE_KEY, activeHash);
       }
       onDataSaved(formData);
-      onShowToast("Perubahan berhasil disimpan ke Cloud!", "success");
+      onShowToast("Perubahan berhasil disimpan ke Database!", "success");
     } catch (err) {
       console.error(err);
-      const msg = err?.message || "Gagal menyimpan data ke Cloud.";
+      const msg = err?.message || "Gagal menyimpan perubahan data.";
       onShowToast(`Gagal menyimpan: ${msg}`, "error");
     } finally {
       setIsSaving(false);
@@ -2009,7 +2009,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                             Database Anggota Terdaftar ({membersList.length})
                           </h4>
                           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
-                            Cloud Firestore Live
+                            TERVERIFIKASI
                           </span>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -2239,7 +2239,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                           <CheckCircle2 size={14} /> SHA-256 Cryptographic Hash
                         </div>
                         <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
-                          Password dienkripsi satu arah sebelum disimpan ke Cloud Firestore.
+                          Password dienkripsi satu arah sebelum disimpan ke database.
                         </div>
                       </div>
 
@@ -2401,7 +2401,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                     className="btn text-xs py-2 px-5 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] disabled:opacity-50 font-black"
                   >
                     <Save size={15} className="text-[#DC2626]" />
-                    <span>{isSaving ? "Menyimpan ke Cloud..." : "Simpan Perubahan"}</span>
+                    <span>{isSaving ? "Menyimpan Data..." : "Simpan Perubahan"}</span>
                   </button>
                 </div>
               </div>
