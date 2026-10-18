@@ -105,7 +105,7 @@ export default function LightboxModal({
           </button>
         </div>
 
-        {/* Main Image Viewport with Next/Prev Arrows - Frame wraps snugly to image with no black letterbox */}
+        {/* Main Image Viewport - Clean & Unobstructed, frame wraps snugly to image */}
         <div
           className="relative inline-flex items-center justify-center select-none max-w-full"
           onTouchStart={handleTouchStart}
@@ -117,57 +117,56 @@ export default function LightboxModal({
               key={currentIndex}
               src={currentPhoto}
               alt={caption ? `${caption} - Foto ${currentIndex + 1}` : "Foto Kegiatan"}
-              className="max-h-[62vh] sm:max-h-[68vh] w-auto max-w-[92vw] sm:max-w-3xl h-auto object-contain block animate-in fade-in duration-200"
+              className="max-h-[58vh] sm:max-h-[64vh] w-auto max-w-[92vw] sm:max-w-3xl h-auto object-contain block animate-in fade-in duration-200"
             />
-
-            {/* Previous Button inside photo frame */}
-            {allPhotos.length > 1 && (
-              <button
-                type="button"
-                onClick={handlePrev}
-                className="absolute left-2 sm:left-3.5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
-                aria-label="Foto Sebelumnya"
-                title="Foto Sebelumnya (Panah Kiri)"
-              >
-                <ChevronLeft size={22} className="stroke-[3]" />
-              </button>
-            )}
-
-            {/* Next Button inside photo frame */}
-            {allPhotos.length > 1 && (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="absolute right-2 sm:right-3.5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
-                aria-label="Foto Berikutnya"
-                title="Foto Berikutnya (Panah Kanan)"
-              >
-                <ChevronRight size={22} className="stroke-[3]" />
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Thumbnail Strip (if more than 1 photo) */}
+        {/* Navigation & Thumbnail Strip Below Photo (if more than 1 photo) */}
         {allPhotos.length > 1 && (
-          <div className="w-full flex items-center justify-center gap-2 overflow-x-auto py-1 px-2 no-scrollbar">
-            {allPhotos.map((p, idx) => {
-              const isActive = idx === currentIndex;
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`w-14 h-11 sm:w-16 sm:h-12 rounded overflow-hidden border-2 shrink-0 transition-all ${
-                    isActive
-                      ? "border-[#FACC15] scale-110 shadow-[2px_2px_0px_#000] ring-2 ring-black"
-                      : "border-black/50 opacity-60 hover:opacity-100"
-                  }`}
-                >
-                  <img src={p} alt="" className="w-full h-full object-cover" />
-                </button>
-              );
-            })}
+          <div className="w-full max-w-2xl flex items-center justify-center gap-2 sm:gap-3 py-1 px-2 select-none">
+            {/* Prev Button */}
+            <button
+              type="button"
+              onClick={handlePrev}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2.5px_2.5px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 shrink-0"
+              aria-label="Foto Sebelumnya"
+              title="Foto Sebelumnya (Panah Kiri)"
+            >
+              <ChevronLeft size={22} className="stroke-[3]" />
+            </button>
+
+            {/* Thumbnail Strip */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 max-w-full">
+              {allPhotos.map((p, idx) => {
+                const isActive = idx === currentIndex;
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCurrentIndex(idx)}
+                    className={`w-14 h-11 sm:w-16 sm:h-12 rounded overflow-hidden border-2 shrink-0 transition-all ${
+                      isActive
+                        ? "border-[#FACC15] scale-110 shadow-[2px_2px_0px_#000] ring-2 ring-black"
+                        : "border-black/50 opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={p} alt="" className="w-full h-full object-cover" />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Next Button */}
+            <button
+              type="button"
+              onClick={handleNext}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2.5px_2.5px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 shrink-0"
+              aria-label="Foto Berikutnya"
+              title="Foto Berikutnya (Panah Kanan)"
+            >
+              <ChevronRight size={22} className="stroke-[3]" />
+            </button>
           </div>
         )}
 
