@@ -10,6 +10,7 @@ import LightboxModal from "./components/LightboxModal";
 import AdminModal from "./components/AdminModal";
 import ServicePortalModal from "./components/ServicePortalModal";
 import MemberRegistrationModal from "./components/MemberRegistrationModal";
+import MembersDirectoryModal from "./components/MembersDirectoryModal";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
@@ -105,6 +106,9 @@ export default function App() {
   // Modal Khusus Pendaftaran Anggota LSM PPS (/daftar or #daftar)
   const [memberModalOpen, setMemberModalOpen] = useState(false);
 
+  // Direktori Publik Anggota Terdaftar (/anggota or #anggota)
+  const [membersDirectoryOpen, setMembersDirectoryOpen] = useState(false);
+
   useEffect(() => {
     function checkRoutes() {
       const path = window.location.pathname.toLowerCase();
@@ -125,12 +129,27 @@ export default function App() {
         hash === "#daftar"
       ) {
         setMemberModalOpen(true);
+        setMembersDirectoryOpen(false);
         setServicePortalOpen(false);
       } else {
         setMemberModalOpen(false);
       }
 
-      // 3. Check Service Portal Route (/layanan, /umkm, /meeting)
+      // 3. Check Members Directory Route (/anggota or #anggota)
+      if (
+        path === "/anggota" ||
+        path.endsWith("/anggota") ||
+        hash === "#/anggota" ||
+        hash === "#anggota"
+      ) {
+        setMembersDirectoryOpen(true);
+        setMemberModalOpen(false);
+        setServicePortalOpen(false);
+      } else {
+        setMembersDirectoryOpen(false);
+      }
+
+      // 4. Check Service Portal Route (/layanan, /umkm, /meeting)
       if (
         path === "/umkm" ||
         path.endsWith("/umkm") ||
@@ -159,7 +178,7 @@ export default function App() {
         setServicePortalOpen(false);
       }
 
-      // 4. Check Discord Direct Shortcut (/discord or #discord)
+      // 5. Check Discord Direct Shortcut (/discord or #discord)
       if (
         path === "/discord" ||
         path.endsWith("/discord") ||
@@ -218,6 +237,20 @@ export default function App() {
   function handleCloseRegister() {
     setMemberModalOpen(false);
     if (window.location.pathname.includes("/daftar") || window.location.hash.includes("daftar")) {
+      window.history.pushState(null, "", "/");
+    }
+  }
+
+  function handleOpenMembersDirectory() {
+    setMembersDirectoryOpen(true);
+    if (!window.location.pathname.includes("/anggota")) {
+      window.history.pushState(null, "", "/anggota");
+    }
+  }
+
+  function handleCloseMembersDirectory() {
+    setMembersDirectoryOpen(false);
+    if (window.location.pathname.includes("/anggota") || window.location.hash.includes("anggota")) {
       window.history.pushState(null, "", "/");
     }
   }
@@ -283,6 +316,7 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         onOpenServicePortal={(tab) => handleOpenServicePortal(tab || "lapak")}
         onOpenRegister={handleOpenRegister}
+        onOpenMembersDirectory={handleOpenMembersDirectory}
       />
 
       {/* Main Content (Wide edge-to-edge max-w-[98%] 2xl:max-w-[1600px]) */}
@@ -320,6 +354,7 @@ export default function App() {
       <FloatingActions
         onOpenRegister={handleOpenRegister}
         onOpenServicePortal={handleOpenServicePortal}
+        onOpenMembersDirectory={handleOpenMembersDirectory}
       />
 
       {/* Footer */}
@@ -336,6 +371,13 @@ export default function App() {
         location={lightbox.location}
         date={lightbox.date}
         onClose={handleCloseLightbox}
+      />
+
+      {/* Direktori Publik Anggota Terdaftar (/anggota) */}
+      <MembersDirectoryModal
+        isOpen={membersDirectoryOpen}
+        onClose={handleCloseMembersDirectory}
+        onOpenRegister={handleOpenRegister}
       />
 
       {/* Modal Khusus Pendaftaran Anggota LSM PPS (Dengan OCR KTP Otomatis) */}

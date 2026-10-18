@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Sun, Moon, Menu, X, Store, UserPlus } from "lucide-react";
+import { Sun, Moon, Menu, X, Store, UserPlus, Users } from "lucide-react";
 
-export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme, onOpenServicePortal, onOpenRegister }) {
+export default function Navbar({
+  brand: _brand,
+  navLinks,
+  theme,
+  onToggleTheme,
+  onOpenServicePortal,
+  onOpenRegister,
+  onOpenMembersDirectory,
+}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
 
@@ -129,6 +137,19 @@ export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme, 
                 </a>
               );
             })}
+            {/* Tombol Direktori Anggota Resmi */}
+            {onOpenMembersDirectory && (
+              <button
+                type="button"
+                onClick={onOpenMembersDirectory}
+                className="font-heading font-black text-xs uppercase tracking-wider px-3 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap bg-white dark:bg-[#161820] hover:bg-amber-50 dark:hover:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-1.5 ml-0.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                title="Lihat Direktori Anggota Resmi LSM PPS (/anggota)"
+              >
+                <Users size={13} className="shrink-0 text-[#DC2626] dark:text-[#FACC15]" />
+                <span>Anggota</span>
+              </button>
+            )}
+
             {/* Tombol Daftar Anggota Resmi */}
             {onOpenRegister && (
               <button
@@ -208,6 +229,23 @@ export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme, 
               </a>
             );
           })}
+
+          {onOpenMembersDirectory && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenMembersDirectory();
+              }}
+              className="mt-1 font-heading font-black text-xs uppercase tracking-wider py-2.5 px-3.5 rounded-full border-2 border-black bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] flex items-center justify-between transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Users size={14} className="text-[#DC2626] dark:text-[#FACC15]" />
+                <span>Direktori Anggota Resmi</span>
+              </div>
+              <span className="text-[10px] font-mono bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-full font-bold">58+</span>
+            </button>
+          )}
 
           {onOpenRegister && (
             <button
