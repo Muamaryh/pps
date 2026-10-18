@@ -137,7 +137,6 @@ export function exportMembersToExcel(members) {
     "NAMA IC": m.fullName || "-",
     "NO KTP IC": m.icNumber || "-",
     "NO TLP/WA IC": m.phone || "-",
-    "DISCORD (OOC)": m.discordTag || "-",
     "Tanggal Terdaftar": m.regDate || "-",
   }));
 
@@ -147,7 +146,6 @@ export function exportMembersToExcel(members) {
     { wch: 22 },
     { wch: 28 },
     { wch: 20 },
-    { wch: 18 },
     { wch: 20 },
     { wch: 18 },
   ];

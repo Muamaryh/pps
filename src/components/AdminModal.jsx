@@ -2050,7 +2050,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                       <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                       <input
                         type="text"
-                        placeholder="Cari nama IC, No KTP, No HP, atau Discord..."
+                        placeholder="Cari nama IC, No KTP, atau No HP..."
                         value={memberSearchQuery}
                         onChange={(e) => setMemberSearchQuery(e.target.value)}
                         className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
@@ -2148,12 +2148,6 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                                 <span className="text-[9px] text-slate-400 font-sans font-bold block">NO TLP / WA:</span>
                                 <span className="text-slate-800 dark:text-slate-200 truncate block text-[11px]" title={member.phone}>
                                   {member.phone || "-"}
-                                </span>
-                              </div>
-                              <div className="col-span-2 pt-1 border-t border-black/5 dark:border-white/5">
-                                <span className="text-[9px] text-slate-400 font-sans font-bold block">DISCORD (OOC):</span>
-                                <span className="text-[#5865F2] dark:text-[#7983F5] font-bold truncate block text-[11px]" title={member.discordTag}>
-                                  {member.discordTag || "-"}
                                 </span>
                               </div>
                             </div>
