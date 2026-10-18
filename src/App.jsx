@@ -316,11 +316,10 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Action Buttons: Discord & Daftar Anggota */}
+      {/* Floating Action Buttons: Anggota LSM PPS & Daftar Layanan */}
       <FloatingActions
-        discordUrl={discordUrl}
-        registerUrl={registerUrl}
         onOpenRegister={handleOpenRegister}
+        onOpenServicePortal={handleOpenServicePortal}
       />
 
       {/* Footer */}
