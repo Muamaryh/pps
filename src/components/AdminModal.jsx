@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, FileSpreadsheet, Archive, Search, Download, Eye } from "lucide-react";
 import { saveCloudData, resetCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
+import { subscribeMembersCloud, deleteMemberCloud, exportMembersToExcel, exportMembersToZip } from "../services/memberService";
+import { hashPassword, verifyPassword, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistConfirmModal from "./BrutalistConfirmModal";
 
@@ -12,6 +14,35 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
   const [rememberMe, setRememberMe] = useState(true);
   const [activeTab, setActiveTab] = useState("identity");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Anti Brute-Force Rate Limiting Lockout State
+  const [lockoutState, setLockoutState] = useState(() => getLockoutState());
+
+  // Password Change State for Tab Keamanan
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [isApplyingPassword, setIsApplyingPassword] = useState(false);
+
+  // Tab Navigation Ref & Scroll Helpers for Mobile
+  const tabsNavRef = useRef(null);
+
+  function scrollTabs(direction) {
+    if (tabsNavRef.current) {
+      const scrollAmount = direction === "left" ? -180 : 180;
+      tabsNavRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  }
+
+  // Auto-scroll active tab into view when selected
+  useEffect(() => {
+    if (activeTab && tabsNavRef.current) {
+      const activeEl = document.getElementById(`tab-nav-btn-${activeTab}`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      }
+    }
+  }, [activeTab]);
 
   // KTP Document Lightbox Preview State
   const [previewKtp, setPreviewKtp] = useState(null);
@@ -77,11 +108,74 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
   const [submissions, setSubmissions] = useState([]);
   const [submissionFilter, setSubmissionFilter] = useState("all");
 
+  // Member Database State (Integrated live from pendaftaran-paps)
+  const [membersList, setMembersList] = useState([]);
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const [isExportingZip, setIsExportingZip] = useState(false);
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadSubmissions().then((data) => setSubmissions(data || []));
+      const unsubscribeMembers = subscribeMembersCloud((list) => {
+        setMembersList(list || []);
+      });
+      return () => {
+        if (typeof unsubscribeMembers === "function") unsubscribeMembers();
+      };
     }
   }, [isOpen, isAuthenticated]);
+
+  // Handlers for Member Database
+  function handleDeleteMember(memberId, memberName) {
+    setConfirmModal({
+      isOpen: true,
+      title: "Hapus Anggota Dari Database",
+      message: `Apakah Anda yakin ingin menghapus data anggota "${memberName || memberId}"? Data profil dan arsip KTP ini akan dihapus permanen dari Cloud Database pendaftaran-paps.`,
+      confirmText: "Ya, Hapus Anggota",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteMemberCloud(memberId);
+          onShowToast(`Data anggota ${memberName || memberId} berhasil dihapus dari cloud.`, "info");
+        } catch (err) {
+          console.error("Gagal menghapus anggota:", err);
+          onShowToast("Gagal menghapus anggota dari cloud.", "error");
+        }
+      },
+    });
+  }
+
+  function handleExportExcel() {
+    if (membersList.length === 0) {
+      onShowToast("Tidak ada data anggota untuk diexport.", "error");
+      return;
+    }
+    const ok = exportMembersToExcel(membersList);
+    if (ok) {
+      onShowToast("File Excel data anggota berhasil diunduh!", "success");
+    } else {
+      onShowToast("Gagal mengekspor data Excel.", "error");
+    }
+  }
+
+  async function handleExportZip() {
+    if (membersList.length === 0) {
+      onShowToast("Tidak ada data anggota untuk dibackup.", "error");
+      return;
+    }
+    setIsExportingZip(true);
+    try {
+      const ok = await exportMembersToZip(membersList);
+      if (ok) {
+        onShowToast("Backup ZIP lengkap (+ Foto & Excel) berhasil diunduh!", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      onShowToast("Gagal membuat file backup ZIP.", "error");
+    } finally {
+      setIsExportingZip(false);
+    }
+  }
 
   async function handleUpdateSubmissionStatus(id, newStatus) {
     const updated = submissions.map((sub) => {
@@ -206,24 +300,39 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     }
   }, [initialData, isOpen]);
 
+  // Ticking countdown timer for anti brute-force lockout
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLockoutState(getLockoutState());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Auto-login from localStorage / sessionStorage if remembered
   useEffect(() => {
-    if (initialData) {
-      const savedPass = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
-      if (savedPass) {
-        const correctPass = initialData.adminPass || "pps123123";
-        if (savedPass === correctPass || savedPass === "pps123123" || savedPass === "admin123123") {
-          setIsAuthenticated(true);
-        }
+    async function checkAutoLogin() {
+      if (!initialData || !isOpen) return;
+      const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
+      if (!savedHash) return;
+
+      const targetCredential = initialData.adminPassHash || initialData.adminPass || DEFAULT_ADMIN_HASH;
+      let targetHash = targetCredential;
+      if (typeof targetCredential === "string" && (targetCredential.length !== 64 || !/^[0-9a-fA-F]+$/.test(targetCredential))) {
+        targetHash = await hashPassword(targetCredential);
+      }
+
+      if (savedHash.toLowerCase() === targetHash.toLowerCase()) {
+        setIsAuthenticated(true);
       }
     }
+    checkAutoLogin();
   }, [initialData, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
       setPasswordInput("");
-      const savedPass = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
-      if (!savedPass) {
+      const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
+      if (!savedHash) {
         setIsAuthenticated(false);
       }
     }
@@ -231,21 +340,49 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
 
   if (!isOpen || !formData) return null;
 
-  // Handle Login
-  function handleLogin(e) {
+  // Handle Login with SHA-256 and brute-force lockout
+  async function handleLogin(e) {
     e?.preventDefault();
-    const correctPass = initialData?.adminPass || "pps123123";
+
+    // Check if locked out
+    const currentLockout = getLockoutState();
+    if (currentLockout.isLocked) {
+      onShowToast(`Sistem terkunci! Tunggu ${currentLockout.remainingSeconds} detik lagi.`, "error");
+      return;
+    }
+
     const input = passwordInput.trim();
-    if (input === correctPass || input === "pps123123" || input === "admin123123") {
+    if (!input) {
+      onShowToast("Masukkan password terlebih dahulu!", "error");
+      return;
+    }
+
+    const targetCredential = initialData?.adminPassHash || initialData?.adminPass || DEFAULT_ADMIN_HASH;
+    const isValid = await verifyPassword(input, targetCredential);
+
+    if (isValid) {
+      resetLockoutState();
+      setLockoutState(getLockoutState());
       setIsAuthenticated(true);
+
+      const computedHash = await hashPassword(input);
       if (rememberMe) {
-        localStorage.setItem(ADMIN_STORAGE_KEY, input);
+        localStorage.setItem(ADMIN_STORAGE_KEY, computedHash);
+        sessionStorage.removeItem(ADMIN_STORAGE_KEY);
       } else {
-        sessionStorage.setItem(ADMIN_STORAGE_KEY, input);
+        sessionStorage.setItem(ADMIN_STORAGE_KEY, computedHash);
+        localStorage.removeItem(ADMIN_STORAGE_KEY);
       }
-      onShowToast("Akses Admin Terverifikasi! Sesi diingat.", "success");
+      onShowToast("Akses Admin Terverifikasi!", "success");
     } else {
-      onShowToast("Password salah! Coba lagi.", "error");
+      const nextLockout = recordFailedAttempt();
+      setLockoutState(nextLockout);
+      if (nextLockout.isLocked) {
+        onShowToast(`Percobaan salah 5x! Akses terkunci selama ${LOCKOUT_DURATION_SECONDS} detik.`, "error");
+      } else {
+        const remaining = MAX_ATTEMPTS - nextLockout.attempts;
+        onShowToast(`Password salah! Sisa percobaan: ${remaining}x lagi.`, "error");
+      }
     }
   }
 
@@ -256,6 +393,49 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     setIsAuthenticated(false);
     setPasswordInput("");
     onShowToast("Berhasil keluar dari sesi admin.", "info");
+  }
+
+  // Handle apply new password in Tab Keamanan
+  async function handleApplyNewPassword() {
+    if (!newPassword) {
+      onShowToast("Masukkan password baru!", "error");
+      return;
+    }
+    if (newPassword.length < 6) {
+      onShowToast("Password baru minimal 6 karakter demi keamanan!", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      onShowToast("Konfirmasi password tidak cocok! Silakan periksa kembali.", "error");
+      return;
+    }
+
+    setIsApplyingPassword(true);
+    try {
+      const newHash = await hashPassword(newPassword);
+      setFormData((prev) => {
+        const updated = { ...prev, adminPassHash: newHash };
+        delete updated.adminPass;
+        return updated;
+      });
+
+      // Update current session with new hash so user stays logged in
+      if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
+        localStorage.setItem(ADMIN_STORAGE_KEY, newHash);
+      } else {
+        sessionStorage.setItem(ADMIN_STORAGE_KEY, newHash);
+      }
+
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswordForm(false);
+      onShowToast("Password baru berhasil dienkripsi SHA-256! Klik 'Simpan Perubahan' di bawah untuk memperbarui ke Cloud.", "success");
+    } catch (err) {
+      console.error(err);
+      onShowToast("Gagal memproses enkripsi password.", "error");
+    } finally {
+      setIsApplyingPassword(false);
+    }
   }
 
   // Image Compressor via Canvas
@@ -328,7 +508,8 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
           desc: "Keterangan dokumentasi kegiatan.",
           date: "Sabtu, 17 Oktober 2026",
           location: "SS Area",
-          photo: ""
+          photo: "",
+          photos: []
         },
         ...prev.gallery
       ]
@@ -353,12 +534,53 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     });
   }
 
-  function handleGalleryPhoto(index, file) {
+  function getGalleryItemPhotos(item) {
+    if (Array.isArray(item.photos) && item.photos.length > 0) {
+      return item.photos;
+    }
+    if (item.photo) {
+      return [item.photo];
+    }
+    return [];
+  }
+
+  function handleAddGalleryPhoto(index, file) {
     if (!file) return;
     compressImage(file, (base64) => {
-      handleGalleryChange(index, "photo", base64);
-      onShowToast("Foto dokumentasi berhasil diunggah!", "success");
+      setFormData((prev) => {
+        const newGal = [...prev.gallery];
+        const item = { ...newGal[index] };
+        const existingPhotos = Array.isArray(item.photos) && item.photos.length > 0
+          ? [...item.photos]
+          : item.photo
+          ? [item.photo]
+          : [];
+        existingPhotos.push(base64);
+        item.photos = existingPhotos;
+        item.photo = existingPhotos[0];
+        newGal[index] = item;
+        return { ...prev, gallery: newGal };
+      });
+      onShowToast("Foto baru berhasil ditambahkan!", "success");
     }, 750, 0.60);
+  }
+
+  function handleRemoveGalleryPhoto(galleryIdx, photoIdx) {
+    setFormData((prev) => {
+      const newGal = [...prev.gallery];
+      const item = { ...newGal[galleryIdx] };
+      const existingPhotos = Array.isArray(item.photos) && item.photos.length > 0
+        ? [...item.photos]
+        : item.photo
+        ? [item.photo]
+        : [];
+      existingPhotos.splice(photoIdx, 1);
+      item.photos = existingPhotos;
+      item.photo = existingPhotos[0] || "";
+      newGal[galleryIdx] = item;
+      return { ...prev, gallery: newGal };
+    });
+    onShowToast("Foto dihapus dari kegiatan", "info");
   }
 
   // Hero Pillars Management
@@ -447,13 +669,12 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     setIsSaving(true);
     try {
       await saveCloudData(formData);
-      // Synchronize session storage if password was changed
-      if (formData.adminPass) {
-        if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
-          localStorage.setItem(ADMIN_STORAGE_KEY, formData.adminPass);
-        } else if (sessionStorage.getItem(ADMIN_STORAGE_KEY)) {
-          sessionStorage.setItem(ADMIN_STORAGE_KEY, formData.adminPass);
-        }
+      // Synchronize session storage with active password hash
+      const activeHash = formData.adminPassHash || DEFAULT_ADMIN_HASH;
+      if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
+        localStorage.setItem(ADMIN_STORAGE_KEY, activeHash);
+      } else if (sessionStorage.getItem(ADMIN_STORAGE_KEY)) {
+        sessionStorage.setItem(ADMIN_STORAGE_KEY, activeHash);
       }
       onDataSaved(formData);
       onShowToast("Perubahan berhasil disimpan ke Cloud!", "success");
@@ -497,8 +718,19 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     { id: "org", label: "Pengurus", icon: Users },
     { id: "gallery", label: "Galeri Foto", icon: Camera },
     { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
+    { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
     { id: "security", label: "Keamanan", icon: Shield },
   ];
+
+  const filteredMembers = membersList.filter((m) => {
+    if (!memberSearchQuery.trim()) return true;
+    const q = memberSearchQuery.toLowerCase();
+    const name = (m.fullName || "").toLowerCase();
+    const ic = (m.icNumber || "").toLowerCase();
+    const phone = (m.phone || "").toLowerCase();
+    const discord = (m.discordTag || "").toLowerCase();
+    return name.includes(q) || ic.includes(q) || phone.includes(q) || discord.includes(q);
+  });
 
   return (
     <div
@@ -531,9 +763,9 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
               type="button"
               onClick={handleLogout}
               title="Keluar dari sesi admin"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#DC2626] hover:bg-[#DC2626]/10 rounded border-2 border-[#DC2626] transition-colors"
+              className="btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black bg-red-50 hover:bg-red-100 dark:bg-red-950/80 dark:hover:bg-red-900 text-red-600 dark:text-red-300 rounded border-2 border-black dark:border-red-500 shadow-[2px_2px_0px_#000] transition-all active:translate-x-0.5 active:translate-y-0.5"
             >
-              <LogOut size={13} />
+              <LogOut size={13} className="text-red-600 dark:text-red-300" />
               <span className="hidden sm:inline">Logout</span>
             </button>
           )}
@@ -561,17 +793,39 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                 <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-100 mb-1">
                   Autentikasi Pengelola Portal
                 </h3>
-                <p className="text-xs text-slate-700 dark:text-slate-300 mb-5">
+                <p className="text-xs text-slate-700 dark:text-slate-300 mb-4">
                   Masukkan password admin untuk mengelola isi website.
                 </p>
+
+                {/* Anti Brute-Force Lockout Warning */}
+                {lockoutState.isLocked && (
+                  <div className="w-full mb-4 p-3 bg-red-100 dark:bg-red-950/70 border-2 border-red-600 rounded text-red-900 dark:text-red-200 text-xs flex items-center gap-2.5 text-left shadow-[2px_2px_0px_#DC2626] animate-pulse">
+                    <ShieldAlert size={22} className="text-red-600 shrink-0" />
+                    <div>
+                      <div className="font-heading font-black">AKSES TERKUNCI SEMENTARA!</div>
+                      <div className="text-[11px] mt-0.5">
+                        Terlalu banyak percobaan gagal. Tunggu <span className="font-mono font-bold underline">{lockoutState.remainingSeconds} detik</span> lagi.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!lockoutState.isLocked && lockoutState.attempts > 0 && (
+                  <div className="w-full mb-3 p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-500 rounded text-amber-900 dark:text-amber-200 text-[11px] flex items-center justify-center gap-1.5 font-bold">
+                    <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                    <span>Percobaan gagal: {lockoutState.attempts}/{MAX_ATTEMPTS} (Tersisa {MAX_ATTEMPTS - lockoutState.attempts}x)</span>
+                  </div>
+                )}
+
                 <form onSubmit={handleLogin} className="w-full flex flex-col gap-3.5">
                   <input
                     type="password"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="Password admin (default: pps123123)"
+                    placeholder="Masukkan kode akses admin..."
+                    disabled={lockoutState.isLocked}
                     autoFocus
-                    className="input-field text-center font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]"
+                    className="input-field text-center font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] disabled:opacity-50 disabled:bg-slate-200 dark:disabled:bg-slate-800"
                   />
 
                   <label className="flex items-center justify-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none py-0.5">
@@ -579,13 +833,18 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
+                      disabled={lockoutState.isLocked}
                       className="w-4 h-4 rounded border-2 border-black accent-[#DC2626] cursor-pointer"
                     />
-                    <span>Ingat saya</span>
+                    <span>Ingat saya di browser ini</span>
                   </label>
 
-                  <button type="submit" className="btn w-full py-2.5 bg-[#FACC15] text-[#111827] border-2 border-black font-black shadow-[3px_3px_0px_#000]">
-                    Masuk ke Panel
+                  <button
+                    type="submit"
+                    disabled={lockoutState.isLocked}
+                    className="btn w-full py-2.5 bg-[#FACC15] disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-[#111827] border-2 border-black font-black shadow-[3px_3px_0px_#000]"
+                  >
+                    {lockoutState.isLocked ? `Terkunci (${lockoutState.remainingSeconds}s)` : "Masuk ke Panel"}
                   </button>
                 </form>
               </div>
@@ -593,26 +852,76 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
           ) : (
             /* Authenticated Dashboard */
             <>
-              {/* Tab Navigation (Full Width Sub-Header) */}
-              <div className="shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-4 sm:px-8 py-2.5 flex items-center gap-2 overflow-x-auto">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`tab-btn flex items-center gap-1.5 text-xs py-1.5 px-3 rounded shrink-0 border-2 border-black dark:border-[#475569] font-heading font-black transition-all ${
-                        isActive
-                          ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                          : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      <Icon size={14} className={isActive ? "text-[#DC2626]" : ""} />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
+              {/* Mobile Quick Tab Dropdown (sm:hidden) */}
+              <div className="sm:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-3 py-2 flex items-center gap-2">
+                <span className="text-[11px] font-heading font-black text-slate-600 dark:text-slate-300 uppercase shrink-0">
+                  Menu:
+                </span>
+                <div className="relative flex-1">
+                  <select
+                    value={activeTab}
+                    onChange={(e) => setActiveTab(e.target.value)}
+                    className="w-full bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 font-heading font-black text-xs py-2 px-3 pr-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                  >
+                    {tabs.map((tab) => (
+                      <option key={tab.id} value={tab.id}>
+                        {tab.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-700 dark:text-slate-300">
+                    <ChevronDown size={14} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Tab Navigation (Full Width Sub-Header with Left/Right navigation support) */}
+              <div className="shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-2 sm:px-8 py-2 relative flex items-center">
+                {/* Left scroll nudge button for mobile */}
+                <button
+                  type="button"
+                  onClick={() => scrollTabs("left")}
+                  className="sm:hidden shrink-0 p-1.5 mr-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5"
+                  title="Geser tab ke kiri"
+                >
+                  <ChevronLeft size={13} />
+                </button>
+
+                <div
+                  ref={tabsNavRef}
+                  className="flex-1 flex items-center gap-2 overflow-x-auto scroll-smooth py-1 px-1"
+                  style={{ WebkitOverflowScrolling: "touch" }}
+                >
+                  {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        id={`tab-nav-btn-${tab.id}`}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`tab-btn flex items-center gap-1.5 text-xs py-1.5 px-3 rounded shrink-0 border-2 border-black dark:border-[#475569] font-heading font-black transition-all ${
+                          isActive
+                            ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] -translate-y-0.5 ring-1 ring-black/20"
+                            : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <Icon size={14} className={isActive ? "text-[#DC2626]" : ""} />
+                        <span className="whitespace-nowrap">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Right scroll nudge button for mobile */}
+                <button
+                  type="button"
+                  onClick={() => scrollTabs("right")}
+                  className="sm:hidden shrink-0 p-1.5 ml-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5"
+                  title="Geser tab ke kanan (Keamanan dll)"
+                >
+                  <ChevronRight size={13} />
+                </button>
               </div>
 
               {/* Main Scrollable Content Area */}
@@ -924,7 +1233,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                             <button
                               type="button"
                               onClick={() => handleRemoveMissionItem(mIdx)}
-                              className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] hover:bg-[#DC2626] hover:text-white shrink-0"
+                              className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white shrink-0"
                             >
                               <Trash2 size={12} />
                             </button>
@@ -990,7 +1299,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                           <button
                             type="button"
                             onClick={() => handleRemoveMember(idx)}
-                            className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] hover:bg-[#DC2626] hover:text-white"
+                            className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white"
                           >
                             <Trash2 size={12} />
                             <span>Hapus</span>
@@ -1091,7 +1400,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                           <button
                             type="button"
                             onClick={() => handleRemoveGallery(idx)}
-                            className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] hover:bg-[#DC2626] hover:text-white"
+                            className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white"
                           >
                             <Trash2 size={12} />
                             <span>Hapus</span>
@@ -1148,24 +1457,58 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                         </div>
 
                         <div>
-                          <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                            Foto Kegiatan
-                          </label>
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleGalleryPhoto(idx, e.target.files[0])}
-                              className="text-xs text-slate-700 dark:text-slate-300 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-2 file:border-black file:bg-[#FACC15] file:text-[#111827] file:font-heading file:font-black"
-                            />
-                            {item.photo && (
-                              <img
-                                src={item.photo}
-                                alt="Pratinjau"
-                                className="w-12 h-8 rounded object-cover border-2 border-black"
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300">
+                              Foto Dokumentasi ({getGalleryItemPhotos(item).length} Foto)
+                            </label>
+                            <label className="cursor-pointer text-[10px] font-heading font-black py-1 px-2.5 rounded bg-[#FACC15] text-[#111827] border-2 border-black shadow-[1px_1px_0px_#000] hover:bg-[#EAB308] flex items-center gap-1 active:translate-x-0.5">
+                              <Plus size={12} className="text-[#DC2626]" />
+                              <span>+ Tambah Foto</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                  if (e.target.files) {
+                                    Array.from(e.target.files).forEach((f) => handleAddGalleryPhoto(idx, f));
+                                  }
+                                  e.target.value = "";
+                                }}
+                                className="hidden"
                               />
-                            )}
+                            </label>
                           </div>
+
+                          {/* Thumbnails of All Photos in this event */}
+                          {getGalleryItemPhotos(item).length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-2 p-2 bg-slate-100 dark:bg-[#1C1F2A] rounded border border-black/15 dark:border-white/10">
+                              {getGalleryItemPhotos(item).map((p, pIdx) => (
+                                <div
+                                  key={pIdx}
+                                  className="relative group w-16 h-14 rounded overflow-hidden border-2 border-black dark:border-slate-600 shrink-0 bg-black"
+                                >
+                                  <img src={p} alt="" className="w-full h-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveGalleryPhoto(idx, pIdx)}
+                                    className="absolute inset-0 bg-red-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Hapus foto ini"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                  {pIdx === 0 && (
+                                    <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[8px] text-[#FACC15] text-center font-bold">
+                                      Sampul
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-slate-50 dark:bg-[#1A1D26] border border-dashed border-black/30 dark:border-white/20 rounded text-center text-xs text-slate-500">
+                              Belum ada foto kegiatan. Klik tombol <strong>"+ Tambah Foto"</strong> di atas untuk mengunggah.
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1651,38 +1994,383 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                 </div>
               )}
 
-              {/* Tab 5: Security */}
-              {activeTab === "security" && (
+              {/* Tab: Database Anggota (Integrated from pendaftaran-paps) */}
+              {activeTab === "members_db" && (
                 <div className="flex flex-col gap-4">
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2.5">
-                    <label className="card-label text-slate-700 dark:text-slate-300">Ganti Password Akses Admin</label>
-                    <input
-                      type="password"
-                      placeholder="Masukkan password admin baru"
-                      value={formData.adminPass || ""}
-                      onChange={(e) => setFormData({ ...formData, adminPass: e.target.value })}
-                      className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
-                    />
-                    <span className="text-xs text-slate-700 dark:text-slate-300">
-                      Password ini digunakan untuk verifikasi login panel kontrol /admin ini.
-                    </span>
+                  {/* Top Header Card with Actions */}
+                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-900 shadow-[2px_2px_0px_#000] shrink-0">
+                        <Users2 size={20} className="text-[#DC2626]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                            Database Anggota Terdaftar ({membersList.length})
+                          </h4>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
+                            Cloud Firestore Live
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Data pendaftaran anggota terintegrasi resmi LSM PPS Sandy Shores (GTA V IME Roleplay)
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Export Actions: Excel & ZIP */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleExportExcel}
+                        disabled={membersList.length === 0}
+                        className="btn py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        title="Download seluruh data anggota dalam format Excel (.xlsx)"
+                      >
+                        <FileSpreadsheet size={15} />
+                        <span>Unduh Excel</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExportZip}
+                        disabled={isExportingZip || membersList.length === 0}
+                        className="btn py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        title="Download arsip ZIP lengkap (Excel + seluruh folder Foto Profil & Foto KTP)"
+                      >
+                        <Archive size={15} />
+                        <span>{isExportingZip ? "Membuat ZIP..." : "Backup ZIP (+ Foto)"}</span>
+                      </button>
+                    </div>
                   </div>
 
+                  {/* Search and Summary Bar */}
+                  <div className="card-brutal p-3 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="relative w-full sm:max-w-md">
+                      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="Cari nama IC, No KTP, No HP, atau Discord..."
+                        value={memberSearchQuery}
+                        onChange={(e) => setMemberSearchQuery(e.target.value)}
+                        className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                      />
+                      {memberSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setMemberSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0 self-start sm:self-center">
+                      Menampilkan <span className="text-[#DC2626] dark:text-[#FACC15]">{filteredMembers.length}</span> dari {membersList.length} anggota
+                    </div>
+                  </div>
+
+                  {/* Members Grid Cards */}
+                  {filteredMembers.length === 0 ? (
+                    <div className="card-brutal p-12 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-2">
+                      <Users2 size={36} className="text-slate-300 dark:text-slate-600" />
+                      <p className="font-heading font-black text-sm text-slate-700 dark:text-slate-300">
+                        {memberSearchQuery ? "Tidak ditemukan anggota yang sesuai pencarian" : "Belum ada anggota terdaftar"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {memberSearchQuery ? "Coba kata kunci pencarian yang lain." : "Anggota yang mendaftar via web akan otomatis muncul di sini."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                      {filteredMembers.map((member, idx) => {
+                        return (
+                          <div
+                            key={member.id || idx}
+                            className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
+                          >
+                            {/* Card Header: Avatar & Nama */}
+                            <div className="flex items-start gap-3">
+                              {/* Avatar */}
+                              <div
+                                onClick={() => {
+                                  if (member.profilePhoto) {
+                                    setPreviewKtp({
+                                      image: member.profilePhoto,
+                                      name: `${member.fullName || "Anggota"} (Foto Profil)`,
+                                      citizenId: member.icNumber || "",
+                                    });
+                                  }
+                                }}
+                                className={`w-12 h-12 rounded-full border-2 border-black dark:border-[#475569] overflow-hidden shrink-0 flex items-center justify-center shadow-[2px_2px_0px_#000] bg-amber-100 dark:bg-amber-950/50 ${
+                                  member.profilePhoto ? "cursor-pointer group relative" : ""
+                                }`}
+                                title={member.profilePhoto ? "Klik untuk memperbesar foto profil" : "Foto profil belum diunggah"}
+                              >
+                                {member.profilePhoto ? (
+                                  <img
+                                    src={member.profilePhoto}
+                                    alt={member.fullName}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                  />
+                                ) : (
+                                  <span className="font-heading font-black text-sm text-[#DC2626]">
+                                    {(member.fullName || "P").charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <h5 className="font-heading font-black text-sm text-slate-950 dark:text-slate-100 truncate" title={member.fullName}>
+                                    {member.fullName || "Nama Tidak Tertera"}
+                                  </h5>
+                                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400 shrink-0">
+                                    RESMI
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-500 block truncate">
+                                  Terdaftar: {member.regDate || (member.createdAt ? new Date(member.createdAt).toLocaleDateString("id-ID") : "-")}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Details List */}
+                            <div className="grid grid-cols-2 gap-2 text-xs p-2.5 rounded bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono">
+                              <div>
+                                <span className="text-[9px] text-slate-400 font-sans font-bold block">NO KTP / IC:</span>
+                                <strong className="text-[#DC2626] dark:text-[#FACC15] truncate block text-[11px]" title={member.icNumber}>
+                                  {member.icNumber || "-"}
+                                </strong>
+                              </div>
+                              <div>
+                                <span className="text-[9px] text-slate-400 font-sans font-bold block">NO TLP / WA:</span>
+                                <span className="text-slate-800 dark:text-slate-200 truncate block text-[11px]" title={member.phone}>
+                                  {member.phone || "-"}
+                                </span>
+                              </div>
+                              <div className="col-span-2 pt-1 border-t border-black/5 dark:border-white/5">
+                                <span className="text-[9px] text-slate-400 font-sans font-bold block">DISCORD (OOC):</span>
+                                <span className="text-[#5865F2] dark:text-[#7983F5] font-bold truncate block text-[11px]" title={member.discordTag}>
+                                  {member.discordTag || "-"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons: Lihat KTP & Hapus */}
+                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-black/10 dark:border-white/10">
+                              <div className="flex items-center gap-1.5">
+                                {member.icPhoto ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewKtp({
+                                        image: member.icPhoto,
+                                        name: member.fullName || "Anggota",
+                                        citizenId: member.icNumber || "",
+                                      })
+                                    }
+                                    className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-black border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                                    title="Lihat dokumen KTP IC"
+                                  >
+                                    <FileText size={12} className="text-[#DC2626]" />
+                                    <span>Lihat KTP</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 italic">Tanpa Foto KTP</span>
+                                )}
+
+                                {member.profilePhoto && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewKtp({
+                                        image: member.profilePhoto,
+                                        name: `${member.fullName || "Anggota"} (Foto Profil)`,
+                                        citizenId: member.icNumber || "",
+                                      })
+                                    }
+                                    className="btn text-[11px] py-1 px-2 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold border border-black dark:border-slate-600 flex items-center gap-1 cursor-pointer"
+                                    title="Lihat foto profil resolusi penuh"
+                                  >
+                                    <Eye size={12} />
+                                    <span>Foto</span>
+                                  </button>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMember(member.id, member.fullName)}
+                                className="p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 border border-transparent hover:border-red-500 transition-colors cursor-pointer"
+                                title="Hapus data anggota dari database"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab 5: Security */}
+              {activeTab === "security" && (
+                <div className="flex flex-col gap-5">
+                  {/* Security Architecture Card */}
+                  <div className="card-brutal p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-4">
+                    <div className="flex items-center gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
+                      <div className="w-10 h-10 rounded bg-emerald-500/10 border-2 border-emerald-600 flex items-center justify-center text-emerald-600 shadow-[2px_2px_0px_#059669]">
+                        <ShieldCheck size={20} />
+                      </div>
+                      <div>
+                        <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                          Sistem Keamanan & Enkripsi Portal
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Standar pengamanan akses dashboard LSM Sandy Shores
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 bg-slate-50 dark:bg-[#1E222D] border-2 border-black/15 dark:border-white/10 rounded">
+                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                          Enkripsi Kata Sandi
+                        </div>
+                        <div className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle2 size={14} /> SHA-256 Cryptographic Hash
+                        </div>
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                          Password dienkripsi satu arah sebelum disimpan ke Cloud Firestore.
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 dark:bg-[#1E222D] border-2 border-black/15 dark:border-white/10 rounded">
+                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                          Proteksi Anti Brute-Force
+                        </div>
+                        <div className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                          <ShieldAlert size={14} /> Maks 5 Percobaan / Kunci 60 Detik
+                        </div>
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                          Mencegah bot dan serangan tebak password otomatis.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Hash fingerprint info */}
+                    <div className="p-3 bg-slate-100 dark:bg-[#181A22] border-2 border-black/20 dark:border-white/15 rounded flex flex-col gap-1">
+                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">
+                        Fingerprint Hash Aktif (SHA-256):
+                      </span>
+                      <code className="text-[11px] font-mono break-all text-slate-800 dark:text-slate-200 bg-white dark:bg-[#111319] p-2 border border-black/10 dark:border-white/10 rounded select-all">
+                        {formData.adminPassHash || DEFAULT_ADMIN_HASH}
+                      </code>
+                    </div>
+                  </div>
+
+                  {/* Change Password Card */}
+                  <div className="card-brutal p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-4">
+                    <div className="flex items-center justify-between border-b-2 border-black/10 dark:border-white/10 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <KeyRound size={18} className="text-[#DC2626]" />
+                        <div>
+                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                            Ganti Kode Sandi Admin
+                          </h4>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                            Ubah password akses untuk mengunci panel pengelola
+                          </p>
+                        </div>
+                      </div>
+                      {!showPasswordForm && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswordForm(true)}
+                          className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                        >
+                          Ubah Password
+                        </button>
+                      )}
+                    </div>
+
+                    {showPasswordForm ? (
+                      <div className="flex flex-col gap-3.5 bg-slate-50 dark:bg-[#1C1F2A] p-4 border-2 border-black/20 dark:border-white/15 rounded">
+                        <div>
+                          <label className="card-label text-slate-700 dark:text-slate-300 mb-1 block">
+                            Password Baru (Minimal 6 Karakter)
+                          </label>
+                          <input
+                            type="password"
+                            placeholder="Ketik password baru..."
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="card-label text-slate-700 dark:text-slate-300 mb-1 block">
+                            Konfirmasi Ulang Password Baru
+                          </label>
+                          <input
+                            type="password"
+                            placeholder="Ulangi password baru..."
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            disabled={isApplyingPassword}
+                            onClick={handleApplyNewPassword}
+                            className="btn text-xs py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                          >
+                            {isApplyingPassword ? "Memproses..." : "Terapkan Enkripsi & Update"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowPasswordForm(false);
+                              setNewPassword("");
+                              setConfirmPassword("");
+                            }}
+                            className="btn btn-secondary text-xs py-2 px-3 border-2 border-black dark:border-[#475569]"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        Klik tombol <strong>"Ubah Password"</strong> di atas jika Anda ingin memperbarui kode sandi otentikasi admin.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Browser Session Card */}
                   <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
                       <h4 className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100">
                         Sesi Login di Browser Ini
                       </h4>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                        Status: <span className="text-emerald-600 dark:text-emerald-400 font-bold">Tersimpan (Auto-login aktif saat refresh)</span>
+                        Status: <span className="text-emerald-600 dark:text-emerald-400 font-bold">Tersimpan aman (SHA-256 Session Token)</span>
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="btn text-xs py-1.5 px-3 bg-red-100 dark:bg-red-950/40 text-[#DC2626] border-2 border-[#DC2626] hover:bg-[#DC2626] hover:text-white transition-colors"
+                      className="btn text-xs py-2 px-3.5 bg-red-600 hover:bg-red-700 text-white font-heading font-black border-2 border-black dark:border-red-400 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5"
                     >
-                      <LogOut size={13} />
+                      <LogOut size={14} className="text-white" />
                       <span>Hapus Sesi & Logout</span>
                     </button>
                   </div>
@@ -1697,7 +2385,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="text-xs font-heading font-bold text-[#DC2626] hover:underline flex items-center gap-1.5"
+                  className="text-xs font-heading font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1.5"
                 >
                   <RotateCcw size={13} />
                   <span>Reset Konfigurasi Awal</span>

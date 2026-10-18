@@ -9,6 +9,7 @@ import Footer from "./components/Footer";
 import LightboxModal from "./components/LightboxModal";
 import AdminModal from "./components/AdminModal";
 import ServicePortalModal from "./components/ServicePortalModal";
+import MemberRegistrationModal from "./components/MemberRegistrationModal";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
@@ -60,22 +61,49 @@ export default function App() {
     fetchData();
   }, []);
 
-  // Lightbox State
-  const [lightbox, setLightbox] = useState({ isOpen: false, photo: "", caption: "", desc: "", location: "" });
+  // Lightbox State (supports multiple photos or single photo)
+  const [lightbox, setLightbox] = useState({
+    isOpen: false,
+    photos: [],
+    photo: "",
+    initialIndex: 0,
+    caption: "",
+    desc: "",
+    location: "",
+    date: "",
+  });
 
-  function handleOpenLightbox(photo, caption, desc = "", location = "") {
-    setLightbox({ isOpen: true, photo, caption, desc, location });
+  function handleOpenLightbox(photoOrPhotos, caption, desc = "", location = "", date = "", initialIndex = 0) {
+    const photosArray = Array.isArray(photoOrPhotos)
+      ? photoOrPhotos
+      : photoOrPhotos
+      ? [photoOrPhotos]
+      : [];
+    setLightbox({
+      isOpen: true,
+      photos: photosArray,
+      photo: photosArray[0] || "",
+      initialIndex: Number(initialIndex) || 0,
+      caption,
+      desc,
+      location,
+      date,
+    });
   }
 
   function handleCloseLightbox() {
-    setLightbox({ isOpen: false, photo: "", caption: "", desc: "", location: "" });
+    setLightbox((prev) => ({ ...prev, isOpen: false }));
   }
 
   // Admin Route Management (/admin or #/admin)
   const [adminModalOpen, setAdminModalOpen] = useState(false);
 
-  // Portal Layanan Warga (Lapak UMKM & Request Meeting) (/layanan or #/layanan)
+  // Portal Layanan Warga (Lapak UMKM & Request Meeting) (/layanan, /umkm, /meeting)
   const [servicePortalOpen, setServicePortalOpen] = useState(false);
+  const [servicePortalTab, setServicePortalTab] = useState("lapak");
+
+  // Modal Khusus Pendaftaran Anggota LSM PPS (/daftar or #daftar)
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
 
   useEffect(() => {
     function checkRoutes() {
@@ -89,18 +117,56 @@ export default function App() {
         setAdminModalOpen(false);
       }
 
-      // 2. Check Service Portal Route (/layanan, /umkm, /meeting)
+      // 2. Check Member Registration Route (/daftar or #daftar)
       if (
+        path === "/daftar" ||
+        path.endsWith("/daftar") ||
+        hash === "#/daftar" ||
+        hash === "#daftar"
+      ) {
+        setMemberModalOpen(true);
+        setServicePortalOpen(false);
+      } else {
+        setMemberModalOpen(false);
+      }
+
+      // 3. Check Service Portal Route (/layanan, /umkm, /meeting)
+      if (
+        path === "/umkm" ||
+        path.endsWith("/umkm") ||
+        hash === "#/umkm" ||
+        hash === "#umkm"
+      ) {
+        setServicePortalTab("lapak");
+        setServicePortalOpen(true);
+      } else if (
+        path === "/meeting" ||
+        path.endsWith("/meeting") ||
+        hash === "#/meeting" ||
+        hash === "#meeting"
+      ) {
+        setServicePortalTab("meeting");
+        setServicePortalOpen(true);
+      } else if (
         path === "/layanan" ||
         path.endsWith("/layanan") ||
         hash === "#/layanan" ||
-        hash === "#layanan" ||
-        path === "/umkm" ||
-        path === "/meeting"
+        hash === "#layanan"
       ) {
+        setServicePortalTab("lapak");
         setServicePortalOpen(true);
       } else {
         setServicePortalOpen(false);
+      }
+
+      // 4. Check Discord Direct Shortcut (/discord or #discord)
+      if (
+        path === "/discord" ||
+        path.endsWith("/discord") ||
+        hash === "#/discord" ||
+        hash === "#discord"
+      ) {
+        window.location.href = "https://discord.gg/TGKaHh8JhB";
       }
     }
 
@@ -142,7 +208,22 @@ export default function App() {
     }
   }
 
-  function handleOpenServicePortal() {
+  function handleOpenRegister() {
+    setMemberModalOpen(true);
+    if (!window.location.pathname.includes("/daftar")) {
+      window.history.pushState(null, "", "/daftar");
+    }
+  }
+
+  function handleCloseRegister() {
+    setMemberModalOpen(false);
+    if (window.location.pathname.includes("/daftar") || window.location.hash.includes("daftar")) {
+      window.history.pushState(null, "", "/");
+    }
+  }
+
+  function handleOpenServicePortal(tab = "lapak") {
+    setServicePortalTab(tab);
     setServicePortalOpen(true);
     if (!window.location.pathname.includes("/layanan")) {
       window.history.pushState(null, "", "/layanan");
@@ -151,7 +232,14 @@ export default function App() {
 
   function handleCloseServicePortal() {
     setServicePortalOpen(false);
-    if (window.location.pathname.includes("/layanan") || window.location.hash.includes("layanan")) {
+    if (
+      window.location.pathname.includes("/layanan") ||
+      window.location.pathname.includes("/umkm") ||
+      window.location.pathname.includes("/meeting") ||
+      window.location.hash.includes("layanan") ||
+      window.location.hash.includes("umkm") ||
+      window.location.hash.includes("meeting")
+    ) {
       window.history.pushState(null, "", "/");
     }
   }
@@ -169,7 +257,7 @@ export default function App() {
   }
 
   // Extract Discord and Register URLs from navLinks if customized
-  let discordUrl = "https://discord.gg/92QASf3fus";
+  let discordUrl = "https://discord.gg/TGKaHh8JhB";
   let registerUrl = "https://daftaranggotapaps.netlify.app/";
 
   if (data.navLinks) {
@@ -193,7 +281,8 @@ export default function App() {
         navLinks={data.navLinks}
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        onOpenServicePortal={handleOpenServicePortal}
+        onOpenServicePortal={(tab) => handleOpenServicePortal(tab || "lapak")}
+        onOpenRegister={handleOpenRegister}
       />
 
       {/* Main Content (Wide edge-to-edge max-w-[98%] 2xl:max-w-[1600px]) */}
@@ -231,6 +320,7 @@ export default function App() {
       <FloatingActions
         discordUrl={discordUrl}
         registerUrl={registerUrl}
+        onOpenRegister={handleOpenRegister}
       />
 
       {/* Footer */}
@@ -239,18 +329,29 @@ export default function App() {
       {/* Lightbox Modal */}
       <LightboxModal
         isOpen={lightbox.isOpen}
+        photos={lightbox.photos}
         photo={lightbox.photo}
+        initialIndex={lightbox.initialIndex}
         caption={lightbox.caption}
         desc={lightbox.desc}
         location={lightbox.location}
+        date={lightbox.date}
         onClose={handleCloseLightbox}
       />
 
-      {/* Portal Layanan Warga: Lapak UMKM & Request Meeting (GTA V IME Roleplay) */}
+      {/* Modal Khusus Pendaftaran Anggota LSM PPS (Dengan OCR KTP Otomatis) */}
+      <MemberRegistrationModal
+        isOpen={memberModalOpen}
+        onClose={handleCloseRegister}
+        onShowToast={showToast}
+      />
+
+      {/* Portal Layanan Warga: Lapak UMKM, Request Meeting & Lacak Tiket (GTA V IME Roleplay) */}
       <ServicePortalModal
         isOpen={servicePortalOpen}
         onClose={handleCloseServicePortal}
         onShowToast={showToast}
+        initialTab={servicePortalTab}
       />
 
       {/* Admin CMS Modal */}

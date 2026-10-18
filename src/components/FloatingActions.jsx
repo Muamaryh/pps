@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { UserPlus, ExternalLink, X, ChevronUp } from "lucide-react";
 
-export default function FloatingActions({ discordUrl, registerUrl }) {
+export default function FloatingActions({ discordUrl, registerUrl, onOpenRegister }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -78,22 +78,42 @@ export default function FloatingActions({ discordUrl, registerUrl }) {
           </a>
 
           {/* 2. Daftar Menjadi Anggota */}
-          <a
-            href={finalRegister}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setIsOpen(false)}
-            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider"
-            title="Daftar Menjadi Anggota Resmi LSM PPS"
-          >
-            <div className="w-7 h-7 rounded bg-[#DC2626] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <UserPlus size={15} />
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="leading-tight">Daftar Menjadi Anggota LSM PPS</span>
-            </div>
-            <ExternalLink size={13} className="text-[#111827] opacity-75 group-hover:opacity-100 ml-1 transition-opacity shrink-0" />
-          </a>
+          {onOpenRegister ? (
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onOpenRegister();
+              }}
+              className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
+              title="Daftar Menjadi Anggota Resmi LSM PPS Langsung di Web"
+            >
+              <div className="w-7 h-7 rounded bg-[#DC2626] text-white flex items-center justify-center shrink-0 shadow-sm">
+                <UserPlus size={15} />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="leading-tight">Daftar Anggota LSM PPS</span>
+              </div>
+              <span className="text-[10px] font-mono bg-black/10 px-1.5 py-0.5 rounded font-bold">FORM</span>
+            </button>
+          ) : (
+            <a
+              href={finalRegister}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsOpen(false)}
+              className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider"
+              title="Daftar Menjadi Anggota Resmi LSM PPS"
+            >
+              <div className="w-7 h-7 rounded bg-[#DC2626] text-white flex items-center justify-center shrink-0 shadow-sm">
+                <UserPlus size={15} />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="leading-tight">Daftar Menjadi Anggota LSM PPS</span>
+              </div>
+              <ExternalLink size={13} className="text-[#111827] opacity-75 group-hover:opacity-100 ml-1 transition-opacity shrink-0" />
+            </a>
+          )}
         </div>
 
         {/* Trigger Button: PPS Logo Floating Action Button */}

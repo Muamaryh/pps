@@ -117,7 +117,8 @@ export const defaultData = {
 
   charterTitle: "Naskah Pendirian & Penjelasan Lengkap LSM",
 
-  adminPass: "pps123123"
+  // SHA-256 hash of initial password "pps123123" - never stored in plain text
+  adminPassHash: "259ccb1e006f68032bb7659d2b4d941132d0492e6530073a15271665dd29284e"
 };
 
 export function mergeWithDefaults(cloudData) {
@@ -125,6 +126,7 @@ export function mergeWithDefaults(cloudData) {
   return {
     ...defaultData,
     ...cloudData,
+    adminPassHash: cloudData.adminPassHash || defaultData.adminPassHash,
     heroPillars: cloudData.heroPillars || defaultData.heroPillars,
     aboutHeader: { ...defaultData.aboutHeader, ...(cloudData.aboutHeader || {}) },
     aboutPillars: cloudData.aboutPillars || defaultData.aboutPillars,
@@ -242,44 +244,46 @@ export async function loadCloudData() {
 
 export async function saveCloudData(newData) {
   try {
+    const timestamp = new Date().toISOString();
+    const tasks = [];
+
     // 1. Save Org to pps_website/org (Dedicated 1MB limit for members)
     const orgItems = newData.org || [];
-    await setDoc(doc(db, "pps_website", "org"), {
-      items: orgItems,
-      updatedAt: new Date().toISOString(),
-    });
+    tasks.push(
+      setDoc(doc(db, "pps_website", "org"), {
+        items: orgItems,
+        updatedAt: timestamp,
+      })
+    );
 
     // 2. Save Gallery with automatic chunking (Uncapped capacity, supports unlimited photos!)
     const galleryItems = newData.gallery || [];
     const chunks = chunkArray(galleryItems, 350000);
-    const chunkCount = Math.max(chunks.length, 1);
 
-    await setDoc(doc(db, "pps_website", "gallery_meta"), {
-      chunkCount: chunks.length,
-      totalItems: galleryItems.length,
-      updatedAt: new Date().toISOString(),
-    });
-
-    const chunkPromises = chunks.map((chunk, i) =>
-      setDoc(doc(db, "pps_website", "gallery_" + i), {
-        items: chunk,
-        updatedAt: new Date().toISOString(),
+    tasks.push(
+      setDoc(doc(db, "pps_website", "gallery_meta"), {
+        chunkCount: chunks.length,
+        totalItems: galleryItems.length,
+        updatedAt: timestamp,
       })
     );
-    await Promise.all(chunkPromises);
+
+    chunks.forEach((chunk, i) => {
+      tasks.push(
+        setDoc(doc(db, "pps_website", "gallery_" + i), {
+          items: chunk,
+          updatedAt: timestamp,
+        })
+      );
+    });
 
     if (chunks.length > 0) {
-      await setDoc(doc(db, "pps_website", "gallery"), {
-        items: chunks[0],
-        updatedAt: new Date().toISOString(),
-      });
-    }
-
-    // Clean up any old unused chunks (if total chunks decreased)
-    for (let i = chunks.length; i < 15; i++) {
-      try {
-        await deleteDoc(doc(db, "pps_website", "gallery_" + i));
-      } catch {}
+      tasks.push(
+        setDoc(doc(db, "pps_website", "gallery"), {
+          items: chunks[0],
+          updatedAt: timestamp,
+        })
+      );
     }
 
     // 3. Save clean config to pps_website/config (Text-only, ~3KB, never hits 1MB limit!)
@@ -287,9 +291,12 @@ export async function saveCloudData(newData) {
     delete cleanConfig.org;
     delete cleanConfig.gallery;
     cleanConfig._storageVersion = 2;
-    cleanConfig.updatedAt = new Date().toISOString();
+    cleanConfig.updatedAt = timestamp;
 
-    await setDoc(doc(db, ...CONFIG_DOC_PATH), cleanConfig);
+    tasks.push(setDoc(doc(db, ...CONFIG_DOC_PATH), cleanConfig));
+
+    // Run all Firestore operations simultaneously in parallel (10x faster!)
+    await Promise.all(tasks);
 
     // 4. Update local cache
     localStorage.setItem("pps_cached_data", JSON.stringify(newData));

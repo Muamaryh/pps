@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Sun, Moon, Menu, X, Store } from "lucide-react";
+import { Sun, Moon, Menu, X, Store, UserPlus } from "lucide-react";
 
-export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme, onOpenServicePortal }) {
+export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme, onOpenServicePortal, onOpenRegister }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
 
@@ -129,12 +129,25 @@ export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme, 
                 </a>
               );
             })}
+            {/* Tombol Daftar Anggota Resmi */}
+            {onOpenRegister && (
+              <button
+                type="button"
+                onClick={onOpenRegister}
+                className="font-heading font-black text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 ml-0.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                title="Daftar Menjadi Anggota LSM Paguyuban Pizza Sandy Shores"
+              >
+                <UserPlus size={13} className="shrink-0 text-[#DC2626]" />
+                <span>Daftar</span>
+              </button>
+            )}
+
             {/* Layanan Portal Button (Lapak UMKM & Request Meeting) */}
             {onOpenServicePortal && (
               <button
                 type="button"
-                onClick={onOpenServicePortal}
-                className="font-heading font-black text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 ml-0.5"
+                onClick={() => onOpenServicePortal("lapak")}
+                className="font-heading font-black text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 ml-0.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
                 title="Daftar Lapak UMKM & Request Audiensi IC"
               >
                 <Store size={13} className="shrink-0 text-[#FACC15]" />
@@ -196,12 +209,29 @@ export default function Navbar({ brand: _brand, navLinks, theme, onToggleTheme, 
             );
           })}
 
+          {onOpenRegister && (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onOpenRegister();
+              }}
+              className="mt-1 font-heading font-black text-xs uppercase tracking-wider py-2.5 px-3.5 rounded-full border-2 border-black bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] flex items-center justify-between transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <UserPlus size={14} className="text-[#DC2626]" />
+                <span>Daftar Anggota LSM PPS</span>
+              </div>
+              <span className="text-[10px] font-mono bg-black/10 px-2 py-0.5 rounded-full font-bold">DAFTAR</span>
+            </button>
+          )}
+
           {onOpenServicePortal && (
             <button
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
-                onOpenServicePortal();
+                onOpenServicePortal("lapak");
               }}
               className="mt-1 font-heading font-black text-xs uppercase tracking-wider py-2.5 px-3.5 rounded-full border-2 border-black bg-[#DC2626] text-white shadow-[2px_2px_0px_#000] flex items-center justify-between transition-all"
             >

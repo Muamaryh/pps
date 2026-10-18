@@ -6,41 +6,52 @@ import Tesseract from "tesseract.js";
  * - Enhances contrast
  */
 export async function preprocessImageForOcr(imageFileOrUrl) {
+  if (typeof window === "undefined" || typeof Image === "undefined") {
+    return imageFileOrUrl;
+  }
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
+        const maxDim = 1600;
+        let width = img.width;
+        let height = img.height;
 
-        // Scale to around 1000px width for fast yet sharp OCR
-        const targetWidth = Math.min(Math.max(img.width, 800), 1200);
-        const scale = targetWidth / img.width;
-        const targetHeight = Math.round(img.height * scale);
-
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-
-        // Draw original
-        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-
-        // Enhance contrast slightly
-        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-        const d = imageData.data;
-        const contrast = 1.15; // +15% contrast
-        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-
-        for (let i = 0; i < d.length; i += 4) {
-          d[i] = factor * (d[i] - 128) + 128;     // R
-          d[i + 1] = factor * (d[i + 1] - 128) + 128; // G
-          d[i + 2] = factor * (d[i + 2] - 128) + 128; // B
+        // If the image is reasonably sized (800-1600px), use the raw source directly to preserve maximum fidelity
+        if (width >= 800 && width <= maxDim && height <= maxDim) {
+          resolve(typeof imageFileOrUrl === "string" ? imageFileOrUrl : URL.createObjectURL(imageFileOrUrl));
+          return;
         }
-        ctx.putImageData(imageData, 0, 0);
 
-        resolve(canvas.toDataURL("image/jpeg", 0.9));
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+        // Maintain sharp resolution without destructive contrast
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        } else if (width < 800) {
+          const upscale = 800 / width;
+          width = 800;
+          height = Math.round(height * upscale);
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Export as lossless PNG to avoid lossy JPEG ringing around characters
+        resolve(canvas.toDataURL("image/png"));
       } catch (err) {
-        // If canvas fails (e.g. CORS), fallback to original source
         console.warn("Canvas preprocessing skipped:", err);
         resolve(typeof imageFileOrUrl === "string" ? imageFileOrUrl : URL.createObjectURL(imageFileOrUrl));
       }
@@ -89,8 +100,8 @@ export function parseKtpOcrText(rawText) {
   const cleanVal = (val) => {
     if (!val) return "";
     return val
-      .replace(/^[:\-=\|\s]+/, "")
-      .replace(/[:\-=\|]+$/, "")
+      .replace(/^[:\-=\|;,\.\s]+/, "")
+      .replace(/[:\-=\|;,\.\s]+$/, "")
       .trim();
   };
 
@@ -208,8 +219,11 @@ export function parseKtpOcrText(rawText) {
         val = cleanVal(lines[i + 1]);
       }
       if (val) {
+        if (/^[A-Za-z]{1,4}\s+\d{3,10}$/.test(val)) {
+          val = val.replace(/\s+/g, "");
+        }
         const idMatch = val.match(/[A-Z0-9_-]{3,20}/i);
-        result.citizenId = idMatch ? idMatch[0].toUpperCase() : val;
+        result.citizenId = idMatch ? idMatch[0].toUpperCase() : val.toUpperCase();
       }
     }
   }
@@ -221,7 +235,7 @@ export function parseKtpOcrText(rawText) {
   }
 
   if (!result.citizenId) {
-    const candidate = rawText.match(/\b(CTZ[-_]?[A-Z0-9]+|CID[-_]?[A-Z0-9]+|[A-Z]{2,4}\d{4,8})\b/i);
+    const candidate = rawText.match(/\b(CTZ[-_]?[A-Z0-9]+|CID[-_]?[A-Z0-9]+|[A-Z]{1,4}\d{4,8})\b/i);
     if (candidate) result.citizenId = candidate[1].toUpperCase();
   }
 

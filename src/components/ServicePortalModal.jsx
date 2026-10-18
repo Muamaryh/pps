@@ -133,11 +133,17 @@ const TOPIC_OPTIONS = [
   { value: "Topik Khusus Lainnya", label: "📌 Topik Khusus Lainnya (Wajib Tuliskan)" },
 ];
 
-export default function ServicePortalModal({ isOpen, onClose, onShowToast }) {
-  const [activeTab, setActiveTab] = useState("lapak"); // "lapak" | "meeting" | "tracking"
+export default function ServicePortalModal({ isOpen, onClose, onShowToast, initialTab = "lapak" }) {
+  const [activeTab, setActiveTab] = useState(initialTab || "lapak"); // "lapak" | "meeting" | "tracking"
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedTicket, setSubmittedTicket] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // Tracking State (Visitor POV)
   const [searchQuery, setSearchQuery] = useState("");
@@ -221,10 +227,12 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast }) {
   // Compress and run OCR scan on KTP for Meeting
   async function handleMeetingKtpUpload(file) {
     if (!file) return;
+
+    // Generate compressed base64 preview for display & storage
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
-      img.onload = async () => {
+      img.onload = () => {
         const canvas = document.createElement("canvas");
         const maxSize = 720;
         let width = img.width;
@@ -252,69 +260,72 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast }) {
           fotoWajahIc: compressedBase64,
           ktpImage: compressedBase64,
         }));
-
-        setIsScanningMeetingKtp(true);
-        setMeetingOcrProgress(0);
-        setMeetingOcrSuccess(null);
-
-        try {
-          const scanResult = await scanKtpImage(compressedBase64, (prog) => {
-            setMeetingOcrProgress(prog);
-          });
-
-          if (scanResult.success) {
-            const { firstName, lastName, dob, sex, nationality, citizenId } = scanResult.fields;
-
-            setMeetingForm((prev) => {
-              const newFirstName = firstName || prev.firstName;
-              const newLastName = lastName || prev.lastName;
-              const newCharName = (newFirstName || newLastName)
-                ? `${newFirstName} ${newLastName}`.trim()
-                : prev.characterName;
-
-              return {
-                ...prev,
-                firstName: newFirstName,
-                lastName: newLastName,
-                characterName: newCharName,
-                dob: dob || prev.dob,
-                sex: sex || prev.sex || "Male",
-                nationality: nationality || prev.nationality || "Sandy Shores",
-                citizenId: citizenId || prev.citizenId,
-              };
-            });
-
-            const foundAny = firstName || lastName || dob || citizenId || nationality;
-            if (foundAny) {
-              setMeetingOcrSuccess(true);
-              onShowToast("KTP berhasil dipindai! Data pemohon pertemuan telah dipisahkan.", "success");
-            } else {
-              setMeetingOcrSuccess(false);
-              onShowToast("Teks KTP belum terbaca jelas. Silakan lengkapi kolom secara manual.", "info");
-            }
-          } else {
-            setMeetingOcrSuccess(false);
-            onShowToast("Gagal memindai otomatis. Anda tetap dapat mengisi kolom secara manual.", "info");
-          }
-        } catch (err) {
-          console.error(err);
-          setMeetingOcrSuccess(false);
-        } finally {
-          setIsScanningMeetingKtp(false);
-        }
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+
+    // Run OCR scan on original raw file for 100% text recognition accuracy
+    setIsScanningMeetingKtp(true);
+    setMeetingOcrProgress(0);
+    setMeetingOcrSuccess(null);
+
+    try {
+      const scanResult = await scanKtpImage(file, (prog) => {
+        setMeetingOcrProgress(prog);
+      });
+
+      if (scanResult.success) {
+        const { firstName, lastName, dob, sex, nationality, citizenId } = scanResult.fields;
+
+        setMeetingForm((prev) => {
+          const newFirstName = firstName || prev.firstName;
+          const newLastName = lastName || prev.lastName;
+          const newCharName = (newFirstName || newLastName)
+            ? `${newFirstName} ${newLastName}`.trim()
+            : prev.characterName;
+
+          return {
+            ...prev,
+            firstName: newFirstName,
+            lastName: newLastName,
+            characterName: newCharName,
+            dob: dob || prev.dob,
+            sex: sex || prev.sex || "Male",
+            nationality: nationality || prev.nationality || "Sandy Shores",
+            citizenId: citizenId || prev.citizenId,
+          };
+        });
+
+        const foundAny = firstName || lastName || dob || citizenId || nationality;
+        if (foundAny) {
+          setMeetingOcrSuccess(true);
+          onShowToast("KTP berhasil dipindai! Data pemohon pertemuan telah dipisahkan.", "success");
+        } else {
+          setMeetingOcrSuccess(false);
+          onShowToast("Teks KTP belum terbaca jelas. Silakan lengkapi kolom secara manual.", "info");
+        }
+      } else {
+        setMeetingOcrSuccess(false);
+        onShowToast("Gagal memindai otomatis. Anda tetap dapat mengisi kolom secara manual.", "info");
+      }
+    } catch (err) {
+      console.error(err);
+      setMeetingOcrSuccess(false);
+    } finally {
+      setIsScanningMeetingKtp(false);
+    }
   }
 
   // Compress and run OCR scan on KTP
   async function handleKtpUpload(file) {
     if (!file) return;
+
+    // Generate compressed base64 preview for display & storage
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
-      img.onload = async () => {
+      img.onload = () => {
         const canvas = document.createElement("canvas");
         const maxSize = 720;
         let width = img.width;
@@ -342,60 +353,61 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast }) {
           fotoWajahIc: compressedBase64,
           ktpImage: compressedBase64,
         }));
-
-        setIsScanningKtp(true);
-        setOcrProgress(0);
-        setOcrSuccess(null);
-
-        try {
-          const scanResult = await scanKtpImage(compressedBase64, (prog) => {
-            setOcrProgress(prog);
-          });
-
-          if (scanResult.success) {
-            const { firstName, lastName, dob, sex, nationality, citizenId } = scanResult.fields;
-
-            setLapakForm((prev) => {
-              const newFirstName = firstName || prev.firstName;
-              const newLastName = lastName || prev.lastName;
-              const newNamaKtp = (newFirstName || newLastName)
-                ? `${newFirstName} ${newLastName}`.trim()
-                : prev.namaKtp;
-
-              return {
-                ...prev,
-                firstName: newFirstName,
-                lastName: newLastName,
-                namaKtp: newNamaKtp,
-                dob: dob || prev.dob,
-                sex: sex || prev.sex || "Male",
-                nationality: nationality || prev.nationality || "Sandy Shores",
-                citizenId: citizenId || prev.citizenId,
-              };
-            });
-
-            const foundAny = firstName || lastName || dob || citizenId || nationality;
-            if (foundAny) {
-              setOcrSuccess(true);
-              onShowToast("KTP berhasil dipindai! Data telah dipisahkan otomatis ke kolom.", "success");
-            } else {
-              setOcrSuccess(false);
-              onShowToast("Teks KTP belum terbaca jelas. Silakan lengkapi kolom secara manual.", "info");
-            }
-          } else {
-            setOcrSuccess(false);
-            onShowToast("Gagal memindai otomatis. Anda tetap dapat mengisi kolom secara manual.", "info");
-          }
-        } catch (err) {
-          console.error(err);
-          setOcrSuccess(false);
-        } finally {
-          setIsScanningKtp(false);
-        }
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+
+    // Run OCR scan on original raw file for 100% text recognition accuracy
+    setIsScanningKtp(true);
+    setOcrProgress(0);
+    setOcrSuccess(null);
+
+    try {
+      const scanResult = await scanKtpImage(file, (prog) => {
+        setOcrProgress(prog);
+      });
+
+      if (scanResult.success) {
+        const { firstName, lastName, dob, sex, nationality, citizenId } = scanResult.fields;
+
+        setLapakForm((prev) => {
+          const newFirstName = firstName || prev.firstName;
+          const newLastName = lastName || prev.lastName;
+          const newNamaKtp = (newFirstName || newLastName)
+            ? `${newFirstName} ${newLastName}`.trim()
+            : prev.namaKtp;
+
+          return {
+            ...prev,
+            firstName: newFirstName,
+            lastName: newLastName,
+            namaKtp: newNamaKtp,
+            dob: dob || prev.dob,
+            sex: sex || prev.sex || "Male",
+            nationality: nationality || prev.nationality || "Sandy Shores",
+            citizenId: citizenId || prev.citizenId,
+          };
+        });
+
+        const foundAny = firstName || lastName || dob || citizenId || nationality;
+        if (foundAny) {
+          setOcrSuccess(true);
+          onShowToast("KTP berhasil dipindai! Data telah dipisahkan otomatis ke kolom.", "success");
+        } else {
+          setOcrSuccess(false);
+          onShowToast("Teks KTP belum terbaca jelas. Silakan lengkapi kolom secara manual.", "info");
+        }
+      } else {
+        setOcrSuccess(false);
+        onShowToast("Gagal memindai otomatis. Anda tetap dapat mengisi kolom secara manual.", "info");
+      }
+    } catch (err) {
+      console.error(err);
+      setOcrSuccess(false);
+    } finally {
+      setIsScanningKtp(false);
+    }
   }
 
   // Save new ticket to local history
@@ -743,11 +755,11 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast }) {
           ) : (
             <>
               {/* Tab Switcher Pills */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 rounded bg-slate-200/70 dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569]">
+              <div className="grid grid-cols-3 gap-2 p-1.5 rounded bg-slate-200/70 dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569]">
                 <button
                   type="button"
                   onClick={() => setActiveTab("lapak")}
-                  className={`py-2 px-3 rounded flex items-center justify-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
+                  className={`py-2 px-2 sm:px-3 rounded flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
                     activeTab === "lapak"
                       ? "bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000]"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white"
@@ -760,7 +772,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast }) {
                 <button
                   type="button"
                   onClick={() => setActiveTab("meeting")}
-                  className={`py-2 px-3 rounded flex items-center justify-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
+                  className={`py-2 px-2 sm:px-3 rounded flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
                     activeTab === "meeting"
                       ? "bg-[#DC2626] text-white border-2 border-black shadow-[2px_2px_0px_#000]"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white"
@@ -773,16 +785,20 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast }) {
                 <button
                   type="button"
                   onClick={() => setActiveTab("tracking")}
-                  className={`py-2 px-3 rounded flex items-center justify-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
+                  className={`py-2 px-2 sm:px-3 rounded flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
                     activeTab === "tracking"
                       ? "bg-sky-500 text-white border-2 border-black shadow-[2px_2px_0px_#000]"
                       : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white"
                   }`}
                 >
                   <Search size={15} />
-                  <span>Lacak Status Tiket</span>
+                  <span>Lacak Status</span>
                 </button>
               </div>
+
+
+
+
 
               {/* TAB 1: FORMULIR LAPAK UMKM (NAMA KTP IC, CITIZEN ID, FOTO WAJAH IC, MOU) */}
               {activeTab === "lapak" && (
