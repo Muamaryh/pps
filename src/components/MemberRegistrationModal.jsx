@@ -324,12 +324,12 @@ export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }
                       {/* Copy Box */}
                       <div className="mt-2 p-2.5 bg-white dark:bg-[#14161F] border-2 border-black dark:border-[#475569] rounded shadow-[2px_2px_0px_#000] flex flex-col gap-2">
                         <div className="font-mono text-xs text-slate-900 dark:text-slate-100 whitespace-pre-line leading-relaxed select-all">
-                          {`Nama Lengkap : ${submittedData.fullName || ""}\nCitizen ID : ${submittedData.icNumber || ""}\nNo HP IC : ${submittedData.phone || ""}`}
+                          {`Nama Lengkap : ${submittedData.fullName || ""}\nCitizen ID : ${submittedData.icNumber || ""}\nNo HP IC : ${submittedData.phone || ""}\nRole : Anggota`}
                         </div>
                         <button
                           type="button"
                           onClick={() => {
-                            const copyText = `Nama Lengkap : ${submittedData.fullName || ""}\nCitizen ID : ${submittedData.icNumber || ""}\nNo HP IC : ${submittedData.phone || ""}`;
+                            const copyText = `Nama Lengkap : ${submittedData.fullName || ""}\nCitizen ID : ${submittedData.icNumber || ""}\nNo HP IC : ${submittedData.phone || ""}\nRole : Anggota`;
                             navigator.clipboard.writeText(copyText);
                             setCopySuccess(true);
                             if (onShowToast) onShowToast("Format data anggota berhasil disalin!", "success");

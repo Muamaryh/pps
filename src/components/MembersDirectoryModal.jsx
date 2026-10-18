@@ -112,9 +112,6 @@ export default function MembersDirectoryModal({
                   {isLoading ? "Memuat..." : `${members.length} Anggota Terdaftar`}
                 </span>
               </div>
-              <span className="text-[11px] text-slate-600 dark:text-slate-400 hidden md:inline">
-                Tersinkronisasi otomatis dari database resmi LSM PPS.
-              </span>
             </div>
 
             {/* Quick Action: Daftar Baru */}
@@ -189,11 +186,6 @@ export default function MembersDirectoryModal({
                       className="w-full h-full object-contain select-none"
                     />
                   </div>
-
-                  {/* Corner mini floating pizza badge */}
-                  <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-[#FACC15] border-2 border-black flex items-center justify-center text-sm shadow-[2px_2px_0px_#000]">
-                    🍕
-                  </div>
                 </div>
 
                 {/* Loading Status Pill */}
@@ -206,7 +198,7 @@ export default function MembersDirectoryModal({
                   Sinkronisasi Direktori Paguyuban
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm mt-1 mb-6">
-                  Menghubungkan ke arsip database resmi LSM Paguyuban Pizza Sandy Shores. Mohon tunggu sebentar...
+                  Memuat data anggota resmi LSM Paguyuban Pizza Sandy Shores. Mohon tunggu sebentar...
                 </p>
 
                 {/* Shimmer skeleton card previews */}
