@@ -185,7 +185,7 @@ export default function App() {
         hash === "#/discord" ||
         hash === "#discord"
       ) {
-        window.location.href = "https://discord.gg/TGKaHh8JhB";
+        window.location.href = "https://discord.gg/auX6XYNfgz";
       }
     }
 
@@ -290,7 +290,7 @@ export default function App() {
   }
 
   // Extract Discord and Register URLs from navLinks if customized
-  let discordUrl = "https://discord.gg/TGKaHh8JhB";
+  let discordUrl = "https://discord.gg/auX6XYNfgz";
   let registerUrl = "https://daftaranggotapaps.netlify.app/";
 
   if (data.navLinks) {

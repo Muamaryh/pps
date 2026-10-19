@@ -19,7 +19,7 @@ import {
 import { submitMemberCloud } from "../services/memberService";
 import { scanKtpImage } from "../utils/ktpOcr";
 
-const DISCORD_INVITE_URL = "https://discord.gg/TGKaHh8JhB";
+const DISCORD_INVITE_URL = "https://discord.gg/auX6XYNfgz";
 
 export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }) {
   const [isSubmitting, setIsSubmitting] = useState(false);

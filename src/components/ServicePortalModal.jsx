@@ -32,8 +32,8 @@ import BrutalistSelect from "./BrutalistSelect";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import { scanKtpImage } from "../utils/ktpOcr";
 
-const DISCORD_SERVER_INVITE_URL = "https://discord.gg/92QASf3fus";
-const DISCORD_VISITOR_CHANNEL_URL = "https://discord.gg/vQYsJEKyEb";
+const DISCORD_SERVER_INVITE_URL = "https://discord.gg/duZhRpJEWY";
+const DISCORD_VISITOR_CHANNEL_URL = "https://discord.gg/duZhRpJEWY";
 
 // Helper untuk membuka gambar Base64 di Tab Baru tanpa blank
 function openImageSafely(dataUrl, title = "Dokumen KTP IC") {
@@ -138,6 +138,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedTicket, setSubmittedTicket] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedVisitorData, setCopiedVisitorData] = useState(false);
 
   useEffect(() => {
     if (isOpen && initialTab) {
@@ -603,6 +604,38 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
     onShowToast("Ringkasan tiket berhasil disalin ke clipboard!", "success");
   }
 
+  function getVisitorFormatText(ticket) {
+    if (!ticket) return "";
+    const isLapak = ticket.type === "lapak";
+    const fullName = (ticket.firstName || ticket.lastName)
+      ? `${ticket.firstName || ""} ${ticket.lastName || ""}`.trim()
+      : (ticket.namaKtp || ticket.characterName || "-");
+    const nationality = ticket.nationality || "INDONESIA";
+    const citizenId = ticket.citizenId || "-";
+    const phoneNumber = ticket.phoneNumber || "-";
+
+    if (isLapak) {
+      const businessName = ticket.businessName || "-";
+      const businessType = ticket.businessType || "-";
+      const standNeeds = ticket.standNeeds || "-";
+      return `Rincian Profil Pemohon\nNama Lengkap : ${fullName}\nKewarganegaraan : ${nationality}\nNomor KTP IC : ${citizenId}\nNomor HP IC : ${phoneNumber}\nRole : VISITOR\n\nRincian Usaha & Lokasi Lapak\nNama Usaha/Stan : ${businessName}\nJenis Usaha/Produk : ${businessType}\nLokasi Lapak : Area Pizza Sandy Shores\nKebutuhan Stan/Fasilitas : ${standNeeds}`;
+    } else {
+      const discordTag = ticket.discordTag || "-";
+      const agencyName = ticket.agencyName || "-";
+      const meetingTopic = ticket.meetingTopic || "-";
+      return `Rincian Profil Pemohon\nTag / Username Discord (OOC) : ${discordTag}\nNama Lengkap : ${fullName}\nKewarganegaraan : ${nationality}\nNomor KTP IC : ${citizenId}\nNomor HP IC : ${phoneNumber}\nAsal Instansi / Fraksi / Komunitas : ${agencyName}\nTopik Pokok Pertemuan : ${meetingTopic}\nRole : VISITOR`;
+    }
+  }
+
+  function handleCopyVisitorData() {
+    if (!submittedTicket) return;
+    const text = getVisitorFormatText(submittedTicket);
+    navigator.clipboard.writeText(text);
+    setCopiedVisitorData(true);
+    setTimeout(() => setCopiedVisitorData(false), 2000);
+    onShowToast("Format data visitor berhasil disalin!", "success");
+  }
+
   function handleResetAndClose() {
     setSubmittedTicket(null);
     onClose();
@@ -653,105 +686,167 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-4">
           {submittedTicket ? (
             /* Ticket Receipt Success Screen */
-            <div className="py-4 flex flex-col items-center text-center max-w-xl mx-auto">
-              <div className="w-14 h-14 rounded-full bg-emerald-500 text-white border-[3px] border-black flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000]">
-                <CheckCircle2 size={30} />
-              </div>
-              <span className="badge-brutal text-xs py-1 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black mb-1.5 shadow-[2px_2px_0px_#000]">
-                PENGAJUAN TERCATAT • #{submittedTicket.id}
-              </span>
-              <h3 className="font-heading font-black text-lg sm:text-2xl text-slate-950 dark:text-slate-100 uppercase">
-                MOU & Berkas Berhasil Diterima!
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 mb-4">
-                Pengurus LSM PPS akan memverifikasi berkas KTP & mengatur pertemuan (meeting) tatap muka di wilayah Sandy Shores.
-              </p>
+            (() => {
+              const isLapak = submittedTicket.type === "lapak";
+              const fullName = (submittedTicket.firstName || submittedTicket.lastName)
+                ? `${submittedTicket.firstName || ""} ${submittedTicket.lastName || ""}`.trim()
+                : (submittedTicket.namaKtp || submittedTicket.characterName || "-");
+              const visitorFormatText = getVisitorFormatText(submittedTicket);
 
-              {/* Langkah Wajib Lanjutan dari Pihak LSM PPS */}
-              <div className="w-full text-left p-4 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col gap-3 mb-4">
-                <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] border-b pb-2 border-black/15 dark:border-white/15">
-                  <ShieldCheck size={16} />
-                  <span>ALUR VERIFIKASI & JAWABAN RESMI LSM PPS:</span>
-                </div>
-
-                <div className="text-xs space-y-2.5 text-slate-800 dark:text-slate-200">
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[10px]">
-                      1
-                    </span>
-                    <div>
-                      <strong>MOU & Berkas Identitas Disimpan:</strong> Data KTP IC ({submittedTicket.namaKtp || submittedTicket.characterName}), Citizen ID ({submittedTicket.citizenId || "-"}), dan persetujuan MOU Anda sudah masuk antrean verifikasi.
-                    </div>
+              return (
+                <div className="py-4 flex flex-col items-center text-center max-w-xl mx-auto">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500 text-white border-[3px] border-black flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000]">
+                    <CheckCircle2 size={30} />
                   </div>
-
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[10px]">
-                      2
-                    </span>
-                    <div>
-                      <strong>Wajib Masuk Discord & Isi Data Visitor:</strong> Silakan klik tombol di bawah untuk membuka channel visitor Discord LSM PPS. Di sana Anda cukup mengisi data visitor singkat agar pengurus dapat memberikan role visitor (hanya dapat melihat channel publik layanan & koordinasi).
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[10px]">
-                      3
-                    </span>
-                    <div>
-                      <strong>Penjadwalan Pertemuan / Meeting IC:</strong> Pengurus LSM PPS akan menghubungi Anda via Discord / Telepon IC untuk verifikasi langsung di lapangan dan penetapan titik lapak Sandy Shores.
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tombol Langsung ke Discord Visitor Channel */}
-                <div className="flex flex-col gap-1.5 mt-1">
-                  <a
-                    href={DISCORD_VISITOR_CHANNEL_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-                    </svg>
-                    <span>Masuk ke Channel Visitor Discord</span>
-                    <ExternalLink size={13} />
-                  </a>
-                  <p className="text-[11px] text-slate-500 text-center leading-tight">
-                    Tautan invite resmi yang otomatis mengarahkan Anda langsung mendarat di channel visitor server Discord LSM PPS.
+                  <span className="badge-brutal text-xs py-1 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black mb-1.5 shadow-[2px_2px_0px_#000]">
+                    PENGAJUAN TERCATAT • #{submittedTicket.id}
+                  </span>
+                  <h3 className="font-heading font-black text-lg sm:text-2xl text-slate-950 dark:text-slate-100 uppercase">
+                    {isLapak ? "MOU & Berkas Berhasil Diterima!" : "Permohonan Meeting Berhasil Diterima!"}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 mb-4">
+                    {isLapak
+                      ? "Pengurus LSM PPS akan memverifikasi berkas KTP & mengatur pertemuan (meeting) tatap muka di wilayah Sandy Shores."
+                      : "Pengurus LSM PPS akan meninjau agenda audiensi & menghubungi perwakilan instansi/komunitas Anda."}
                   </p>
+
+                  {/* Langkah Wajib Lanjutan dari Pihak LSM PPS */}
+                  <div className="w-full text-left p-4 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col gap-3.5 mb-4">
+                    <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] border-b pb-2 border-black/15 dark:border-white/15">
+                      <ShieldCheck size={16} />
+                      <span>ALUR VERIFIKASI & JAWABAN RESMI LSM PPS:</span>
+                    </div>
+
+                    <div className="text-xs space-y-3.5 text-slate-800 dark:text-slate-200">
+                      {/* Step 1 */}
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[10px]">
+                          1
+                        </span>
+                        <div>
+                          <strong>{isLapak ? "MOU & Berkas Identitas Disimpan:" : "Berkas Permohonan Disimpan:"}</strong>{" "}
+                          {isLapak ? (
+                            <>Data KTP IC (<strong>{fullName}</strong>), Citizen ID (<strong>{submittedTicket.citizenId || "-"}</strong>), dan persetujuan MOU Anda sudah masuk antrean verifikasi.</>
+                          ) : (
+                            <>Data KTP IC (<strong>{fullName}</strong>), Citizen ID (<strong>{submittedTicket.citizenId || "-"}</strong>), instansi/komunitas (<strong>{submittedTicket.agencyName || "-"}</strong>), dan topik pertemuan sudah masuk antrean verifikasi.</>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[10px]">
+                          2
+                        </span>
+                        <div className="flex-1 space-y-2">
+                          <div>
+                            <strong>Wajib Masuk Discord & Isi Data Visitor:</strong> Silakan salin format data visitor di bawah ini dan kirimkan ke channel visitor server Discord LSM PPS agar pengurus dapat segera memberikan role visitor (hanya dapat melihat channel publik layanan & koordinasi).
+                          </div>
+
+                          {/* Box Salin Format Data Visitor */}
+                          <div className="rounded border-2 border-black dark:border-[#475569] bg-slate-100 dark:bg-[#14161E] p-3 shadow-[2px_2px_0px_#000]">
+                            <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-black/10 dark:border-white/10">
+                              <span className="font-heading font-black text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                Format Data Visitor ({isLapak ? "Lapak UMKM" : "Request Meeting"})
+                              </span>
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                <Sparkles size={11} />
+                                Otomatis Terisi
+                              </span>
+                            </div>
+                            <pre className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all text-slate-900 dark:text-slate-100 bg-white dark:bg-[#1C1F2B] p-2.5 rounded border border-black/20 dark:border-white/10 overflow-x-auto">
+                              {visitorFormatText}
+                            </pre>
+                            <button
+                              type="button"
+                              onClick={handleCopyVisitorData}
+                              className={`mt-2.5 w-full btn text-xs py-2 px-3 border-2 border-black font-heading font-black flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] transition-all ${
+                                copiedVisitorData
+                                  ? "bg-emerald-500 text-white"
+                                  : "bg-[#FACC15] hover:bg-[#FDE047] text-[#111827]"
+                              }`}
+                            >
+                              {copiedVisitorData ? (
+                                <>
+                                  <Check size={14} className="stroke-[3]" />
+                                  <span>Format Data Visitor Berhasil Disalin!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={14} />
+                                  <span>Salin Format Data Visitor</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[10px]">
+                          3
+                        </span>
+                        <div>
+                          <strong>{isLapak ? "Penjadwalan Pertemuan / Meeting IC:" : "Penjadwalan & Konfirmasi Meeting IC:"}</strong>{" "}
+                          {isLapak
+                            ? "Pengurus LSM PPS akan menghubungi Anda via Discord / Telepon IC untuk verifikasi langsung di lapangan dan penetapan titik lapak Sandy Shores."
+                            : "Pengurus LSM PPS akan menghubungi Anda via Discord / Telepon IC untuk konfirmasi jadwal waktu dan penetapan lokasi pertemuan audiensi."}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tombol Langsung ke Discord Visitor Channel */}
+                    <div className="flex flex-col gap-1.5 mt-1 pt-2.5 border-t border-black/10 dark:border-white/10">
+                      <a
+                        href={DISCORD_VISITOR_CHANNEL_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                        </svg>
+                        <span>Masuk ke Channel Visitor Discord LSM PPS</span>
+                        <ExternalLink size={13} />
+                      </a>
+                      <p className="text-[11px] text-slate-500 text-center leading-tight">
+                        Tautan invite resmi yang otomatis mengarahkan Anda langsung mendarat di channel visitor server Discord LSM PPS.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCopyTicket}
+                      className="btn btn-secondary text-xs py-2 px-4 border-2 border-black flex items-center gap-1.5"
+                    >
+                      {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                      <span>{copied ? "Tersalin!" : "Salin Ringkasan Tiket"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleTrackCurrentTicket(submittedTicket.id)}
+                      className="btn text-xs py-2 px-4 bg-sky-500 hover:bg-sky-600 text-white border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black flex items-center gap-1.5"
+                    >
+                      <Search size={14} />
+                      <span>Lacak Status Tiket Ini</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleResetAndClose}
+                      className="btn text-xs py-2 px-5 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black"
+                    >
+                      Selesai & Tutup
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleCopyTicket}
-                  className="btn btn-secondary text-xs py-2 px-4 border-2 border-black flex items-center gap-1.5"
-                >
-                  {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                  <span>{copied ? "Tersalin!" : "Salin Ringkasan Tiket"}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTrackCurrentTicket(submittedTicket.id)}
-                  className="btn text-xs py-2 px-4 bg-sky-500 hover:bg-sky-600 text-white border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black flex items-center gap-1.5"
-                >
-                  <Search size={14} />
-                  <span>Lacak Status Tiket Ini</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleResetAndClose}
-                  className="btn text-xs py-2 px-5 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black"
-                >
-                  Selesai & Tutup
-                </button>
-              </div>
-            </div>
+              );
+            })()
           ) : (
             <>
               {/* Tab Switcher Pills */}
