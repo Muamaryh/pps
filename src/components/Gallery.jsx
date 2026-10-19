@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { ZoomIn, Calendar, MapPin, Image as ImageIcon, ChevronDown, ChevronUp, Search, X, Layers } from "lucide-react";
+import { ZoomIn, Calendar, MapPin, Image as ImageIcon, ChevronDown, ChevronUp, Search, X, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 
 function getPhotos(item) {
   if (Array.isArray(item.photos) && item.photos.length > 0) {
@@ -43,7 +43,7 @@ function GalleryCard({ item, onOpenLightbox }) {
   }
 
   return (
-    <div className="card-brutal overflow-hidden bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[5px_5px_0px_#000000] flex flex-col group hover:translate-x-[1px] hover:translate-y-[1px] transition-transform">
+    <div className="card-brutal overflow-hidden bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[5px_5px_0px_#000000] flex flex-col group hover:-translate-y-1 hover:shadow-[7px_7px_0px_#000000] transition-all duration-200">
       {/* Image Viewport (Auto Slideshow + Multi-Photo Indicator) */}
       <div
         onClick={handleCardClick}
@@ -73,15 +73,43 @@ function GalleryCard({ item, onOpenLightbox }) {
 
             {/* Multi-Photo Count Badge */}
             {photos.length > 1 && (
-              <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-[#FACC15] text-[#111827] border-2 border-black font-black text-[10px] shadow-[1px_1px_0px_#000] flex items-center gap-1">
+              <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-[#FACC15] text-[#111827] border-2 border-black font-black text-[10px] shadow-[1px_1px_0px_#000] flex items-center gap-1 z-20">
                 <ImageIcon size={11} />
                 <span>{photos.length} Foto</span>
               </div>
             )}
 
+            {/* Interactive Left / Right Slide Arrow Buttons */}
+            {photos.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentSlide((prev) => (prev - 1 + photos.length) % photos.length);
+                  }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/75 hover:bg-[#FACC15] text-white hover:text-black border border-white/40 hover:border-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20 shadow-md cursor-pointer active:scale-90"
+                  title="Foto sebelumnya"
+                >
+                  <ChevronLeft size={16} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentSlide((prev) => (prev + 1) % photos.length);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/75 hover:bg-[#FACC15] text-white hover:text-black border border-white/40 hover:border-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-20 shadow-md cursor-pointer active:scale-90"
+                  title="Foto berikutnya"
+                >
+                  <ChevronRight size={16} strokeWidth={2.5} />
+                </button>
+              </>
+            )}
+
             {/* Bottom Slide Dots Indicator */}
             {photos.length > 1 && (
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-[2px] border border-white/20">
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-[2px] border border-white/20 z-20">
                 {photos.map((_, dotIdx) => (
                   <button
                     key={dotIdx}
@@ -100,7 +128,7 @@ function GalleryCard({ item, onOpenLightbox }) {
             )}
 
             {/* Hover Action Pill */}
-            <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded bg-[#DC2626] text-white border-2 border-black opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-heading font-black text-xs shadow-sm">
+            <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded bg-[#DC2626] text-white border-2 border-black opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-heading font-black text-xs shadow-sm z-20">
               <ZoomIn size={12} />
               <span>Lihat Foto {photos.length > 1 ? `(${photos.length})` : ""}</span>
             </div>
@@ -196,8 +224,9 @@ function parseDateScore(item) {
 }
 
 export default function Gallery({ gallery = [], onOpenLightbox }) {
-  // Search Query & Pagination state to avoid bottomless page scrolling
+  // Search Query & Category Filter state
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [visibleCount, setVisibleCount] = useState(6);
 
   // Newest events always first
@@ -218,18 +247,36 @@ export default function Gallery({ gallery = [], onOpenLightbox }) {
     return indexed.map((x) => x.item);
   }, [gallery]);
 
-  // Filtered by Search Query
+  // Filtered by Category & Search Query
   const filteredGallery = useMemo(() => {
-    if (!searchQuery.trim()) return displayGallery;
+    let list = displayGallery;
+
+    if (selectedCategory !== "all") {
+      list = list.filter((item) => {
+        const text = `${item.title || ""} ${item.desc || ""} ${item.location || ""}`.toLowerCase();
+        if (selectedCategory === "sosial") {
+          return /sosial|baksos|santunan|bantuan|warga|masyarakat|sembako|lingkungan|donasi/i.test(text);
+        }
+        if (selectedCategory === "umkm") {
+          return /umkm|lapak|usaha|pedagang|ekonomi|pasar|stan|bina|tenda/i.test(text);
+        }
+        if (selectedCategory === "rapat") {
+          return /rapat|koordinasi|mou|pertemuan|audiensi|musyawarah|briefing|evaluasi|sidang/i.test(text);
+        }
+        return true;
+      });
+    }
+
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase().trim();
-    return displayGallery.filter(
+    return list.filter(
       (item) =>
         (item.title || "").toLowerCase().includes(q) ||
         (item.desc || "").toLowerCase().includes(q) ||
         (item.location || "").toLowerCase().includes(q) ||
         (item.date || "").toLowerCase().includes(q)
     );
-  }, [displayGallery, searchQuery]);
+  }, [displayGallery, selectedCategory, searchQuery]);
 
   // Visible subset (default: 6 cards)
   const visibleItems = useMemo(() => {
@@ -281,6 +328,35 @@ export default function Gallery({ gallery = [], onOpenLightbox }) {
             {filteredGallery.length} DOKUMENTASI
           </div>
         </div>
+      </div>
+
+      {/* Category Filter Pills */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        {[
+          { id: "all", label: "Semua Dokumentasi" },
+          { id: "sosial", label: "Aksi Sosial & Warga" },
+          { id: "umkm", label: "Pemberdayaan UMKM" },
+          { id: "rapat", label: "Rapat & Koordinasi" },
+        ].map((cat) => {
+          const isActive = selectedCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => {
+                setSelectedCategory(cat.id);
+                setVisibleCount(6);
+              }}
+              className={`px-3 py-1.5 rounded text-xs font-heading font-black border-2 border-black dark:border-[#475569] transition-all cursor-pointer ${
+                isActive
+                  ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                  : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-[1px_1px_0px_#000]"
+              }`}
+            >
+              {cat.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Gallery Cards Grid */}

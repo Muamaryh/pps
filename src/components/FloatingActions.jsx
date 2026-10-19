@@ -1,9 +1,29 @@
 import React, { useState, useEffect, useRef } from "react";
-import { UserPlus, Users, Store, X, ChevronUp } from "lucide-react";
+import { UserPlus, Users, Store, X, ChevronUp, ArrowUp } from "lucide-react";
 
-export default function FloatingActions({ onOpenRegister, onOpenServicePortal, onOpenMembersDirectory }) {
+export default function FloatingActions({
+  onOpenRegister,
+  onOpenServicePortal,
+  onOpenMembersDirectory,
+  memberCount = 58,
+}) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const containerRef = useRef(null);
+
+  // Monitor window scroll position to show/hide Scroll-to-Top
+  useEffect(() => {
+    function handleScroll() {
+      setShowScrollTop(window.scrollY > 350);
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  function handleScrollToTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   // Auto-close on click outside or escape key
   useEffect(() => {
@@ -30,6 +50,8 @@ export default function FloatingActions({ onOpenRegister, onOpenServicePortal, o
     };
   }, [isOpen]);
 
+  const displayCount = memberCount ? `${memberCount}+` : "58+";
+
   return (
     <>
       {/* Backdrop overlay when open to easily dismiss on mobile & desktop */}
@@ -44,14 +66,27 @@ export default function FloatingActions({ onOpenRegister, onOpenServicePortal, o
       <aside
         ref={containerRef}
         aria-label="Aksi Cepat Komunitas"
-        className="fixed bottom-5 right-5 z-40 flex flex-col items-end pointer-events-auto"
+        className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-2.5 pointer-events-auto select-none"
       >
+        {/* Dedicated Tactile Scroll To Top Button (Appears when scrolled down) */}
+        {showScrollTop && (
+          <button
+            type="button"
+            onClick={handleScrollToTop}
+            aria-label="Kembali ke atas"
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white dark:bg-[#1E212B] hover:bg-[#FACC15] dark:hover:bg-[#FACC15] text-slate-900 hover:text-black dark:text-slate-100 dark:hover:text-black border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000] flex items-center justify-center hover:-translate-y-0.5 active:translate-y-1 transition-all cursor-pointer animate-fadeIn"
+            title="Kembali ke atas halaman"
+          >
+            <ArrowUp size={18} strokeWidth={2.5} />
+          </button>
+        )}
+
         {/* Animated Action Buttons List */}
         <div
-          className={`flex flex-col items-end gap-2.5 mb-3 origin-bottom-right transition-all duration-300 ease-out ${
+          className={`flex flex-col items-end gap-2.5 origin-bottom-right transition-all duration-300 ease-out ${
             isOpen
               ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
-              : "opacity-0 scale-75 translate-y-8 pointer-events-none"
+              : "opacity-0 scale-75 translate-y-8 pointer-events-none hidden"
           }`}
         >
           {/* 1. Anggota LSM PPS */}
@@ -71,7 +106,9 @@ export default function FloatingActions({ onOpenRegister, onOpenServicePortal, o
             <div className="flex flex-col text-left">
               <span className="leading-tight">Anggota LSM PPS</span>
             </div>
-            <span className="text-[10px] font-mono bg-black/10 text-slate-900 px-1.5 py-0.5 rounded font-bold">58+</span>
+            <span className="text-[10px] font-mono bg-black/10 text-slate-900 px-1.5 py-0.5 rounded font-bold">
+              {displayCount}
+            </span>
           </button>
 
           {/* 2. Daftar Layanan */}
@@ -90,7 +127,9 @@ export default function FloatingActions({ onOpenRegister, onOpenServicePortal, o
             <div className="flex flex-col text-left">
               <span className="leading-tight">Daftar Layanan</span>
             </div>
-            <span className="text-[10px] font-mono bg-black/25 text-white px-1.5 py-0.5 rounded font-bold">PORTAL</span>
+            <span className="text-[10px] font-mono bg-black/25 text-white px-1.5 py-0.5 rounded font-bold">
+              PORTAL
+            </span>
           </button>
         </div>
 
@@ -99,7 +138,7 @@ export default function FloatingActions({ onOpenRegister, onOpenServicePortal, o
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
-          className="group relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#FACC15] hover:bg-[#EAB308] border-[3px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[3px] active:translate-y-[3px] transition-all focus:outline-none"
+          className="group relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#FACC15] hover:bg-[#EAB308] border-[3px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[3px] active:translate-y-[3px] transition-all focus:outline-none cursor-pointer"
           title={isOpen ? "Tutup menu" : "Menu Komunitas PPS"}
         >
           {/* Logo PPS */}

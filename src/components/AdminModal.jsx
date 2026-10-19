@@ -793,6 +793,10 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
               <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-400">
                 LSM PPS SANDY SHORES
               </span>
+              <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border border-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Cloud Terhubung
+              </span>
             </div>
             <span className="text-[10px] text-slate-500 font-mono hidden md:block">
               Sistem Manajemen Konten & Verifikasi Pengajuan Warga
@@ -800,17 +804,31 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {isAuthenticated && (
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Keluar dari sesi admin"
-              className="btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black bg-red-50 hover:bg-red-100 dark:bg-red-950/80 dark:hover:bg-red-900 text-red-600 dark:text-red-300 rounded border-2 border-black dark:border-red-500 shadow-[2px_2px_0px_#000] transition-all active:translate-x-0.5 active:translate-y-0.5"
-            >
-              <LogOut size={13} className="text-red-600 dark:text-red-300" />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
+            <>
+              {/* Top Quick Save Button */}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] rounded border-2 border-black shadow-[2px_2px_0px_#000] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5"
+                title="Simpan semua perubahan ke Cloud Database"
+              >
+                <Save size={13} className="text-[#DC2626]" />
+                <span className="hidden sm:inline">{isSaving ? "Menyimpan..." : "Simpan Perubahan"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Keluar dari sesi admin"
+                className="btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black bg-red-50 hover:bg-red-100 dark:bg-red-950/80 dark:hover:bg-red-900 text-red-600 dark:text-red-300 rounded border-2 border-black dark:border-red-500 shadow-[2px_2px_0px_#000] transition-all active:translate-x-0.5 active:translate-y-0.5"
+              >
+                <LogOut size={13} className="text-red-600 dark:text-red-300" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -971,8 +989,104 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
               <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
                 <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
 
-              {/* Tab 1: Identity */}
-              {activeTab === "identity" && (
+                  {/* Executive Quick Stats Summary Bar */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    {/* Stat Card 1: Anggota Terdaftar */}
+                    <div
+                      onClick={() => setActiveTab("members_db")}
+                      className="card-brutal p-3.5 sm:p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] cursor-pointer hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] transition-all group select-none"
+                      title="Klik untuk membuka Database Anggota"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-500 font-mono tracking-wider">
+                          Anggota Warga
+                        </span>
+                        <div className="w-6 h-6 rounded bg-red-100 dark:bg-red-950/80 border border-black dark:border-red-500 flex items-center justify-center text-[#DC2626] group-hover:scale-110 transition-transform">
+                          <Users2 size={13} />
+                        </div>
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-heading font-black text-slate-900 dark:text-slate-100 mt-1">
+                        {membersList.length}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors">
+                        Database Anggota &rarr;
+                      </span>
+                    </div>
+
+                    {/* Stat Card 2: Pengurus Inti LSM */}
+                    <div
+                      onClick={() => setActiveTab("org")}
+                      className="card-brutal p-3.5 sm:p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] cursor-pointer hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] transition-all group select-none"
+                      title="Klik untuk mengelola Struktur Organisasi"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-500 font-mono tracking-wider">
+                          Pengurus LSM
+                        </span>
+                        <div className="w-6 h-6 rounded bg-amber-100 dark:bg-amber-950/80 border border-black dark:border-amber-500 flex items-center justify-center text-amber-700 dark:text-amber-300 group-hover:scale-110 transition-transform">
+                          <Users size={13} />
+                        </div>
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-heading font-black text-slate-900 dark:text-slate-100 mt-1">
+                        {formData.org?.length || 0}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors">
+                        Struktur Organisasi &rarr;
+                      </span>
+                    </div>
+
+                    {/* Stat Card 3: Kotak Masuk Layanan */}
+                    <div
+                      onClick={() => setActiveTab("submissions")}
+                      className="card-brutal p-3.5 sm:p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] cursor-pointer hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] transition-all group select-none"
+                      title="Klik untuk memeriksa Pengajuan Lapak UMKM & Request Meeting"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-500 font-mono tracking-wider">
+                          Kotak Masuk Layanan
+                        </span>
+                        <div className="w-6 h-6 rounded bg-rose-100 dark:bg-rose-950/80 border border-black dark:border-rose-500 flex items-center justify-center text-[#DC2626] group-hover:scale-110 transition-transform">
+                          <Inbox size={13} />
+                        </div>
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-heading font-black text-slate-900 dark:text-slate-100 mt-1 flex items-baseline gap-1.5">
+                        <span>{submissions.length}</span>
+                        {submissions.filter((s) => s.status === "pending" || !s.status).length > 0 && (
+                          <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                            ({submissions.filter((s) => s.status === "pending" || !s.status).length} Menunggu)
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors">
+                        Verifikasi Berkas Warga &rarr;
+                      </span>
+                    </div>
+
+                    {/* Stat Card 4: Galeri Foto Lapangan */}
+                    <div
+                      onClick={() => setActiveTab("gallery")}
+                      className="card-brutal p-3.5 sm:p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] cursor-pointer hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] transition-all group select-none"
+                      title="Klik untuk mengelola Dokumentasi Kegiatan"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-slate-500 font-mono tracking-wider">
+                          Galeri Foto Lapangan
+                        </span>
+                        <div className="w-6 h-6 rounded bg-sky-100 dark:bg-sky-950/80 border border-black dark:border-sky-500 flex items-center justify-center text-sky-700 dark:text-sky-300 group-hover:scale-110 transition-transform">
+                          <Camera size={13} />
+                        </div>
+                      </div>
+                      <div className="text-2xl sm:text-3xl font-heading font-black text-slate-900 dark:text-slate-100 mt-1">
+                        {formData.gallery?.length || 0}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors">
+                        Kelola Arsip Foto &rarr;
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tab 1: Identity */}
+                  {activeTab === "identity" && (
                 <div className="flex flex-col gap-3.5">
                   <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2">
                     <label className="card-label text-slate-700 dark:text-slate-300">Nama Brand / Judul Navbar</label>

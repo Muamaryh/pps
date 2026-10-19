@@ -179,12 +179,12 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                   {members.map((member, mIdx) => (
                     <div
                       key={mIdx}
-                      className="card-brutal overflow-hidden bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col group hover:translate-x-[2px] hover:translate-y-[2px] transition-transform w-[calc(50%-10px)] sm:w-[calc(33.333%-14px)] md:w-[calc(25%-16px)] lg:w-[calc(20%-16px)] min-w-[170px] max-w-[260px]"
+                      className="card-brutal overflow-hidden bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col group hover:-translate-y-1 hover:shadow-[6px_6px_0px_#000000] transition-all duration-200 w-[calc(50%-10px)] sm:w-[calc(33.333%-14px)] md:w-[calc(25%-16px)] lg:w-[calc(20%-16px)] min-w-[170px] max-w-[260px]"
                     >
                       {/* Photo Area (Tinggi disesuaikan dan posisi object-top agar wajah personel tampil jelas) */}
                       <div
                         onClick={() => member.photo && onOpenLightbox(member.photo, `${member.role} - ${member.name}`)}
-                        className={`h-48 sm:h-56 w-full relative bg-[#FFFDF9] dark:bg-[#20232E] border-b-2 border-[#1A1A1A] dark:border-[#475569] overflow-hidden flex items-center justify-center ${
+                        className={`h-48 sm:h-56 w-full relative bg-[#FFFDF9] dark:bg-[#1A1D26] border-b-2 border-[#1A1A1A] dark:border-[#475569] overflow-hidden flex items-center justify-center select-none ${
                           member.photo ? "cursor-pointer" : ""
                         }`}
                       >
@@ -201,8 +201,26 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                             </div>
                           </>
                         ) : (
-                          <div className="w-14 h-14 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-2xl font-heading font-black text-[#111827] shadow-[2px_2px_0px_#000]">
-                            {member.name?.charAt(0) || "P"}
+                          /* Official Roleplay Dossier Avatar Placeholder */
+                          <div className="w-full h-full p-4 flex flex-col items-center justify-center text-center relative overflow-hidden bg-gradient-to-b from-amber-500/10 via-transparent to-red-500/10">
+                            {/* Watermark Logo Outline */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                              <Shield size={120} strokeWidth={1.5} />
+                            </div>
+
+                            {/* Initials Badge Circle */}
+                            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-[#FACC15] dark:bg-[#222634] border-2 border-black dark:border-[#475569] flex items-center justify-center text-xl sm:text-2xl font-heading font-black text-[#111827] dark:text-[#FACC15] shadow-[3px_3px_0px_#000] relative z-10 group-hover:scale-105 transition-transform">
+                              {(() => {
+                                const clean = (member.name || "").trim().replace(/^(BAPAK|IBU|MR\.|MR|DE)\s+/i, "");
+                                const words = clean.split(/\s+/).filter(Boolean);
+                                if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+                                return (clean.slice(0, 2) || "PS").toUpperCase();
+                              })()}
+                            </div>
+
+                            <span className="mt-2 text-[9px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 relative z-10">
+                              DOKUMEN RESMI PPS
+                            </span>
                           </div>
                         )}
                       </div>

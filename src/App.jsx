@@ -14,8 +14,10 @@ import MembersDirectoryModal from "./components/MembersDirectoryModal";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
+import { subscribeMembersCloud } from "./services/memberService";
 
 export default function App() {
+  const [memberCount, setMemberCount] = useState(0);
   const [data, setData] = useState(() => {
     try {
       const cached = localStorage.getItem("pps_cached_data");
@@ -70,6 +72,21 @@ export default function App() {
       }
     }
     fetchData();
+  }, []);
+
+  // Real-time Member Count Subscription
+  useEffect(() => {
+    const unsub = subscribeMembersCloud(
+      (members) => {
+        if (Array.isArray(members)) {
+          setMemberCount(members.length);
+        }
+      },
+      () => {}
+    );
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
   }, []);
 
   // Lightbox State (supports multiple photos or single photo)
@@ -349,6 +366,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-[#FACC15] selection:text-[#111827]">
+      {/* Signature Yellow & Red Dual Top Strip */}
+      <div className="sticky top-0 z-50 w-full flex h-2 shrink-0 border-b border-black/10 dark:border-black/40">
+        <div className="flex-1 bg-[#FACC15]" />
+        <div className="w-24 sm:w-36 bg-[#DC2626]" />
+      </div>
+
       {/* Top Navbar */}
       <Navbar
         brand={data.brand}
@@ -393,13 +416,21 @@ export default function App() {
 
       {/* Floating Action Buttons: Anggota LSM PPS & Daftar Layanan */}
       <FloatingActions
+        memberCount={memberCount}
         onOpenRegister={handleOpenRegister}
         onOpenServicePortal={handleOpenServicePortal}
         onOpenMembersDirectory={handleOpenMembersDirectory}
       />
 
       {/* Footer */}
-      <Footer brand={data.brand} />
+      <Footer
+        brand={data.brand}
+        memberCount={memberCount}
+        onOpenRegister={handleOpenRegister}
+        onOpenServicePortal={handleOpenServicePortal}
+        onOpenMembersDirectory={handleOpenMembersDirectory}
+        onOpenAdmin={() => setAdminModalOpen(true)}
+      />
 
       {/* Lightbox Modal */}
       <LightboxModal
