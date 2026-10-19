@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, FileSpreadsheet, Archive, Search, Download, Eye } from "lucide-react";
-import { saveCloudData, resetCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
+import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import { subscribeMembersCloud, deleteMemberCloud, exportMembersToExcel, exportMembersToZip } from "../services/memberService";
 import { hashPassword, verifyPassword, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
 import BrutalistDatePicker from "./BrutalistDatePicker";
@@ -8,8 +8,15 @@ import BrutalistConfirmModal from "./BrutalistConfirmModal";
 
 const ADMIN_STORAGE_KEY = "pps_admin_session";
 
-export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, onShowToast }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, onShowToast, isCloudLoading = false }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
+      return Boolean(savedHash);
+    } catch {
+      return false;
+    }
+  });
   const [passwordInput, setPasswordInput] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [activeTab, setActiveTab] = useState("identity");
@@ -102,7 +109,14 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
   });
 
   // Form State
-  const [formData, setFormData] = useState(null);
+  const [formData, setFormData] = useState(() => {
+    if (!initialData) return null;
+    try {
+      return JSON.parse(JSON.stringify(initialData));
+    } catch {
+      return null;
+    }
+  });
 
   // Submissions State (Kotak Masuk Lapak & Meeting)
   const [submissions, setSubmissions] = useState([]);
@@ -311,11 +325,18 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
   // Auto-login from localStorage / sessionStorage if remembered
   useEffect(() => {
     async function checkAutoLogin() {
-      if (!initialData || !isOpen) return;
+      if (!isOpen) return;
       const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
-      if (!savedHash) return;
+      if (!savedHash) {
+        setIsAuthenticated(false);
+        return;
+      }
 
-      const targetCredential = initialData.adminPassHash || initialData.adminPass || DEFAULT_ADMIN_HASH;
+      // Sangat Penting: Jika data cloud masih dalam proses loading, JANGAN hapus sesi!
+      // Karena initialData kemungkinan masih berupa fallback sebelum sinkronisasi cloud selesai.
+      if (isCloudLoading) return;
+
+      const targetCredential = initialData?.adminPassHash || initialData?.adminPass || DEFAULT_ADMIN_HASH;
       let targetHash = targetCredential;
       if (typeof targetCredential === "string" && (targetCredential.length !== 64 || !/^[0-9a-fA-F]+$/.test(targetCredential))) {
         targetHash = await hashPassword(targetCredential);
@@ -324,14 +345,14 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       if (savedHash.toLowerCase() === targetHash.toLowerCase()) {
         setIsAuthenticated(true);
       } else {
-        // Password telah diubah! Hapus token sesi lama di perangkat ini
+        // Password telah diubah secara resmi di cloud database! Hapus token sesi lama di perangkat ini
         localStorage.removeItem(ADMIN_STORAGE_KEY);
         sessionStorage.removeItem(ADMIN_STORAGE_KEY);
         setIsAuthenticated(false);
       }
     }
     checkAutoLogin();
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, isCloudLoading]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -362,7 +383,18 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       return;
     }
 
-    const targetCredential = initialData?.adminPassHash || initialData?.adminPass || DEFAULT_ADMIN_HASH;
+    let credentialSource = initialData;
+    // Jika data cloud masih loading atau belum ada hash, ambil fresh data langsung dari Firestore
+    if (isCloudLoading || !credentialSource?.adminPassHash) {
+      try {
+        const fresh = await loadCloudData();
+        if (fresh) credentialSource = fresh;
+      } catch (err) {
+        console.warn("Could not fetch fresh cloud data for login verification:", err);
+      }
+    }
+
+    const targetCredential = credentialSource?.adminPassHash || credentialSource?.adminPass || DEFAULT_ADMIN_HASH;
     const isValid = await verifyPassword(input, targetCredential);
 
     if (isValid) {

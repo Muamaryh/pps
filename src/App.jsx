@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { loadCloudData, defaultData } from "./services/firebase";
+import { loadCloudData, defaultData, mergeWithDefaults, sanitizeSandyShores } from "./services/firebase";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import About from "./components/About";
@@ -16,7 +16,17 @@ import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
 
 export default function App() {
-  const [data, setData] = useState(defaultData);
+  const [data, setData] = useState(() => {
+    try {
+      const cached = localStorage.getItem("pps_cached_data");
+      if (cached) {
+        return mergeWithDefaults(sanitizeSandyShores(JSON.parse(cached)));
+      }
+    } catch (e) {
+      console.warn("Could not read pps_cached_data:", e);
+    }
+    return defaultData;
+  });
   const [loading, setLoading] = useState(true);
 
   // Theme Management (Dark / Light)
@@ -97,17 +107,48 @@ export default function App() {
   }
 
   // Admin Route Management (/admin or #/admin)
-  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [adminModalOpen, setAdminModalOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return path === "/admin" || path.endsWith("/admin") || hash === "#/admin" || hash === "#admin";
+  });
 
   // Portal Layanan Warga (Lapak UMKM & Request Meeting) (/layanan, /umkm, /meeting)
-  const [servicePortalOpen, setServicePortalOpen] = useState(false);
-  const [servicePortalTab, setServicePortalTab] = useState("lapak");
+  const [servicePortalOpen, setServicePortalOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return (
+      path === "/umkm" || path.endsWith("/umkm") || hash === "#/umkm" || hash === "#umkm" ||
+      path === "/meeting" || path.endsWith("/meeting") || hash === "#/meeting" || hash === "#meeting" ||
+      path === "/layanan" || path.endsWith("/layanan") || hash === "#/layanan" || hash === "#layanan"
+    );
+  });
+  const [servicePortalTab, setServicePortalTab] = useState(() => {
+    if (typeof window === "undefined") return "lapak";
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return (path === "/meeting" || path.endsWith("/meeting") || hash === "#/meeting" || hash === "#meeting")
+      ? "meeting"
+      : "lapak";
+  });
 
   // Modal Khusus Pendaftaran Anggota LSM PPS (/daftar or #daftar)
-  const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [memberModalOpen, setMemberModalOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return path === "/daftar" || path.endsWith("/daftar") || hash === "#/daftar" || hash === "#daftar";
+  });
 
   // Direktori Publik Anggota Terdaftar (/anggota or #anggota)
-  const [membersDirectoryOpen, setMembersDirectoryOpen] = useState(false);
+  const [membersDirectoryOpen, setMembersDirectoryOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return path === "/anggota" || path.endsWith("/anggota") || hash === "#/anggota" || hash === "#anggota";
+  });
 
   useEffect(() => {
     function checkRoutes() {
@@ -400,6 +441,7 @@ export default function App() {
         isOpen={adminModalOpen}
         onClose={handleCloseAdminModal}
         initialData={data}
+        isCloudLoading={loading}
         onDataSaved={(newData) => setData(newData)}
         onShowToast={showToast}
       />
