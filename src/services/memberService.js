@@ -126,6 +126,24 @@ export async function deleteMemberCloud(id) {
 }
 
 /**
+ * Update member Kas (4k) and Voucher Jasra status (Admin Only)
+ */
+export async function updateMemberKasAndVoucherCloud(id, updateData) {
+  try {
+    const docRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, id);
+    const payload = {
+      ...updateData,
+      lastUpdatedStatusAt: Date.now(),
+    };
+    await setDoc(docRef, payload, { merge: true });
+    return { id, ...payload };
+  } catch (err) {
+    console.error("Gagal mengupdate status kas/voucher anggota:", err);
+    throw err;
+  }
+}
+
+/**
  * Export members to formatted Excel (.xlsx) file
  */
 export function exportMembersToExcel(members) {
@@ -137,6 +155,11 @@ export function exportMembersToExcel(members) {
     "NAMA IC": m.fullName || "-",
     "NO KTP IC": m.icNumber || "-",
     "NO TLP/WA IC": m.phone || "-",
+    "DISCORD (OOC)": m.discordTag || "-",
+    "Status Kas (4k)": m.kasPaid ? "LUNAS (Rp 4.000)" : "BELUM BAYAR",
+    "Tgl Bayar Kas": m.kasPaidDate || "-",
+    "Voucher Jasra": m.voucherJasraReceived ? "SUDAH DITERIMA (10 Treatment & 10 Pingsan)" : "BELUM DITERIMA",
+    "Tgl Terima Voucher": m.voucherJasraDate || "-",
     "Tanggal Terdaftar": m.regDate || "-",
   }));
 
@@ -144,9 +167,14 @@ export function exportMembersToExcel(members) {
   worksheet["!cols"] = [
     { wch: 5 },
     { wch: 22 },
-    { wch: 28 },
-    { wch: 20 },
-    { wch: 20 },
+    { wch: 26 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 38 },
+    { wch: 18 },
     { wch: 18 },
   ];
 
@@ -194,6 +222,10 @@ export async function exportMembersToZip(members) {
     "NO KTP IC": m.icNumber || "-",
     "NO TLP/WA IC": m.phone || "-",
     "DISCORD (OOC)": m.discordTag || "-",
+    "Status Kas (4k)": m.kasPaid ? "LUNAS (Rp 4.000)" : "BELUM BAYAR",
+    "Tgl Bayar Kas": m.kasPaidDate || "-",
+    "Voucher Jasra": m.voucherJasraReceived ? "SUDAH DITERIMA (10 Treatment & 10 Pingsan)" : "BELUM DITERIMA",
+    "Tgl Terima Voucher": m.voucherJasraDate || "-",
     "Tanggal Terdaftar": m.regDate || "-",
   }));
 
@@ -201,10 +233,14 @@ export async function exportMembersToZip(members) {
   worksheet["!cols"] = [
     { wch: 5 },
     { wch: 22 },
-    { wch: 28 },
-    { wch: 20 },
+    { wch: 26 },
     { wch: 18 },
-    { wch: 20 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 38 },
+    { wch: 18 },
     { wch: 18 },
   ];
   const workbook = XLSX.utils.book_new();

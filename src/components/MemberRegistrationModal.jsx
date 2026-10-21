@@ -19,7 +19,7 @@ import {
 import { submitMemberCloud } from "../services/memberService";
 import { scanKtpImage } from "../utils/ktpOcr";
 
-const DISCORD_INVITE_URL = "https://discord.gg/auX6XYNfgz";
+const DISCORD_INVITE_URL = "https://discord.gg/2wpeukyDdu";
 
 export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -125,8 +125,12 @@ export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }
     })
       .then((scanResult) => {
         if (scanResult.success) {
-          const { firstName, lastName, citizenId } = scanResult.fields;
-          const scannedFullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+          const { firstName, lastName, citizenId, fullName } = scanResult.fields;
+          const scannedFullName = (
+            fullName || [firstName, lastName].filter(Boolean).join(" ")
+          )
+            .trim()
+            .toUpperCase();
 
           setFormData((prev) => ({
             ...prev,

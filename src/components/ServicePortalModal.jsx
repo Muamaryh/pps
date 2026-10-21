@@ -277,14 +277,12 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
       });
 
       if (scanResult.success) {
-        const { firstName, lastName, dob, sex, nationality, citizenId } = scanResult.fields;
+        const { firstName, lastName, fullName, dob, sex, nationality, citizenId } = scanResult.fields;
 
         setMeetingForm((prev) => {
-          const newFirstName = firstName || prev.firstName;
-          const newLastName = lastName || prev.lastName;
-          const newCharName = (newFirstName || newLastName)
-            ? `${newFirstName} ${newLastName}`.trim()
-            : prev.characterName;
+          const newFirstName = (firstName || prev.firstName || '').toUpperCase();
+          const newLastName = (lastName || prev.lastName || '').toUpperCase();
+          const newCharName = (fullName || ((newFirstName || newLastName) ? `${newFirstName} ${newLastName}` : prev.characterName)).trim().toUpperCase();
 
           return {
             ...prev,
@@ -370,14 +368,12 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
       });
 
       if (scanResult.success) {
-        const { firstName, lastName, dob, sex, nationality, citizenId } = scanResult.fields;
+        const { firstName, lastName, fullName, dob, sex, nationality, citizenId } = scanResult.fields;
 
         setLapakForm((prev) => {
-          const newFirstName = firstName || prev.firstName;
-          const newLastName = lastName || prev.lastName;
-          const newNamaKtp = (newFirstName || newLastName)
-            ? `${newFirstName} ${newLastName}`.trim()
-            : prev.namaKtp;
+          const newFirstName = (firstName || prev.firstName || '').toUpperCase();
+          const newLastName = (lastName || prev.lastName || '').toUpperCase();
+          const newNamaKtp = (fullName || ((newFirstName || newLastName) ? `${newFirstName} ${newLastName}` : prev.namaKtp)).trim().toUpperCase();
 
           return {
             ...prev,

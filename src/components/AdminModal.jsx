@@ -1,14 +1,26 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, FileSpreadsheet, Archive, Search, Download, Eye } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
-import { subscribeMembersCloud, deleteMemberCloud, exportMembersToExcel, exportMembersToZip } from "../services/memberService";
+import { subscribeMembersCloud, deleteMemberCloud, exportMembersToExcel, exportMembersToZip, updateMemberKasAndVoucherCloud } from "../services/memberService";
+import {
+  subscribeEventRegistrationsCloud,
+  deleteEventRegistrationCloud,
+  toggleEventCheckinCloud,
+  toggleEventFeePaymentCloud,
+  exportEventRegistrationsToExcel,
+  subscribeEventsCloud,
+  saveEventCloud,
+  deleteEventCloud,
+  toggleEventStatusCloud,
+  DEFAULT_EVENT,
+} from "../services/eventService";
 import { hashPassword, verifyPassword, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistConfirmModal from "./BrutalistConfirmModal";
 
 const ADMIN_STORAGE_KEY = "pps_admin_session";
 
-export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, onShowToast, isCloudLoading = false }) {
+export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, onShowToast, isCloudLoading = false, eventsList: externalEventsList = [] }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
       const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
@@ -126,6 +138,21 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
   const [membersList, setMembersList] = useState([]);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [isExportingZip, setIsExportingZip] = useState(false);
+  const [filterKas, setFilterKas] = useState("all"); // 'all' | 'paid' | 'unpaid'
+  const [filterVoucher, setFilterVoucher] = useState("all"); // 'all' | 'received' | 'unreceived'
+
+  // Event & Registration State
+  const [eventsList, setEventsList] = useState(() => {
+    return Array.isArray(externalEventsList) && externalEventsList.length > 0
+      ? externalEventsList
+      : [DEFAULT_EVENT];
+  });
+  const [eventSubTab, setEventSubTab] = useState("events_manage"); // "events_manage" | "registrations"
+  const [selectedEventFilter, setSelectedEventFilter] = useState("all");
+  const [editingEvent, setEditingEvent] = useState(null); // null or object when modal open
+  const [isSavingEvent, setIsSavingEvent] = useState(false);
+  const [eventRegistrations, setEventRegistrations] = useState([]);
+  const [eventSearchQuery, setEventSearchQuery] = useState("");
 
   useEffect(() => {
     if (isOpen && isAuthenticated) {
@@ -133,11 +160,261 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       const unsubscribeMembers = subscribeMembersCloud((list) => {
         setMembersList(list || []);
       });
+      const unsubscribeEvents = subscribeEventRegistrationsCloud((list) => {
+        setEventRegistrations(list || []);
+      });
+      const unsubscribeEventsList = subscribeEventsCloud((list) => {
+        if (Array.isArray(list) && list.length > 0) {
+          setEventsList(list);
+        }
+      });
       return () => {
         if (typeof unsubscribeMembers === "function") unsubscribeMembers();
+        if (typeof unsubscribeEvents === "function") unsubscribeEvents();
+        if (typeof unsubscribeEventsList === "function") unsubscribeEventsList();
       };
     }
   }, [isOpen, isAuthenticated]);
+
+  // Handler: Toggle Kas Bulanan (Rp 4.000) - Admin Only
+  async function handleToggleKas(member) {
+    const nextStatus = !member.kasPaid;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+    try {
+      await updateMemberKasAndVoucherCloud(member.id, {
+        kasPaid: nextStatus,
+        kasPaidDate: nextStatus ? dateStr : null,
+        kasAmount: nextStatus ? 4000 : 0,
+      });
+      onShowToast(
+        nextStatus
+          ? `Kas Rp 4.000 untuk ${member.fullName || "Anggota"} berhasil dicatat LUNAS.`
+          : `Status Kas untuk ${member.fullName || "Anggota"} diubah menjadi BELUM BAYAR.`,
+        "success"
+      );
+    } catch (err) {
+      console.error("Gagal toggle kas:", err);
+      onShowToast("Gagal memperbarui status kas anggota.", "error");
+    }
+  }
+
+  // Handler: Toggle Voucher Jasra (10 Treatment & 10 Pingsan) - Admin Only
+  async function handleToggleVoucherJasra(member) {
+    const nextStatus = !member.voucherJasraReceived;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+    try {
+      await updateMemberKasAndVoucherCloud(member.id, {
+        voucherJasraReceived: nextStatus,
+        voucherJasraDate: nextStatus ? dateStr : null,
+        voucherJasraDetail: nextStatus ? { treatment: 10, pingsan: 10 } : null,
+      });
+      onShowToast(
+        nextStatus
+          ? `Voucher Jasra (10 Treatment & 10 Pingsan) untuk ${member.fullName || "Anggota"} BERHASIL DIAKTIFKAN.`
+          : `Status Voucher Jasra untuk ${member.fullName || "Anggota"} dinonaktifkan.`,
+        "info"
+      );
+    } catch (err) {
+      console.error("Gagal toggle voucher Jasra:", err);
+      onShowToast("Gagal memperbarui status voucher Jasra anggota.", "error");
+    }
+  }
+
+  // Handler: Toggle Event Checkin
+  async function handleToggleEventCheckin(reg) {
+    try {
+      await toggleEventCheckinCloud(reg.id, reg.checkedIn);
+      onShowToast(
+        reg.checkedIn
+          ? `Status kehadiran ${reg.fullName} diubah menjadi BELUM HADIR.`
+          : `Peserta ${reg.fullName} (${reg.ticketCode}) berhasil CHECK-IN di lokasi.`,
+        "success"
+      );
+    } catch (err) {
+      console.error("Gagal update check-in:", err);
+      onShowToast("Gagal mengupdate kehadiran event.", "error");
+    }
+  }
+
+  // Handler: Toggle $10.000 Entry Fee Payment
+  async function handleToggleFeePaid(reg) {
+    try {
+      await toggleEventFeePaymentCloud(reg.id, reg.feePaid);
+      onShowToast(
+        reg.feePaid
+          ? `Status bayar $10.000 ${reg.fullName} diubah menjadi BELUM BAYAR.`
+          : `Biaya $10.000 dari ${reg.fullName} (${reg.ticketCode}) berhasil dicatat LUNAS.`,
+        "success"
+      );
+    } catch (err) {
+      console.error("Gagal update pembayaran $10.000:", err);
+      onShowToast("Gagal mengupdate pembayaran $10.000.", "error");
+    }
+  }
+
+  // Handler: Delete Event Registration
+  function handleDeleteEventReg(reg) {
+    setConfirmModal({
+      isOpen: true,
+      title: "Hapus Pendaftar Event",
+      message: `Apakah Anda yakin ingin menghapus data registrasi event "${reg.fullName}" (${reg.ticketCode})? Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: "Ya, Hapus Pendaftar",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteEventRegistrationCloud(reg.id);
+          onShowToast(`Pendaftar event ${reg.fullName} berhasil dihapus.`, "info");
+        } catch (err) {
+          console.error("Gagal menghapus pendaftar event:", err);
+          onShowToast("Gagal menghapus data pendaftar event.", "error");
+        }
+      },
+    });
+  }
+
+  // Handler: Export Event Registrations to Excel
+  function handleExportEventExcel() {
+    const listToExport =
+      selectedEventFilter === "all"
+        ? eventRegistrations
+        : eventRegistrations.filter(
+            (r) =>
+              r.eventId === selectedEventFilter ||
+              (!r.eventId && selectedEventFilter === "evt-pizzarena-civilian")
+          );
+
+    if (listToExport.length === 0) {
+      onShowToast("Belum ada data pendaftar event untuk diunduh.", "warning");
+      return;
+    }
+    const currentEvt = eventsList.find((e) => e.id === selectedEventFilter);
+    const success = exportEventRegistrationsToExcel(
+      listToExport,
+      currentEvt?.title || "Semua_Event"
+    );
+    if (success) {
+      onShowToast(
+        `File Excel ${listToExport.length} Pendaftar Event berhasil diunduh.`,
+        "success"
+      );
+    }
+  }
+
+  // Handler: Open Add Event Modal
+  function handleOpenAddEvent() {
+    setEditingEvent({
+      id: "",
+      title: "",
+      organizer: "LSM Paguyuban Pizza Sandy Shores",
+      tagline: "",
+      status: "OPEN",
+      entryFee: "$10.000 USD",
+      ticketPrefix: "PPS-EVT",
+      requirements: [
+        "Khusus warga sipil / Civilian (Freelancer)",
+        "Wajib No Gang (Unaffiliated / tidak terafiliasi kelompok kriminal)",
+        "Biaya pendaftaran $10.000 USD diserahkan saat verifikasi di lokasi",
+        "Wajib memiliki identitas KTP IC yang masih berlaku",
+      ],
+      requireOcr: true,
+      requireCivilianOnly: true,
+      requireNoGangOnly: true,
+      requireHpIc: true,
+      requireDiscord: true,
+      showMessengerNotification: true,
+      messengerHeading: "Ada Event Baru!",
+      messengerMessage: "Halo warga! LSM Paguyuban Pizza Sandy Shores mempersembahkan event baru nih!",
+      sampleImage: "/contoh-ss-ktp2.jpg",
+      description: "",
+    });
+  }
+
+  // Handler: Open Edit Event Modal
+  function handleOpenEditEvent(evt) {
+    setEditingEvent({
+      ...evt,
+      sampleImage: evt.sampleImage || "/contoh-ss-ktp2.jpg",
+      requirements: Array.isArray(evt.requirements) && evt.requirements.length > 0
+        ? evt.requirements
+        : typeof evt.requirements === "string" && evt.requirements.trim()
+        ? evt.requirements.split(/\r?\n/).filter(Boolean)
+        : [
+            "Khusus warga sipil / Civilian (Freelancer)",
+            "Wajib No Gang (Unaffiliated / tidak terafiliasi kelompok kriminal)",
+            `Biaya pendaftaran ${evt.entryFee || "$10.000 USD"} diserahkan saat verifikasi di lokasi`,
+            "Wajib memiliki identitas KTP IC yang masih berlaku",
+          ],
+    });
+  }
+
+  // Handler: Save Event
+  async function handleSaveEvent(e) {
+    e.preventDefault();
+    if (!editingEvent.title.trim()) {
+      onShowToast("Judul event wajib diisi.", "error");
+      return;
+    }
+    setIsSavingEvent(true);
+    try {
+      await saveEventCloud(editingEvent);
+      onShowToast(`Event "${editingEvent.title}" berhasil disimpan!`, "success");
+      setEditingEvent(null);
+    } catch (err) {
+      console.error("Save event err:", err);
+      onShowToast("Gagal menyimpan event ke server.", "error");
+    } finally {
+      setIsSavingEvent(false);
+    }
+  }
+
+  // Handler: Quick Toggle Status Event (OPEN <-> CLOSED)
+  async function handleToggleEventStatus(evt) {
+    const nextStatus = evt.status === "OPEN" ? "CLOSED" : "OPEN";
+    try {
+      await toggleEventStatusCloud(evt.id, evt.status);
+      onShowToast(
+        nextStatus === "OPEN"
+          ? `Pendaftaran "${evt.title}" DIBUKA!`
+          : `Pendaftaran "${evt.title}" DITUTUP.`,
+        nextStatus === "OPEN" ? "success" : "info"
+      );
+    } catch (err) {
+      console.error("Toggle event status err:", err);
+      onShowToast("Gagal mengubah status event.", "error");
+    }
+  }
+
+  // Handler: Delete Event Confirmation
+  function handleDeleteEvent(evt) {
+    setConfirmModal({
+      isOpen: true,
+      title: "Hapus Event Dari Portal",
+      message: `Apakah Anda yakin ingin menghapus event "${evt.title}"? Event ini tidak akan lagi tampil di web publik maupun portal admin.`,
+      confirmText: "Ya, Hapus Event",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteEventCloud(evt.id);
+          onShowToast(`Event "${evt.title}" berhasil dihapus.`, "info");
+        } catch (err) {
+          console.error("Delete event err:", err);
+          onShowToast("Gagal menghapus event.", "error");
+        }
+      },
+    });
+  }
 
   // Handlers for Member Database
   function handleDeleteMember(memberId, memberName) {
@@ -762,17 +1039,61 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     { id: "gallery", label: "Galeri Foto", icon: Camera },
     { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
     { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
+    { id: "event_db", label: `Kelola Event (${eventsList.length})`, icon: Ticket },
     { id: "security", label: "Keamanan", icon: Shield },
   ];
 
+  const totalKasLunasCount = membersList.filter((m) => m.kasPaid).length;
+  const totalKasRupiah = totalKasLunasCount * 4000;
+  const totalVoucherJasraCount = membersList.filter((m) => m.voucherJasraReceived).length;
+
   const filteredMembers = membersList.filter((m) => {
-    if (!memberSearchQuery.trim()) return true;
-    const q = memberSearchQuery.toLowerCase();
-    const name = (m.fullName || "").toLowerCase();
-    const ic = (m.icNumber || "").toLowerCase();
-    const phone = (m.phone || "").toLowerCase();
-    const discord = (m.discordTag || "").toLowerCase();
-    return name.includes(q) || ic.includes(q) || phone.includes(q) || discord.includes(q);
+    // 1. Text Search Filter
+    if (memberSearchQuery.trim()) {
+      const q = memberSearchQuery.toLowerCase();
+      const name = (m.fullName || "").toLowerCase();
+      const ic = (m.icNumber || "").toLowerCase();
+      const phone = (m.phone || "").toLowerCase();
+      const discord = (m.discordTag || "").toLowerCase();
+      if (!name.includes(q) && !ic.includes(q) && !phone.includes(q) && !discord.includes(q)) {
+        return false;
+      }
+    }
+
+    // 2. Filter Kas Status
+    if (filterKas === "paid" && !m.kasPaid) return false;
+    if (filterKas === "unpaid" && m.kasPaid) return false;
+
+    // 3. Filter Voucher Jasra Status
+    if (filterVoucher === "received" && !m.voucherJasraReceived) return false;
+    if (filterVoucher === "unreceived" && m.voucherJasraReceived) return false;
+
+    return true;
+  });
+
+  const filteredEvents = eventRegistrations.filter((r) => {
+    if (selectedEventFilter !== "all") {
+      const matchId =
+        r.eventId === selectedEventFilter ||
+        (!r.eventId && selectedEventFilter === "evt-pizzarena-civilian");
+      if (!matchId) return false;
+    }
+    if (!eventSearchQuery.trim()) return true;
+    const q = eventSearchQuery.toLowerCase();
+    const name = (r.fullName || "").toLowerCase();
+    const phone = (r.phone || "").toLowerCase();
+    const discord = (r.discordTag || r.telegram || "").toLowerCase();
+    const ticket = (r.ticketCode || "").toLowerCase();
+    const cid = (r.citizenId || "").toLowerCase();
+    const cat = (r.category || r.eventTitle || "").toLowerCase();
+    return (
+      name.includes(q) ||
+      phone.includes(q) ||
+      discord.includes(q) ||
+      ticket.includes(q) ||
+      cid.includes(q) ||
+      cat.includes(q)
+    );
   });
 
   return (
@@ -2201,30 +2522,158 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                     </div>
                   </div>
 
-                  {/* Search and Summary Bar */}
-                  <div className="card-brutal p-3 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div className="relative w-full sm:max-w-md">
-                      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                      <input
-                        type="text"
-                        placeholder="Cari nama IC, No KTP, atau No HP..."
-                        value={memberSearchQuery}
-                        onChange={(e) => setMemberSearchQuery(e.target.value)}
-                        className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
-                      />
-                      {memberSearchQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setMemberSearchQuery("")}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
+                  {/* Stats Ringkasan Kas (4k) & Voucher Jasra */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center shrink-0">
+                        <Users size={18} className="text-slate-900" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">Total Anggota</span>
+                        <strong className="text-base font-mono font-black text-slate-900 dark:text-slate-100">
+                          {membersList.length} Warga
+                        </strong>
+                      </div>
                     </div>
 
-                    <div className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0 self-start sm:self-center">
-                      Menampilkan <span className="text-[#DC2626] dark:text-[#FACC15]">{filteredMembers.length}</span> dari {membersList.length} anggota
+                    <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000] flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-emerald-500 border-2 border-black flex items-center justify-center shrink-0 text-white">
+                        <DollarSign size={20} />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-sans font-bold text-emerald-700 dark:text-emerald-400 uppercase block">Uang Kas (4k/bln)</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <strong className="text-base font-mono font-black text-emerald-800 dark:text-emerald-300">
+                            Rp {totalKasRupiah.toLocaleString("id-ID")}
+                          </strong>
+                          <span className="text-[10px] font-mono text-emerald-700">
+                            ({totalKasLunasCount} Lunas)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="card-brutal p-3 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000] flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center shrink-0 text-[#DC2626]">
+                        <Gift size={20} />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-sans font-bold text-amber-800 dark:text-amber-300 uppercase block">Voucher Jasra (10 T & 10 P)</span>
+                        <div className="flex items-baseline gap-1.5">
+                          <strong className="text-base font-mono font-black text-amber-900 dark:text-[#FACC15]">
+                            {totalVoucherJasraCount} Diterima
+                          </strong>
+                          <span className="text-[10px] font-mono text-amber-700">
+                            ({membersList.length - totalVoucherJasraCount} Belum)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Search and Filter Pills Bar */}
+                  <div className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="relative w-full sm:max-w-md">
+                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Cari nama IC, No KTP, atau No HP..."
+                          value={memberSearchQuery}
+                          onChange={(e) => setMemberSearchQuery(e.target.value)}
+                          className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        />
+                        {memberSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setMemberSearchQuery("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0 self-start sm:self-center">
+                        Menampilkan <span className="text-[#DC2626] dark:text-[#FACC15]">{filteredMembers.length}</span> dari {membersList.length} anggota
+                      </div>
+                    </div>
+
+                    {/* Filter Pills */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-black/10 dark:border-white/10 text-xs">
+                      {/* Filter Kas */}
+                      <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">Kas:</span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterKas("all")}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                          filterKas === "all"
+                            ? "bg-[#1A1A1A] text-white border-black dark:bg-white dark:text-black"
+                            : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 border-black/20 hover:border-black"
+                        }`}
+                      >
+                        Semua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterKas("paid")}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                          filterKas === "paid"
+                            ? "bg-emerald-600 text-white border-black"
+                            : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-400"
+                        }`}
+                      >
+                        ✓ Lunas (Rp 4k)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterKas("unpaid")}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                          filterKas === "unpaid"
+                            ? "bg-rose-600 text-white border-black"
+                            : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-400"
+                        }`}
+                      >
+                        Belum Bayar
+                      </button>
+
+                      <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block" />
+
+                      {/* Filter Voucher Jasra */}
+                      <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">Voucher:</span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterVoucher("all")}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                          filterVoucher === "all"
+                            ? "bg-[#1A1A1A] text-white border-black dark:bg-white dark:text-black"
+                            : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 border-black/20 hover:border-black"
+                        }`}
+                      >
+                        Semua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterVoucher("received")}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                          filterVoucher === "received"
+                            ? "bg-amber-500 text-slate-950 border-black font-black"
+                            : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-400"
+                        }`}
+                      >
+                        ✓ Diterima
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterVoucher("unreceived")}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                          filterVoucher === "unreceived"
+                            ? "bg-slate-600 text-white border-black"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
+                        }`}
+                      >
+                        Belum Diterima
+                      </button>
                     </div>
                   </div>
 
@@ -2309,6 +2758,60 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                               </div>
                             </div>
 
+                            {/* Admin Checklist: Status Kas Bulanan (4k) & Voucher Jasra */}
+                            <div className="flex flex-col gap-2 p-2.5 rounded-lg bg-amber-50/70 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300">
+                                  KONTROL HAK AKSES ADMIN
+                                </span>
+                                <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-bold">
+                                  VERIFIKASI
+                                </span>
+                              </div>
+
+                              {/* Checkbox 1: Kas Bulanan (Rp 4.000) */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleKas(member)}
+                                className={`w-full py-1.5 px-2.5 rounded border-2 flex items-center justify-between text-xs font-mono font-bold transition-all cursor-pointer ${
+                                  member.kasPaid
+                                    ? "bg-emerald-600 text-white border-black shadow-[2px_2px_0px_#000]"
+                                    : "bg-white dark:bg-[#1F222C] text-slate-800 dark:text-slate-200 border-black/30 dark:border-white/20 hover:border-black shadow-sm"
+                                }`}
+                                title={member.kasPaid ? "Klik untuk membatalkan status lunas kas" : "Klik untuk menandai kas LUNAS (Rp 4.000)"}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {member.kasPaid ? <CheckSquare size={15} className="shrink-0 text-[#FACC15]" /> : <Square size={15} className="shrink-0 text-slate-400" />}
+                                  <span className="truncate">{member.kasPaid ? "KAS: LUNAS (RP 4.000)" : "KAS: BELUM BAYAR (4K)"}</span>
+                                </div>
+                                {member.kasPaidDate && (
+                                  <span className="text-[9px] opacity-90 shrink-0 font-normal ml-1">
+                                    {member.kasPaidDate}
+                                  </span>
+                                )}
+                              </button>
+
+                              {/* Checkbox 2: Voucher Jasra (10 Treatment & 10 Pingsan) */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleVoucherJasra(member)}
+                                className={`w-full py-1.5 px-2.5 rounded border-2 flex items-center justify-between text-xs font-mono font-bold transition-all cursor-pointer ${
+                                  member.voucherJasraReceived
+                                    ? "bg-[#FACC15] text-slate-950 border-black shadow-[2px_2px_0px_#000]"
+                                    : "bg-white dark:bg-[#1F222C] text-slate-800 dark:text-slate-200 border-black/30 dark:border-white/20 hover:border-black shadow-sm"
+                                }`}
+                                title={member.voucherJasraReceived ? "Klik untuk mereset voucher Jasra" : "Klik untuk menandai voucher Jasra SUDAH DITERIMA"}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {member.voucherJasraReceived ? <CheckSquare size={15} className="shrink-0 text-[#DC2626]" /> : <Square size={15} className="shrink-0 text-slate-400" />}
+                                  <span className="truncate">{member.voucherJasraReceived ? "VOUCHER JASRA AKTIF" : "VOUCHER: BELUM TERIMA"}</span>
+                                </div>
+                                <span className="text-[9px] shrink-0 font-normal ml-1">
+                                  {member.voucherJasraReceived ? "10 T • 10 P" : "10 Treatment + Pingsan"}
+                                </span>
+                              </button>
+                            </div>
+
                             {/* Action Buttons: Lihat KTP & Hapus */}
                             <div className="flex items-center justify-between gap-2 pt-1 border-t border-black/10 dark:border-white/10">
                               <div className="flex items-center gap-1.5">
@@ -2363,6 +2866,515 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab: Kelola Event & Database Pendaftar */}
+              {activeTab === "event_db" && (
+                <div className="flex flex-col gap-4">
+                  {/* Sub-Nav Pills: 1. Kelola Event & 2. Data Pendaftar */}
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-black/10 dark:border-white/10">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEventSubTab("events_manage")}
+                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border-2 border-black transition-all cursor-pointer ${
+                          eventSubTab === "events_manage"
+                            ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
+                            : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span>🎯 Kelola Event & Bikin Baru ({eventsList.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEventSubTab("registrations")}
+                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border-2 border-black transition-all cursor-pointer ${
+                          eventSubTab === "registrations"
+                            ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
+                            : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span>📋 Data Pendaftar Peserta ({eventRegistrations.length})</span>
+                      </button>
+                    </div>
+
+                    {eventSubTab === "events_manage" && (
+                      <button
+                        type="button"
+                        onClick={handleOpenAddEvent}
+                        className="btn py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                      >
+                        <Plus size={16} className="text-[#FACC15]" />
+                        <span>+ Buat Event Baru</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* SUB-TAB 1: KELOLA EVENT & BIKIN BARU */}
+                  {eventSubTab === "events_manage" && (
+                    <div className="flex flex-col gap-4">
+                      {/* Banner Info */}
+                      <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shadow-[2px_2px_0px_#000] shrink-0">
+                            <Ticket size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                              Daftar Event & Pengaturan Pendaftaran ({eventsList.length})
+                            </h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                              Buka/tutup pendaftaran langsung lewat tombol 1-klik, sesuaikan biaya & syarat, atau tambah event baru tanpa ubah kode program.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenAddEvent}
+                          className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+                        >
+                          <Plus size={15} />
+                          <span>+ Buat Event Baru</span>
+                        </button>
+                      </div>
+
+                      {/* Grid Event Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {eventsList.map((evt) => {
+                          const regCount = eventRegistrations.filter(
+                            (r) => r.eventId === evt.id || (!r.eventId && evt.id === "evt-pizzarena-civilian")
+                          ).length;
+                          const checkinCount = eventRegistrations.filter(
+                            (r) =>
+                              (r.eventId === evt.id || (!r.eventId && evt.id === "evt-pizzarena-civilian")) &&
+                              r.checkedIn
+                          ).length;
+                          const paidCount = eventRegistrations.filter(
+                            (r) =>
+                              (r.eventId === evt.id || (!r.eventId && evt.id === "evt-pizzarena-civilian")) &&
+                              r.feePaid
+                          ).length;
+                          const isOpen = evt.status === "OPEN";
+
+                          return (
+                            <div
+                              key={evt.id}
+                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col justify-between gap-3 relative"
+                            >
+                              {/* Header Card: Status & Prefix */}
+                              <div className="flex items-center justify-between gap-2 pb-2 border-b border-black/10 dark:border-white/10">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-black text-white border border-black shadow-[1px_1px_0px_#000] ${
+                                      isOpen ? "bg-emerald-600" : "bg-red-600"
+                                    }`}
+                                  >
+                                    {isOpen ? "PENDAFTARAN DIBUKA" : "PENDAFTARAN DITUTUP"}
+                                  </span>
+                                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-black/30 rounded">
+                                    TIKET: {evt.ticketPrefix || "PZR"}-XXXX
+                                  </span>
+                                </div>
+
+                                <span className="text-xs font-mono font-black text-slate-900 dark:text-slate-100 bg-[#FACC15]/30 dark:bg-[#FACC15]/20 px-2 py-0.5 rounded border border-black/20">
+                                  {evt.entryFee || "$10.000 USD"}
+                                </span>
+                              </div>
+
+                              {/* Title & Organizer */}
+                              <div>
+                                <h5 className="font-heading font-black text-base text-slate-950 dark:text-slate-100 uppercase">
+                                  {evt.title}
+                                </h5>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-0.5">
+                                  {evt.organizer || "LSM Paguyuban Pizza Sandy Shores"}
+                                </p>
+                                {evt.tagline && (
+                                  <p className="text-[11px] text-slate-500 italic mt-0.5">
+                                    "{evt.tagline}"
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Rules & Config Chips */}
+                              <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-mono">
+                                <span className={`px-1.5 py-0.5 rounded border ${
+                                  evt.requireOcr !== false
+                                    ? "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-300"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300"
+                                }`}>
+                                  {evt.requireOcr !== false ? "✓ Scan OCR KTP" : "Tanpa OCR"}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded border ${
+                                  evt.requireCivilianOnly !== false
+                                    ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300"
+                                }`}>
+                                  {evt.requireCivilianOnly !== false ? "✓ Khusus Civilian" : "Bebas Job"}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded border ${
+                                  evt.requireNoGangOnly !== false
+                                    ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border-blue-300"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300"
+                                }`}>
+                                  {evt.requireNoGangOnly !== false ? "✓ No Gang" : "Bebas Gang"}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded border ${
+                                  evt.showMessengerNotification !== false
+                                    ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border-amber-300"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 border-slate-300"
+                                }`}>
+                                  {evt.showMessengerNotification !== false ? "✓ Notif Pop-up On" : "Pop-up Off"}
+                                </span>
+                              </div>
+
+                              {/* Preview Syarat Wajib Peserta */}
+                              {Array.isArray(evt.requirements) && evt.requirements.length > 0 && (
+                                <div className="p-2.5 bg-amber-50/60 dark:bg-[#14161F] rounded-md border border-black/10 dark:border-white/10 text-[11px]">
+                                  <span className="text-[10px] font-mono font-bold text-slate-500 uppercase block mb-1">
+                                    Syarat Peserta ({evt.requirements.length} butir mengurut):
+                                  </span>
+                                  <div className="flex flex-col gap-1 text-slate-800 dark:text-slate-200">
+                                    {evt.requirements.slice(0, 3).map((r, i) => (
+                                      <div key={i} className="flex items-start gap-1.5">
+                                        <span className="w-4 h-4 rounded bg-[#DC2626] text-[#FACC15] font-mono font-bold flex items-center justify-center shrink-0 text-[9px] border border-black shadow-[0.5px_0.5px_0px_#000]">
+                                          {i + 1}
+                                        </span>
+                                        <span className="truncate">{r}</span>
+                                      </div>
+                                    ))}
+                                    {evt.requirements.length > 3 && (
+                                      <span className="text-[10px] text-slate-400 italic pl-5">
+                                        +{evt.requirements.length - 3} syarat lainnya...
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Stats Bar */}
+                              <div className="p-2.5 bg-slate-50 dark:bg-[#14161F] rounded border border-black/10 dark:border-white/10 grid grid-cols-3 gap-2 text-center text-xs font-mono">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-sans block">PENDAFTAR</span>
+                                  <strong className="text-sm font-black text-slate-900 dark:text-slate-100">{regCount}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-sans block">CHECK-IN</span>
+                                  <strong className="text-sm font-black text-emerald-600">{checkinCount}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] text-slate-400 font-sans block">BAYAR FEE</span>
+                                  <strong className="text-sm font-black text-amber-600">{paidCount}</strong>
+                                </div>
+                              </div>
+
+                              {/* Card Action Buttons */}
+                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                                {/* Quick Toggle Status */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleEventStatus(evt)}
+                                  className={`btn text-xs py-2 px-2 font-heading font-black border border-black rounded flex items-center justify-center gap-1 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all ${
+                                    isOpen
+                                      ? "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-950/60 dark:text-red-300 shadow-sm"
+                                      : "bg-emerald-100 hover:bg-emerald-200 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 shadow-sm"
+                                  }`}
+                                  title="Klik untuk membuka atau menutup pendaftaran event ini"
+                                >
+                                  <span>{isOpen ? "Tutup Pendaftaran" : "Buka Pendaftaran"}</span>
+                                </button>
+
+                                {/* Edit Config */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditEvent(evt)}
+                                  className="btn text-xs py-2 px-2 bg-white dark:bg-[#20232E] hover:bg-slate-100 text-slate-900 dark:text-slate-100 font-heading font-black border border-black rounded flex items-center justify-center gap-1 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer shadow-sm"
+                                  title="Edit detail event, biaya, dan aturan validasi"
+                                >
+                                  <Edit2 size={13} />
+                                  <span>Edit Event</span>
+                                </button>
+
+                                {/* Lihat Pendaftar */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedEventFilter(evt.id);
+                                    setEventSubTab("registrations");
+                                  }}
+                                  className="btn text-xs py-1.5 px-2 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black border border-black rounded flex items-center justify-center gap-1 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer shadow-sm col-span-2 sm:col-span-1"
+                                >
+                                  <Eye size={13} />
+                                  <span>Pendaftar ({regCount})</span>
+                                </button>
+
+                                {/* Hapus Event */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteEvent(evt)}
+                                  className="btn text-xs py-1.5 px-2 bg-red-600 hover:bg-red-700 text-white font-heading font-black border border-black rounded flex items-center justify-center gap-1 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer shadow-sm col-span-2 sm:col-span-1"
+                                  title="Hapus event dari database"
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Hapus Event</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 2: DATA PENDAFTAR PESERTA */}
+                  {eventSubTab === "registrations" && (
+                    <div className="flex flex-col gap-4">
+                      {/* Top Header Card */}
+                      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded bg-[#DC2626] border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_#000] shrink-0">
+                            <Ticket size={20} className="text-[#FACC15]" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                                Data Pendaftar Event ({filteredEvents.length})
+                              </h4>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#FACC15] text-slate-950 border border-black">
+                                {filteredEvents.filter((r) => r.checkedIn).length} CHECK-IN
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-600 text-white border border-black">
+                                {filteredEvents.filter((r) => r.feePaid).length} BAYAR FEE
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                              Data registrasi online warga dan peserta kegiatan akbar LSM Paguyuban Pizza Sandy Shores
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Event Selector & Export Action */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Filter Dropdown Event */}
+                          <select
+                            value={selectedEventFilter}
+                            onChange={(e) => setSelectedEventFilter(e.target.value)}
+                            className="text-xs font-heading font-black py-2 px-3 rounded border-2 border-black bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] cursor-pointer"
+                          >
+                            <option value="all">Semua Event ({eventRegistrations.length})</option>
+                            {eventsList.map((e) => (
+                              <option key={e.id} value={e.id}>
+                                {e.title}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={handleExportEventExcel}
+                            disabled={filteredEvents.length === 0}
+                            className="btn py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                            title="Download rekap pendaftar event dalam format Excel"
+                          >
+                            <FileSpreadsheet size={15} />
+                            <span>Unduh Excel</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Search Bar */}
+                      <div className="card-brutal p-3 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="relative w-full sm:max-w-md">
+                          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="Cari kode tiket, nama IC, no telp, atau kategori..."
+                            value={eventSearchQuery}
+                            onChange={(e) => setEventSearchQuery(e.target.value)}
+                            className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          />
+                          {eventSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setEventSearchQuery("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0 self-start sm:self-center">
+                          Menampilkan <span className="text-[#DC2626] dark:text-[#FACC15]">{filteredEvents.length}</span> dari {eventRegistrations.length} pendaftar
+                        </div>
+                      </div>
+
+                      {/* Event Registrants Cards */}
+                      {filteredEvents.length === 0 ? (
+                        <div className="card-brutal p-12 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-2">
+                          <Ticket size={36} className="text-slate-300 dark:text-slate-600" />
+                          <p className="font-heading font-black text-sm text-slate-700 dark:text-slate-300">
+                            {eventSearchQuery ? "Tidak ditemukan pendaftar event yang sesuai" : "Belum ada pendaftar pada event ini"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {eventSearchQuery ? "Coba gunakan kata kunci pencarian yang lain." : "Peserta yang mendaftar melalui formulir web akan otomatis tercatat di sini."}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                          {filteredEvents.map((reg) => (
+                            <div
+                              key={reg.id}
+                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
+                            >
+                              {/* Ticket Header */}
+                              <div className="flex items-center justify-between gap-2 pb-2 border-b border-black/10 dark:border-white/10">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono font-black text-xs text-[#DC2626] dark:text-[#FACC15] bg-red-50 dark:bg-red-950/60 px-2 py-0.5 rounded border border-red-300 dark:border-red-900">
+                                    {reg.ticketCode}
+                                  </span>
+                                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                                    reg.feePaid
+                                      ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-400"
+                                      : "bg-[#FACC15]/20 dark:bg-[#FACC15]/10 text-amber-900 dark:text-amber-200 border-amber-400"
+                                  }`}>
+                                    {reg.feePaid ? `FEE: LUNAS` : `FEE: BELUM`}
+                                  </span>
+                                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                                    reg.checkedIn
+                                      ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-400"
+                                      : "bg-[#FACC15]/20 dark:bg-[#FACC15]/10 text-amber-900 dark:text-amber-200 border-amber-400"
+                                  }`}>
+                                    {reg.checkedIn ? `CHECK-IN: HADIR` : `CHECK-IN: BELUM`}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  {reg.ssDate || reg.regDate || "-"}
+                                </span>
+                              </div>
+
+                              {/* Participant Info */}
+                              <div>
+                                <div className="flex items-center justify-between gap-1">
+                                  <h5 className="font-heading font-black text-sm text-slate-950 dark:text-slate-100 uppercase truncate" title={reg.fullName}>
+                                    {reg.fullName || "Tanpa Nama"}
+                                  </h5>
+                                  {reg.citizenId && (
+                                    <span className="text-[10px] font-mono font-bold text-slate-500 shrink-0">
+                                      CID: {reg.citizenId}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="text-[10px] font-mono text-slate-500 truncate mt-0.5">
+                                  Event: {reg.eventTitle || reg.category || "Pizzarena"}
+                                </div>
+
+                                {/* Civilian & Gang Verified Badges */}
+                                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                  <span className="text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-400">
+                                    ✓ {reg.jobStatus || "Civilian"}
+                                  </span>
+                                  <span className="text-[10px] font-mono font-bold text-blue-800 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/60 px-1.5 py-0.2 rounded border border-blue-400">
+                                    ✓ {reg.gangStatus || "No Gang"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Contact Details */}
+                              <div className="grid grid-cols-2 gap-2 text-xs p-2.5 rounded bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono">
+                                <div>
+                                  <span className="text-[9px] text-slate-400 font-sans font-bold block">NO HP IC:</span>
+                                  <strong className="text-slate-900 dark:text-slate-100 truncate block text-[11px]" title={reg.phone}>
+                                    {reg.phone || "-"}
+                                  </strong>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 font-sans font-bold block">DISCORD (OOC):</span>
+                                  <span className="text-indigo-600 dark:text-indigo-400 font-bold truncate block text-[11px]" title={reg.discordTag || reg.telegram}>
+                                    {reg.discordTag || reg.telegram || "-"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Preview Screenshot Button if available */}
+                              {reg.ktpScreenshot && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewKtp({
+                                      image: reg.ktpScreenshot,
+                                      name: `${reg.fullName} (Bukti KTP & HUD)`,
+                                      citizenId: reg.citizenId || "",
+                                    })
+                                  }
+                                  className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-black border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center justify-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                                  title="Lihat screenshot KTP IC dan HUD"
+                                >
+                                  <FileText size={12} className="text-[#DC2626]" />
+                                  <span>Lihat Bukti Screenshot KTP & HUD</span>
+                                </button>
+                              )}
+
+                              {/* Bottom Actions: Toggle Fee, Checkin & Delete */}
+                              <div className="flex flex-col gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                                <div className="grid grid-cols-2 gap-2">
+                                  {/* Toggle Fee Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleFeePaid(reg)}
+                                    style={{
+                                      backgroundColor: reg.feePaid ? "#059669" : "#FACC15",
+                                      color: reg.feePaid ? "#FFFFFF" : "#020617",
+                                    }}
+                                    className="w-full text-xs py-2 px-2.5 rounded font-mono font-black border-2 border-black flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#000]"
+                                    title="Klik untuk mengubah status pembayaran fee"
+                                  >
+                                    {reg.feePaid ? (
+                                      <CheckCircle2 size={14} className="text-white shrink-0" />
+                                    ) : (
+                                      <DollarSign size={14} className="text-slate-950 shrink-0" />
+                                    )}
+                                    <span>{reg.feePaid ? "FEE LUNAS" : "BAYAR FEE"}</span>
+                                  </button>
+
+                                  {/* Toggle Check-in Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleEventCheckin(reg)}
+                                    style={{
+                                      backgroundColor: reg.checkedIn ? "#059669" : "#FACC15",
+                                      color: reg.checkedIn ? "#FFFFFF" : "#020617",
+                                    }}
+                                    className="w-full text-xs py-2 px-2.5 rounded font-mono font-black border-2 border-black flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#000]"
+                                    title="Klik untuk mengubah status kehadiran di arena"
+                                  >
+                                    {reg.checkedIn ? (
+                                      <CheckCircle2 size={14} className="text-white shrink-0" />
+                                    ) : (
+                                      <Clock size={14} className="text-slate-950 shrink-0" />
+                                    )}
+                                    <span>{reg.checkedIn ? "HADIR ARENA" : "CHECK-IN"}</span>
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteEventReg(reg)}
+                                  className="text-[11px] text-red-600 dark:text-red-400 hover:underline flex items-center justify-center gap-1 py-0.5 cursor-pointer"
+                                >
+                                  <Trash2 size={12} />
+                                  <span>Hapus Pendaftar</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2642,6 +3654,300 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FORM BUAT / EDIT EVENT */}
+      {editingEvent && (
+        <div
+          className="fixed inset-0 z-[140] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto select-none animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#FACC15] text-slate-950">
+              <div className="flex items-center gap-2">
+                <Ticket size={20} className="text-[#DC2626]" />
+                <h4 className="font-heading font-black text-sm uppercase">
+                  {editingEvent.id ? "Edit Konfigurasi Event" : "Buat Event Komunitas Baru"}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingEvent(null)}
+                className="w-7 h-7 rounded border border-black bg-white flex items-center justify-center font-bold cursor-pointer"
+                title="Batal"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <form onSubmit={handleSaveEvent} className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4 text-xs">
+              {/* Nama Event */}
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                  Nama Event / Turnamen <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Pizzarena : Civilian Street Fight"
+                  value={editingEvent.title}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
+                  className="input-field w-full text-xs font-bold"
+                />
+              </div>
+
+              {/* Grid 2 Kolom: Penyelenggara & Tagline */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                    Penyelenggara
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="LSM Paguyuban Pizza Sandy Shores"
+                    value={editingEvent.organizer}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, organizer: e.target.value })}
+                    className="input-field w-full text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                    Tagline / Sub-judul Singkat
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Turnamen Tarung Bebas Resmi Khusus Warga Sipil"
+                    value={editingEvent.tagline}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, tagline: e.target.value })}
+                    className="input-field w-full text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Grid 3 Kolom: Status, Biaya, Prefix Tiket */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Status Pendaftaran */}
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                    Status Pendaftaran
+                  </label>
+                  <select
+                    value={editingEvent.status}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, status: e.target.value })}
+                    className="input-field w-full text-xs font-bold cursor-pointer"
+                  >
+                    <option value="OPEN">DIBUKA (Hijau)</option>
+                    <option value="CLOSED">DITUTUP (Merah)</option>
+                    <option value="DRAFT">DRAF (Disimpan)</option>
+                  </select>
+                </div>
+
+                {/* Biaya Pendaftaran */}
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                    Biaya Pendaftaran
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: $10.000 USD / Gratis"
+                    value={editingEvent.entryFee}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, entryFee: e.target.value })}
+                    className="input-field w-full text-xs font-mono font-bold"
+                  />
+                </div>
+
+                {/* Prefix Kode Tiket */}
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                    Prefix Tiket (3-8 Huruf)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: PZR-CIV / PPS-EVT"
+                    value={editingEvent.ticketPrefix}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, ticketPrefix: e.target.value.toUpperCase() })}
+                    className="input-field w-full text-xs font-mono font-black uppercase"
+                  />
+                </div>
+              </div>
+
+              {/* Syarat Validasi Form (Checkboxes) */}
+              <div className="p-3 bg-amber-50/70 dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
+                <span className="font-heading font-black uppercase text-xs text-slate-900 dark:text-slate-100">
+                  Pengaturan Validasi Formulir & Syarat:
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer font-medium">
+                    <input
+                      type="checkbox"
+                      checked={editingEvent.requireOcr !== false}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, requireOcr: e.target.checked })}
+                      className="w-4 h-4 accent-[#DC2626]"
+                    />
+                    <span>Wajib Scan OCR KTP & HUD</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer font-medium">
+                    <input
+                      type="checkbox"
+                      checked={editingEvent.requireCivilianOnly !== false}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, requireCivilianOnly: e.target.checked })}
+                      className="w-4 h-4 accent-[#DC2626]"
+                    />
+                    <span>Khusus Civilian (Tolak Faksi)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer font-medium">
+                    <input
+                      type="checkbox"
+                      checked={editingEvent.requireNoGangOnly !== false}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, requireNoGangOnly: e.target.checked })}
+                      className="w-4 h-4 accent-[#DC2626]"
+                    />
+                    <span>Wajib No Gang (Tolak Gang)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer font-medium">
+                    <input
+                      type="checkbox"
+                      checked={editingEvent.requireHpIc !== false}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, requireHpIc: e.target.checked })}
+                      className="w-4 h-4 accent-[#DC2626]"
+                    />
+                    <span>Wajib Nomor HP / Telepon IC</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer font-medium">
+                    <input
+                      type="checkbox"
+                      checked={editingEvent.requireDiscord !== false}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, requireDiscord: e.target.checked })}
+                      className="w-4 h-4 accent-[#DC2626]"
+                    />
+                    <span>Wajib Username Discord (OOC)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Syarat Wajib Peserta (Editable List Mengurut 1, 2, 3 ke Bawah) */}
+              <div className="p-3.5 bg-amber-50/70 dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={15} className="text-[#DC2626]" />
+                    <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200">
+                      Syarat Wajib Peserta (Tampil Mengurut 1, 2, 3 ke Bawah)
+                    </label>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-500 font-bold">
+                    1 baris = 1 nomor urut
+                  </span>
+                </div>
+
+                <textarea
+                  rows={4}
+                  value={
+                    Array.isArray(editingEvent.requirements)
+                      ? editingEvent.requirements.join("\n")
+                      : editingEvent.requirements || ""
+                  }
+                  onChange={(e) =>
+                    setEditingEvent({
+                      ...editingEvent,
+                      requirements: e.target.value.split("\n"),
+                    })
+                  }
+                  placeholder={`Contoh:\nKhusus warga sipil / Civilian (Freelancer)\nWajib No Gang (Unaffiliated)\nBiaya pendaftaran $10.000 USD diserahkan di arena\nWajib membawa KTP IC yang masih berlaku`}
+                  className="input-field w-full text-xs font-medium leading-relaxed font-mono"
+                />
+
+                <p className="text-[10px] text-slate-600 dark:text-slate-400">
+                  💡 <strong>Tips:</strong> Tekan <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-mono text-[9px] border border-black/30">Enter</kbd> untuk membuat butir baru. Setiap baris teks otomatis tampil dengan nomor urut <strong>1, 2, 3...</strong> menurun ke bawah di formulir pendaftaran warga.
+                </p>
+              </div>
+
+              {/* Pengaturan Pop-up Messenger Web */}
+              <div className="p-3 bg-slate-50 dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-heading font-black uppercase text-xs text-slate-900 dark:text-slate-100">
+                    Pengaturan Notifikasi Messenger Web:
+                  </span>
+                  <label className="flex items-center gap-1.5 cursor-pointer font-mono font-bold text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={editingEvent.showMessengerNotification !== false}
+                      onChange={(e) => setEditingEvent({ ...editingEvent, showMessengerNotification: e.target.checked })}
+                      className="w-3.5 h-3.5 accent-[#DC2626]"
+                    />
+                    <span>Tampilkan Pop-up</span>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
+                    Judul Notifikasi Pop-up
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEvent.messengerHeading || ""}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, messengerHeading: e.target.value })}
+                    placeholder="Contoh: Ada Event Baru!"
+                    className="input-field w-full text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
+                    Pesan Teks Chat Pop-up
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editingEvent.messengerMessage || ""}
+                    onChange={(e) => setEditingEvent({ ...editingEvent, messengerMessage: e.target.value })}
+                    placeholder="Tulis pesan ajakan chat yang menarik untuk pengunjung web..."
+                    className="input-field w-full text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Deskripsi Event */}
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                  Deskripsi & Aturan Lengkap Event
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingEvent.description || ""}
+                  onChange={(e) => setEditingEvent({ ...editingEvent, description: e.target.value })}
+                  placeholder="Keterangan format turnamen, lokasi penimbangan badan, hadiah, dll."
+                  className="input-field w-full text-xs"
+                />
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-black/10 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingEvent(null)}
+                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border-2 border-black font-bold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEvent}
+                  className="btn py-2 px-5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] text-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
+                >
+                  <Save size={14} className="text-[#DC2626]" />
+                  <span>{isSavingEvent ? "Menyimpan Event..." : "Simpan Konfigurasi Event"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

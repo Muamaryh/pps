@@ -72,6 +72,18 @@ export async function preprocessImageForOcr(imageFileOrUrl) {
 }
 
 /**
+ * Helper to clean and uppercase OCR names (replaces misread characters like '!' with 'I')
+ */
+export function cleanOcrName(raw) {
+  if (!raw) return "";
+  return raw
+    .replace(/[!|]/g, "I") // '!' or '|' commonly misread for 'I'
+    .replace(/[^a-zA-Z\s\-]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+/**
  * Parses raw OCR text extracted from GTA V / FiveM ID Card (KTP) into structured fields:
  * - firstName
  * - lastName
@@ -84,6 +96,7 @@ export function parseKtpOcrText(rawText) {
   const result = {
     firstName: "",
     lastName: "",
+    fullName: "",
     dob: "",
     sex: "",
     nationality: "",
@@ -119,7 +132,7 @@ export function parseKtpOcrText(rawText) {
       if (!val && i + 1 < lines.length && !lines[i + 1].includes(":")) {
         val = cleanVal(lines[i + 1]);
       }
-      if (val) result.firstName = val;
+      if (val) result.firstName = cleanOcrName(val);
     }
 
     // Last Name
@@ -132,7 +145,7 @@ export function parseKtpOcrText(rawText) {
       if (!val && i + 1 < lines.length && !lines[i + 1].includes(":")) {
         val = cleanVal(lines[i + 1]);
       }
-      if (val) result.lastName = val;
+      if (val) result.lastName = cleanOcrName(val);
     }
 
     // Single Full Name if first/last not separate
@@ -149,10 +162,10 @@ export function parseKtpOcrText(rawText) {
       if (val && !/^(ktp|identitas|kartu|citizen|state|los|sandy)/i.test(val)) {
         const parts = val.split(/\s+/);
         if (parts.length > 1) {
-          result.firstName = parts[0];
-          result.lastName = parts.slice(1).join(" ");
+          result.firstName = cleanOcrName(parts[0]);
+          result.lastName = cleanOcrName(parts.slice(1).join(" "));
         } else {
-          result.firstName = val;
+          result.firstName = cleanOcrName(val);
         }
       }
     }
@@ -205,7 +218,7 @@ export function parseKtpOcrText(rawText) {
       if (!val && i + 1 < lines.length) {
         val = cleanVal(lines[i + 1]);
       }
-      if (val) result.nationality = val;
+      if (val) result.nationality = cleanOcrName(val);
     }
 
     // Citizen ID
@@ -245,6 +258,9 @@ export function parseKtpOcrText(rawText) {
     else if (/perempuan|female|\bf\b/i.test(result.sex)) result.sex = "Female";
   }
 
+  // Full Name in full UPPERCASE
+  result.fullName = [result.firstName, result.lastName].filter(Boolean).join(" ").trim().toUpperCase();
+
   return result;
 }
 
@@ -277,10 +293,267 @@ export async function scanKtpImage(imageFileOrUrl, onProgress) {
       fields: {
         firstName: "",
         lastName: "",
+        fullName: "",
         dob: "",
         sex: "",
         nationality: "",
         citizenId: "",
+      },
+    };
+  }
+}
+
+/**
+ * Specialized parser for UFC Tournament screenshots:
+ * Checks:
+ * 1. Date/time on HUD (e.g. 20/09/2026 - 11:12 or 21/12/2025 16:44)
+ * 2. Civilian job verification (Civilian - Freelancer) -> Rejects if non-civilian
+ * 3. Gang status verification (No Gang - Unaffiliated) -> Rejects if gang member
+ * 4. KTP IC data extraction in UPPERCASE (First name, Last name, DOB, Sex, Nationality, Citizen ID)
+ */
+export function parseUfcScreenshotOcr(rawText, options = {}) {
+  const requireCivilian = options.requireCivilianOnly !== false;
+  const requireNoGang = options.requireNoGangOnly !== false;
+  const eventTitle = options.title || "Turnamen / Event";
+
+  if (!rawText || typeof rawText !== "string") {
+    return {
+      isValidUfc: false,
+      rejectionReason: "Teks pada gambar screenshot tidak terbaca. Pastikan gambar cukup terang dan tajam.",
+      dateTime: "",
+      jobStatus: "",
+      gangStatus: "",
+      isCivilian: false,
+      isNoGang: false,
+      hasDate: false,
+      firstName: "",
+      lastName: "",
+      fullName: "",
+      dob: "",
+      sex: "",
+      nationality: "",
+      citizenId: "",
+      rawText: "",
+    };
+  }
+
+  const lines = rawText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  // 1. Detect Date & Time in HUD (e.g. 20/09/2026 - 11:12 or 21/12/2025 16:44)
+  let dateTime = "";
+  const dateMatch = rawText.match(/\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4}(?:\s*[-:]?\s*\d{1,2}[:\.]\d{2})?)\b/);
+  if (dateMatch) {
+    dateTime = dateMatch[1];
+  }
+
+  // 2. Detect Job Status & Verify Civilian Only
+  let jobStatus = "";
+  let isCivilian = false;
+  for (const line of lines) {
+    if (/civilian/i.test(line)) {
+      isCivilian = true;
+      // Bersihkan artefak/noise visual background HUD game (seperti "fl Ii T", "(IT", icon koper, tekstur seng)
+      const civMatch = line.match(/(Civilian\s*[-–—]?\s*[A-Za-z]+|Civilian)/i);
+      if (civMatch) {
+        jobStatus = civMatch[0].trim();
+        if (/freelancer/i.test(jobStatus)) {
+          jobStatus = "Civilian - Freelancer";
+        }
+      } else {
+        jobStatus = "Civilian - Freelancer";
+      }
+      break;
+    }
+  }
+
+  // Check if non-civilian faction keywords are explicitly present
+  const isForbiddenJob = /(?:police|polisi|sheriff|ems|medic|paramedic|doctor|dokter|government|pemerintah|paspampres)/i.test(rawText);
+
+  // 3. Detect Gang Status & Verify No Gang (Unaffiliated)
+  let gangStatus = "";
+  let isNoGang = false;
+  for (const line of lines) {
+    if (/no\s*gang/i.test(line) || /unaffiliated/i.test(line)) {
+      isNoGang = true;
+      gangStatus = "No Gang - Unaffiliated";
+      break;
+    }
+  }
+
+  // Fallback checks for Civilian & Gang in raw text
+  if (!isCivilian && /civilian/i.test(rawText)) {
+    isCivilian = true;
+    jobStatus = "Civilian - Freelancer";
+  }
+  if (!isNoGang && (/no\s*gang/i.test(rawText) || /unaffiliated/i.test(rawText))) {
+    isNoGang = true;
+    gangStatus = "No Gang - Unaffiliated";
+  }
+
+  // 4. KTP IC data parsing in full UPPERCASE (First Name, Last Name, DOB, Sex, Nationality, Citizen ID)
+  let lastName = "";
+  let firstName = "";
+  let dob = "";
+  let sex = "";
+  let nationality = "";
+  let citizenId = "";
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+
+    // LAST NAME
+    if (/LAST\s*NAME/i.test(l)) {
+      const parts = l.split(/LAST\s*NAME[:\s]*/i);
+      if (parts[1] && cleanOcrName(parts[1])) {
+        lastName = cleanOcrName(parts[1]);
+      } else if (i + 1 < lines.length && !lines[i + 1].includes(":")) {
+        lastName = cleanOcrName(lines[i + 1]);
+      }
+    }
+
+    // FIRST NAME
+    if (/FIRST\s*NAME/i.test(l)) {
+      const parts = l.split(/FIRST\s*NAME[:\s]*/i);
+      if (parts[1] && cleanOcrName(parts[1])) {
+        firstName = cleanOcrName(parts[1]);
+      } else if (i + 1 < lines.length && !lines[i + 1].includes(":")) {
+        firstName = cleanOcrName(lines[i + 1]);
+      }
+    }
+
+    // DOB
+    if (/\bDOB\b/i.test(l)) {
+      const m = l.match(/\b(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})\b/);
+      if (m) dob = m[1];
+      else if (i + 1 < lines.length) {
+        const mNext = lines[i + 1].match(/\b(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})\b/);
+        if (mNext) dob = mNext[1];
+      }
+    }
+
+    // SEX
+    if (/\bSEX\b/i.test(l)) {
+      if (/male|pria|laki/i.test(l)) sex = "MALE";
+      else if (/female|wanita|perempuan/i.test(l)) sex = "FEMALE";
+      else if (i + 1 < lines.length) {
+        if (/male|pria|laki/i.test(lines[i + 1])) sex = "MALE";
+        else if (/female|wanita|perempuan/i.test(lines[i + 1])) sex = "FEMALE";
+      }
+    }
+
+    // NATIONALITY
+    if (/NATIONALITY/i.test(l)) {
+      const parts = l.split(/NATIONALITY[:\s]*/i);
+      if (parts[1] && cleanOcrName(parts[1])) {
+        nationality = cleanOcrName(parts[1]);
+      } else if (i + 1 < lines.length && !lines[i + 1].includes(":")) {
+        nationality = cleanOcrName(lines[i + 1]);
+      }
+    }
+
+    // CITIZEN ID
+    if (/CITIZEN\s*ID/i.test(l)) {
+      const m = l.match(/CITIZEN\s*ID[:\s]*([A-Z0-9_-]+)/i);
+      if (m && m[1]) {
+        citizenId = m[1].toUpperCase();
+      } else if (i + 1 < lines.length) {
+        const idM = lines[i + 1].match(/([A-Z0-9_-]{4,15})/i);
+        if (idM) citizenId = idM[1].toUpperCase();
+      }
+    }
+  }
+
+  // Fallbacks if names or other fields not found via above loop
+  if (!firstName || !lastName || !dob || !sex || !nationality || !citizenId) {
+    const ktpFallback = parseKtpOcrText(rawText);
+    if (!firstName && ktpFallback.firstName) firstName = cleanOcrName(ktpFallback.firstName);
+    if (!lastName && ktpFallback.lastName) lastName = cleanOcrName(ktpFallback.lastName);
+    if (!dob && ktpFallback.dob) dob = ktpFallback.dob;
+    if (!sex && ktpFallback.sex) sex = ktpFallback.sex.toUpperCase();
+    if (!nationality && ktpFallback.nationality) nationality = cleanOcrName(ktpFallback.nationality);
+    if (!citizenId && ktpFallback.citizenId) citizenId = ktpFallback.citizenId.toUpperCase();
+  }
+
+  // Full name in proper UPPERCASE
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim().toUpperCase();
+
+  // 5. Evaluate strict rejection conditions
+  let isValidUfc = true;
+  let rejectionReason = "";
+
+  if (requireCivilian && (!isCivilian || isForbiddenJob)) {
+    isValidUfc = false;
+    rejectionReason = `Pendaftaran Ditolak: Status pekerjaan bukan Civilian! ${eventTitle} ini khusus untuk Civilian (Warga Sipil / Freelancer).`;
+  } else if (requireNoGang && !isNoGang) {
+    isValidUfc = false;
+    rejectionReason = `Pendaftaran Ditolak: Anda terdeteksi memiliki afiliasi Gang! ${eventTitle} ini khusus petarung No Gang (Unaffiliated).`;
+  }
+
+  return {
+    isValidUfc,
+    rejectionReason,
+    dateTime: dateTime || "Terdeteksi",
+    hasDate: Boolean(dateTime),
+    jobStatus: jobStatus || (isCivilian ? "Civilian - Freelancer" : "Bebas / Lainnya"),
+    gangStatus: gangStatus || (isNoGang ? "No Gang - Unaffiliated" : "Bebas / Lainnya"),
+    isCivilian,
+    isNoGang,
+    firstName: (firstName || "").toUpperCase(),
+    lastName: (lastName || "").toUpperCase(),
+    fullName: (fullName || "").toUpperCase(),
+    dob: dob || "",
+    sex: sex || "",
+    nationality: nationality || "",
+    citizenId: citizenId || "",
+    rawText,
+  };
+}
+
+/**
+ * Runs OCR on a UFC registration screenshot and returns evaluation results
+ */
+export async function scanUfcScreenshotImage(imageFileOrUrl, onProgress, options = {}) {
+  try {
+    const preprocessed = await preprocessImageForOcr(imageFileOrUrl);
+    const { data } = await Tesseract.recognize(preprocessed, "eng", {
+      logger: (m) => {
+        if (m.status === "recognizing text" && typeof onProgress === "function") {
+          onProgress(Math.round(m.progress * 100));
+        }
+      },
+    });
+
+    const parsed = parseUfcScreenshotOcr(data.text, options);
+    return {
+      success: true,
+      rawText: data.text,
+      parsed,
+      preprocessedImage: preprocessed,
+    };
+  } catch (err) {
+    console.error("UFC OCR scan error:", err);
+    return {
+      success: false,
+      error: err.message || "Gagal memindai screenshot",
+      parsed: {
+        isValidUfc: false,
+        rejectionReason: "Terjadi kesalahan saat memproses OCR screenshot. Silakan coba unggah ulang.",
+        dateTime: "",
+        jobStatus: "",
+        gangStatus: "",
+        isCivilian: false,
+        isNoGang: false,
+        hasDate: false,
+        firstName: "",
+        lastName: "",
+        dob: "",
+        sex: "",
+        nationality: "",
+        citizenId: "",
+        rawText: "",
       },
     };
   }

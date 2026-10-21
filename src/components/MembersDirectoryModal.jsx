@@ -306,6 +306,43 @@ export default function MembersDirectoryModal({
                           </span>
                         </div>
                       </div>
+
+                      {/* Status Kas (4k) & Voucher Jasra (Read-Only) */}
+                      <div className="flex flex-col gap-1.5 p-2 rounded bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
+                        {/* Status Kas */}
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">
+                            UANG KAS (4K):
+                          </span>
+                          {member.kasPaid ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              LUNAS (RP 4.000)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                              BELUM BAYAR
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Status Voucher Jasra */}
+                        <div className="flex items-center justify-between gap-1 pt-1 border-t border-black/5 dark:border-white/5">
+                          <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">
+                            VOUCHER JASRA:
+                          </span>
+                          {member.voucherJasraReceived ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded bg-[#FACC15]/25 dark:bg-[#FACC15]/15 text-amber-900 dark:text-[#FACC15] border border-amber-400">
+                              ✓ 10 TREATMENT • 10 PINGSAN
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
+                              BELUM DITERIMA
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Bottom Action: Preview KTP Document */}

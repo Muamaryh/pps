@@ -3,6 +3,7 @@ import { loadCloudData, defaultData, mergeWithDefaults, sanitizeSandyShores } fr
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import About from "./components/About";
+import EventSection from "./components/EventSection";
 import OrgStructure from "./components/OrgStructure";
 import Gallery from "./components/Gallery";
 import Footer from "./components/Footer";
@@ -11,13 +12,24 @@ import AdminModal from "./components/AdminModal";
 import ServicePortalModal from "./components/ServicePortalModal";
 import MemberRegistrationModal from "./components/MemberRegistrationModal";
 import MembersDirectoryModal from "./components/MembersDirectoryModal";
+import EventRegistrationModal from "./components/EventRegistrationModal";
+import EventMessengerPopup from "./components/EventMessengerPopup";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
 import { subscribeMembersCloud } from "./services/memberService";
+import { subscribeEventsCloud, DEFAULT_EVENT } from "./services/eventService";
 
 export default function App() {
   const [memberCount, setMemberCount] = useState(0);
+  const [eventsList, setEventsList] = useState(() => {
+    try {
+      const cached = localStorage.getItem("pps_events_list_cache");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [DEFAULT_EVENT];
+  });
+  const [selectedEventForModal, setSelectedEventForModal] = useState(null);
   const [data, setData] = useState(() => {
     try {
       const cached = localStorage.getItem("pps_cached_data");
@@ -88,6 +100,27 @@ export default function App() {
       if (typeof unsub === "function") unsub();
     };
   }, []);
+
+  // Real-time Dynamic Events Subscription
+  useEffect(() => {
+    const unsub = subscribeEventsCloud(
+      (events) => {
+        if (Array.isArray(events) && events.length > 0) {
+          setEventsList(events);
+        }
+      },
+      () => {}
+    );
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, []);
+
+  // Active Event for Public Visitors
+  const activeEvent =
+    eventsList.find((e) => e.status === "OPEN") ||
+    eventsList[0] ||
+    DEFAULT_EVENT;
 
   // Lightbox State (supports multiple photos or single photo)
   const [lightbox, setLightbox] = useState({
@@ -167,6 +200,14 @@ export default function App() {
     return path === "/anggota" || path.endsWith("/anggota") || hash === "#/anggota" || hash === "#anggota";
   });
 
+  // Modal Pendaftaran Event (/event or #event)
+  const [eventModalOpen, setEventModalOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return path === "/event" || path.endsWith("/event") || hash === "#/event" || hash === "#event";
+  });
+
   useEffect(() => {
     function checkRoutes() {
       const path = window.location.pathname.toLowerCase();
@@ -189,6 +230,7 @@ export default function App() {
         setMemberModalOpen(true);
         setMembersDirectoryOpen(false);
         setServicePortalOpen(false);
+        setEventModalOpen(false);
       } else {
         setMemberModalOpen(false);
       }
@@ -203,8 +245,24 @@ export default function App() {
         setMembersDirectoryOpen(true);
         setMemberModalOpen(false);
         setServicePortalOpen(false);
+        setEventModalOpen(false);
       } else {
         setMembersDirectoryOpen(false);
+      }
+
+      // 4. Check Event Registration Route (/event or #event)
+      if (
+        path === "/event" ||
+        path.endsWith("/event") ||
+        hash === "#/event" ||
+        hash === "#event"
+      ) {
+        setEventModalOpen(true);
+        setMemberModalOpen(false);
+        setMembersDirectoryOpen(false);
+        setServicePortalOpen(false);
+      } else {
+        setEventModalOpen(false);
       }
 
       // 4. Check Service Portal Route (/layanan, /umkm, /meeting)
@@ -243,7 +301,7 @@ export default function App() {
         hash === "#/discord" ||
         hash === "#discord"
       ) {
-        window.location.href = "https://discord.gg/auX6XYNfgz";
+        window.location.href = "https://discord.gg/2wpeukyDdu";
       }
     }
 
@@ -335,6 +393,26 @@ export default function App() {
     }
   }
 
+  function handleOpenEventModal(targetEvent = null) {
+    if (targetEvent) {
+      setSelectedEventForModal(targetEvent);
+    } else {
+      setSelectedEventForModal(activeEvent);
+    }
+    setEventModalOpen(true);
+    if (!window.location.pathname.includes("/event")) {
+      window.history.pushState(null, "", "/event");
+    }
+  }
+
+  function handleCloseEventModal() {
+    setEventModalOpen(false);
+    setSelectedEventForModal(null);
+    if (window.location.pathname.includes("/event") || window.location.hash.includes("event")) {
+      window.history.pushState(null, "", "/");
+    }
+  }
+
   // Toast Alerts State
   const [toasts, setToasts] = useState([]);
 
@@ -348,7 +426,7 @@ export default function App() {
   }
 
   // Extract Discord and Register URLs from navLinks if customized
-  let discordUrl = "https://discord.gg/auX6XYNfgz";
+  let discordUrl = "https://discord.gg/2wpeukyDdu";
   let registerUrl = "https://daftaranggotapaps.netlify.app/";
 
   if (data.navLinks) {
@@ -432,6 +510,12 @@ export default function App() {
         onOpenAdmin={() => setAdminModalOpen(true)}
       />
 
+      {/* Floating Messenger Notif Event Pop-up */}
+      <EventMessengerPopup
+        event={activeEvent}
+        onOpenRegisterEvent={handleOpenEventModal}
+      />
+
       {/* Lightbox Modal */}
       <LightboxModal
         isOpen={lightbox.isOpen}
@@ -450,6 +534,13 @@ export default function App() {
         isOpen={membersDirectoryOpen}
         onClose={handleCloseMembersDirectory}
         onOpenRegister={handleOpenRegister}
+      />
+
+      {/* Modal Pendaftaran Event Akbar LSM PPS (/event) */}
+      <EventRegistrationModal
+        isOpen={eventModalOpen}
+        onClose={handleCloseEventModal}
+        event={selectedEventForModal || activeEvent}
       />
 
       {/* Modal Khusus Pendaftaran Anggota LSM PPS (Dengan OCR KTP Otomatis) */}
@@ -473,6 +564,7 @@ export default function App() {
         onClose={handleCloseAdminModal}
         initialData={data}
         isCloudLoading={loading}
+        eventsList={eventsList}
         onDataSaved={(newData) => setData(newData)}
         onShowToast={showToast}
       />
