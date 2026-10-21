@@ -47,6 +47,7 @@ function getEventDb() {
 const APP_ID = "portal-anggota-app";
 const EVENTS_LIST_COL_PATH = ["artifacts", APP_ID, "public", "data", "events_list"];
 const EVENTS_LIST_STORAGE_KEY = "pps_events_list_cache";
+const EVENTS_INIT_KEY = "pps_events_initialized";
 const EVENTS_REG_COL_PATH = ["artifacts", APP_ID, "public", "data", "event_registrations"];
 const EVENTS_REG_STORAGE_KEY = "pps_event_registrations_cache";
 
@@ -93,17 +94,28 @@ export async function loadEventsCloud() {
     const snap = await getDocs(colRef);
     const list = [];
     snap.forEach((d) => {
-      list.push({ id: d.id, ...d.data() });
+      if (d.id !== "_meta") {
+        list.push({ id: d.id, ...d.data() });
+      }
     });
-    if (list.length === 0) {
-      // Seed default event
+
+    const isInitialized = typeof window !== "undefined" && localStorage.getItem(EVENTS_INIT_KEY) === "true";
+
+    // Only seed default event on the very first fresh install if never initialized before
+    if (list.length === 0 && !isInitialized) {
       const defaultEvt = { ...DEFAULT_EVENT };
       const docRef = doc(getEventDb(), ...EVENTS_LIST_COL_PATH, defaultEvt.id);
       await setDoc(docRef, defaultEvt);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(EVENTS_INIT_KEY, "true");
+      }
       list.push(defaultEvt);
     }
+
     list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    localStorage.setItem(EVENTS_LIST_STORAGE_KEY, JSON.stringify(list));
+    if (typeof window !== "undefined") {
+      localStorage.setItem(EVENTS_LIST_STORAGE_KEY, JSON.stringify(list));
+    }
     return list;
   } catch (err) {
     console.warn("Notice loading events list from cloud, falling back:", err);
@@ -113,7 +125,7 @@ export async function loadEventsCloud() {
     } catch {
       // ignore
     }
-    return [{ ...DEFAULT_EVENT }];
+    return [];
   }
 }
 
@@ -128,13 +140,14 @@ export function subscribeEventsCloud(onUpdate, onError) {
       (snap) => {
         let list = [];
         snap.forEach((d) => {
-          list.push({ id: d.id, ...d.data() });
+          if (d.id !== "_meta") {
+            list.push({ id: d.id, ...d.data() });
+          }
         });
-        if (list.length === 0) {
-          list = [{ ...DEFAULT_EVENT }];
-        }
         list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        localStorage.setItem(EVENTS_LIST_STORAGE_KEY, JSON.stringify(list));
+        if (typeof window !== "undefined") {
+          localStorage.setItem(EVENTS_LIST_STORAGE_KEY, JSON.stringify(list));
+        }
         onUpdate(list);
       },
       (err) => {
@@ -142,9 +155,9 @@ export function subscribeEventsCloud(onUpdate, onError) {
         try {
           const cached = localStorage.getItem(EVENTS_LIST_STORAGE_KEY);
           if (cached) onUpdate(JSON.parse(cached));
-          else onUpdate([{ ...DEFAULT_EVENT }]);
+          else onUpdate([]);
         } catch {
-          onUpdate([{ ...DEFAULT_EVENT }]);
+          onUpdate([]);
         }
         if (onError) onError(err);
       }
@@ -154,9 +167,9 @@ export function subscribeEventsCloud(onUpdate, onError) {
     try {
       const cached = localStorage.getItem(EVENTS_LIST_STORAGE_KEY);
       if (cached) onUpdate(JSON.parse(cached));
-      else onUpdate([{ ...DEFAULT_EVENT }]);
+      else onUpdate([]);
     } catch {
-      onUpdate([{ ...DEFAULT_EVENT }]);
+      onUpdate([]);
     }
     return () => {};
   }
@@ -229,6 +242,10 @@ export async function saveEventCloud(eventData) {
  * Delete an event (Admin)
  */
 export async function deleteEventCloud(eventId) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(EVENTS_INIT_KEY, "true");
+  }
+
   try {
     const docRef = doc(getEventDb(), ...EVENTS_LIST_COL_PATH, eventId);
     await deleteDoc(docRef);

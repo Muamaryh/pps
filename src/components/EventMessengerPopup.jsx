@@ -2,10 +2,14 @@ import React, { useState, useEffect } from "react";
 import { MessageSquare, X, ArrowRight, BellOff } from "lucide-react";
 import { DEFAULT_EVENT } from "../services/eventService";
 
-export default function EventMessengerPopup({ event = DEFAULT_EVENT, onOpenRegisterEvent }) {
+export default function EventMessengerPopup({ event, onOpenRegisterEvent }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const activeEvent = event || DEFAULT_EVENT;
+  if (!event) {
+    return null;
+  }
+
+  const activeEvent = event;
   const isNotificationEnabled = activeEvent.showMessengerNotification !== false;
   const isOpenStatus = activeEvent.status === "OPEN";
 

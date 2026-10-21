@@ -143,9 +143,15 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
 
   // Event & Registration State
   const [eventsList, setEventsList] = useState(() => {
-    return Array.isArray(externalEventsList) && externalEventsList.length > 0
-      ? externalEventsList
-      : [DEFAULT_EVENT];
+    if (Array.isArray(externalEventsList)) {
+      return externalEventsList;
+    }
+    try {
+      const cached = localStorage.getItem("pps_events_list_cache");
+      if (cached !== null) return JSON.parse(cached);
+    } catch {}
+    const isInit = typeof window !== "undefined" && localStorage.getItem("pps_events_initialized") === "true";
+    return isInit ? [] : [DEFAULT_EVENT];
   });
   const [eventSubTab, setEventSubTab] = useState("events_manage"); // "events_manage" | "registrations"
   const [selectedEventFilter, setSelectedEventFilter] = useState("all");
@@ -164,7 +170,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
         setEventRegistrations(list || []);
       });
       const unsubscribeEventsList = subscribeEventsCloud((list) => {
-        if (Array.isArray(list) && list.length > 0) {
+        if (Array.isArray(list)) {
           setEventsList(list);
         }
       });
@@ -406,6 +412,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       variant: "danger",
       onConfirm: async () => {
         try {
+          setEventsList((prev) => prev.filter((e) => e.id !== evt.id));
           await deleteEventCloud(evt.id);
           onShowToast(`Event "${evt.title}" berhasil dihapus.`, "info");
         } catch (err) {
@@ -2943,7 +2950,30 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                       </div>
 
                       {/* Grid Event Cards */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {eventsList.length === 0 ? (
+                        <div className="card-brutal p-8 sm:p-10 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-3">
+                          <div className="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-950/40 border-2 border-black flex items-center justify-center text-[#DC2626] dark:text-[#FACC15] shadow-[2px_2px_0px_#000]">
+                            <Ticket size={28} />
+                          </div>
+                          <div>
+                            <h5 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
+                              Belum Ada Event Aktif
+                            </h5>
+                            <p className="text-xs text-slate-500 mt-1 max-w-md">
+                              Semua event telah dihapus atau selesai. Klik tombol di bawah untuk membuat event atau turnamen baru kapan pun dibutuhkan.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleOpenAddEvent}
+                            className="btn py-2.5 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                          >
+                            <Plus size={16} className="text-[#DC2626]" />
+                            <span>+ Buat Event Baru Sekarang</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {eventsList.map((evt) => {
                           const regCount = eventRegistrations.filter(
                             (r) => r.eventId === evt.id || (!r.eventId && evt.id === "evt-pizzarena-civilian")
@@ -3127,6 +3157,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                           );
                         })}
                       </div>
+                    )}
                     </div>
                   )}
 

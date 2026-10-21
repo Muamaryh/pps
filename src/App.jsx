@@ -3,7 +3,6 @@ import { loadCloudData, defaultData, mergeWithDefaults, sanitizeSandyShores } fr
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import About from "./components/About";
-import EventSection from "./components/EventSection";
 import OrgStructure from "./components/OrgStructure";
 import Gallery from "./components/Gallery";
 import Footer from "./components/Footer";
@@ -25,9 +24,10 @@ export default function App() {
   const [eventsList, setEventsList] = useState(() => {
     try {
       const cached = localStorage.getItem("pps_events_list_cache");
-      if (cached) return JSON.parse(cached);
+      if (cached !== null) return JSON.parse(cached);
     } catch {}
-    return [DEFAULT_EVENT];
+    const isInit = typeof window !== "undefined" && localStorage.getItem("pps_events_initialized") === "true";
+    return isInit ? [] : [DEFAULT_EVENT];
   });
   const [selectedEventForModal, setSelectedEventForModal] = useState(null);
   const [data, setData] = useState(() => {
@@ -105,7 +105,7 @@ export default function App() {
   useEffect(() => {
     const unsub = subscribeEventsCloud(
       (events) => {
-        if (Array.isArray(events) && events.length > 0) {
+        if (Array.isArray(events)) {
           setEventsList(events);
         }
       },
@@ -119,8 +119,8 @@ export default function App() {
   // Active Event for Public Visitors
   const activeEvent =
     eventsList.find((e) => e.status === "OPEN") ||
-    eventsList[0] ||
-    DEFAULT_EVENT;
+    eventsList.find((e) => e.status === "CLOSED") ||
+    null;
 
   // Lightbox State (supports multiple photos or single photo)
   const [lightbox, setLightbox] = useState({
