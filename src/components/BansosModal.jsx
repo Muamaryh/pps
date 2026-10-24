@@ -240,16 +240,6 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
     }
   }
 
-  function handleResetForm() {
-    setScreenshotPreview("");
-    setFullName("");
-    setCitizenId("");
-    setSex("Laki-laki");
-    setIssuedClaim(null);
-    setErrorMessage("");
-    setOcrSuccess(null);
-  }
-
   if (!isOpen) return null;
 
   return (
@@ -378,35 +368,26 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
 
                   <div className="p-3 bg-amber-100 dark:bg-amber-950/40 border border-amber-500 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
                     <span className="font-black block uppercase text-[11px]">
-                      📍 Lokasi & Cara Pengambilan:
+                      Lokasi & Cara Pengambilan:
                     </span>
                     <p className="text-[11px] leading-relaxed">
                       Kunjungi <strong>Kantor LSM Paguyuban Pizza Sandy Shores</strong>. Beritahukan Citizen ID (<strong>{issuedClaim.citizenId}</strong>) atau tunjukkan kode kupon <strong>{issuedClaim.claimCode}</strong> kepada staf pengurus yang bertugas untuk menerima paket fisik bansos.
                     </p>
                     <div className="p-2 bg-white/70 dark:bg-black/30 border border-amber-600/30 rounded text-[11px] leading-relaxed">
                       <span className="font-bold block text-amber-800 dark:text-amber-300 mb-0.5">
-                        💬 Panduan Roleplay (RP):
+                        Panduan Roleplay (RP):
                       </span>
                       Bisa langsung sebutkan kode kupon secara lisan: <em>"Bang, mau klaim kupon {issuedClaim.claimCode}"</em>, atau berbisik menggunakan otot T: <code className="font-mono font-bold bg-amber-200 dark:bg-amber-900/60 px-1 py-0.5 rounded text-amber-900 dark:text-amber-100">/me membisikkan kode kupon {issuedClaim.claimCode}</code>.
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleResetForm}
-                      className="flex-1 py-2.5 bg-white dark:bg-slate-800 text-black dark:text-white border-2 border-black font-black text-xs uppercase shadow-[2px_2px_0px_#000] hover:bg-slate-100"
-                    >
-                      Ajukan Untuk Warga Lain
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleModalClose}
-                      className="flex-1 py-2.5 bg-[#FACC15] hover:bg-yellow-300 text-black border-2 border-black font-black text-xs uppercase shadow-[2px_2px_0px_#000]"
-                    >
-                      Selesai & Tutup
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleModalClose}
+                    className="w-full py-3 bg-[#FACC15] hover:bg-yellow-300 text-black border-2 border-black font-heading font-black text-xs uppercase shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                  >
+                    Selesai & Tutup
+                  </button>
                 </div>
               ) : (
                 /* CLAIM FORM */
