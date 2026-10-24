@@ -15,6 +15,8 @@ import {
   CreditCard,
   Sparkles,
   ScanLine,
+  HelpCircle,
+  Eye,
 } from "lucide-react";
 import { scanKtpImage } from "../utils/ktpOcr";
 import { submitBansosClaimCloud } from "../services/bansosService";
@@ -31,6 +33,7 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
   const [isScanningOcr, setIsScanningOcr] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [ocrSuccess, setOcrSuccess] = useState(null);
+  const [showSampleKtp, setShowSampleKtp] = useState(false);
 
   // Exact 3 fields requested by user (same as member registration + sex)
   const [fullName, setFullName] = useState("");
@@ -427,10 +430,20 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
                         <CreditCard size={14} />
                         <span>1. Dokumen KTP IC (Auto-Scan OCR Aktif)</span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] flex items-center gap-1">
-                        <ScanLine size={12} />
-                        <span>AUTO-FILL AKTIF</span>
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setShowSampleKtp(true)}
+                          className="py-1 px-2.5 bg-white dark:bg-[#1E222D] hover:bg-amber-100 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 font-heading font-black text-[11px] border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-colors"
+                        >
+                          <HelpCircle size={13} className="text-[#DC2626]" />
+                          <span>Contoh KTP yang Benar</span>
+                        </button>
+                        <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] flex items-center gap-1">
+                          <ScanLine size={12} />
+                          <span>AUTO-FILL AKTIF</span>
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -463,6 +476,18 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
                               <span className="text-[10px] text-slate-500">
                                 Format JPG/PNG • Otomatis Deteksi Teks KTP
                               </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setShowSampleKtp(true);
+                                }}
+                                className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 mt-0.5 cursor-pointer"
+                              >
+                                <Eye size={12} />
+                                <span>Lihat Contoh Gambar KTP</span>
+                              </button>
                               <input
                                 ref={fileInputRef}
                                 type="file"
@@ -597,6 +622,75 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
           <span>LSM Paguyuban Pizza Sandy Shores &copy; 2026</span>
         </div>
       </div>
+
+      {/* Lightbox / Modal Contoh Format KTP IC yang Benar */}
+      {showSampleKtp && (
+        <div
+          onClick={() => setShowSampleKtp(false)}
+          className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            {/* Header Modal */}
+            <div className="flex items-center justify-between px-4 py-3 border-b-2 border-black bg-[#FACC15] text-slate-950">
+              <div className="flex items-center gap-2">
+                <HelpCircle size={18} className="text-[#DC2626]" />
+                <h4 className="font-heading font-black text-xs sm:text-sm uppercase">
+                  Contoh Format KTP IC yang Benar
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSampleKtp(false)}
+                className="w-7 h-7 rounded border border-black bg-white flex items-center justify-center font-bold hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+                title="Tutup Preview"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content Modal */}
+            <div className="p-4 flex flex-col gap-3 overflow-y-auto">
+              <div className="flex justify-center items-center py-1">
+                <div className="rounded-lg border-2 border-black shadow-[3px_3px_0px_#000] overflow-hidden inline-block bg-slate-50 dark:bg-slate-900">
+                  <img
+                    src="/contoh-ktp-bansos.png"
+                    alt="Contoh Format KTP IC yang Benar"
+                    className="max-h-[320px] w-auto block object-contain"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 dark:bg-[#14161F] border border-amber-300 dark:border-amber-900 rounded text-xs text-slate-800 dark:text-slate-200 space-y-1.5">
+                <strong className="block font-bold text-[#DC2626] uppercase text-[11px]">
+                  Ketentuan Foto KTP IC Warga:
+                </strong>
+                <ul className="list-disc list-inside space-y-1 text-[11px] leading-relaxed">
+                  <li>
+                    <strong>Format Kartu:</strong> Pastikan judul kartu <code>LOS SANTOS IDENTITY</code> terlihat jelas.
+                  </li>
+                  <li>
+                    <strong>Bagian Wajib Terbaca:</strong> Kolom <code>FIRST NAME</code>, <code>LAST NAME</code>, <code>SEX</code>, dan <code>CITIZEN ID</code>.
+                  </li>
+                  <li>
+                    <strong>Kualitas Foto:</strong> Tidak buram (blur), tidak terpotong, dan teks terbaca jelas agar sistem auto-scan OCR mengisi formulir secara otomatis.
+                  </li>
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowSampleKtp(false)}
+                className="w-full py-2.5 bg-[#FACC15] hover:bg-yellow-300 text-black border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] mt-1 cursor-pointer"
+              >
+                Saya Mengerti, Lanjutkan Upload KTP
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
