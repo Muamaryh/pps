@@ -373,11 +373,19 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
                     </div>
                   </div>
 
-                  <div className="p-3 bg-amber-100 dark:bg-amber-950/40 border border-amber-500 text-amber-900 dark:text-amber-200 text-xs space-y-1">
-                    <span className="font-black block uppercase text-[11px]">Lokasi & Cara Pengambilan:</span>
+                  <div className="p-3 bg-amber-100 dark:bg-amber-950/40 border border-amber-500 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
+                    <span className="font-black block uppercase text-[11px]">
+                      📍 Lokasi & Cara Pengambilan:
+                    </span>
                     <p className="text-[11px] leading-relaxed">
-                      Kunjungi Kantor LSM Paguyuban Pizza Sandy Shores. Beritahukan Citizen ID ({issuedClaim.citizenId}) atau tunjukkan kode kupon <strong>{issuedClaim.claimCode}</strong> kepada staf pengurus yang bertugas untuk menerima paket fisik bansos.
+                      Kunjungi <strong>Kantor LSM Paguyuban Pizza Sandy Shores</strong>. Beritahukan Citizen ID (<strong>{issuedClaim.citizenId}</strong>) atau tunjukkan kode kupon <strong>{issuedClaim.claimCode}</strong> kepada staf pengurus yang bertugas untuk menerima paket fisik bansos.
                     </p>
+                    <div className="p-2 bg-white/70 dark:bg-black/30 border border-amber-600/30 rounded text-[11px] leading-relaxed">
+                      <span className="font-bold block text-amber-800 dark:text-amber-300 mb-0.5">
+                        💬 Panduan Roleplay (RP):
+                      </span>
+                      Bisa langsung sebutkan kode kupon secara lisan: <em>"Bang, mau klaim kupon {issuedClaim.claimCode}"</em>, atau berbisik menggunakan otot T: <code className="font-mono font-bold bg-amber-200 dark:bg-amber-900/60 px-1 py-0.5 rounded text-amber-900 dark:text-amber-100">/me membisikkan kode kupon {issuedClaim.claimCode}</code>.
+                    </div>
                   </div>
 
                   <div className="flex gap-2">
