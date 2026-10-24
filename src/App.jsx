@@ -12,6 +12,7 @@ import ServicePortalModal from "./components/ServicePortalModal";
 import MemberRegistrationModal from "./components/MemberRegistrationModal";
 import MembersDirectoryModal from "./components/MembersDirectoryModal";
 import EventRegistrationModal from "./components/EventRegistrationModal";
+import BansosModal from "./components/BansosModal";
 import EventMessengerPopup from "./components/EventMessengerPopup";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
@@ -208,6 +209,14 @@ export default function App() {
     return path === "/event" || path.endsWith("/event") || hash === "#/event" || hash === "#event";
   });
 
+  // Modal Bantuan Sosial Warga (/bansos or #bansos) - Hidden Route (tanpa tombol di navbar)
+  const [bansosModalOpen, setBansosModalOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return path === "/bansos" || path.endsWith("/bansos") || hash === "#/bansos" || hash === "#bansos";
+  });
+
   useEffect(() => {
     function checkRoutes() {
       const path = window.location.pathname.toLowerCase();
@@ -261,8 +270,25 @@ export default function App() {
         setMemberModalOpen(false);
         setMembersDirectoryOpen(false);
         setServicePortalOpen(false);
+        setBansosModalOpen(false);
       } else {
         setEventModalOpen(false);
+      }
+
+      // 5. Check Bansos Route (/bansos or #bansos) - Strictly Hidden Direct Route
+      if (
+        path === "/bansos" ||
+        path.endsWith("/bansos") ||
+        hash === "#/bansos" ||
+        hash === "#bansos"
+      ) {
+        setBansosModalOpen(true);
+        setMemberModalOpen(false);
+        setMembersDirectoryOpen(false);
+        setServicePortalOpen(false);
+        setEventModalOpen(false);
+      } else {
+        setBansosModalOpen(false);
       }
 
       // 4. Check Service Portal Route (/layanan, /umkm, /meeting)
@@ -413,6 +439,16 @@ export default function App() {
     }
   }
 
+  function handleCloseBansosModal() {
+    setBansosModalOpen(false);
+    if (
+      window.location.pathname.toLowerCase().includes("/bansos") ||
+      window.location.hash.toLowerCase().includes("bansos")
+    ) {
+      window.history.pushState(null, "", "/");
+    }
+  }
+
   // Toast Alerts State
   const [toasts, setToasts] = useState([]);
 
@@ -541,6 +577,13 @@ export default function App() {
         isOpen={eventModalOpen}
         onClose={handleCloseEventModal}
         event={selectedEventForModal || activeEvent}
+      />
+
+      {/* Modal Khusus Bantuan Sosial Warga (/bansos) - Hidden Direct Route */}
+      <BansosModal
+        isOpen={bansosModalOpen}
+        onClose={handleCloseBansosModal}
+        onShowToast={showToast}
       />
 
       {/* Modal Khusus Pendaftaran Anggota LSM PPS (Dengan OCR KTP Otomatis) */}

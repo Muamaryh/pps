@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import { subscribeMembersCloud, deleteMemberCloud, exportMembersToExcel, exportMembersToZip, updateMemberKasAndVoucherCloud } from "../services/memberService";
 import {
@@ -14,6 +14,13 @@ import {
   toggleEventStatusCloud,
   DEFAULT_EVENT,
 } from "../services/eventService";
+import {
+  loadBansosClaimsCloud,
+  subscribeBansosClaimsCloud,
+  toggleBansosStatusCloud,
+  deleteBansosClaimCloud,
+  exportBansosToExcel,
+} from "../services/bansosService";
 import { hashPassword, verifyPassword, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistConfirmModal from "./BrutalistConfirmModal";
@@ -160,6 +167,17 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
   const [eventRegistrations, setEventRegistrations] = useState([]);
   const [eventSearchQuery, setEventSearchQuery] = useState("");
 
+  // Bansos Warga State
+  const [bansosClaims, setBansosClaims] = useState(() => {
+    try {
+      const cached = localStorage.getItem("pps_bansos_claims_cache");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [bansosSearchQuery, setBansosSearchQuery] = useState("");
+  const [bansosStatusFilter, setBansosStatusFilter] = useState("all"); // 'all' | 'unclaimed' | 'claimed'
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadSubmissions().then((data) => setSubmissions(data || []));
@@ -174,10 +192,17 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
           setEventsList(list);
         }
       });
+            loadBansosClaimsCloud().then((list) => {
+        if (Array.isArray(list)) setBansosClaims(list);
+      });
+      const unsubscribeBansos = subscribeBansosClaimsCloud((list) => {
+        if (Array.isArray(list)) setBansosClaims(list);
+      });
       return () => {
         if (typeof unsubscribeMembers === "function") unsubscribeMembers();
         if (typeof unsubscribeEvents === "function") unsubscribeEvents();
         if (typeof unsubscribeEventsList === "function") unsubscribeEventsList();
+        if (typeof unsubscribeBansos === "function") unsubscribeBansos();
       };
     }
   }, [isOpen, isAuthenticated]);
@@ -315,6 +340,74 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
         `File Excel ${listToExport.length} Pendaftar Event berhasil diunduh.`,
         "success"
       );
+    }
+  }
+
+  // Handler: Toggle Status Bansos Warga (Belum Diambil <-> Sudah Diambil)
+  async function handleToggleBansos(claim) {
+    try {
+      const nextStatus = await toggleBansosStatusCloud(claim.id, claim.claimed, 'Admin LSM');
+      onShowToast(
+        nextStatus
+          ? `Bansos untuk ${claim.fullName} (${claim.claimCode}) berhasil diserahkan (SUDAH DIAMBIL).`
+          : `Status bansos untuk ${claim.fullName} dikembalikan menjadi BELUM DIAMBIL.`,
+        'success'
+      );
+    } catch (err) {
+      console.error('Gagal toggle status bansos:', err);
+      onShowToast('Gagal memperbarui status bansos.', 'error');
+    }
+  }
+
+  // Handler: Delete Bansos Claim
+  function handleDeleteBansos(claim) {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Data Klaim Bansos',
+      message: `Apakah Anda yakin ingin menghapus data klaim bansos "${claim.fullName}" (${claim.claimCode})? Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Hapus Data',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await deleteBansosClaimCloud(claim.id);
+          onShowToast(`Data klaim bansos ${claim.fullName} berhasil dihapus.`, 'info');
+        } catch (err) {
+          console.error('Gagal menghapus klaim bansos:', err);
+          onShowToast('Gagal menghapus data klaim bansos.', 'error');
+        }
+      },
+    });
+  }
+
+  // Handler: Export Bansos to Excel
+  function handleExportBansosExcel() {
+    let list = bansosClaims;
+    if (bansosStatusFilter === 'unclaimed') {
+      list = list.filter((c) => !c.claimed);
+    } else if (bansosStatusFilter === 'claimed') {
+      list = list.filter((c) => c.claimed);
+    }
+
+    if (bansosSearchQuery.trim()) {
+      const q = bansosSearchQuery.trim().toLowerCase();
+      list = list.filter(
+        (c) =>
+          (c.fullName && c.fullName.toLowerCase().includes(q)) ||
+          (c.citizenId && c.citizenId.toLowerCase().includes(q)) ||
+          (c.claimCode && c.claimCode.toLowerCase().includes(q))
+      );
+    }
+
+    if (list.length === 0) {
+      onShowToast('Tidak ada data bansos untuk diunduh.', 'warning');
+      return;
+    }
+
+    const ok = exportBansosToExcel(list);
+    if (ok) {
+      onShowToast(`Data ${list.length} penerima Bansos berhasil diekspor ke Excel.`, 'success');
+    } else {
+      onShowToast('Gagal mengunduh file Excel Bansos.', 'error');
     }
   }
 
@@ -1047,6 +1140,7 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
     { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
     { id: "event_db", label: `Kelola Event (${eventsList.length})`, icon: Ticket },
+    { id: "bansos_db", label: `Bansos Warga (${bansosClaims.length})`, icon: Gift },
     { id: "security", label: "Keamanan", icon: Shield },
   ];
 
@@ -1241,177 +1335,140 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
           ) : (
             /* Authenticated Dashboard */
             <>
-              {/* Mobile Quick Tab Dropdown (sm:hidden) */}
-              <div className="sm:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-3 py-2 flex items-center gap-2">
-                <span className="text-[11px] font-heading font-black text-slate-600 dark:text-slate-300 uppercase shrink-0">
-                  Menu:
-                </span>
-                <div className="relative flex-1">
-                  <select
-                    value={activeTab}
-                    onChange={(e) => setActiveTab(e.target.value)}
-                    className="w-full bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 font-heading font-black text-xs py-2 px-3 pr-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
-                  >
-                    {tabs.map((tab) => (
-                      <option key={tab.id} value={tab.id}>
-                        {tab.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-700 dark:text-slate-300">
-                    <ChevronDown size={14} />
+              {/* SPLIT WORKSPACE: Left Sidebar (Desktop) + Right Content Area (Mobile/Desktop) */}
+              <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+                {/* DESKTOP SIDEBAR KIRI (md:flex) */}
+                <aside className="hidden md:flex w-64 lg:w-72 shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-r-3 border-black dark:border-[#475569] flex-col justify-between overflow-y-auto z-10 shadow-[3px_0px_0px_rgba(0,0,0,0.08)]">
+                  <div className="p-3.5 space-y-1.5">
+                    {/* Sidebar Header Title */}
+                    <div className="px-2.5 py-1.5 mb-1.5 bg-black/5 dark:bg-white/5 rounded border border-black/10 dark:border-white/10 flex items-center justify-between">
+                      <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-400 tracking-wider">
+                        Menu Navigasi
+                      </span>
+                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-black px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000]">
+                        {tabs.length} Tab
+                      </span>
+                    </div>
+
+                    {/* Vertical Tab Buttons */}
+                    {tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.id;
+                      const hasCount = tab.label.includes("(");
+                      const countText = hasCount ? tab.label.match(/\((\d+)\)/)?.[1] : null;
+                      const cleanTitle = tab.label.split(" (")[0];
+
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded border-2 border-black dark:border-[#475569] font-heading font-black text-xs transition-all text-left cursor-pointer ${
+                            isActive
+                              ? "bg-[#FACC15] text-[#111827] shadow-[3px_3px_0px_#000] -translate-y-0.5 border-black ring-1 ring-black/20"
+                              : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-slate-800 shadow-[1.5px_1.5px_0px_#000]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Icon size={16} className={isActive ? "text-[#DC2626]" : "text-slate-600 dark:text-slate-400"} />
+                            <span className="truncate">{cleanTitle}</span>
+                          </div>
+                          {countText !== null && (
+                            <span
+                              className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
+                                isActive
+                                  ? "bg-black text-[#FACC15]"
+                                  : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                              }`}
+                            >
+                              {countText}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
-              </div>
 
-              {/* Tab Navigation (Full Width Sub-Header with Left/Right navigation support) */}
-              <div className="shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-2 sm:px-8 py-2 relative flex items-center">
-                {/* Left scroll nudge button for mobile */}
-                <button
-                  type="button"
-                  onClick={() => scrollTabs("left")}
-                  className="sm:hidden shrink-0 p-1.5 mr-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5"
-                  title="Geser tab ke kiri"
-                >
-                  <ChevronLeft size={13} />
-                </button>
+                  {/* Sidebar Footer Status */}
+                  <div className="p-3 border-t-2 border-black/10 dark:border-white/10 text-[10px] font-mono text-slate-500 flex items-center justify-between bg-black/5 dark:bg-white/5">
+                    <span>LSM Sandy Shores</span>
+                    <span className="font-bold text-[#DC2626] dark:text-[#FACC15]">Admin CMS</span>
+                  </div>
+                </aside>
 
-                <div
-                  ref={tabsNavRef}
-                  className="flex-1 flex items-center gap-2 overflow-x-auto scroll-smooth py-1 px-1"
-                  style={{ WebkitOverflowScrolling: "touch" }}
-                >
-                  {tabs.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        id={`tab-nav-btn-${tab.id}`}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`tab-btn flex items-center gap-1.5 text-xs py-1.5 px-3 rounded shrink-0 border-2 border-black dark:border-[#475569] font-heading font-black transition-all ${
-                          isActive
-                            ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] -translate-y-0.5 ring-1 ring-black/20"
-                            : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        }`}
+                {/* RIGHT WORKSPACE AREA (Mobile Full-Width, Desktop Flex-1) */}
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                  {/* MOBILE ONLY TOP BAR (< md): Quick Tab Selector Dropdown */}
+                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-3 py-2 flex items-center gap-2">
+                    <span className="text-[11px] font-heading font-black text-slate-600 dark:text-slate-300 uppercase shrink-0">
+                      Menu:
+                    </span>
+                    <div className="relative flex-1">
+                      <select
+                        value={activeTab}
+                        onChange={(e) => setActiveTab(e.target.value)}
+                        className="w-full bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 font-heading font-black text-xs py-2 px-3 pr-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
                       >
-                        <Icon size={14} className={isActive ? "text-[#DC2626]" : ""} />
-                        <span className="whitespace-nowrap">{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Right scroll nudge button for mobile */}
-                <button
-                  type="button"
-                  onClick={() => scrollTabs("right")}
-                  className="sm:hidden shrink-0 p-1.5 ml-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5"
-                  title="Geser tab ke kanan (Keamanan dll)"
-                >
-                  <ChevronRight size={13} />
-                </button>
-              </div>
-
-              {/* Main Scrollable Content Area */}
-              <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
-                <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
-
-                  {/* Executive Quick Stats Summary Bar */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                    {/* Stat Card 1: Anggota Terdaftar */}
-                    <div
-                      onClick={() => setActiveTab("members_db")}
-                      className="card-brutal p-3.5 sm:p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] cursor-pointer hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] transition-all group select-none"
-                      title="Klik untuk membuka Database Anggota"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-slate-500 font-mono tracking-wider">
-                          Anggota Warga
-                        </span>
-                        <div className="w-6 h-6 rounded bg-red-100 dark:bg-red-950/80 border border-black dark:border-red-500 flex items-center justify-center text-[#DC2626] group-hover:scale-110 transition-transform">
-                          <Users2 size={13} />
-                        </div>
+                        {tabs.map((tab) => (
+                          <option key={tab.id} value={tab.id}>
+                            {tab.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-700 dark:text-slate-300">
+                        <ChevronDown size={14} />
                       </div>
-                      <div className="text-2xl sm:text-3xl font-heading font-black text-slate-900 dark:text-slate-100 mt-1">
-                        {membersList.length}
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors">
-                        Database Anggota &rarr;
-                      </span>
-                    </div>
-
-                    {/* Stat Card 2: Pengurus Inti LSM */}
-                    <div
-                      onClick={() => setActiveTab("org")}
-                      className="card-brutal p-3.5 sm:p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] cursor-pointer hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] transition-all group select-none"
-                      title="Klik untuk mengelola Struktur Organisasi"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-slate-500 font-mono tracking-wider">
-                          Pengurus LSM
-                        </span>
-                        <div className="w-6 h-6 rounded bg-amber-100 dark:bg-amber-950/80 border border-black dark:border-amber-500 flex items-center justify-center text-amber-700 dark:text-amber-300 group-hover:scale-110 transition-transform">
-                          <Users size={13} />
-                        </div>
-                      </div>
-                      <div className="text-2xl sm:text-3xl font-heading font-black text-slate-900 dark:text-slate-100 mt-1">
-                        {formData.org?.length || 0}
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors">
-                        Struktur Organisasi &rarr;
-                      </span>
-                    </div>
-
-                    {/* Stat Card 3: Kotak Masuk Layanan */}
-                    <div
-                      onClick={() => setActiveTab("submissions")}
-                      className="card-brutal p-3.5 sm:p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] cursor-pointer hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] transition-all group select-none"
-                      title="Klik untuk memeriksa Pengajuan Lapak UMKM & Request Meeting"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-slate-500 font-mono tracking-wider">
-                          Kotak Masuk Layanan
-                        </span>
-                        <div className="w-6 h-6 rounded bg-rose-100 dark:bg-rose-950/80 border border-black dark:border-rose-500 flex items-center justify-center text-[#DC2626] group-hover:scale-110 transition-transform">
-                          <Inbox size={13} />
-                        </div>
-                      </div>
-                      <div className="text-2xl sm:text-3xl font-heading font-black text-slate-900 dark:text-slate-100 mt-1 flex items-baseline gap-1.5">
-                        <span>{submissions.length}</span>
-                        {submissions.filter((s) => s.status === "pending" || !s.status).length > 0 && (
-                          <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">
-                            ({submissions.filter((s) => s.status === "pending" || !s.status).length} Menunggu)
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors">
-                        Verifikasi Berkas Warga &rarr;
-                      </span>
-                    </div>
-
-                    {/* Stat Card 4: Galeri Foto Lapangan */}
-                    <div
-                      onClick={() => setActiveTab("gallery")}
-                      className="card-brutal p-3.5 sm:p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] cursor-pointer hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] transition-all group select-none"
-                      title="Klik untuk mengelola Dokumentasi Kegiatan"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase text-slate-500 font-mono tracking-wider">
-                          Galeri Foto Lapangan
-                        </span>
-                        <div className="w-6 h-6 rounded bg-sky-100 dark:bg-sky-950/80 border border-black dark:border-sky-500 flex items-center justify-center text-sky-700 dark:text-sky-300 group-hover:scale-110 transition-transform">
-                          <Camera size={13} />
-                        </div>
-                      </div>
-                      <div className="text-2xl sm:text-3xl font-heading font-black text-slate-900 dark:text-slate-100 mt-1">
-                        {formData.gallery?.length || 0}
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1 group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors">
-                        Kelola Arsip Foto &rarr;
-                      </span>
                     </div>
                   </div>
+
+                  {/* MOBILE ONLY HORIZONTAL PILLS (< md) with Left/Right Scroll Nudge */}
+                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-2 py-1.5 relative flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => scrollTabs("left")}
+                      className="shrink-0 p-1.5 mr-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5"
+                      title="Geser tab ke kiri"
+                    >
+                      <ChevronLeft size={13} />
+                    </button>
+                    <div
+                      ref={tabsNavRef}
+                      className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth py-1 px-1"
+                      style={{ WebkitOverflowScrolling: "touch" }}
+                    >
+                      {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            id={`tab-nav-btn-${tab.id}`}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`tab-btn flex items-center gap-1.5 text-xs py-1.5 px-2.5 rounded shrink-0 border-2 border-black dark:border-[#475569] font-heading font-black transition-all ${
+                              isActive
+                                ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                                : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-slate-100"
+                            }`}
+                          >
+                            <Icon size={13} className={isActive ? "text-[#DC2626]" : ""} />
+                            <span className="whitespace-nowrap">{tab.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => scrollTabs("right")}
+                      className="shrink-0 p-1.5 ml-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5"
+                      title="Geser tab ke kanan"
+                    >
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
+
+                  {/* Main Scrollable Content Area */}
+                  <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
 
                   {/* Tab 1: Identity */}
                   {activeTab === "identity" && (
@@ -3411,6 +3468,299 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                 </div>
               )}
 
+              {/* Tab: Penyaluran Bansos Warga LSM Sandy Shores */}
+              {activeTab === "bansos_db" && (
+                <div className="flex flex-col gap-4">
+                  {/* Bansos Header Info Card */}
+                  <div className="card-brutal p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-3.5">
+                      <div className="w-12 h-12 bg-[#FACC15] text-[#111827] border-2 border-black flex items-center justify-center font-black shadow-[2px_2px_0px_#000] shrink-0">
+                        <Gift size={26} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
+                            Bantuan Sosial (Bansos) Warga
+                          </h3>
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000]">
+                            Paket 2 Bensin + 1 Makanan + $2.000
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                          Kelola dan pantau pengambilan paket bantuan sosial warga sipil Sandy Shores.
+                        </p>
+                      </div>
+                    </div>
+
+                    <a
+                      href="/bansos"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors shrink-0"
+                    >
+                      <ExternalLink size={14} />
+                      <span>Buka Form /bansos</span>
+                    </a>
+                  </div>
+
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
+                    {/* 1. Total Permohonan */}
+                    <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-slate-500 block truncate">
+                        Total Pemohon
+                      </span>
+                      <span className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-slate-100">
+                        {bansosClaims.length}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">Warga Terdaftar</span>
+                    </div>
+
+                    {/* 2. Belum Diambil */}
+                    <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-amber-700 dark:text-amber-400 block truncate">
+                        Belum Diambil
+                      </span>
+                      <span className="font-heading font-black text-xl sm:text-2xl text-amber-600">
+                        {bansosClaims.filter((c) => !c.claimed).length}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">Menunggu Di Kantor</span>
+                    </div>
+
+                    {/* 3. Sudah Diambil */}
+                    <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-emerald-700 dark:text-emerald-400 block truncate">
+                        Sudah Diambil
+                      </span>
+                      <span className="font-heading font-black text-xl sm:text-2xl text-emerald-600">
+                        {bansosClaims.filter((c) => c.claimed).length}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">Telah Diserahkan</span>
+                    </div>
+
+                    {/* 4. Total Bantuan Tunai Tersalurkan */}
+                    <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-green-700 dark:text-green-400 block truncate">
+                        Dana Tersalurkan
+                      </span>
+                      <span className="font-heading font-black text-xl sm:text-2xl text-green-600">
+                        ${(bansosClaims.filter((c) => c.claimed).length * 2000).toLocaleString("en-US")}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block mt-0.5">Uang Saku ($2.000/org)</span>
+                    </div>
+                  </div>
+
+                  {/* Filter & Search Toolbar */}
+                  <div className="card-brutal p-3 sm:p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                    {/* Search Bar */}
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                        <Search size={16} />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Cari Nama IC, Citizen ID (CID), atau Kode Kupon..."
+                        value={bansosSearchQuery}
+                        onChange={(e) => setBansosSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-8 py-2 bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] text-xs font-bold shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                      />
+                      {bansosSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setBansosSearchQuery("")}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-black dark:hover:text-white"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      {/* Status Filter */}
+                      <select
+                        value={bansosStatusFilter}
+                        onChange={(e) => setBansosStatusFilter(e.target.value)}
+                        className="bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] py-2 px-3 text-xs font-heading font-black shadow-[2px_2px_0px_#000] focus:outline-none cursor-pointer"
+                      >
+                        <option value="all">Semua Status ({bansosClaims.length})</option>
+                        <option value="unclaimed">
+                          Belum Diambil ({bansosClaims.filter((c) => !c.claimed).length})
+                        </option>
+                        <option value="claimed">
+                          Sudah Diambil ({bansosClaims.filter((c) => c.claimed).length})
+                        </option>
+                      </select>
+
+                      {/* Export to Excel */}
+                      <button
+                        type="button"
+                        onClick={handleExportBansosExcel}
+                        className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 shrink-0"
+                      >
+                        <FileSpreadsheet size={15} />
+                        <span>Unduh Data Bansos (.xlsx)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bansos Claims Cards List */}
+                  {(() => {
+                    let filtered = bansosClaims;
+                    if (bansosStatusFilter === "unclaimed") {
+                      filtered = filtered.filter((c) => !c.claimed);
+                    } else if (bansosStatusFilter === "claimed") {
+                      filtered = filtered.filter((c) => c.claimed);
+                    }
+
+                    if (bansosSearchQuery.trim()) {
+                      const q = bansosSearchQuery.trim().toLowerCase();
+                      filtered = filtered.filter(
+                        (c) =>
+                          (c.fullName && c.fullName.toLowerCase().includes(q)) ||
+                          (c.citizenId && c.citizenId.toLowerCase().includes(q)) ||
+                          (c.claimCode && c.claimCode.toLowerCase().includes(q))
+                      );
+                    }
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="card-brutal p-8 text-center bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] space-y-2">
+                          <Gift className="mx-auto text-slate-400" size={36} />
+                          <h4 className="font-heading font-black text-sm uppercase text-slate-700 dark:text-slate-300">
+                            Tidak Ada Data Pengajuan Bansos
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            {bansosSearchQuery
+                              ? `Tidak ditemukan klaim yang cocok dengan kata kunci "${bansosSearchQuery}".`
+                              : "Belum ada warga yang mengajukan formulir bansos."}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex flex-col gap-3">
+                        {filtered.map((claim) => (
+                          <div
+                            key={claim.id}
+                            className="card-brutal p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                          >
+                            {/* Left Section: KTP Thumbnail + Profile Details */}
+                            <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                              {/* Thumbnail KTP with Click to View Safely */}
+                              {claim.screenshotUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openImageSafely(
+                                      claim.screenshotUrl,
+                                      `KTP IC - ${claim.fullName} (${claim.citizenId})`
+                                    )
+                                  }
+                                  className="group relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-900 border-2 border-black shrink-0 overflow-hidden shadow-[2px_2px_0px_#000] cursor-pointer hover:border-[#FACC15]"
+                                  title="Klik untuk melihat foto KTP IC lengkap"
+                                >
+                                  <img
+                                    src={claim.screenshotUrl}
+                                    alt={`KTP ${claim.fullName}`}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 flex flex-col items-center justify-center text-white transition-opacity">
+                                    <Eye size={14} />
+                                    <span className="text-[9px] font-black uppercase mt-0.5">KTP</span>
+                                  </div>
+                                </button>
+                              ) : (
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-200 dark:bg-slate-800 border-2 border-black flex flex-col items-center justify-center text-slate-500 shrink-0">
+                                  <User size={20} />
+                                  <span className="text-[9px] font-black uppercase mt-1">No KTP</span>
+                                </div>
+                              )}
+
+                              {/* Details */}
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono font-black text-xs px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000] tracking-wide select-all">
+                                    {claim.claimCode}
+                                  </span>
+                                  <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100 truncate">
+                                    {claim.fullName}
+                                  </h4>
+                                </div>
+
+                                <div className="flex items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
+                                  <span className="flex items-center gap-1 font-mono font-bold text-slate-900 dark:text-slate-200">
+                                    <CreditCard size={13} className="text-slate-500" />
+                                    CID: {claim.citizenId}
+                                  </span>
+                                  <span>&bull;</span>
+                                  <span className="font-bold text-slate-800 dark:text-slate-200">Sex: {claim.sex || "Laki-laki"}</span>
+                                </div>
+
+                                {/* Package info & timeline */}
+                                <div className="flex items-center gap-2 text-[11px] pt-1 flex-wrap">
+                                  <span className="font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 border border-emerald-600">
+                                    2 Jerigen Bensin + 1 Paket Makanan + $2.000 USD
+                                  </span>
+                                  <span className="text-slate-400">&bull;</span>
+                                  <span className="text-slate-500">
+                                    Diajukan: {claim.claimDate} {claim.claimTime}
+                                  </span>
+                                </div>
+
+                                {claim.claimed && claim.claimedAt && (
+                                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                    Diserahkan pada: {claim.claimedAt}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right Section: Status Toggle & Delete Action */}
+                            <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-black/10 dark:border-white/10 shrink-0">
+                              {/* 1-Click Status Toggle Button with explicit colors */}
+                              {claim.claimed ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleBansos(claim)}
+                                  style={{ backgroundColor: "#059669", color: "#FFFFFF" }}
+                                  className="py-2 px-3.5 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  title="Status SUDAH DIAMBIL. Klik untuk kembalikan ke BELUM DIAMBIL jika keliru."
+                                >
+                                  <Check size={14} className="stroke-[3]" />
+                                  <span>SUDAH DIAMBIL</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleBansos(claim)}
+                                  style={{ backgroundColor: "#FACC15", color: "#111827" }}
+                                  className="py-2 px-3.5 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  title="Status BELUM DIAMBIL. Klik untuk tandai SUDAH DIAMBIL saat penyerahan."
+                                >
+                                  <Clock size={14} className="stroke-[3]" />
+                                  <span>BELUM DIAMBIL</span>
+                                </button>
+                              )}
+
+                              {/* Delete Claim Button */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBansos(claim)}
+                                className="p-2 bg-white dark:bg-slate-800 text-red-600 hover:bg-red-600 hover:text-white border-2 border-black shadow-[2px_2px_0px_#000] transition-colors cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                                title="Hapus data klaim ini"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               {/* Tab 5: Security */}
               {activeTab === "security" && (
                 <div className="flex flex-col gap-5">
@@ -3605,8 +3955,10 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
                   </button>
                 </div>
               </div>
-            </>
-          )}
+            </div>
+          </div>
+        </>
+      )}
         </div>
 
       {/* Lightbox / Modal Preview Dokumen KTP Resolusi Penuh */}
