@@ -468,7 +468,7 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
                               </button>
                             </div>
                           ) : (
-                            <label className="cursor-pointer flex flex-col items-center gap-1.5 w-full">
+                            <label className="cursor-pointer flex flex-col items-center gap-1.5 w-full py-1">
                               <CreditCard size={28} className="text-slate-400" />
                               <span className="text-xs font-bold text-[#DC2626] dark:text-[#FACC15] underline">
                                 Unggah Foto KTP IC
@@ -476,18 +476,6 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
                               <span className="text-[10px] text-slate-500">
                                 Format JPG/PNG • Otomatis Deteksi Teks KTP
                               </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  setShowSampleKtp(true);
-                                }}
-                                className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 mt-0.5 cursor-pointer"
-                              >
-                                <Eye size={12} />
-                                <span>Lihat Contoh Gambar KTP</span>
-                              </button>
                               <input
                                 ref={fileInputRef}
                                 type="file"
@@ -498,6 +486,18 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
                               />
                             </label>
                           )}
+                        </div>
+
+                        {/* Tombol Terpisah di Luar Label Upload */}
+                        <div className="mt-1.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setShowSampleKtp(true)}
+                            className="inline-flex items-center gap-1 text-[11px] font-heading font-black text-amber-800 dark:text-amber-300 hover:text-black dark:hover:text-white underline cursor-pointer"
+                          >
+                            <Eye size={12} />
+                            <span>Lihat Contoh Format KTP yang Benar</span>
+                          </button>
                         </div>
                       </div>
 
