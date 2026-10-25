@@ -486,10 +486,10 @@ export default function AdminModal({
   function handleOpenEditBansosProgram(prog) {
     setEditingBansosProgram({
       ...prog,
-      items: Array.isArray(prog.items) && prog.items.length > 0
+      items: Array.isArray(prog.items)
         ? prog.items.map((i) => ({ ...i }))
         : DEFAULT_BANSOS_PROGRAM.items.map((i) => ({ ...i })),
-      rules: Array.isArray(prog.rules) && prog.rules.length > 0
+      rules: Array.isArray(prog.rules)
         ? [...prog.rules]
         : [...DEFAULT_BANSOS_PROGRAM.rules],
     });
@@ -598,6 +598,9 @@ export default function AdminModal({
   async function handleToggleBansosProgramStatus(programId, currentStatus) {
     try {
       const nextStatus = await toggleBansosProgramStatusCloud(programId, currentStatus);
+      setBansosPrograms((prev) =>
+        prev.map((p) => (p.id === programId ? { ...p, status: nextStatus } : p))
+      );
       onShowToast(
         `Status program berhasil diubah menjadi ${nextStatus === "ACTIVE" ? "AKTIF" : "NONAKTIF"}.`,
         "success"
@@ -614,6 +617,9 @@ export default function AdminModal({
         ...prog,
         showMessengerNotification: nextVal,
       });
+      setBansosPrograms((prev) =>
+        prev.map((p) => (p.id === prog.id ? { ...p, showMessengerNotification: nextVal } : p))
+      );
       onShowToast(
         `Pop-up notifikasi untuk program "${prog.title}" ${nextVal ? "diaktifkan" : "dinonaktifkan"}.`,
         "success"
@@ -637,6 +643,7 @@ export default function AdminModal({
       onConfirm: async () => {
         try {
           await deleteBansosProgramCloud(prog.id);
+          setBansosPrograms((prev) => prev.filter((p) => p.id !== prog.id));
           onShowToast(`Program bansos "${prog.title}" berhasil dihapus.`, "info");
         } catch (err) {
           console.error("Gagal hapus program bansos:", err);
