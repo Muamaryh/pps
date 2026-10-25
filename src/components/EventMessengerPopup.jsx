@@ -2,8 +2,18 @@ import React, { useState, useEffect } from "react";
 import { MessageSquare, X, ArrowRight, BellOff } from "lucide-react";
 import { DEFAULT_EVENT } from "../services/eventService";
 
-export default function EventMessengerPopup({ event, onOpenRegisterEvent }) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function EventMessengerPopup({
+  event,
+  onOpenRegisterEvent,
+  isOpen: controlledIsOpen,
+  onToggle: controlledOnToggle,
+  onClose: controlledOnClose,
+  isStacked = false,
+}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+  const isControlled = typeof controlledIsOpen === "boolean";
+  const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
 
   if (!event) {
     return null;
@@ -13,14 +23,14 @@ export default function EventMessengerPopup({ event, onOpenRegisterEvent }) {
   const isNotificationEnabled = activeEvent.showMessengerNotification !== false;
   const isOpenStatus = activeEvent.status === "OPEN";
 
-  // Auto pop-up after 1.5 seconds for first impression, non-intrusive
+  // Auto pop-up after 1.5 seconds if independent
   useEffect(() => {
-    if (!isNotificationEnabled) return;
+    if (isControlled || !isNotificationEnabled) return;
     const timer = setTimeout(() => {
-      setIsOpen(true);
+      setInternalIsOpen(true);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [isNotificationEnabled, activeEvent.id]);
+  }, [isControlled, isNotificationEnabled, activeEvent.id]);
 
   if (!isNotificationEnabled) {
     return null;
@@ -28,19 +38,33 @@ export default function EventMessengerPopup({ event, onOpenRegisterEvent }) {
 
   function handleOpenEvent() {
     onOpenRegisterEvent(activeEvent);
-    setIsOpen(false);
+    if (isControlled && typeof controlledOnClose === "function") {
+      controlledOnClose();
+    } else {
+      setInternalIsOpen(false);
+    }
   }
 
   function handleDismiss(e) {
     e.stopPropagation();
-    setIsOpen(false);
+    if (isControlled && typeof controlledOnClose === "function") {
+      controlledOnClose();
+    } else {
+      setInternalIsOpen(false);
+    }
   }
 
-  return (
-    <aside
-      aria-label="Notifikasi Event Baru"
-      className="fixed bottom-4 sm:bottom-6 right-3 sm:right-6 z-[60] flex flex-col items-end select-none pointer-events-auto font-sans"
-    >
+  function handleToggle(e) {
+    e.stopPropagation();
+    if (isControlled && typeof controlledOnToggle === "function") {
+      controlledOnToggle();
+    } else {
+      setInternalIsOpen((prev) => !prev);
+    }
+  }
+
+  const content = (
+    <div className="select-none pointer-events-auto font-sans flex flex-col items-end">
       {/* Pop-up Window Card (Messenger Chat Style) */}
       {isOpen ? (
         <div className="w-[310px] sm:w-[360px] rounded-xl border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_0px_#000000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col animate-slideUp">
@@ -146,7 +170,7 @@ export default function EventMessengerPopup({ event, onOpenRegisterEvent }) {
         /* Minimized Floating Messenger Pill / Bubble Button */
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={handleToggle}
           className="group flex items-center gap-2.5 px-4 py-2.5 rounded-full border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] hover:bg-[#FACC15] dark:hover:bg-[#FACC15] hover:text-slate-950 text-slate-900 dark:text-slate-100 transition-all cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
           title="Buka notifikasi event baru"
         >
@@ -174,6 +198,19 @@ export default function EventMessengerPopup({ event, onOpenRegisterEvent }) {
           </div>
         </button>
       )}
+    </div>
+  );
+
+  if (isStacked) {
+    return content;
+  }
+
+  return (
+    <aside
+      aria-label="Notifikasi Event Baru"
+      className="fixed bottom-4 sm:bottom-6 right-3 sm:right-6 z-[60] flex flex-col items-end select-none pointer-events-auto font-sans"
+    >
+      {content}
     </aside>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import { subscribeMembersCloud, deleteMemberCloud, exportMembersToExcel, exportMembersToZip, updateMemberKasAndVoucherCloud } from "../services/memberService";
 import {
@@ -20,6 +20,12 @@ import {
   toggleBansosStatusCloud,
   deleteBansosClaimCloud,
   exportBansosToExcel,
+  loadBansosProgramsCloud,
+  subscribeBansosProgramsCloud,
+  saveBansosProgramCloud,
+  deleteBansosProgramCloud,
+  toggleBansosProgramStatusCloud,
+  DEFAULT_BANSOS_PROGRAM,
 } from "../services/bansosService";
 import { hashPassword, verifyPassword, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
 import BrutalistDatePicker from "./BrutalistDatePicker";
@@ -27,7 +33,16 @@ import BrutalistConfirmModal from "./BrutalistConfirmModal";
 
 const ADMIN_STORAGE_KEY = "pps_admin_session";
 
-export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, onShowToast, isCloudLoading = false, eventsList: externalEventsList = [] }) {
+export default function AdminModal({
+  isOpen,
+  onClose,
+  initialData,
+  onDataSaved,
+  onShowToast,
+  isCloudLoading = false,
+  eventsList: externalEventsList = [],
+  bansosPrograms: externalBansosPrograms = [],
+}) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
       const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
@@ -168,6 +183,27 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
   const [eventSearchQuery, setEventSearchQuery] = useState("");
 
   // Bansos Warga State
+  const [bansosPrograms, setBansosPrograms] = useState(() => {
+    if (Array.isArray(externalBansosPrograms) && externalBansosPrograms.length > 0) {
+      return externalBansosPrograms;
+    }
+    try {
+      const cached = localStorage.getItem("pps_bansos_programs_cache");
+      if (cached !== null) return JSON.parse(cached);
+    } catch {}
+    return [DEFAULT_BANSOS_PROGRAM];
+  });
+  const [bansosSubTab, setBansosSubTab] = useState("programs_manage"); // "programs_manage" | "claims_data"
+  const [editingBansosProgram, setEditingBansosProgram] = useState(null); // null or object when modal open
+  const [isSavingBansosProgram, setIsSavingBansosProgram] = useState(false);
+  const [selectedBansosProgramFilter, setSelectedBansosProgramFilter] = useState("ALL");
+
+  useEffect(() => {
+    if (Array.isArray(externalBansosPrograms) && externalBansosPrograms.length > 0) {
+      setBansosPrograms(externalBansosPrograms);
+    }
+  }, [externalBansosPrograms]);
+
   const [bansosClaims, setBansosClaims] = useState(() => {
     try {
       const cached = localStorage.getItem("pps_bansos_claims_cache");
@@ -198,11 +234,15 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       const unsubscribeBansos = subscribeBansosClaimsCloud((list) => {
         if (Array.isArray(list)) setBansosClaims(list);
       });
+      const unsubscribeBansosPrograms = subscribeBansosProgramsCloud((list) => {
+        if (Array.isArray(list)) setBansosPrograms(list);
+      });
       return () => {
         if (typeof unsubscribeMembers === "function") unsubscribeMembers();
         if (typeof unsubscribeEvents === "function") unsubscribeEvents();
         if (typeof unsubscribeEventsList === "function") unsubscribeEventsList();
         if (typeof unsubscribeBansos === "function") unsubscribeBansos();
+        if (typeof unsubscribeBansosPrograms === "function") unsubscribeBansosPrograms();
       };
     }
   }, [isOpen, isAuthenticated]);
@@ -398,6 +438,10 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
       );
     }
 
+    if (selectedBansosProgramFilter !== "ALL") {
+      list = list.filter((c) => c.programId === selectedBansosProgramFilter);
+    }
+
     if (list.length === 0) {
       onShowToast('Tidak ada data bansos untuk diunduh.', 'warning');
       return;
@@ -409,6 +453,151 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
     } else {
       onShowToast('Gagal mengunduh file Excel Bansos.', 'error');
     }
+  }
+
+  // =========================================================================
+  // HANDLERS: PROGRAM BANSOS (DYNAMIC PROGRAMS MANAGEMENT)
+  // =========================================================================
+
+  function handleOpenAddBansosProgram() {
+    setEditingBansosProgram({
+      id: "",
+      title: "",
+      tagline: "Program Kepedulian LSM Paguyuban Pizza Sandy Shores",
+      status: "ACTIVE",
+      items: [
+        { name: "2 Jerigen Bensin", icon: "Fuel", desc: "Bahan bakar kendaraan operasional" },
+        { name: "1 Paket Makanan", icon: "Utensils", desc: "Ransum konsumsi siap santap bergizi" },
+        { name: "Uang Saku $2.000 USD", icon: "DollarSign", desc: "Bantuan tunai langsung kebutuhan darurat" },
+      ],
+      totalCash: 2000,
+      rules: [
+        "Wajib mengunggah foto / tangkapan layar KTP IC yang jelas",
+        "1 Citizen ID (CID) hanya berhak menerima 1 kali bantuan",
+        "Pengambilan bantuan fisik dilakukan langsung di Kantor LSM Paguyuban Pizza Sandy Shores",
+        "Tunjukkan bukti kupon digital atau sebutkan Citizen ID kepada Pengurus yang bertugas",
+      ],
+      showMessengerNotification: true,
+      messengerHeading: "Bansos Warga Sandy Shores",
+      messengerMessage: "Halo warga Sandy Shores! Paguyuban Pizza menyediakan paket bantuan kebutuhan pokok untuk warga yang membutuhkan:",
+      pillLabel: "2 Bensin + 1 Makanan + $2.000",
+    });
+  }
+
+  function handleOpenEditBansosProgram(prog) {
+    setEditingBansosProgram({
+      ...prog,
+      items: Array.isArray(prog.items) && prog.items.length > 0
+        ? prog.items.map((i) => ({ ...i }))
+        : DEFAULT_BANSOS_PROGRAM.items.map((i) => ({ ...i })),
+      rules: Array.isArray(prog.rules) && prog.rules.length > 0
+        ? [...prog.rules]
+        : [...DEFAULT_BANSOS_PROGRAM.rules],
+    });
+  }
+
+  async function handleSaveBansosProgram(e) {
+    e.preventDefault();
+    if (!editingBansosProgram.title.trim()) {
+      onShowToast("Nama program bansos wajib diisi.", "error");
+      return;
+    }
+    setIsSavingBansosProgram(true);
+    try {
+      await saveBansosProgramCloud(editingBansosProgram);
+      onShowToast(`Program bansos "${editingBansosProgram.title}" berhasil disimpan!`, "success");
+      setEditingBansosProgram(null);
+    } catch (err) {
+      console.error("Save bansos program err:", err);
+      onShowToast("Gagal menyimpan program bansos.", "error");
+    } finally {
+      setIsSavingBansosProgram(false);
+    }
+  }
+
+  async function handleToggleBansosProgramStatus(programId, currentStatus) {
+    try {
+      const nextStatus = await toggleBansosProgramStatusCloud(programId, currentStatus);
+      onShowToast(
+        `Status program berhasil diubah menjadi ${nextStatus === "ACTIVE" ? "AKTIF" : "NONAKTIF"}.`,
+        "success"
+      );
+    } catch (err) {
+      onShowToast("Gagal mengubah status program bansos.", "error");
+    }
+  }
+
+  async function handleToggleBansosProgramMessenger(prog) {
+    try {
+      const nextVal = prog.showMessengerNotification === false;
+      await saveBansosProgramCloud({
+        ...prog,
+        showMessengerNotification: nextVal,
+      });
+      onShowToast(
+        `Pop-up notifikasi untuk program "${prog.title}" ${nextVal ? "diaktifkan" : "dinonaktifkan"}.`,
+        "success"
+      );
+    } catch (err) {
+      onShowToast("Gagal mengubah pengaturan pop-up bansos.", "error");
+    }
+  }
+
+  function handleDeleteBansosProgram(prog) {
+    const claimsCount = bansosClaims.filter((c) => c.programId === prog.id).length;
+    setConfirmModal({
+      isOpen: true,
+      title: "Hapus Program Bansos?",
+      message: `Apakah Anda yakin ingin menghapus program "${prog.title}"?${
+        claimsCount > 0 ? ` (Catatan: Ada ${claimsCount} data klaim warga yang terkait dengan program ini).` : ""
+      }`,
+      confirmText: "Ya, Hapus Program",
+      cancelText: "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteBansosProgramCloud(prog.id);
+          onShowToast(`Program bansos "${prog.title}" berhasil dihapus.`, "info");
+        } catch (err) {
+          console.error("Gagal hapus program bansos:", err);
+          onShowToast("Gagal menghapus program bansos.", "error");
+        }
+      },
+    });
+  }
+
+  function handleAddBansosItem() {
+    if (!editingBansosProgram) return;
+    setEditingBansosProgram({
+      ...editingBansosProgram,
+      items: [
+        ...(editingBansosProgram.items || []),
+        { name: "Paket Baru", icon: "Gift", desc: "Bantuan tambahan" },
+      ],
+    });
+  }
+
+  function handleRemoveBansosItem(idx) {
+    if (!editingBansosProgram) return;
+    const items = [...(editingBansosProgram.items || [])];
+    items.splice(idx, 1);
+    setEditingBansosProgram({
+      ...editingBansosProgram,
+      items,
+    });
+  }
+
+  function handleUpdateBansosItem(idx, field, value) {
+    if (!editingBansosProgram) return;
+    const items = [...(editingBansosProgram.items || [])];
+    items[idx] = {
+      ...items[idx],
+      [field]: value,
+    };
+    setEditingBansosProgram({
+      ...editingBansosProgram,
+      items,
+    });
   }
 
   // Handler: Open Add Event Modal
@@ -3471,293 +3660,552 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
               {/* Tab: Penyaluran Bansos Warga LSM Sandy Shores */}
               {activeTab === "bansos_db" && (
                 <div className="flex flex-col gap-4">
-                  {/* Bansos Header Info Card */}
-                  <div className="card-brutal p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start sm:items-center gap-3.5">
-                      <div className="w-12 h-12 bg-[#FACC15] text-[#111827] border-2 border-black flex items-center justify-center font-black shadow-[2px_2px_0px_#000] shrink-0">
-                        <Gift size={26} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
-                            Bantuan Sosial (Bansos) Warga
-                          </h3>
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000]">
-                            Paket 2 Bensin + 1 Makanan + $2.000
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                          Kelola dan pantau pengambilan paket bantuan sosial warga sipil Sandy Shores.
-                        </p>
-                      </div>
-                    </div>
-
-                    <a
-                      href="/bansos"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors shrink-0"
-                    >
-                      <ExternalLink size={14} />
-                      <span>Buka Form /bansos</span>
-                    </a>
-                  </div>
-
-                  {/* Summary Metric Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
-                    {/* 1. Total Permohonan */}
-                    <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
-                      <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-slate-500 block truncate">
-                        Total Pemohon
-                      </span>
-                      <span className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-slate-100">
-                        {bansosClaims.length}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block mt-0.5">Warga Terdaftar</span>
-                    </div>
-
-                    {/* 2. Belum Diambil */}
-                    <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
-                      <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-amber-700 dark:text-amber-400 block truncate">
-                        Belum Diambil
-                      </span>
-                      <span className="font-heading font-black text-xl sm:text-2xl text-amber-600">
-                        {bansosClaims.filter((c) => !c.claimed).length}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block mt-0.5">Menunggu Di Kantor</span>
-                    </div>
-
-                    {/* 3. Sudah Diambil */}
-                    <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
-                      <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-emerald-700 dark:text-emerald-400 block truncate">
-                        Sudah Diambil
-                      </span>
-                      <span className="font-heading font-black text-xl sm:text-2xl text-emerald-600">
-                        {bansosClaims.filter((c) => c.claimed).length}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block mt-0.5">Telah Diserahkan</span>
-                    </div>
-
-                    {/* 4. Total Bantuan Tunai Tersalurkan */}
-                    <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
-                      <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-green-700 dark:text-green-400 block truncate">
-                        Dana Tersalurkan
-                      </span>
-                      <span className="font-heading font-black text-xl sm:text-2xl text-green-600">
-                        ${(bansosClaims.filter((c) => c.claimed).length * 2000).toLocaleString("en-US")}
-                      </span>
-                      <span className="text-[10px] text-slate-500 block mt-0.5">Uang Saku ($2.000/org)</span>
-                    </div>
-                  </div>
-
-                  {/* Filter & Search Toolbar */}
-                  <div className="card-brutal p-3 sm:p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                    {/* Search Bar */}
-                    <div className="relative flex-1">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                        <Search size={16} />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Cari Nama IC, Citizen ID (CID), atau Kode Kupon..."
-                        value={bansosSearchQuery}
-                        onChange={(e) => setBansosSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2 bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] text-xs font-bold shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
-                      />
-                      {bansosSearchQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setBansosSearchQuery("")}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-black dark:hover:text-white"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                      {/* Status Filter */}
-                      <select
-                        value={bansosStatusFilter}
-                        onChange={(e) => setBansosStatusFilter(e.target.value)}
-                        className="bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] py-2 px-3 text-xs font-heading font-black shadow-[2px_2px_0px_#000] focus:outline-none cursor-pointer"
-                      >
-                        <option value="all">Semua Status ({bansosClaims.length})</option>
-                        <option value="unclaimed">
-                          Belum Diambil ({bansosClaims.filter((c) => !c.claimed).length})
-                        </option>
-                        <option value="claimed">
-                          Sudah Diambil ({bansosClaims.filter((c) => c.claimed).length})
-                        </option>
-                      </select>
-
-                      {/* Export to Excel */}
+                  {/* Sub-Nav Pills: 1. Kelola Program Bansos & 2. Data Klaim Warga */}
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-1 border-b border-black/10 dark:border-white/10">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={handleExportBansosExcel}
-                        className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 shrink-0"
+                        onClick={() => setBansosSubTab("programs_manage")}
+                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border-2 border-black transition-all cursor-pointer ${
+                          bansosSubTab === "programs_manage"
+                            ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
+                            : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
                       >
-                        <FileSpreadsheet size={15} />
-                        <span>Unduh Data Bansos (.xlsx)</span>
+                        <span>🎁 Kelola Program Bansos ({bansosPrograms.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setBansosSubTab("claims_data")}
+                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border-2 border-black transition-all cursor-pointer ${
+                          bansosSubTab === "claims_data"
+                            ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
+                            : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span>📋 Data Klaim Warga ({bansosClaims.length})</span>
                       </button>
                     </div>
+
+                    {bansosSubTab === "programs_manage" && (
+                      <button
+                        type="button"
+                        onClick={handleOpenAddBansosProgram}
+                        className="btn py-2 px-3.5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                      >
+                        <Plus size={16} className="text-[#FACC15]" />
+                        <span>+ Buat Program Bansos Baru</span>
+                      </button>
+                    )}
                   </div>
 
-                  {/* Bansos Claims Cards List */}
-                  {(() => {
-                    let filtered = bansosClaims;
-                    if (bansosStatusFilter === "unclaimed") {
-                      filtered = filtered.filter((c) => !c.claimed);
-                    } else if (bansosStatusFilter === "claimed") {
-                      filtered = filtered.filter((c) => c.claimed);
-                    }
-
-                    if (bansosSearchQuery.trim()) {
-                      const q = bansosSearchQuery.trim().toLowerCase();
-                      filtered = filtered.filter(
-                        (c) =>
-                          (c.fullName && c.fullName.toLowerCase().includes(q)) ||
-                          (c.citizenId && c.citizenId.toLowerCase().includes(q)) ||
-                          (c.claimCode && c.claimCode.toLowerCase().includes(q))
-                      );
-                    }
-
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="card-brutal p-8 text-center bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] space-y-2">
-                          <Gift className="mx-auto text-slate-400" size={36} />
-                          <h4 className="font-heading font-black text-sm uppercase text-slate-700 dark:text-slate-300">
-                            Tidak Ada Data Pengajuan Bansos
-                          </h4>
-                          <p className="text-xs text-slate-500">
-                            {bansosSearchQuery
-                              ? `Tidak ditemukan klaim yang cocok dengan kata kunci "${bansosSearchQuery}".`
-                              : "Belum ada warga yang mengajukan formulir bansos."}
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="flex flex-col gap-3">
-                        {filtered.map((claim) => (
-                          <div
-                            key={claim.id}
-                            className="card-brutal p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-                          >
-                            {/* Left Section: KTP Thumbnail + Profile Details */}
-                            <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                              {/* Thumbnail KTP with Click to View Safely */}
-                              {claim.screenshotUrl ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    openImageSafely(
-                                      claim.screenshotUrl,
-                                      `KTP IC - ${claim.fullName} (${claim.citizenId})`
-                                    )
-                                  }
-                                  className="group relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-900 border-2 border-black shrink-0 overflow-hidden shadow-[2px_2px_0px_#000] cursor-pointer hover:border-[#FACC15]"
-                                  title="Klik untuk melihat foto KTP IC lengkap"
-                                >
-                                  <img
-                                    src={claim.screenshotUrl}
-                                    alt={`KTP ${claim.fullName}`}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  />
-                                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 flex flex-col items-center justify-center text-white transition-opacity">
-                                    <Eye size={14} />
-                                    <span className="text-[9px] font-black uppercase mt-0.5">KTP</span>
-                                  </div>
-                                </button>
-                              ) : (
-                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-200 dark:bg-slate-800 border-2 border-black flex flex-col items-center justify-center text-slate-500 shrink-0">
-                                  <User size={20} />
-                                  <span className="text-[9px] font-black uppercase mt-1">No KTP</span>
-                                </div>
-                              )}
-
-                              {/* Details */}
-                              <div className="flex-1 min-w-0 space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-mono font-black text-xs px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000] tracking-wide select-all">
-                                    {claim.claimCode}
-                                  </span>
-                                  <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100 truncate">
-                                    {claim.fullName}
-                                  </h4>
-                                </div>
-
-                                <div className="flex items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
-                                  <span className="flex items-center gap-1 font-mono font-bold text-slate-900 dark:text-slate-200">
-                                    <CreditCard size={13} className="text-slate-500" />
-                                    CID: {claim.citizenId}
-                                  </span>
-                                  <span>&bull;</span>
-                                  <span className="font-bold text-slate-800 dark:text-slate-200">Sex: {claim.sex || "Laki-laki"}</span>
-                                </div>
-
-                                {/* Package info & timeline */}
-                                <div className="flex items-center gap-2 text-[11px] pt-1 flex-wrap">
-                                  <span className="font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 border border-emerald-600">
-                                    2 Jerigen Bensin + 1 Paket Makanan + $2.000 USD
-                                  </span>
-                                  <span className="text-slate-400">&bull;</span>
-                                  <span className="text-slate-500">
-                                    Diajukan: {claim.claimDate} {claim.claimTime}
-                                  </span>
-                                </div>
-
-                                {claim.claimed && claim.claimedAt && (
-                                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                                    Diserahkan pada: {claim.claimedAt}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Right Section: Status Toggle & Delete Action */}
-                            <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-black/10 dark:border-white/10 shrink-0">
-                              {/* 1-Click Status Toggle Button with explicit colors */}
-                              {claim.claimed ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleBansos(claim)}
-                                  style={{ backgroundColor: "#059669", color: "#FFFFFF" }}
-                                  className="py-2 px-3.5 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
-                                  title="Status SUDAH DIAMBIL. Klik untuk kembalikan ke BELUM DIAMBIL jika keliru."
-                                >
-                                  <Check size={14} className="stroke-[3]" />
-                                  <span>SUDAH DIAMBIL</span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleBansos(claim)}
-                                  style={{ backgroundColor: "#FACC15", color: "#111827" }}
-                                  className="py-2 px-3.5 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
-                                  title="Status BELUM DIAMBIL. Klik untuk tandai SUDAH DIAMBIL saat penyerahan."
-                                >
-                                  <Clock size={14} className="stroke-[3]" />
-                                  <span>BELUM DIAMBIL</span>
-                                </button>
-                              )}
-
-                              {/* Delete Claim Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteBansos(claim)}
-                                className="p-2 bg-white dark:bg-slate-800 text-red-600 hover:bg-red-600 hover:text-white border-2 border-black shadow-[2px_2px_0px_#000] transition-colors cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
-                                title="Hapus data klaim ini"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
+                  {/* SUB-TAB 1: KELOLA PROGRAM BANSOS */}
+                  {bansosSubTab === "programs_manage" && (
+                    <div className="flex flex-col gap-4">
+                      {/* Banner Info */}
+                      <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shadow-[2px_2px_0px_#000] shrink-0">
+                            <Gift size={20} />
                           </div>
-                        ))}
+                          <div>
+                            <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                              Daftar Program Bantuan Sosial ({bansosPrograms.length})
+                            </h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                              Buat program bansos baru, atur paket barang/sembako, dan aktifkan/nonaktifkan program kapan saja tanpa ubah kode.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleOpenAddBansosProgram}
+                          className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+                        >
+                          <Plus size={15} />
+                          <span>+ Buat Program Bansos</span>
+                        </button>
                       </div>
-                    );
-                  })()}
+
+                      {/* Grid Program Cards */}
+                      {bansosPrograms.length === 0 ? (
+                        <div className="card-brutal p-8 sm:p-10 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-3">
+                          <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border-2 border-black flex items-center justify-center text-emerald-600 shadow-[2px_2px_0px_#000]">
+                            <Gift size={28} />
+                          </div>
+                          <div>
+                            <h5 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
+                              Belum Ada Program Bansos
+                            </h5>
+                            <p className="text-xs text-slate-500 mt-1 max-w-md">
+                              Klik tombol di bawah untuk menambahkan program bansos baru untuk warga Sandy Shores.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleOpenAddBansosProgram}
+                            className="btn py-2.5 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                          >
+                            <Plus size={16} className="text-emerald-700" />
+                            <span>+ Buat Program Bansos Sekarang</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {bansosPrograms.map((prog) => {
+                            const progClaims = bansosClaims.filter((c) => c.programId === prog.id);
+                            const claimedCount = progClaims.filter((c) => c.claimed).length;
+                            const unclaimedCount = progClaims.filter((c) => !c.claimed).length;
+                            const isActive = prog.status === "ACTIVE";
+
+                            return (
+                              <div
+                                key={prog.id}
+                                className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3"
+                              >
+                                <div>
+                                  {/* Header with Title and Badges */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100 truncate">
+                                        {prog.title}
+                                      </h5>
+                                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
+                                        {prog.tagline || "Program Kepedulian LSM Paguyuban Pizza"}
+                                      </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-black border border-black shadow-[1px_1px_0px_#000] ${
+                                          isActive
+                                            ? "bg-emerald-600 text-white"
+                                            : "bg-slate-400 text-slate-950"
+                                        }`}
+                                      >
+                                        {isActive ? "AKTIF" : "NONAKTIF"}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Items Breakdown Badges */}
+                                  <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                    {(prog.items || []).map((it, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/40 text-amber-950 dark:text-amber-200 text-[10.5px] font-bold rounded"
+                                      >
+                                        <Gift size={11} className="text-emerald-600 shrink-0" />
+                                        <span>{it.name}</span>
+                                      </span>
+                                    ))}
+                                    {Number(prog.totalCash) > 0 && (
+                                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-700/40 text-emerald-950 dark:text-emerald-200 text-[10.5px] font-bold rounded">
+                                        <DollarSign size={11} className="text-green-600 shrink-0" />
+                                        <span>${Number(prog.totalCash).toLocaleString("en-US")} USD</span>
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Stats row */}
+                                  <div className="grid grid-cols-3 gap-2 mt-3 pt-2.5 border-t border-black/10 dark:border-white/10 text-center text-xs">
+                                    <div className="p-1.5 bg-slate-50 dark:bg-slate-800/50 rounded border border-black/10 dark:border-white/10">
+                                      <span className="text-[10px] text-slate-500 block uppercase font-bold">Total Klaim</span>
+                                      <span className="font-heading font-black text-sm">{progClaims.length}</span>
+                                    </div>
+                                    <div className="p-1.5 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-300/60 dark:border-amber-700/40">
+                                      <span className="text-[10px] text-amber-700 dark:text-amber-400 block uppercase font-bold">Belum Diambil</span>
+                                      <span className="font-heading font-black text-sm text-amber-600">{unclaimedCount}</span>
+                                    </div>
+                                    <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/30 rounded border border-emerald-300/60 dark:border-emerald-700/40">
+                                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 block uppercase font-bold">Sudah Diambil</span>
+                                      <span className="font-heading font-black text-sm text-emerald-600">{claimedCount}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Bottom Action Buttons */}
+                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {/* 1-Click Status Toggle */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleBansosProgramStatus(prog.id, prog.status)}
+                                      className={`btn py-1 px-2.5 text-[11px] font-heading font-black border border-black transition-all cursor-pointer ${
+                                        isActive
+                                          ? "bg-amber-100 hover:bg-amber-200 text-amber-950"
+                                          : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                                      }`}
+                                    >
+                                      {isActive ? "Nonaktifkan" : "Jadikan Aktif"}
+                                    </button>
+
+                                    {/* 1-Click Messenger Pop-up Toggle */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleBansosProgramMessenger(prog)}
+                                      className={`btn py-1 px-2 text-[10.5px] font-mono font-bold border border-black transition-all cursor-pointer ${
+                                        prog.showMessengerNotification !== false
+                                          ? "bg-yellow-300 text-slate-950"
+                                          : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                                      }`}
+                                      title="Aktifkan atau matikan pop-up mengambang di web"
+                                    >
+                                      {prog.showMessengerNotification !== false ? "🔔 Pop-up On" : "Pop-up Off"}
+                                    </button>
+                                  </div>
+
+                                  <div className="flex items-center gap-1">
+                                    {/* Edit Button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditBansosProgram(prog)}
+                                      className="p-1.5 bg-white dark:bg-[#1E212B] hover:bg-slate-100 text-slate-800 dark:text-slate-200 border border-black shadow-[1px_1px_0px_#000] cursor-pointer"
+                                      title="Edit Program Bansos"
+                                    >
+                                      <Edit2 size={13} />
+                                    </button>
+
+                                    {/* Delete Button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteBansosProgram(prog)}
+                                      className="p-1.5 bg-red-100 hover:bg-red-200 text-red-700 border border-black shadow-[1px_1px_0px_#000] cursor-pointer"
+                                      title="Hapus Program Bansos"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 2: DATA KLAIM WARGA */}
+                  {bansosSubTab === "claims_data" && (
+                    <div className="flex flex-col gap-4">
+                      {/* Bansos Header Info Card */}
+                      <div className="card-brutal p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-start sm:items-center gap-3.5">
+                          <div className="w-12 h-12 bg-[#FACC15] text-[#111827] border-2 border-black flex items-center justify-center font-black shadow-[2px_2px_0px_#000] shrink-0">
+                            <Gift size={26} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
+                                Bantuan Sosial (Bansos) Warga
+                              </h3>
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000]">
+                                Total {bansosClaims.length} Pengajuan
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                              Kelola dan pantau pengambilan paket bantuan sosial warga sipil Sandy Shores.
+                            </p>
+                          </div>
+                        </div>
+
+                        <a
+                          href="/bansos"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors shrink-0"
+                        >
+                          <ExternalLink size={14} />
+                          <span>Buka Form /bansos</span>
+                        </a>
+                      </div>
+
+                      {/* Summary Metric Cards */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
+                        {/* 1. Total Permohonan */}
+                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                          <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-slate-500 block truncate">
+                            Total Pemohon
+                          </span>
+                          <span className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-slate-100">
+                            {bansosClaims.length}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">Warga Terdaftar</span>
+                        </div>
+
+                        {/* 2. Belum Diambil */}
+                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                          <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-amber-700 dark:text-amber-400 block truncate">
+                            Belum Diambil
+                          </span>
+                          <span className="font-heading font-black text-xl sm:text-2xl text-amber-600">
+                            {bansosClaims.filter((c) => !c.claimed).length}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">Menunggu Di Kantor</span>
+                        </div>
+
+                        {/* 3. Sudah Diambil */}
+                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                          <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-emerald-700 dark:text-emerald-400 block truncate">
+                            Sudah Diambil
+                          </span>
+                          <span className="font-heading font-black text-xl sm:text-2xl text-emerald-600">
+                            {bansosClaims.filter((c) => c.claimed).length}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">Telah Diserahkan</span>
+                        </div>
+
+                        {/* 4. Total Bantuan Tunai Tersalurkan */}
+                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                          <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-green-700 dark:text-green-400 block truncate">
+                            Dana Tersalurkan
+                          </span>
+                          <span className="font-heading font-black text-xl sm:text-2xl text-green-600">
+                            ${bansosClaims
+                              .filter((c) => c.claimed)
+                              .reduce((acc, c) => acc + (typeof c.cashAmount === "number" ? c.cashAmount : 2000), 0)
+                              .toLocaleString("en-US")}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block mt-0.5">Bantuan Tunai Total</span>
+                        </div>
+                      </div>
+
+                      {/* Filter & Search Toolbar */}
+                      <div className="card-brutal p-3 sm:p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                        {/* Search Bar */}
+                        <div className="relative flex-1">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                            <Search size={16} />
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Cari Nama IC, Citizen ID (CID), atau Kode Kupon..."
+                            value={bansosSearchQuery}
+                            onChange={(e) => setBansosSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] text-xs font-bold shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                          />
+                          {bansosSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setBansosSearchQuery("")}
+                              className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-black dark:hover:text-white"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                          {/* Program Filter */}
+                          <select
+                            value={selectedBansosProgramFilter}
+                            onChange={(e) => setSelectedBansosProgramFilter(e.target.value)}
+                            className="bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] py-2 px-3 text-xs font-heading font-black shadow-[2px_2px_0px_#000] focus:outline-none cursor-pointer max-w-[200px] truncate"
+                          >
+                            <option value="ALL">Semua Program ({bansosClaims.length})</option>
+                            {bansosPrograms.map((p) => {
+                              const count = bansosClaims.filter((c) => c.programId === p.id).length;
+                              return (
+                                <option key={p.id} value={p.id}>
+                                  {p.title} ({count})
+                                </option>
+                              );
+                            })}
+                          </select>
+
+                          {/* Status Filter */}
+                          <select
+                            value={bansosStatusFilter}
+                            onChange={(e) => setBansosStatusFilter(e.target.value)}
+                            className="bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] py-2 px-3 text-xs font-heading font-black shadow-[2px_2px_0px_#000] focus:outline-none cursor-pointer"
+                          >
+                            <option value="all">Semua Status ({bansosClaims.length})</option>
+                            <option value="unclaimed">
+                              Belum Diambil ({bansosClaims.filter((c) => !c.claimed).length})
+                            </option>
+                            <option value="claimed">
+                              Sudah Diambil ({bansosClaims.filter((c) => c.claimed).length})
+                            </option>
+                          </select>
+
+                          {/* Export to Excel */}
+                          <button
+                            type="button"
+                            onClick={handleExportBansosExcel}
+                            className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 shrink-0"
+                          >
+                            <FileSpreadsheet size={15} />
+                            <span>Unduh (.xlsx)</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Bansos Claims Cards List */}
+                      {(() => {
+                        let filtered = bansosClaims;
+                        if (bansosStatusFilter === "unclaimed") {
+                          filtered = filtered.filter((c) => !c.claimed);
+                        } else if (bansosStatusFilter === "claimed") {
+                          filtered = filtered.filter((c) => c.claimed);
+                        }
+
+                        if (selectedBansosProgramFilter !== "ALL") {
+                          filtered = filtered.filter((c) => c.programId === selectedBansosProgramFilter);
+                        }
+
+                        if (bansosSearchQuery.trim()) {
+                          const q = bansosSearchQuery.trim().toLowerCase();
+                          filtered = filtered.filter(
+                            (c) =>
+                              (c.fullName && c.fullName.toLowerCase().includes(q)) ||
+                              (c.citizenId && c.citizenId.toLowerCase().includes(q)) ||
+                              (c.claimCode && c.claimCode.toLowerCase().includes(q)) ||
+                              (c.programTitle && c.programTitle.toLowerCase().includes(q))
+                          );
+                        }
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="card-brutal p-8 text-center bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] space-y-2">
+                              <Gift className="mx-auto text-slate-400" size={36} />
+                              <h4 className="font-heading font-black text-sm uppercase text-slate-700 dark:text-slate-300">
+                                Tidak Ada Data Pengajuan Bansos
+                              </h4>
+                              <p className="text-xs text-slate-500">
+                                {bansosSearchQuery
+                                  ? `Tidak ditemukan klaim yang cocok dengan kata kunci "${bansosSearchQuery}".`
+                                  : "Belum ada warga yang mengajukan formulir bansos."}
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="flex flex-col gap-3">
+                            {filtered.map((claim) => (
+                              <div
+                                key={claim.id}
+                                className="card-brutal p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                              >
+                                {/* Left Section: KTP Thumbnail + Profile Details */}
+                                <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                                  {/* Thumbnail KTP with Click to View Safely */}
+                                  {claim.screenshotUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        openImageSafely(
+                                          claim.screenshotUrl,
+                                          `KTP IC - ${claim.fullName} (${claim.citizenId})`
+                                        )
+                                      }
+                                      className="group relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-900 border-2 border-black shrink-0 overflow-hidden shadow-[2px_2px_0px_#000] cursor-pointer hover:border-[#FACC15]"
+                                      title="Klik untuk melihat foto KTP IC lengkap"
+                                    >
+                                      <img
+                                        src={claim.screenshotUrl}
+                                        alt={`KTP ${claim.fullName}`}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 flex flex-col items-center justify-center text-white transition-opacity">
+                                        <Eye size={14} />
+                                        <span className="text-[9px] font-black uppercase mt-0.5">KTP</span>
+                                      </div>
+                                    </button>
+                                  ) : (
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-200 dark:bg-slate-800 border-2 border-black flex flex-col items-center justify-center text-slate-500 shrink-0">
+                                      <User size={20} />
+                                      <span className="text-[9px] font-black uppercase mt-1">No KTP</span>
+                                    </div>
+                                  )}
+
+                                  {/* Details */}
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-mono font-black text-xs px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000] tracking-wide select-all">
+                                        {claim.claimCode}
+                                      </span>
+                                      <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100 truncate">
+                                        {claim.fullName}
+                                      </h4>
+                                    </div>
+
+                                    <div className="flex items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400 flex-wrap">
+                                      <span className="flex items-center gap-1 font-mono font-bold text-slate-900 dark:text-slate-200">
+                                        <CreditCard size={13} className="text-slate-500" />
+                                        CID: {claim.citizenId}
+                                      </span>
+                                      <span>&bull;</span>
+                                      <span className="font-bold text-slate-800 dark:text-slate-200">Sex: {claim.sex || "Laki-laki"}</span>
+                                    </div>
+
+                                    {/* Package info & timeline */}
+                                    <div className="flex items-center gap-2 text-[11px] pt-1 flex-wrap">
+                                      <span className="font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 border border-emerald-600">
+                                        {claim.programTitle ? `${claim.programTitle}: ` : ""}
+                                        {Array.isArray(claim.packageItems)
+                                          ? claim.packageItems.join(" + ")
+                                          : (claim.packageItems || "2 Jerigen Bensin + 1 Paket Makanan + $2.000 USD")}
+                                      </span>
+                                      <span className="text-slate-400">&bull;</span>
+                                      <span className="text-slate-500">
+                                        Diajukan: {claim.claimDate} {claim.claimTime}
+                                      </span>
+                                    </div>
+
+                                    {claim.claimed && claim.claimedAt && (
+                                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                        Diserahkan pada: {claim.claimedAt}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Right Section: Status Toggle & Delete Action */}
+                                <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-black/10 dark:border-white/10 shrink-0">
+                                  {/* 1-Click Status Toggle Button with explicit colors */}
+                                  {claim.claimed ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleBansos(claim)}
+                                      style={{ backgroundColor: "#059669", color: "#FFFFFF" }}
+                                      className="py-2 px-3.5 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      title="Status SUDAH DIAMBIL. Klik untuk kembalikan ke BELUM DIAMBIL jika keliru."
+                                    >
+                                      <Check size={14} className="stroke-[3]" />
+                                      <span>SUDAH DIAMBIL</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleBansos(claim)}
+                                      style={{ backgroundColor: "#FACC15", color: "#111827" }}
+                                      className="py-2 px-3.5 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      title="Status BELUM DIAMBIL. Klik untuk tandai SUDAH DIAMBIL saat penyerahan."
+                                    >
+                                      <Clock size={14} className="stroke-[3]" />
+                                      <span>BELUM DIAMBIL</span>
+                                    </button>
+                                  )}
+
+                                  {/* Delete Claim Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteBansos(claim)}
+                                    className="p-2 bg-white dark:bg-slate-800 text-red-600 hover:bg-red-600 hover:text-white border-2 border-black shadow-[2px_2px_0px_#000] transition-colors cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                                    title="Hapus data klaim ini"
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -4335,7 +4783,293 @@ export default function AdminModal({ isOpen, onClose, initialData, onDataSaved, 
         </div>
       )}
 
-      {/* Custom Neo-Brutalist Confirm Modal (No more localhost says!) */}
+      {/* MODAL FORM BUAT / EDIT PROGRAM BANSOS */}
+      {editingBansosProgram && (
+        <div
+          className="fixed inset-0 z-[140] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto select-none animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
+            {/* Header Modal */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#FACC15] text-slate-950">
+              <div className="flex items-center gap-2">
+                <Gift size={20} className="text-[#059669]" />
+                <h4 className="font-heading font-black text-sm uppercase">
+                  {editingBansosProgram.id ? "Edit Program Bansos" : "Buat Program Bansos Baru"}
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingBansosProgram(null)}
+                className="w-7 h-7 rounded border border-black bg-white flex items-center justify-center font-bold cursor-pointer"
+                title="Batal"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <form onSubmit={handleSaveBansosProgram} className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4 text-xs">
+              {/* Nama Program */}
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                  Nama Program Bansos <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: Bantuan Sosial Warga Sandy Shores"
+                  value={editingBansosProgram.title}
+                  onChange={(e) => setEditingBansosProgram({ ...editingBansosProgram, title: e.target.value })}
+                  className="input-field w-full text-xs font-bold"
+                />
+              </div>
+
+              {/* Tagline / Sub-judul */}
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                  Tagline / Sub-judul Singkat
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Program Kepedulian LSM Paguyuban Pizza Sandy Shores"
+                  value={editingBansosProgram.tagline}
+                  onChange={(e) => setEditingBansosProgram({ ...editingBansosProgram, tagline: e.target.value })}
+                  className="input-field w-full text-xs"
+                />
+              </div>
+
+              {/* Status Program & Total Uang Saku */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                    Status Program
+                  </label>
+                  <select
+                    value={editingBansosProgram.status}
+                    onChange={(e) => setEditingBansosProgram({ ...editingBansosProgram, status: e.target.value })}
+                    className="input-field w-full text-xs font-bold"
+                  >
+                    <option value="ACTIVE">ACTIVE (Dapat Diajukan Warga)</option>
+                    <option value="INACTIVE">INACTIVE (Nonaktif / Arsip)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                    Bantuan Tunai / Uang Saku ($ USD)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="2000"
+                    value={editingBansosProgram.totalCash ?? 2000}
+                    onChange={(e) => setEditingBansosProgram({ ...editingBansosProgram, totalCash: Number(e.target.value) || 0 })}
+                    className="input-field w-full text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Daftar Barang / Komoditas Paket Bansos */}
+              <div className="p-3 bg-amber-50/50 dark:bg-[#1E212B] border-2 border-black/40 rounded-lg flex flex-col gap-2.5">
+                <div className="flex items-center justify-between pb-1 border-b border-black/10 dark:border-white/10">
+                  <span className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <Package size={14} className="text-amber-600" />
+                    <span>Daftar Isi Paket Barang (Komoditas)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAddBansosItem}
+                    className="py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-[11px] border border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                  >
+                    + Tambah Barang
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+                  {(editingBansosProgram.items || []).map((it, idx) => (
+                    <div
+                      key={idx}
+                      className="p-2 bg-white dark:bg-[#14161F] border border-black/30 rounded flex items-center gap-2"
+                    >
+                      {/* Nama Barang */}
+                      <input
+                        type="text"
+                        placeholder="Nama Barang (contoh: 2 Jerigen Bensin)"
+                        value={it.name}
+                        onChange={(e) => handleUpdateBansosItem(idx, "name", e.target.value)}
+                        className="input-field flex-1 text-xs font-bold py-1 px-2"
+                      />
+
+                      {/* Icon Select */}
+                      <select
+                        value={it.icon || "Gift"}
+                        onChange={(e) => handleUpdateBansosItem(idx, "icon", e.target.value)}
+                        className="input-field text-xs py-1 px-2 font-mono"
+                      >
+                        <option value="Fuel">⛽ Fuel (Bensin)</option>
+                        <option value="Utensils">🥫 Utensils (Makanan)</option>
+                        <option value="DollarSign">💵 Dollar (Uang)</option>
+                        <option value="ShoppingBag">🛍️ Shopping (Sembako)</option>
+                        <option value="Wheat">🌾 Wheat (Bibit)</option>
+                        <option value="Package">📦 Package</option>
+                        <option value="Sparkles">✨ Sparkles</option>
+                        <option value="Gift">🎁 Gift</option>
+                      </select>
+
+                      {/* Keterangan */}
+                      <input
+                        type="text"
+                        placeholder="Ket (opsional)"
+                        value={it.desc || ""}
+                        onChange={(e) => handleUpdateBansosItem(idx, "desc", e.target.value)}
+                        className="input-field w-28 text-[11px] py-1 px-2"
+                      />
+
+                      {/* Tombol Hapus */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveBansosItem(idx)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded cursor-pointer"
+                        title="Hapus barang ini"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                  {(editingBansosProgram.items || []).length === 0 && (
+                    <p className="text-[11px] text-slate-500 italic text-center py-2">
+                      Belum ada barang dalam paket. Klik "+ Tambah Barang" di atas.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Pengaturan Pop-up Messenger */}
+              <div className="p-3 bg-yellow-50/60 dark:bg-[#1E212B] border-2 border-black/40 rounded-lg flex flex-col gap-2.5">
+                <label className="flex items-center gap-2 cursor-pointer font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100">
+                  <input
+                    type="checkbox"
+                    checked={editingBansosProgram.showMessengerNotification !== false}
+                    onChange={(e) =>
+                      setEditingBansosProgram({
+                        ...editingBansosProgram,
+                        showMessengerNotification: e.target.checked,
+                      })
+                    }
+                    className="w-4 h-4 accent-[#059669] cursor-pointer"
+                  />
+                  <span>Tampilkan Pop-up Notifikasi Mengambang di Web</span>
+                </label>
+
+                {editingBansosProgram.showMessengerNotification !== false && (
+                  <div className="flex flex-col gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
+                          Judul Notifikasi Pop-up
+                        </label>
+                        <input
+                          type="text"
+                          value={editingBansosProgram.messengerHeading || ""}
+                          onChange={(e) =>
+                            setEditingBansosProgram({
+                              ...editingBansosProgram,
+                              messengerHeading: e.target.value,
+                            })
+                          }
+                          placeholder="Bansos Warga Sandy Shores"
+                          className="input-field w-full text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
+                          Teks Ringkasan Tombol Pill
+                        </label>
+                        <input
+                          type="text"
+                          value={editingBansosProgram.pillLabel || ""}
+                          onChange={(e) =>
+                            setEditingBansosProgram({
+                              ...editingBansosProgram,
+                              pillLabel: e.target.value,
+                            })
+                          }
+                          placeholder="2 Bensin + 1 Makanan + $2.000"
+                          className="input-field w-full text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
+                        Pesan Teks Chat Pop-up
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={editingBansosProgram.messengerMessage || ""}
+                        onChange={(e) =>
+                          setEditingBansosProgram({
+                            ...editingBansosProgram,
+                            messengerMessage: e.target.value,
+                          })
+                        }
+                        placeholder="Tulis pesan pengumuman singkat yang ramah kepada warga..."
+                        className="input-field w-full text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Syarat & Aturan */}
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200 mb-1">
+                  Syarat & Ketentuan Pengambilan (1 Baris Per Aturan)
+                </label>
+                <textarea
+                  rows={3}
+                  value={
+                    Array.isArray(editingBansosProgram.rules)
+                      ? editingBansosProgram.rules.join("\n")
+                      : editingBansosProgram.rules || ""
+                  }
+                  onChange={(e) =>
+                    setEditingBansosProgram({
+                      ...editingBansosProgram,
+                      rules: e.target.value.split("\n").filter(Boolean),
+                    })
+                  }
+                  placeholder="Wajib mengunggah foto KTP IC yang jelas&#10;1 Citizen ID (CID) hanya berhak menerima 1 kali bantuan"
+                  className="input-field w-full text-xs"
+                />
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-black/10 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingBansosProgram(null)}
+                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border-2 border-black font-bold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingBansosProgram}
+                  className="btn py-2 px-5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] text-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
+                >
+                  <Save size={14} className="text-[#FACC15]" />
+                  <span>{isSavingBansosProgram ? "Menyimpan Program..." : "Simpan Program Bansos"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <BrutalistConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}

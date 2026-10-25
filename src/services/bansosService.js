@@ -1,6 +1,6 @@
 // ==========================================================================
 // BANSOS (BANTUAN SOSIAL) SERVICE - LSM PAGUYUBAN PIZZA SANDY SHORES
-// Paket: 2 Jerigen Bensin + 1 Paket Makanan + Uang Saku $2.000 USD
+// Supports Dynamic Bansos Programs Creation, Editing, Toggling & Claims
 // ==========================================================================
 
 import { initializeApp, getApps } from "firebase/app";
@@ -49,9 +49,18 @@ const APP_ID = "portal-anggota-app";
 const BANSOS_COL_PATH = ["artifacts", APP_ID, "public", "data", "bansos_claims"];
 const BANSOS_STORAGE_KEY = "pps_bansos_claims_cache";
 
-export const BANSOS_PACKAGE_INFO = {
+const BANSOS_PROGRAMS_COL_PATH = ["artifacts", APP_ID, "public", "data", "bansos_programs"];
+const BANSOS_PROGRAMS_STORAGE_KEY = "pps_bansos_programs_cache";
+const BANSOS_PROGRAMS_INIT_KEY = "pps_bansos_programs_initialized";
+
+/**
+ * Default Seed Bansos Program: Paket Sembako, Bensin & Uang Saku
+ */
+export const DEFAULT_BANSOS_PROGRAM = {
+  id: "bns-sembako-bensin-v1",
   title: "Bantuan Sosial Warga Sandy Shores",
   tagline: "Program Kepedulian LSM Paguyuban Pizza Sandy Shores",
+  status: "ACTIVE", // "ACTIVE" | "INACTIVE"
   items: [
     { name: "2 Jerigen Bensin", icon: "Fuel", desc: "Bahan bakar untuk operasional harian kendaraan" },
     { name: "1 Paket Makanan", icon: "Utensils", desc: "Ransum konsumsi siap santap bergizi" },
@@ -64,7 +73,15 @@ export const BANSOS_PACKAGE_INFO = {
     "Pengambilan bantuan fisik dilakukan langsung di Kantor LSM Paguyuban Pizza Sandy Shores",
     "Tunjukkan bukti kupon digital atau sebutkan Citizen ID kepada Pengurus yang bertugas",
   ],
+  showMessengerNotification: true,
+  messengerHeading: "Bansos Warga Sandy Shores",
+  messengerMessage: "Halo warga Sandy Shores! Paguyuban Pizza menyediakan paket bantuan kebutuhan pokok untuk warga yang membutuhkan:",
+  pillLabel: "2 Bensin + 1 Makanan + $2.000",
+  createdAt: 1729800000000,
 };
+
+// Backward-compatible alias
+export const BANSOS_PACKAGE_INFO = DEFAULT_BANSOS_PROGRAM;
 
 /**
  * Generate a unique coupon code: 1 letter + 2 numbers (e.g. A01, A02 ... A12 ... A99, B01)
@@ -91,6 +108,218 @@ export function generateBansosCouponCode(existingCodes = []) {
   const randomNum = Math.floor(10 + Math.random() * 90);
   return `${randomLetter}${randomNum}`;
 }
+
+// ==========================================================================
+// 1. DYNAMIC BANSOS PROGRAMS MANAGEMENT
+// ==========================================================================
+
+/**
+ * Load all Bansos Programs from Firestore with local fallback
+ */
+export async function loadBansosProgramsCloud() {
+  try {
+    const colRef = collection(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH);
+    const snap = await getDocs(colRef);
+    const list = [];
+    snap.forEach((d) => {
+      if (d.id !== "_meta") {
+        list.push({ id: d.id, ...d.data() });
+      }
+    });
+
+    list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    // Auto-seed default program if collection is completely empty and not initialized
+    const isInit = typeof window !== "undefined" && localStorage.getItem(BANSOS_PROGRAMS_INIT_KEY) === "true";
+    if (list.length === 0 && !isInit) {
+      list.push(DEFAULT_BANSOS_PROGRAM);
+      try {
+        const seedRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, DEFAULT_BANSOS_PROGRAM.id);
+        await setDoc(seedRef, DEFAULT_BANSOS_PROGRAM);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(BANSOS_PROGRAMS_INIT_KEY, "true");
+        }
+      } catch (seedErr) {
+        console.warn("Notice: Bansos program seed offline fallback:", seedErr);
+      }
+    }
+
+    try {
+      localStorage.setItem(BANSOS_PROGRAMS_STORAGE_KEY, JSON.stringify(list));
+    } catch {}
+
+    return list;
+  } catch (err) {
+    console.warn("Gagal memuat program bansos dari cloud, membaca cache lokal:", err);
+    try {
+      const cached = localStorage.getItem(BANSOS_PROGRAMS_STORAGE_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [DEFAULT_BANSOS_PROGRAM];
+  }
+}
+
+/**
+ * Real-time subscription to Bansos Programs list
+ */
+export function subscribeBansosProgramsCloud(onUpdate, onError) {
+  try {
+    const colRef = collection(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH);
+    return onSnapshot(
+      colRef,
+      (snap) => {
+        const list = [];
+        snap.forEach((d) => {
+          if (d.id !== "_meta") {
+            list.push({ id: d.id, ...d.data() });
+          }
+        });
+
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        // Auto-seed if empty and not initialized
+        const isInit = typeof window !== "undefined" && localStorage.getItem(BANSOS_PROGRAMS_INIT_KEY) === "true";
+        if (list.length === 0 && !isInit) {
+          list.push(DEFAULT_BANSOS_PROGRAM);
+          try {
+            const seedRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, DEFAULT_BANSOS_PROGRAM.id);
+            setDoc(seedRef, DEFAULT_BANSOS_PROGRAM).catch(() => {});
+            if (typeof window !== "undefined") {
+              localStorage.setItem(BANSOS_PROGRAMS_INIT_KEY, "true");
+            }
+          } catch {}
+        }
+
+        try {
+          localStorage.setItem(BANSOS_PROGRAMS_STORAGE_KEY, JSON.stringify(list));
+        } catch {}
+        if (typeof onUpdate === "function") onUpdate(list);
+      },
+      (err) => {
+        console.warn("Subscription program bansos error, fallback ke cache:", err);
+        try {
+          const cached = localStorage.getItem(BANSOS_PROGRAMS_STORAGE_KEY);
+          if (cached && typeof onUpdate === "function") {
+            onUpdate(JSON.parse(cached));
+          } else if (typeof onUpdate === "function") {
+            onUpdate([DEFAULT_BANSOS_PROGRAM]);
+          }
+        } catch {}
+        if (typeof onError === "function") onError(err);
+      }
+    );
+  } catch (err) {
+    console.error("Gagal inisialisasi onSnapshot program bansos:", err);
+    try {
+      const cached = localStorage.getItem(BANSOS_PROGRAMS_STORAGE_KEY);
+      if (cached && typeof onUpdate === "function") {
+        onUpdate(JSON.parse(cached));
+      } else if (typeof onUpdate === "function") {
+        onUpdate([DEFAULT_BANSOS_PROGRAM]);
+      }
+    } catch {}
+    return () => {};
+  }
+}
+
+/**
+ * Save or update a Bansos Program (Admin)
+ */
+export async function saveBansosProgramCloud(programData) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(BANSOS_PROGRAMS_INIT_KEY, "true");
+  }
+
+  const programId =
+    programData.id || "bns-" + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+
+  const payload = {
+    ...programData,
+    id: programId,
+    title: String(programData.title || "").trim(),
+    tagline: String(programData.tagline || "").trim(),
+    status: programData.status || "ACTIVE",
+    items: Array.isArray(programData.items) ? programData.items : [],
+    totalCash: Number(programData.totalCash) || 0,
+    rules: Array.isArray(programData.rules) ? programData.rules : [],
+    showMessengerNotification: programData.showMessengerNotification !== false,
+    messengerHeading: programData.messengerHeading || programData.title || "Bansos Warga Sandy Shores",
+    messengerMessage: programData.messengerMessage || "",
+    pillLabel: programData.pillLabel || "",
+    updatedAt: Date.now(),
+    createdAt: programData.createdAt || Date.now(),
+  };
+
+  try {
+    const docRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, programId);
+    await setDoc(docRef, payload, { merge: true });
+  } catch (err) {
+    console.warn("Gagal simpan program bansos di cloud, fallback cache:", err);
+  }
+
+  try {
+    const current = JSON.parse(localStorage.getItem(BANSOS_PROGRAMS_STORAGE_KEY) || "[]");
+    const updated = current.some((p) => p.id === programId)
+      ? current.map((p) => (p.id === programId ? { ...p, ...payload } : p))
+      : [{ ...payload }, ...current];
+    localStorage.setItem(BANSOS_PROGRAMS_STORAGE_KEY, JSON.stringify(updated));
+  } catch {}
+
+  return payload;
+}
+
+/**
+ * Delete a Bansos Program (Admin)
+ */
+export async function deleteBansosProgramCloud(programId) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(BANSOS_PROGRAMS_INIT_KEY, "true");
+  }
+
+  try {
+    const docRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, programId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.warn("Gagal hapus program bansos di cloud:", err);
+  }
+
+  try {
+    const current = JSON.parse(localStorage.getItem(BANSOS_PROGRAMS_STORAGE_KEY) || "[]");
+    const updated = current.filter((p) => p.id !== programId);
+    localStorage.setItem(BANSOS_PROGRAMS_STORAGE_KEY, JSON.stringify(updated));
+  } catch {}
+
+  return true;
+}
+
+/**
+ * Toggle Status of Bansos Program (ACTIVE <-> INACTIVE)
+ */
+export async function toggleBansosProgramStatusCloud(programId, currentStatus) {
+  const nextStatus = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+  const updatedAt = Date.now();
+
+  try {
+    const docRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, programId);
+    await setDoc(docRef, { status: nextStatus, updatedAt }, { merge: true });
+  } catch (err) {
+    console.warn("Gagal toggle status program bansos di cloud:", err);
+  }
+
+  try {
+    const current = JSON.parse(localStorage.getItem(BANSOS_PROGRAMS_STORAGE_KEY) || "[]");
+    const updated = current.map((p) =>
+      p.id === programId ? { ...p, status: nextStatus, updatedAt } : p
+    );
+    localStorage.setItem(BANSOS_PROGRAMS_STORAGE_KEY, JSON.stringify(updated));
+  } catch {}
+
+  return nextStatus;
+}
+
+// ==========================================================================
+// 2. BANSOS CLAIMS MANAGEMENT
+// ==========================================================================
 
 /**
  * Load all bansos claims from Firestore with local fallback
@@ -230,12 +459,16 @@ export async function submitBansosClaimCloud(claimData) {
     citizenId: cleanCid,
     sex: claimData.sex || "Laki-laki",
     screenshotUrl: claimData.screenshotUrl || "",
-    packageItems: [
-      "2 Jerigen Bensin",
-      "1 Paket Makanan",
-      "Uang Saku $2.000 USD",
-    ],
-    cashAmount: 2000,
+    programId: claimData.programId || "bns-sembako-bensin-v1",
+    programTitle: claimData.programTitle || "Bantuan Sosial Warga Sandy Shores",
+    packageItems: Array.isArray(claimData.packageItems) && claimData.packageItems.length > 0
+      ? claimData.packageItems
+      : [
+          "2 Jerigen Bensin",
+          "1 Paket Makanan",
+          "Uang Saku $2.000 USD",
+        ],
+    cashAmount: typeof claimData.cashAmount === "number" ? claimData.cashAmount : 2000,
     claimed: false, // false: Belum Diambil, true: Sudah Diambil
     claimedAt: null,
     claimedByAdmin: null,
@@ -271,13 +504,15 @@ export async function submitBansosClaimCloud(claimData) {
 export async function toggleBansosStatusCloud(claimId, currentStatus, adminName = "Pengurus") {
   const nextStatus = !currentStatus;
   const now = new Date();
-  const timestampStr = `${now.toLocaleDateString("id-ID", {
+  const timestampStr = now.toLocaleString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  })} ${now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`;
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-  const updateData = {
+  const updateFields = {
     claimed: nextStatus,
     claimedAt: nextStatus ? timestampStr : null,
     claimedByAdmin: nextStatus ? adminName : null,
@@ -285,7 +520,7 @@ export async function toggleBansosStatusCloud(claimId, currentStatus, adminName 
 
   try {
     const docRef = doc(getBansosDb(), ...BANSOS_COL_PATH, claimId);
-    await setDoc(docRef, updateData, { merge: true });
+    await setDoc(docRef, updateFields, { merge: true });
   } catch (err) {
     console.warn("Cloud update bansos status failed:", err);
   }
@@ -295,11 +530,10 @@ export async function toggleBansosStatusCloud(claimId, currentStatus, adminName 
     const cached = localStorage.getItem(BANSOS_STORAGE_KEY);
     if (cached) {
       const list = JSON.parse(cached);
-      const idx = list.findIndex((c) => c.id === claimId);
-      if (idx !== -1) {
-        list[idx] = { ...list[idx], ...updateData };
-        localStorage.setItem(BANSOS_STORAGE_KEY, JSON.stringify(list));
-      }
+      const updated = list.map((c) =>
+        c.id === claimId ? { ...c, ...updateFields } : c
+      );
+      localStorage.setItem(BANSOS_STORAGE_KEY, JSON.stringify(updated));
     }
   } catch {}
 
@@ -307,7 +541,7 @@ export async function toggleBansosStatusCloud(claimId, currentStatus, adminName 
 }
 
 /**
- * Delete a bansos claim
+ * Delete a bansos claim (Admin Only)
  */
 export async function deleteBansosClaimCloud(claimId) {
   try {
@@ -317,11 +551,13 @@ export async function deleteBansosClaimCloud(claimId) {
     console.warn("Cloud delete bansos failed:", err);
   }
 
+  // Update local cache
   try {
     const cached = localStorage.getItem(BANSOS_STORAGE_KEY);
     if (cached) {
-      const list = JSON.parse(cached).filter((c) => c.id !== claimId);
-      localStorage.setItem(BANSOS_STORAGE_KEY, JSON.stringify(list));
+      const list = JSON.parse(cached);
+      const updated = list.filter((c) => c.id !== claimId);
+      localStorage.setItem(BANSOS_STORAGE_KEY, JSON.stringify(updated));
     }
   } catch {}
 
@@ -329,19 +565,22 @@ export async function deleteBansosClaimCloud(claimId) {
 }
 
 /**
- * Export Bansos claims list to Excel spreadsheet (.xlsx)
+ * Export bansos claims to XLSX file
  */
-export function exportBansosToExcel(claimsList) {
-  if (!Array.isArray(claimsList) || claimsList.length === 0) return false;
+export function exportBansosToExcel(claimsList = []) {
+  if (!Array.isArray(claimsList) || claimsList.length === 0) {
+    throw new Error("Tidak ada data bansos untuk diekspor.");
+  }
 
-  const rows = claimsList.map((c, index) => ({
-    No: index + 1,
+  const rows = claimsList.map((c, idx) => ({
+    NO: idx + 1,
     "KODE KUPON": c.claimCode || "-",
+    "PROGRAM BANSOS": c.programTitle || "Bantuan Sosial Warga Sandy Shores",
     "NAMA LENGKAP IC": c.fullName || "-",
     "CITIZEN ID (CID)": c.citizenId || "-",
     "JENIS KELAMIN": c.sex || "-",
-    "PAKET BANSOS": "2 Jerigen Bensin + 1 Paket Makanan + $2.000 USD",
-    "UANG SAKU": "$2.000 USD",
+    "PAKET BANSOS": Array.isArray(c.packageItems) ? c.packageItems.join(" + ") : (c.packageItems || "2 Jerigen Bensin + 1 Paket Makanan + $2.000 USD"),
+    "UANG SAKU": typeof c.cashAmount === "number" ? `$${c.cashAmount.toLocaleString("en-US")} USD` : "$2.000 USD",
     "STATUS PENGAMBILAN": c.claimed ? "SUDAH DIAMBIL" : "BELUM DIAMBIL",
     "TANGGAL PENGAJUAN": `${c.claimDate || "-"} ${c.claimTime || ""}`,
     "WAKTU PENYERAHAN": c.claimedAt || "-",
@@ -351,6 +590,7 @@ export function exportBansosToExcel(claimsList) {
   worksheet["!cols"] = [
     { wch: 6 },
     { wch: 16 },
+    { wch: 32 },
     { wch: 26 },
     { wch: 20 },
     { wch: 16 },

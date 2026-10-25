@@ -13,12 +13,13 @@ import MemberRegistrationModal from "./components/MemberRegistrationModal";
 import MembersDirectoryModal from "./components/MembersDirectoryModal";
 import EventRegistrationModal from "./components/EventRegistrationModal";
 import BansosModal from "./components/BansosModal";
-import EventMessengerPopup from "./components/EventMessengerPopup";
+import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
 import { subscribeMembersCloud } from "./services/memberService";
 import { subscribeEventsCloud, DEFAULT_EVENT } from "./services/eventService";
+import { subscribeBansosProgramsCloud, DEFAULT_BANSOS_PROGRAM } from "./services/bansosService";
 
 export default function App() {
   const [memberCount, setMemberCount] = useState(0);
@@ -31,6 +32,18 @@ export default function App() {
     return isInit ? [] : [DEFAULT_EVENT];
   });
   const [selectedEventForModal, setSelectedEventForModal] = useState(null);
+
+  const [bansosPrograms, setBansosPrograms] = useState(() => {
+    try {
+      const cached = localStorage.getItem("pps_bansos_programs_cache");
+      if (cached !== null) return JSON.parse(cached);
+    } catch {}
+    const isInit =
+      typeof window !== "undefined" &&
+      localStorage.getItem("pps_bansos_programs_initialized") === "true";
+    return isInit ? [] : [DEFAULT_BANSOS_PROGRAM];
+  });
+  const [selectedBansosProgramForModal, setSelectedBansosProgramForModal] = useState(null);
   const [data, setData] = useState(() => {
     try {
       const cached = localStorage.getItem("pps_cached_data");
@@ -116,6 +129,27 @@ export default function App() {
       if (typeof unsub === "function") unsub();
     };
   }, []);
+
+  // Real-time Dynamic Bansos Programs Subscription
+  useEffect(() => {
+    const unsub = subscribeBansosProgramsCloud(
+      (programs) => {
+        if (Array.isArray(programs)) {
+          setBansosPrograms(programs);
+        }
+      },
+      () => {}
+    );
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, []);
+
+  // Active Bansos Program for Public Visitors
+  const activeBansosProgram =
+    bansosPrograms.find((p) => p.status === "ACTIVE") ||
+    bansosPrograms[0] ||
+    DEFAULT_BANSOS_PROGRAM;
 
   // Active Event for Public Visitors
   const activeEvent =
@@ -439,8 +473,22 @@ export default function App() {
     }
   }
 
+  function handleOpenBansosModal(prog) {
+    if (prog) {
+      setSelectedBansosProgramForModal(prog);
+    }
+    setBansosModalOpen(true);
+    if (
+      !window.location.pathname.toLowerCase().includes("/bansos") &&
+      !window.location.hash.toLowerCase().includes("bansos")
+    ) {
+      window.history.pushState(null, "", "/bansos");
+    }
+  }
+
   function handleCloseBansosModal() {
     setBansosModalOpen(false);
+    setSelectedBansosProgramForModal(null);
     if (
       window.location.pathname.toLowerCase().includes("/bansos") ||
       window.location.hash.toLowerCase().includes("bansos")
@@ -546,10 +594,12 @@ export default function App() {
         onOpenAdmin={() => setAdminModalOpen(true)}
       />
 
-      {/* Floating Messenger Notif Event Pop-up */}
-      <EventMessengerPopup
-        event={activeEvent}
+      {/* Floating Messenger Community Dock (Event & Bansos Anti-Collision System) */}
+      <CommunityMessengerDock
+        activeEvent={activeEvent}
+        activeBansosProgram={activeBansosProgram}
         onOpenRegisterEvent={handleOpenEventModal}
+        onOpenBansos={handleOpenBansosModal}
       />
 
       {/* Lightbox Modal */}
@@ -579,11 +629,13 @@ export default function App() {
         event={selectedEventForModal || activeEvent}
       />
 
-      {/* Modal Khusus Bantuan Sosial Warga (/bansos) - Hidden Direct Route */}
+      {/* Modal Khusus Bantuan Sosial Warga (/bansos) - Dynamic Programs */}
       <BansosModal
         isOpen={bansosModalOpen}
         onClose={handleCloseBansosModal}
         onShowToast={showToast}
+        activeProgram={selectedBansosProgramForModal || activeBansosProgram}
+        bansosPrograms={bansosPrograms}
       />
 
       {/* Modal Khusus Pendaftaran Anggota LSM PPS (Dengan OCR KTP Otomatis) */}
@@ -608,6 +660,7 @@ export default function App() {
         initialData={data}
         isCloudLoading={loading}
         eventsList={eventsList}
+        bansosPrograms={bansosPrograms}
         onDataSaved={(newData) => setData(newData)}
         onShowToast={showToast}
       />

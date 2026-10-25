@@ -17,17 +17,74 @@ import {
   ScanLine,
   HelpCircle,
   Eye,
+  Package,
+  ShoppingBag,
+  Wheat,
 } from "lucide-react";
 import { scanKtpImage } from "../utils/ktpOcr";
-import { submitBansosClaimCloud } from "../services/bansosService";
+import { submitBansosClaimCloud, DEFAULT_BANSOS_PROGRAM } from "../services/bansosService";
 import BrutalistSelect from "./BrutalistSelect";
+
+function getBansosIcon(iconName) {
+  switch (String(iconName || "").toLowerCase()) {
+    case "fuel":
+    case "bensin":
+      return Fuel;
+    case "utensils":
+    case "makanan":
+      return Utensils;
+    case "dollarsign":
+    case "uang":
+      return DollarSign;
+    case "wheat":
+    case "bibit":
+      return Wheat;
+    case "shoppingbag":
+    case "sembako":
+      return ShoppingBag;
+    case "package":
+      return Package;
+    case "sparkles":
+      return Sparkles;
+    default:
+      return Gift;
+  }
+}
 
 const SEX_OPTIONS = [
   { value: "Laki-laki", label: "Laki-laki (Male)", subtext: "Sesuai identitas KTP IC" },
   { value: "Perempuan", label: "Perempuan (Female)", subtext: "Sesuai identitas KTP IC" },
 ];
 
-export default function BansosModal({ isOpen, onClose, onShowToast }) {
+export default function BansosModal({
+  isOpen,
+  onClose,
+  onShowToast,
+  activeProgram,
+  bansosPrograms = [],
+}) {
+  const activePrograms = (bansosPrograms || []).filter((p) => p.status === "ACTIVE");
+  const availablePrograms =
+    activePrograms.length > 0
+      ? activePrograms
+      : bansosPrograms?.length > 0
+      ? bansosPrograms
+      : [DEFAULT_BANSOS_PROGRAM];
+
+  const [selectedProgramId, setSelectedProgramId] = useState(
+    () => activeProgram?.id || availablePrograms[0]?.id || DEFAULT_BANSOS_PROGRAM.id
+  );
+
+  useEffect(() => {
+    if (activeProgram?.id) {
+      setSelectedProgramId(activeProgram.id);
+    }
+  }, [activeProgram?.id]);
+
+  const selectedProgram =
+    availablePrograms.find((p) => p.id === selectedProgramId) ||
+    availablePrograms[0] ||
+    DEFAULT_BANSOS_PROGRAM;
   // Form State
   const [screenshotPreview, setScreenshotPreview] = useState("");
   const [isScanningOcr, setIsScanningOcr] = useState(false);
@@ -205,6 +262,12 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
         citizenId: citizenId.trim().toUpperCase(),
         sex,
         screenshotUrl: screenshotPreview,
+        programId: selectedProgram.id,
+        programTitle: selectedProgram.title,
+        packageItems: Array.isArray(selectedProgram.items)
+          ? selectedProgram.items.map((i) => i.name)
+          : ["2 Jerigen Bensin", "1 Paket Makanan", "Uang Saku $2.000 USD"],
+        cashAmount: selectedProgram.totalCash ?? 2000,
       });
 
       setIssuedClaim(result);
@@ -258,10 +321,10 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
             </div>
             <div>
               <span className="text-[10px] font-black uppercase tracking-widest text-black/70 block">
-                LSM Paguyuban Pizza Sandy Shores
+                {selectedProgram.tagline || "LSM Paguyuban Pizza Sandy Shores"}
               </span>
               <h2 id="bansos-modal-title" className="font-heading font-black text-base sm:text-lg leading-tight uppercase">
-                Bantuan Sosial Warga (Bansos)
+                {selectedProgram.title || "Bantuan Sosial Warga (Bansos)"}
               </h2>
             </div>
           </div>
@@ -278,6 +341,34 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
 
         {/* Modal Body */}
         <div className="p-4 sm:p-6 max-h-[80vh] overflow-y-auto space-y-5">
+          {/* Multiple Programs Switcher (Shown if more than 1 active program) */}
+          {availablePrograms.length > 1 && !issuedClaim && (
+            <div className="bg-amber-100/70 dark:bg-[#1E212B] border-2 border-black p-3 shadow-[2px_2px_0px_#000] flex flex-col gap-1.5">
+              <span className="text-[10px] font-heading font-black uppercase text-amber-950 dark:text-amber-300">
+                Pilih Program Bansos Yang Ingin Diajukan:
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {availablePrograms.map((p) => {
+                  const isSel = p.id === selectedProgramId;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedProgramId(p.id)}
+                      className={`px-3 py-1.5 rounded text-xs font-heading font-black uppercase border-2 border-black transition-all cursor-pointer ${
+                        isSel
+                          ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                          : "bg-white dark:bg-[#28251e] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                      }`}
+                    >
+                      {p.title}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Package Highlight Banner */}
           <div className="bg-[#FFF8E7] dark:bg-[#1f1b13] border-2 border-black dark:border-[#715413] p-4 shadow-[3px_3px_0px_#000]">
             <div className="flex items-center justify-between mb-2">
@@ -289,22 +380,29 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center">
-              <div className="p-2.5 bg-white dark:bg-[#28251e] border-2 border-black flex flex-col items-center justify-center">
-                <Fuel className="text-amber-600 mb-1" size={24} />
-                <span className="font-heading font-black text-xs sm:text-sm">2 Jerigen Bensin</span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">Bahan Bakar Kendaraan</span>
-              </div>
-              <div className="p-2.5 bg-white dark:bg-[#28251e] border-2 border-black flex flex-col items-center justify-center">
-                <Utensils className="text-emerald-600 mb-1" size={24} />
-                <span className="font-heading font-black text-xs sm:text-sm">1 Paket Makanan</span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">Ransum Siap Santap</span>
-              </div>
-              <div className="p-2.5 bg-white dark:bg-[#28251e] border-2 border-black flex flex-col items-center justify-center">
-                <DollarSign className="text-green-600 mb-1" size={24} />
-                <span className="font-heading font-black text-xs sm:text-sm">$2.000 USD</span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">Uang Saku Tunai</span>
-              </div>
+            <div className={`grid grid-cols-1 ${
+              (selectedProgram.items || []).length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"
+            } gap-2.5 text-center`}>
+              {(selectedProgram.items && selectedProgram.items.length > 0
+                ? selectedProgram.items
+                : DEFAULT_BANSOS_PROGRAM.items
+              ).map((it, idx) => {
+                const IconComponent = getBansosIcon(it.icon);
+                return (
+                  <div
+                    key={idx}
+                    className="p-2.5 bg-white dark:bg-[#28251e] border-2 border-black flex flex-col items-center justify-center"
+                  >
+                    <IconComponent className="text-amber-600 dark:text-amber-400 mb-1" size={24} />
+                    <span className="font-heading font-black text-xs sm:text-sm">{it.name}</span>
+                    {it.desc && (
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {it.desc}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -345,6 +443,12 @@ export default function BansosModal({ isOpen, onClose, onShowToast }) {
                     </div>
 
                     <div className="border-t border-slate-200 dark:border-slate-700 pt-3 grid grid-cols-2 gap-2 text-left text-xs">
+                      <div className="col-span-2 pb-1 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-500 block text-[10px] uppercase font-bold">Program Bansos</span>
+                        <span className="font-heading font-black text-emerald-700 dark:text-emerald-400 block truncate">
+                          {issuedClaim.programTitle || selectedProgram.title}
+                        </span>
+                      </div>
                       <div>
                         <span className="text-slate-500 block text-[10px] uppercase font-bold">Nama Penerima</span>
                         <span className="font-heading font-black uppercase">{issuedClaim.fullName}</span>
