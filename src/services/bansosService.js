@@ -54,19 +54,18 @@ const BANSOS_PROGRAMS_STORAGE_KEY = "pps_bansos_programs_cache";
 const BANSOS_PROGRAMS_INIT_KEY = "pps_bansos_programs_initialized";
 
 /**
- * Default Seed Bansos Program: Paket Sembako, Bensin & Uang Saku
+ * Default Seed Bansos Program: Paket Makanan & Uang Tunai $2.500 USD
  */
 export const DEFAULT_BANSOS_PROGRAM = {
-  id: "bns-sembako-bensin-v1",
+  id: "bns-makanan-tunai-v1",
   title: "Bantuan Sosial Warga Sandy Shores",
   tagline: "Program Kepedulian LSM Paguyuban Pizza Sandy Shores",
   status: "ACTIVE", // "ACTIVE" | "INACTIVE"
   items: [
-    { name: "2 Jerigen Bensin", icon: "Fuel", desc: "Bahan bakar untuk operasional harian kendaraan" },
     { name: "1 Paket Makanan", icon: "Utensils", desc: "Ransum konsumsi siap santap bergizi" },
-    { name: "Uang Saku $2.000 USD", icon: "DollarSign", desc: "Bantuan tunai langsung untuk kebutuhan darurat" },
+    { name: "Uang Tunai $2.500 USD", icon: "DollarSign", desc: "Bantuan tunai langsung untuk kebutuhan darurat" },
   ],
-  totalCash: 2000,
+  totalCash: 2500,
   rules: [
     "Wajib mengunggah foto / tangkapan layar KTP IC yang jelas",
     "1 Citizen ID (CID) hanya berhak menerima 1 kali bantuan",
@@ -75,8 +74,8 @@ export const DEFAULT_BANSOS_PROGRAM = {
   ],
   showMessengerNotification: true,
   messengerHeading: "Bansos Warga Sandy Shores",
-  messengerMessage: "Halo warga Sandy Shores! Paguyuban Pizza menyediakan paket bantuan kebutuhan pokok untuk warga yang membutuhkan:",
-  pillLabel: "2 Bensin + 1 Makanan + $2.000",
+  messengerMessage: "Halo warga Sandy Shores! Paguyuban Pizza menyediakan paket bantuan sosial 1 Paket Makanan dan Uang Tunai $2.500 USD untuk warga yang membutuhkan:",
+  pillLabel: "1 Makanan + $2.500 USD",
   createdAt: 1729800000000,
 };
 
@@ -144,6 +143,30 @@ export async function loadBansosProgramsCloud() {
       }
     }
 
+    // Auto-migrate legacy default program if found
+    const legacyIdx = list.findIndex(
+      (p) =>
+        p.id === "bns-sembako-bensin-v1" ||
+        (p.id === DEFAULT_BANSOS_PROGRAM.id &&
+          (p.items?.some((it) => it.name?.includes("Bensin") || it.name?.includes("2.000")) || p.totalCash !== 2500))
+    );
+    if (legacyIdx !== -1) {
+      list[legacyIdx] = {
+        ...list[legacyIdx],
+        id: DEFAULT_BANSOS_PROGRAM.id,
+        title: DEFAULT_BANSOS_PROGRAM.title,
+        tagline: DEFAULT_BANSOS_PROGRAM.tagline,
+        items: DEFAULT_BANSOS_PROGRAM.items,
+        totalCash: DEFAULT_BANSOS_PROGRAM.totalCash,
+        pillLabel: DEFAULT_BANSOS_PROGRAM.pillLabel,
+        messengerMessage: DEFAULT_BANSOS_PROGRAM.messengerMessage,
+      };
+      try {
+        const seedRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, DEFAULT_BANSOS_PROGRAM.id);
+        setDoc(seedRef, list[legacyIdx], { merge: true }).catch(() => {});
+      } catch {}
+    }
+
     try {
       localStorage.setItem(BANSOS_PROGRAMS_STORAGE_KEY, JSON.stringify(list));
     } catch {}
@@ -187,6 +210,30 @@ export function subscribeBansosProgramsCloud(onUpdate, onError) {
             if (typeof window !== "undefined") {
               localStorage.setItem(BANSOS_PROGRAMS_INIT_KEY, "true");
             }
+          } catch {}
+        }
+
+        // Auto-migrate legacy default program if found
+        const legacyIdx = list.findIndex(
+          (p) =>
+            p.id === "bns-sembako-bensin-v1" ||
+            (p.id === DEFAULT_BANSOS_PROGRAM.id &&
+              (p.items?.some((it) => it.name?.includes("Bensin") || it.name?.includes("2.000")) || p.totalCash !== 2500))
+        );
+        if (legacyIdx !== -1) {
+          list[legacyIdx] = {
+            ...list[legacyIdx],
+            id: DEFAULT_BANSOS_PROGRAM.id,
+            title: DEFAULT_BANSOS_PROGRAM.title,
+            tagline: DEFAULT_BANSOS_PROGRAM.tagline,
+            items: DEFAULT_BANSOS_PROGRAM.items,
+            totalCash: DEFAULT_BANSOS_PROGRAM.totalCash,
+            pillLabel: DEFAULT_BANSOS_PROGRAM.pillLabel,
+            messengerMessage: DEFAULT_BANSOS_PROGRAM.messengerMessage,
+          };
+          try {
+            const seedRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, DEFAULT_BANSOS_PROGRAM.id);
+            setDoc(seedRef, list[legacyIdx], { merge: true }).catch(() => {});
           } catch {}
         }
 
@@ -459,16 +506,15 @@ export async function submitBansosClaimCloud(claimData) {
     citizenId: cleanCid,
     sex: claimData.sex || "Laki-laki",
     screenshotUrl: claimData.screenshotUrl || "",
-    programId: claimData.programId || "bns-sembako-bensin-v1",
-    programTitle: claimData.programTitle || "Bantuan Sosial Warga Sandy Shores",
+    programId: claimData.programId || DEFAULT_BANSOS_PROGRAM.id,
+    programTitle: claimData.programTitle || DEFAULT_BANSOS_PROGRAM.title,
     packageItems: Array.isArray(claimData.packageItems) && claimData.packageItems.length > 0
       ? claimData.packageItems
       : [
-          "2 Jerigen Bensin",
           "1 Paket Makanan",
-          "Uang Saku $2.000 USD",
+          "Uang Tunai $2.500 USD",
         ],
-    cashAmount: typeof claimData.cashAmount === "number" ? claimData.cashAmount : 2000,
+    cashAmount: typeof claimData.cashAmount === "number" ? claimData.cashAmount : 2500,
     claimed: false, // false: Belum Diambil, true: Sudah Diambil
     claimedAt: null,
     claimedByAdmin: null,
@@ -579,8 +625,8 @@ export function exportBansosToExcel(claimsList = []) {
     "NAMA LENGKAP IC": c.fullName || "-",
     "CITIZEN ID (CID)": c.citizenId || "-",
     "JENIS KELAMIN": c.sex || "-",
-    "PAKET BANSOS": Array.isArray(c.packageItems) ? c.packageItems.join(" + ") : (c.packageItems || "2 Jerigen Bensin + 1 Paket Makanan + $2.000 USD"),
-    "UANG SAKU": typeof c.cashAmount === "number" ? `$${c.cashAmount.toLocaleString("en-US")} USD` : "$2.000 USD",
+    "PAKET BANSOS": Array.isArray(c.packageItems) ? c.packageItems.join(" + ") : (c.packageItems || "1 Paket Makanan + $2.500 USD"),
+    "UANG SAKU": typeof c.cashAmount === "number" ? `$${c.cashAmount.toLocaleString("en-US")} USD` : "$2.500 USD",
     "STATUS PENGAMBILAN": c.claimed ? "SUDAH DIAMBIL" : "BELUM DIAMBIL",
     "TANGGAL PENGAJUAN": `${c.claimDate || "-"} ${c.claimTime || ""}`,
     "WAKTU PENYERAHAN": c.claimedAt || "-",

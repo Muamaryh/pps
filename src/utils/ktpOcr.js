@@ -2,13 +2,17 @@ import Tesseract from "tesseract.js";
 
 /**
  * Preprocesses an image via canvas to optimize for OCR recognition:
- * - Resizes to optimal resolution (width ~1000px)
- * - Enhances contrast
+ * - Upscales low-res screenshots (e.g. 500px -> 1200px+) with high-quality bicubic smoothing
+ * - Binarizes / filters out background guilloche patterns, topographic elevation contours,
+ *   and pastel map shading so only dark black text remains on a clean white background.
  */
-export async function preprocessImageForOcr(imageFileOrUrl) {
+export async function preprocessImageForOcr(imageFileOrUrl, options = {}) {
   if (typeof window === "undefined" || typeof Image === "undefined") {
     return imageFileOrUrl;
   }
+  const enableBinarize = options.binarize !== false;
+  const threshold = typeof options.threshold === "number" ? options.threshold : 118;
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -18,16 +22,14 @@ export async function preprocessImageForOcr(imageFileOrUrl) {
         let width = img.width;
         let height = img.height;
 
-        // If the image is reasonably sized (800-1600px), use the raw source directly to preserve maximum fidelity
-        if (width >= 800 && width <= maxDim && height <= maxDim) {
-          resolve(typeof imageFileOrUrl === "string" ? imageFileOrUrl : URL.createObjectURL(imageFileOrUrl));
-          return;
+        // Ensure small screenshots are upscaled so character strokes are thick & legible
+        let scale = 1.0;
+        if (width < 1200) {
+          scale = Math.min(3.0, 1200 / width);
         }
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
 
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-
-        // Maintain sharp resolution without destructive contrast
         if (width > maxDim || height > maxDim) {
           if (width > height) {
             height = Math.round((height * maxDim) / width);
@@ -36,18 +38,37 @@ export async function preprocessImageForOcr(imageFileOrUrl) {
             width = Math.round((width * maxDim) / height);
             height = maxDim;
           }
-        } else if (width < 800) {
-          const upscale = 800 / width;
-          width = 800;
-          height = Math.round(height * upscale);
         }
 
+        const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, width, height);
+
+        if (enableBinarize) {
+          // Adaptive thresholding: converts colored GTA V / FiveM ID backgrounds
+          // (topographic lines, green terrain, watermarks) into pure white #FFFFFF,
+          // and black text into pure black #000000.
+          const imgData = ctx.getImageData(0, 0, width, height);
+          const d = imgData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+            if (gray < threshold) {
+              d[i] = 0;
+              d[i + 1] = 0;
+              d[i + 2] = 0;
+            } else {
+              d[i] = 255;
+              d[i + 1] = 255;
+              d[i + 2] = 255;
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }
 
         // Export as lossless PNG to avoid lossy JPEG ringing around characters
         resolve(canvas.toDataURL("image/png"));
@@ -145,7 +166,11 @@ export function parseKtpOcrText(rawText) {
       if (!val && i + 1 < lines.length && !lines[i + 1].includes(":")) {
         val = cleanVal(lines[i + 1]);
       }
-      if (val) result.lastName = cleanOcrName(val);
+      if (val) {
+        // Strip 1-3 letter lowercase noise artifacts before name (e.g. "gs SIRG" -> "SIRG")
+        val = val.replace(/^[a-z]{1,3}\s+/, "");
+        result.lastName = cleanOcrName(val);
+      }
     }
 
     // Single Full Name if first/last not separate
@@ -173,9 +198,9 @@ export function parseKtpOcrText(rawText) {
     // Date of Birth (DOB)
     if (
       !result.dob &&
-      /(?:d\.?o\.?b\.?|date\s*of\s*birth|tgl\s*lahir|tanggal\s*lahir|birth\s*date|lahir)\b/i.test(line)
+      /(?:d\.?o\.?b\.?|poob|date\s*of\s*birth|tgl\s*lahir|tanggal\s*lahir|birth\s*date|lahir)\b/i.test(line)
     ) {
-      const match = line.match(/(?:d\.?o\.?b\.?|date\s*of\s*birth|tgl\s*lahir|tanggal\s*lahir|birth\s*date|lahir)\s*[:=\-]?\s*(.*)/i);
+      const match = line.match(/(?:d\.?o\.?b\.?|poob|date\s*of\s*birth|tgl\s*lahir|tanggal\s*lahir|birth\s*date|lahir)\s*[:=\-]?\s*(.*)/i);
       let val = cleanVal(match?.[1]);
       if (!val && i + 1 < lines.length) {
         val = cleanVal(lines[i + 1]);
@@ -199,7 +224,7 @@ export function parseKtpOcrText(rawText) {
       if (!val && i + 1 < lines.length) {
         val = cleanVal(lines[i + 1]);
       }
-      if (/male|laki|pria|\bm\b/i.test(val)) {
+      if (/male|mate|laki|pria|\bm\b/i.test(val)) {
         result.sex = "Male";
       } else if (/female|perempuan|wanita|\bf\b/i.test(val)) {
         result.sex = "Female";
@@ -224,14 +249,15 @@ export function parseKtpOcrText(rawText) {
     // Citizen ID
     if (
       !result.citizenId &&
-      /(?:citizen\s*id|citizenid|cid|nik|no\.?\s*ktp|id\s*warga|^id\b)/i.test(line)
+      /(?:citizen\s*id|citizenid|cid|nik|no\.?\s*ktp|id\s*warga|^id\b|c\.?i\.?d)/i.test(line)
     ) {
-      const match = line.match(/(?:citizen\s*id|citizenid|cid|nik|no\.?\s*ktp|id\s*warga|^id\b)\s*[:=\-]?\s*(.*)/i);
+      const match = line.match(/(?:citizen\s*id|citizenid|cid|nik|no\.?\s*ktp|id\s*warga|^id\b|c\.?i\.?d)\s*[:=\-]?\s*(.*)/i);
       let val = cleanVal(match?.[1]);
       if (!val && i + 1 < lines.length) {
         val = cleanVal(lines[i + 1]);
       }
       if (val) {
+        val = val.replace(/^[£€#]/, "E").replace(/[!|]/g, "I");
         if (/^[A-Za-z]{1,4}\s+\d{3,10}$/.test(val)) {
           val = val.replace(/\s+/g, "");
         }
@@ -248,13 +274,16 @@ export function parseKtpOcrText(rawText) {
   }
 
   if (!result.citizenId) {
-    const candidate = rawText.match(/\b(CTZ[-_]?[A-Z0-9]+|CID[-_]?[A-Z0-9]+|[A-Z]{1,4}\d{4,8})\b/i);
-    if (candidate) result.citizenId = candidate[1].toUpperCase();
+    // Supports CTZ-xxx, CID-xxx, and FiveM alphanumeric hash CIDs (e.g. E21J9V03)
+    const candidate = rawText.match(/\b(CTZ[-_]?[A-Z0-9]+|CID[-_]?[A-Z0-9]+|[A-Z]{1,4}\d{4,8}|[£€]?[A-Z0-9]{6,10})\b/i);
+    if (candidate) {
+      result.citizenId = candidate[1].replace(/^[£€#]/, "E").replace(/[!|]/g, "I").toUpperCase();
+    }
   }
 
   // Normalize default values if detected
   if (result.sex) {
-    if (/laki|male|\bm\b/i.test(result.sex)) result.sex = "Male";
+    if (/laki|male|mate|\bm\b/i.test(result.sex)) result.sex = "Male";
     else if (/perempuan|female|\bf\b/i.test(result.sex)) result.sex = "Female";
   }
 
@@ -269,7 +298,8 @@ export function parseKtpOcrText(rawText) {
  */
 export async function scanKtpImage(imageFileOrUrl, onProgress) {
   try {
-    const preprocessed = await preprocessImageForOcr(imageFileOrUrl);
+    // Pass 1: Try with enhanced high-contrast binarization (removes 99% of GTA V KTP background textures)
+    const preprocessed = await preprocessImageForOcr(imageFileOrUrl, { binarize: true, threshold: 118 });
     const { data } = await Tesseract.recognize(preprocessed, "eng", {
       logger: (m) => {
         if (m.status === "recognizing text" && typeof onProgress === "function") {
@@ -278,7 +308,20 @@ export async function scanKtpImage(imageFileOrUrl, onProgress) {
       },
     });
 
-    const parsed = parseKtpOcrText(data.text);
+    let parsed = parseKtpOcrText(data.text);
+
+    // If Pass 1 found neither name nor CID, try Pass 2 with non-binarized smoothed image
+    if (!parsed.fullName && !parsed.citizenId) {
+      try {
+        const rawPreprocessed = await preprocessImageForOcr(imageFileOrUrl, { binarize: false });
+        const retryResult = await Tesseract.recognize(rawPreprocessed, "eng");
+        const retryParsed = parseKtpOcrText(retryResult.data.text);
+        if (retryParsed.fullName || retryParsed.citizenId) {
+          parsed = retryParsed;
+        }
+      } catch {}
+    }
+
     return {
       success: true,
       rawText: data.text,

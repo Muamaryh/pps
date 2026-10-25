@@ -204,33 +204,53 @@ export default function BansosModal({
             );
           }
 
-          if (scannedFullName || detectedCid) {
+          if (scannedFullName && detectedCid) {
             setOcrSuccess(true);
             setErrorMessage("");
             if (typeof onShowToast === "function") {
               onShowToast(
-                `KTP berhasil dipindai! ${scannedFullName ? `Nama: ${scannedFullName}` : ""} ${detectedCid ? `• CID: ${detectedCid}` : ""}`,
+                `KTP berhasil dipindai! Nama: ${scannedFullName} • CID: ${detectedCid}`,
                 "success"
+              );
+            }
+          } else if (scannedFullName || detectedCid) {
+            setOcrSuccess(true);
+            setErrorMessage("");
+            if (typeof onShowToast === "function") {
+              onShowToast(
+                `KTP terdeteksi: ${scannedFullName ? `Nama: ${scannedFullName}` : ""} ${detectedCid ? `• CID: ${detectedCid}` : ""}. Silakan periksa kelengkapan form.`,
+                "info"
               );
             }
           } else {
             setOcrSuccess(false);
-            setErrorMessage(
-              "Teks pada KTP belum terbaca jelas. Silakan periksa atau lengkapi data formulir secara manual."
-            );
+            setErrorMessage("");
+            if (typeof onShowToast === "function") {
+              onShowToast(
+                "Foto KTP tersimpan. Silakan lengkapi Nama Lengkap & Citizen ID di bawah.",
+                "info"
+              );
+            }
           }
         } else {
           setOcrSuccess(false);
-          setErrorMessage(
-            "Gagal memindai KTP otomatis. Anda tetap dapat mengisinya secara manual."
-          );
+          setErrorMessage("");
+          if (typeof onShowToast === "function") {
+            onShowToast(
+              "Foto KTP tersimpan. Silakan isi data formulir secara manual.",
+              "info"
+            );
+          }
         }
       })
       .catch((err) => {
         console.error("Gagal OCR KTP Bansos:", err);
         setIsScanningOcr(false);
         setOcrSuccess(false);
-        setErrorMessage("Terjadi kendala saat membaca KTP. Silakan isi data secara manual.");
+        setErrorMessage("");
+        if (typeof onShowToast === "function") {
+          onShowToast("Foto KTP tersimpan. Silakan isi data secara manual.", "info");
+        }
       });
   }
 
@@ -266,8 +286,8 @@ export default function BansosModal({
         programTitle: selectedProgram.title,
         packageItems: Array.isArray(selectedProgram.items)
           ? selectedProgram.items.map((i) => i.name)
-          : ["2 Jerigen Bensin", "1 Paket Makanan", "Uang Saku $2.000 USD"],
-        cashAmount: selectedProgram.totalCash ?? 2000,
+          : ["1 Paket Makanan", "Uang Tunai $2.500 USD"],
+        cashAmount: selectedProgram.totalCash ?? 2500,
       });
 
       setIssuedClaim(result);

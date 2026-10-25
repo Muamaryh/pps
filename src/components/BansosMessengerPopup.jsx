@@ -105,7 +105,7 @@ export default function BansosMessengerPopup({
   const pillText =
     activeProgram.pillLabel ||
     items.map((i) => i.name).slice(0, 3).join(" + ") ||
-    "2 Bensin + 1 Makanan + $2.000";
+    "1 Makanan + $2.500 USD";
 
   const content = (
     <div className="select-none pointer-events-auto font-sans flex flex-col items-end">

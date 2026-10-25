@@ -466,11 +466,10 @@ export default function AdminModal({
       tagline: "Program Kepedulian LSM Paguyuban Pizza Sandy Shores",
       status: "ACTIVE",
       items: [
-        { name: "2 Jerigen Bensin", icon: "Fuel", desc: "Bahan bakar kendaraan operasional" },
         { name: "1 Paket Makanan", icon: "Utensils", desc: "Ransum konsumsi siap santap bergizi" },
-        { name: "Uang Saku $2.000 USD", icon: "DollarSign", desc: "Bantuan tunai langsung kebutuhan darurat" },
+        { name: "Uang Tunai $2.500 USD", icon: "DollarSign", desc: "Bantuan tunai langsung kebutuhan darurat" },
       ],
-      totalCash: 2000,
+      totalCash: 2500,
       rules: [
         "Wajib mengunggah foto / tangkapan layar KTP IC yang jelas",
         "1 Citizen ID (CID) hanya berhak menerima 1 kali bantuan",
@@ -479,8 +478,8 @@ export default function AdminModal({
       ],
       showMessengerNotification: true,
       messengerHeading: "Bansos Warga Sandy Shores",
-      messengerMessage: "Halo warga Sandy Shores! Paguyuban Pizza menyediakan paket bantuan kebutuhan pokok untuk warga yang membutuhkan:",
-      pillLabel: "2 Bensin + 1 Makanan + $2.000",
+      messengerMessage: "Halo warga Sandy Shores! Paguyuban Pizza menyediakan paket bantuan 1 Paket Makanan dan Uang Tunai $2.500 USD untuk warga yang membutuhkan:",
+      pillLabel: "1 Makanan + $2.500 USD",
     });
   }
 
@@ -4146,7 +4145,7 @@ export default function AdminModal({
                                         {claim.programTitle ? `${claim.programTitle}: ` : ""}
                                         {Array.isArray(claim.packageItems)
                                           ? claim.packageItems.join(" + ")
-                                          : (claim.packageItems || "2 Jerigen Bensin + 1 Paket Makanan + $2.000 USD")}
+                                          : (claim.packageItems || "1 Paket Makanan + $2.500 USD")}
                                       </span>
                                       <span className="text-slate-400">&bull;</span>
                                       <span className="text-slate-500">
@@ -4997,7 +4996,7 @@ export default function AdminModal({
                               pillLabel: e.target.value,
                             })
                           }
-                          placeholder="2 Bensin + 1 Makanan + $2.000"
+                          placeholder="1 Makanan + $2.500 USD"
                           className="input-field w-full text-xs"
                         />
                       </div>
