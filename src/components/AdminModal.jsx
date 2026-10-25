@@ -3963,7 +3963,7 @@ export default function AdminModal({
                           <span className="font-heading font-black text-xl sm:text-2xl text-green-600">
                             ${bansosClaims
                               .filter((c) => c.claimed)
-                              .reduce((acc, c) => acc + (typeof c.cashAmount === "number" ? c.cashAmount : 2000), 0)
+                              .reduce((acc, c) => acc + (typeof c.cashAmount === "number" ? c.cashAmount : 2500), 0)
                               .toLocaleString("en-US")}
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-0.5">Bantuan Tunai Total</span>
@@ -4863,8 +4863,8 @@ export default function AdminModal({
                     type="number"
                     min="0"
                     step="100"
-                    placeholder="2000"
-                    value={editingBansosProgram.totalCash ?? 2000}
+                    placeholder="2500"
+                    value={editingBansosProgram.totalCash ?? ""}
                     onChange={(e) => setEditingBansosProgram({ ...editingBansosProgram, totalCash: Number(e.target.value) || 0 })}
                     className="input-field w-full text-xs font-mono font-bold"
                   />

@@ -143,27 +143,13 @@ export async function loadBansosProgramsCloud() {
       }
     }
 
-    // Auto-migrate legacy default program if found
-    const legacyIdx = list.findIndex(
-      (p) =>
-        p.id === "bns-sembako-bensin-v1" ||
-        (p.id === DEFAULT_BANSOS_PROGRAM.id &&
-          (p.items?.some((it) => it.name?.includes("Bensin") || it.name?.includes("2.000")) || p.totalCash !== 2500))
-    );
+    // Clean up ancient legacy bensin doc if still present in Firestore
+    const legacyIdx = list.findIndex((p) => p.id === "bns-sembako-bensin-v1");
     if (legacyIdx !== -1) {
-      list[legacyIdx] = {
-        ...list[legacyIdx],
-        id: DEFAULT_BANSOS_PROGRAM.id,
-        title: DEFAULT_BANSOS_PROGRAM.title,
-        tagline: DEFAULT_BANSOS_PROGRAM.tagline,
-        items: DEFAULT_BANSOS_PROGRAM.items,
-        totalCash: DEFAULT_BANSOS_PROGRAM.totalCash,
-        pillLabel: DEFAULT_BANSOS_PROGRAM.pillLabel,
-        messengerMessage: DEFAULT_BANSOS_PROGRAM.messengerMessage,
-      };
+      list.splice(legacyIdx, 1);
       try {
-        const seedRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, DEFAULT_BANSOS_PROGRAM.id);
-        setDoc(seedRef, list[legacyIdx], { merge: true }).catch(() => {});
+        const legacyRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, "bns-sembako-bensin-v1");
+        deleteDoc(legacyRef).catch(() => {});
       } catch {}
     }
 
@@ -213,27 +199,13 @@ export function subscribeBansosProgramsCloud(onUpdate, onError) {
           } catch {}
         }
 
-        // Auto-migrate legacy default program if found
-        const legacyIdx = list.findIndex(
-          (p) =>
-            p.id === "bns-sembako-bensin-v1" ||
-            (p.id === DEFAULT_BANSOS_PROGRAM.id &&
-              (p.items?.some((it) => it.name?.includes("Bensin") || it.name?.includes("2.000")) || p.totalCash !== 2500))
-        );
+        // Clean up ancient legacy bensin doc if still present in Firestore
+        const legacyIdx = list.findIndex((p) => p.id === "bns-sembako-bensin-v1");
         if (legacyIdx !== -1) {
-          list[legacyIdx] = {
-            ...list[legacyIdx],
-            id: DEFAULT_BANSOS_PROGRAM.id,
-            title: DEFAULT_BANSOS_PROGRAM.title,
-            tagline: DEFAULT_BANSOS_PROGRAM.tagline,
-            items: DEFAULT_BANSOS_PROGRAM.items,
-            totalCash: DEFAULT_BANSOS_PROGRAM.totalCash,
-            pillLabel: DEFAULT_BANSOS_PROGRAM.pillLabel,
-            messengerMessage: DEFAULT_BANSOS_PROGRAM.messengerMessage,
-          };
+          list.splice(legacyIdx, 1);
           try {
-            const seedRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, DEFAULT_BANSOS_PROGRAM.id);
-            setDoc(seedRef, list[legacyIdx], { merge: true }).catch(() => {});
+            const legacyRef = doc(getBansosDb(), ...BANSOS_PROGRAMS_COL_PATH, "bns-sembako-bensin-v1");
+            deleteDoc(legacyRef).catch(() => {});
           } catch {}
         }
 
