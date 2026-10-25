@@ -495,6 +495,81 @@ export default function AdminModal({
     });
   }
 
+  function parseCurrencyNumber(str) {
+    if (!str) return 0;
+    let clean = String(str).replace(/[^\d.,]/g, "").trim();
+    if (!clean) return 0;
+    if (clean.includes(".") && clean.includes(",")) {
+      if (clean.indexOf(".") < clean.indexOf(",")) {
+        clean = clean.replace(/\./g, "").replace(",", ".");
+      } else {
+        clean = clean.replace(/,/g, "");
+      }
+    } else if (clean.includes(".")) {
+      const parts = clean.split(".");
+      if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+        clean = parts.join("");
+      }
+    } else if (clean.includes(",")) {
+      const parts = clean.split(",");
+      if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+        clean = parts.join("");
+      }
+    }
+    const num = Number(clean);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function handleTotalCashChange(val) {
+    const cashNum = Number(val) || 0;
+    const formatted = cashNum.toLocaleString("id-ID");
+    setEditingBansosProgram((prev) => {
+      if (!prev) return prev;
+      let hasCashItem = false;
+      // Auto-update cash item in items list if present
+      const updatedItems = (prev.items || []).map((it) => {
+        if (it.icon === "DollarSign" || /uang|tunai|cash|\$/i.test(it.name)) {
+          hasCashItem = true;
+          return {
+            ...it,
+            name: `Uang Tunai $${formatted} USD`,
+          };
+        }
+        return it;
+      });
+
+      if (!hasCashItem && cashNum > 0) {
+        updatedItems.push({
+          name: `Uang Tunai $${formatted} USD`,
+          icon: "DollarSign",
+          desc: "Bantuan tunai langsung untuk kebutuhan darurat",
+        });
+      }
+
+      // Auto-update pillLabel if it contained a dollar amount
+      let updatedPill = prev.pillLabel || "";
+      if (/\$[\d.,]+/i.test(updatedPill)) {
+        updatedPill = updatedPill.replace(/\$[\d.,]+(?:\s*USD)?/i, `$${formatted} USD`);
+      } else if (cashNum > 0) {
+        updatedPill = `${updatedItems[0]?.name || "Bansos"} + $${formatted} USD`;
+      }
+
+      // Auto-update messengerMessage if it contained a dollar amount
+      let updatedMsg = prev.messengerMessage || "";
+      if (/\$[\d.,]+/i.test(updatedMsg)) {
+        updatedMsg = updatedMsg.replace(/\$[\d.,]+(?:\s*USD)?/i, `$${formatted} USD`);
+      }
+
+      return {
+        ...prev,
+        totalCash: cashNum,
+        items: updatedItems,
+        pillLabel: updatedPill,
+        messengerMessage: updatedMsg,
+      };
+    });
+  }
+
   async function handleSaveBansosProgram(e) {
     e.preventDefault();
     if (!editingBansosProgram.title.trim()) {
@@ -503,7 +578,13 @@ export default function AdminModal({
     }
     setIsSavingBansosProgram(true);
     try {
-      await saveBansosProgramCloud(editingBansosProgram);
+      const savedPayload = await saveBansosProgramCloud(editingBansosProgram);
+      setBansosPrograms((prev) => {
+        const exists = prev.some((p) => p.id === savedPayload.id);
+        return exists
+          ? prev.map((p) => (p.id === savedPayload.id ? savedPayload : p))
+          : [savedPayload, ...prev];
+      });
       onShowToast(`Program bansos "${editingBansosProgram.title}" berhasil disimpan!`, "success");
       setEditingBansosProgram(null);
     } catch (err) {
@@ -593,9 +674,32 @@ export default function AdminModal({
       ...items[idx],
       [field]: value,
     };
+
+    let nextTotalCash = editingBansosProgram.totalCash;
+    let nextPill = editingBansosProgram.pillLabel;
+    let nextMsg = editingBansosProgram.messengerMessage;
+
+    // If editing the cash item name, auto-sync totalCash, pillLabel, and message
+    if (field === "name" && (items[idx].icon === "DollarSign" || /uang|tunai|cash|\$/i.test(value))) {
+      const parsedNum = parseCurrencyNumber(value);
+      if (parsedNum > 0) {
+        nextTotalCash = parsedNum;
+        const formatted = parsedNum.toLocaleString("id-ID");
+        if (nextPill && /\$[\d.,]+/i.test(nextPill)) {
+          nextPill = nextPill.replace(/\$[\d.,]+(?:\s*USD)?/i, `$${formatted} USD`);
+        }
+        if (nextMsg && /\$[\d.,]+/i.test(nextMsg)) {
+          nextMsg = nextMsg.replace(/\$[\d.,]+(?:\s*USD)?/i, `$${formatted} USD`);
+        }
+      }
+    }
+
     setEditingBansosProgram({
       ...editingBansosProgram,
       items,
+      totalCash: nextTotalCash,
+      pillLabel: nextPill,
+      messengerMessage: nextMsg,
     });
   }
 
@@ -3795,14 +3899,18 @@ export default function AdminModal({
                                         key={idx}
                                         className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/40 text-amber-950 dark:text-amber-200 text-[10.5px] font-bold rounded"
                                       >
-                                        <Gift size={11} className="text-emerald-600 shrink-0" />
+                                        {it.icon === "DollarSign" ? (
+                                          <DollarSign size={11} className="text-green-600 shrink-0" />
+                                        ) : (
+                                          <Gift size={11} className="text-emerald-600 shrink-0" />
+                                        )}
                                         <span>{it.name}</span>
                                       </span>
                                     ))}
-                                    {Number(prog.totalCash) > 0 && (
+                                    {Number(prog.totalCash) > 0 && !(prog.items || []).some((i) => i.icon === "DollarSign" || /uang|tunai|cash|\$/i.test(i.name)) && (
                                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-700/40 text-emerald-950 dark:text-emerald-200 text-[10.5px] font-bold rounded">
                                         <DollarSign size={11} className="text-green-600 shrink-0" />
-                                        <span>${Number(prog.totalCash).toLocaleString("en-US")} USD</span>
+                                        <span>${Number(prog.totalCash).toLocaleString("id-ID")} USD</span>
                                       </span>
                                     )}
                                   </div>
@@ -4865,7 +4973,7 @@ export default function AdminModal({
                     step="100"
                     placeholder="2500"
                     value={editingBansosProgram.totalCash ?? ""}
-                    onChange={(e) => setEditingBansosProgram({ ...editingBansosProgram, totalCash: Number(e.target.value) || 0 })}
+                    onChange={(e) => handleTotalCashChange(e.target.value)}
                     className="input-field w-full text-xs font-mono font-bold"
                   />
                 </div>
