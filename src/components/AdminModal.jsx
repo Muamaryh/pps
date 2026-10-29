@@ -1,7 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
-import { subscribeMembersCloud, deleteMemberCloud, exportMembersToExcel, exportMembersToZip, updateMemberKasAndVoucherCloud } from "../services/memberService";
+import {
+  subscribeMembersCloud,
+  deleteMemberCloud,
+  exportMembersToExcel,
+  exportMembersToZip,
+  updateMemberKasAndVoucherCloud,
+  getCurrentMonthKey,
+  getCurrentMonthLabel,
+  getCurrentWeekKey,
+  getCurrentWeekLabel,
+  isMemberKasPaidCurrentMonth,
+  isMemberVoucherReceivedCurrentWeek,
+  resetAllMembersKasCloud,
+  resetAllMembersVouchersCloud,
+} from "../services/memberService";
 import {
   subscribeEventRegistrationsCloud,
   deleteEventRegistrationCloud,
@@ -249,23 +263,28 @@ export default function AdminModal({
 
   // Handler: Toggle Kas Bulanan (Rp 4.000) - Admin Only
   async function handleToggleKas(member) {
-    const nextStatus = !member.kasPaid;
+    const isPaidNow = isMemberKasPaidCurrentMonth(member);
+    const nextStatus = !isPaidNow;
     const now = new Date();
     const dateStr = now.toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     });
+    const monthKey = getCurrentMonthKey(now);
+    const monthLabel = getCurrentMonthLabel(now);
 
     try {
       await updateMemberKasAndVoucherCloud(member.id, {
         kasPaid: nextStatus,
+        kasPeriod: nextStatus ? monthKey : null,
         kasPaidDate: nextStatus ? dateStr : null,
+        kasPeriodLabel: nextStatus ? monthLabel : null,
         kasAmount: nextStatus ? 4000 : 0,
       });
       onShowToast(
         nextStatus
-          ? `Kas Rp 4.000 untuk ${member.fullName || "Anggota"} berhasil dicatat LUNAS.`
+          ? `Kas Rp 4.000 (${monthLabel}) untuk ${member.fullName || "Anggota"} berhasil dicatat LUNAS.`
           : `Status Kas untuk ${member.fullName || "Anggota"} diubah menjadi BELUM BAYAR.`,
         "success"
       );
@@ -275,32 +294,81 @@ export default function AdminModal({
     }
   }
 
-  // Handler: Toggle Voucher Jasra (10 Treatment & 10 Pingsan) - Admin Only
+  // Handler: Toggle Voucher Mingguan (10 Treatment & 10 Pingsan) - Admin Only
   async function handleToggleVoucherJasra(member) {
-    const nextStatus = !member.voucherJasraReceived;
+    const isReceivedNow = isMemberVoucherReceivedCurrentWeek(member);
+    const nextStatus = !isReceivedNow;
     const now = new Date();
     const dateStr = now.toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     });
+    const weekKey = getCurrentWeekKey(now);
+    const weekLabel = getCurrentWeekLabel(now);
 
     try {
       await updateMemberKasAndVoucherCloud(member.id, {
         voucherJasraReceived: nextStatus,
+        voucherPeriod: nextStatus ? weekKey : null,
         voucherJasraDate: nextStatus ? dateStr : null,
+        voucherPeriodLabel: nextStatus ? weekLabel : null,
         voucherJasraDetail: nextStatus ? { treatment: 10, pingsan: 10 } : null,
       });
       onShowToast(
         nextStatus
-          ? `Voucher Jasra (10 Treatment & 10 Pingsan) untuk ${member.fullName || "Anggota"} BERHASIL DIAKTIFKAN.`
-          : `Status Voucher Jasra untuk ${member.fullName || "Anggota"} dinonaktifkan.`,
+          ? `Voucher (10 Tritmen & 10 Pingsan) minggu ini untuk ${member.fullName || "Anggota"} BERHASIL DIAKTIFKAN.`
+          : `Status Voucher untuk ${member.fullName || "Anggota"} dinonaktifkan.`,
         "info"
       );
     } catch (err) {
-      console.error("Gagal toggle voucher Jasra:", err);
-      onShowToast("Gagal memperbarui status voucher Jasra anggota.", "error");
+      console.error("Gagal toggle voucher:", err);
+      onShowToast("Gagal memperbarui status voucher anggota.", "error");
     }
+  }
+
+  // Handler: Reset Manual Massal Uang Kas Bulanan
+  function handleConfirmResetAllKas() {
+    const monthLabel = getCurrentMonthLabel();
+    setConfirmModal({
+      isOpen: true,
+      title: `Reset Status Kas Bulanan?`,
+      message: `Apakah Anda yakin ingin me-reset status pembayaran Uang Kas seluruh anggota untuk periode ${monthLabel}? Seluruh anggota akan berstatus BELUM BAYAR.`,
+      confirmText: "Ya, Reset Kas Semua Anggota",
+      cancelText: "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await resetAllMembersKasCloud(membersList);
+          onShowToast(`Status Kas seluruh anggota periode ${monthLabel} berhasil di-reset ke Belum Bayar.`, "success");
+        } catch (err) {
+          console.error("Gagal reset kas massal:", err);
+          onShowToast("Gagal me-reset status kas anggota.", "error");
+        }
+      },
+    });
+  }
+
+  // Handler: Reset Manual Massal Voucher Mingguan
+  function handleConfirmResetAllVouchers() {
+    const weekLabel = getCurrentWeekLabel();
+    setConfirmModal({
+      isOpen: true,
+      title: `Reset Voucher Mingguan?`,
+      message: `Apakah Anda yakin ingin me-reset status Voucher Tritmen & Pingsan seluruh anggota untuk periode minggu ${weekLabel}? Seluruh anggota akan berstatus BELUM KLAIM (siap klaim baru).`,
+      confirmText: "Ya, Reset Voucher Semua Anggota",
+      cancelText: "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await resetAllMembersVouchersCloud(membersList);
+          onShowToast(`Voucher seluruh anggota periode ${weekLabel} berhasil di-reset.`, "success");
+        } catch (err) {
+          console.error("Gagal reset voucher massal:", err);
+          onShowToast("Gagal me-reset voucher anggota.", "error");
+        }
+      },
+    });
   }
 
   // Handler: Toggle Event Checkin
@@ -1486,9 +1554,14 @@ export default function AdminModal({
     { id: "security", label: "Keamanan", icon: Shield },
   ];
 
-  const totalKasLunasCount = membersList.filter((m) => m.kasPaid).length;
+  const currentMonthKey = getCurrentMonthKey();
+  const currentMonthLabel = getCurrentMonthLabel();
+  const currentWeekKey = getCurrentWeekKey();
+  const currentWeekLabel = getCurrentWeekLabel();
+
+  const totalKasLunasCount = membersList.filter((m) => isMemberKasPaidCurrentMonth(m, currentMonthKey)).length;
   const totalKasRupiah = totalKasLunasCount * 4000;
-  const totalVoucherJasraCount = membersList.filter((m) => m.voucherJasraReceived).length;
+  const totalVoucherJasraCount = membersList.filter((m) => isMemberVoucherReceivedCurrentWeek(m, currentWeekKey)).length;
 
   const filteredMembers = membersList.filter((m) => {
     // 1. Text Search Filter
@@ -1503,13 +1576,15 @@ export default function AdminModal({
       }
     }
 
-    // 2. Filter Kas Status
-    if (filterKas === "paid" && !m.kasPaid) return false;
-    if (filterKas === "unpaid" && m.kasPaid) return false;
+    // 2. Filter Kas Status (Bulanan - Otomatis Reset Tiap Bulan)
+    const isKasPaid = isMemberKasPaidCurrentMonth(m, currentMonthKey);
+    if (filterKas === "paid" && !isKasPaid) return false;
+    if (filterKas === "unpaid" && isKasPaid) return false;
 
-    // 3. Filter Voucher Jasra Status
-    if (filterVoucher === "received" && !m.voucherJasraReceived) return false;
-    if (filterVoucher === "unreceived" && m.voucherJasraReceived) return false;
+    // 3. Filter Voucher Jasra Status (Mingguan - Otomatis Reset Tiap Senin)
+    const isVoucherReceived = isMemberVoucherReceivedCurrentWeek(m, currentWeekKey);
+    if (filterVoucher === "received" && !isVoucherReceived) return false;
+    if (filterVoucher === "unreceived" && isVoucherReceived) return false;
 
     return true;
   });
@@ -3032,37 +3107,77 @@ export default function AdminModal({
                       </div>
                     </div>
 
-                    <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000] flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-emerald-500 border-2 border-black flex items-center justify-center shrink-0 text-white">
-                        <DollarSign size={20} />
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-sans font-bold text-emerald-700 dark:text-emerald-400 uppercase block">Uang Kas (4k/bln)</span>
-                        <div className="flex items-baseline gap-1.5">
-                          <strong className="text-base font-mono font-black text-emerald-800 dark:text-emerald-300">
-                            Rp {totalKasRupiah.toLocaleString("id-ID")}
-                          </strong>
-                          <span className="text-[10px] font-mono text-emerald-700">
-                            ({totalKasLunasCount} Lunas)
-                          </span>
+                    <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded bg-emerald-500 border-2 border-black flex items-center justify-center shrink-0 text-white shadow-xs">
+                            <DollarSign size={18} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-sans font-black text-emerald-800 dark:text-emerald-400 uppercase block">
+                              Uang Kas ({currentMonthLabel})
+                            </span>
+                            <div className="flex items-baseline gap-1.5">
+                              <strong className="text-base font-mono font-black text-emerald-800 dark:text-emerald-300">
+                                Rp {totalKasRupiah.toLocaleString("id-ID")}
+                              </strong>
+                              <span className="text-[10px] font-mono text-emerald-700">
+                                ({totalKasLunasCount} Lunas)
+                              </span>
+                            </div>
+                          </div>
                         </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-1.5 border-t border-emerald-200 dark:border-emerald-800/40 text-[10px] font-mono">
+                        <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-bold">
+                          <Clock size={11} /> Reset Otomatis Bulanan
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleConfirmResetAllKas}
+                          disabled={totalKasLunasCount === 0}
+                          className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold border border-black shadow-[1px_1px_0px_#000] disabled:opacity-40 cursor-pointer text-[10px]"
+                          title="Reset manual status kas seluruh anggota ke Belum Bayar"
+                        >
+                          Reset Kas
+                        </button>
                       </div>
                     </div>
 
-                    <div className="card-brutal p-3 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000] flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center shrink-0 text-[#DC2626]">
-                        <Gift size={20} />
-                      </div>
-                      <div>
-                        <span className="text-[10px] font-sans font-bold text-amber-800 dark:text-amber-300 uppercase block">Voucher Jasra (10 T & 10 P)</span>
-                        <div className="flex items-baseline gap-1.5">
-                          <strong className="text-base font-mono font-black text-amber-900 dark:text-[#FACC15]">
-                            {totalVoucherJasraCount} Diterima
-                          </strong>
-                          <span className="text-[10px] font-mono text-amber-700">
-                            ({membersList.length - totalVoucherJasraCount} Belum)
-                          </span>
+                    <div className="card-brutal p-3 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center shrink-0 text-[#DC2626] shadow-xs">
+                            <Gift size={18} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-sans font-black text-amber-800 dark:text-amber-300 uppercase block">
+                              Voucher Tritmen & Pingsan
+                            </span>
+                            <div className="flex items-baseline gap-1.5">
+                              <strong className="text-base font-mono font-black text-amber-900 dark:text-[#FACC15]">
+                                {totalVoucherJasraCount} Aktif
+                              </strong>
+                              <span className="text-[10px] font-mono text-amber-700">
+                                ({membersList.length - totalVoucherJasraCount} Belum)
+                              </span>
+                            </div>
+                          </div>
                         </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-1.5 border-t border-amber-200 dark:border-amber-800/40 text-[10px] font-mono">
+                        <span className="text-amber-800 dark:text-amber-300 flex items-center gap-1 font-bold" title={currentWeekLabel}>
+                          <Clock size={11} /> Reset Tiap Senin
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleConfirmResetAllVouchers}
+                          disabled={totalVoucherJasraCount === 0}
+                          className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold border border-black shadow-[1px_1px_0px_#000] disabled:opacity-40 cursor-pointer text-[10px]"
+                          title="Reset manual status voucher seluruh anggota untuk minggu baru"
+                        >
+                          Reset Voucher
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -3270,40 +3385,66 @@ export default function AdminModal({
                                 type="button"
                                 onClick={() => handleToggleKas(member)}
                                 className={`w-full py-1.5 px-2.5 rounded border-2 flex items-center justify-between text-xs font-mono font-bold transition-all cursor-pointer ${
-                                  member.kasPaid
+                                  isMemberKasPaidCurrentMonth(member, currentMonthKey)
                                     ? "bg-emerald-600 text-white border-black shadow-[2px_2px_0px_#000]"
                                     : "bg-white dark:bg-[#1F222C] text-slate-800 dark:text-slate-200 border-black/30 dark:border-white/20 hover:border-black shadow-sm"
                                 }`}
-                                title={member.kasPaid ? "Klik untuk membatalkan status lunas kas" : "Klik untuk menandai kas LUNAS (Rp 4.000)"}
+                                title={
+                                  isMemberKasPaidCurrentMonth(member, currentMonthKey)
+                                    ? `Kas Lunas (${member.kasPeriodLabel || currentMonthLabel}). Klik untuk batalkan.`
+                                    : `Klik untuk menandai kas LUNAS (${currentMonthLabel})`
+                                }
                               >
                                 <div className="flex items-center gap-1.5 min-w-0">
-                                  {member.kasPaid ? <CheckSquare size={15} className="shrink-0 text-[#FACC15]" /> : <Square size={15} className="shrink-0 text-slate-400" />}
-                                  <span className="truncate">{member.kasPaid ? "KAS: LUNAS (RP 4.000)" : "KAS: BELUM BAYAR (4K)"}</span>
+                                  {isMemberKasPaidCurrentMonth(member, currentMonthKey) ? (
+                                    <CheckSquare size={15} className="shrink-0 text-[#FACC15]" />
+                                  ) : (
+                                    <Square size={15} className="shrink-0 text-slate-400" />
+                                  )}
+                                  <span className="truncate">
+                                    {isMemberKasPaidCurrentMonth(member, currentMonthKey)
+                                      ? `KAS: LUNAS (${member.kasPeriodLabel || currentMonthLabel})`
+                                      : "KAS: BELUM BAYAR (4K)"}
+                                  </span>
                                 </div>
-                                {member.kasPaidDate && (
+                                {isMemberKasPaidCurrentMonth(member, currentMonthKey) && member.kasPaidDate && (
                                   <span className="text-[9px] opacity-90 shrink-0 font-normal ml-1">
                                     {member.kasPaidDate}
                                   </span>
                                 )}
                               </button>
 
-                              {/* Checkbox 2: Voucher Jasra (10 Treatment & 10 Pingsan) */}
+                              {/* Checkbox 2: Voucher Tritmen & Pingsan (Mingguan) */}
                               <button
                                 type="button"
                                 onClick={() => handleToggleVoucherJasra(member)}
                                 className={`w-full py-1.5 px-2.5 rounded border-2 flex items-center justify-between text-xs font-mono font-bold transition-all cursor-pointer ${
-                                  member.voucherJasraReceived
+                                  isMemberVoucherReceivedCurrentWeek(member, currentWeekKey)
                                     ? "bg-[#FACC15] text-slate-950 border-black shadow-[2px_2px_0px_#000]"
                                     : "bg-white dark:bg-[#1F222C] text-slate-800 dark:text-slate-200 border-black/30 dark:border-white/20 hover:border-black shadow-sm"
                                 }`}
-                                title={member.voucherJasraReceived ? "Klik untuk mereset voucher Jasra" : "Klik untuk menandai voucher Jasra SUDAH DITERIMA"}
+                                title={
+                                  isMemberVoucherReceivedCurrentWeek(member, currentWeekKey)
+                                    ? "Voucher Aktif Minggu Ini. Klik untuk reset."
+                                    : `Klik untuk berikan voucher minggu ini (${currentWeekLabel})`
+                                }
                               >
                                 <div className="flex items-center gap-1.5 min-w-0">
-                                  {member.voucherJasraReceived ? <CheckSquare size={15} className="shrink-0 text-[#DC2626]" /> : <Square size={15} className="shrink-0 text-slate-400" />}
-                                  <span className="truncate">{member.voucherJasraReceived ? "VOUCHER JASRA AKTIF" : "VOUCHER: BELUM TERIMA"}</span>
+                                  {isMemberVoucherReceivedCurrentWeek(member, currentWeekKey) ? (
+                                    <CheckSquare size={15} className="shrink-0 text-[#DC2626]" />
+                                  ) : (
+                                    <Square size={15} className="shrink-0 text-slate-400" />
+                                  )}
+                                  <span className="truncate">
+                                    {isMemberVoucherReceivedCurrentWeek(member, currentWeekKey)
+                                      ? "VOUCHER MINGGU INI AKTIF"
+                                      : "VOUCHER: BELUM KLAIM"}
+                                  </span>
                                 </div>
                                 <span className="text-[9px] shrink-0 font-normal ml-1">
-                                  {member.voucherJasraReceived ? "10 T • 10 P" : "10 Treatment + Pingsan"}
+                                  {isMemberVoucherReceivedCurrentWeek(member, currentWeekKey)
+                                    ? "10 T • 10 P"
+                                    : "10 Tritmen + Pingsan"}
                                 </span>
                               </button>
                             </div>

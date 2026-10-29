@@ -126,6 +126,75 @@ export async function deleteMemberCloud(id) {
 }
 
 /**
+ * Date / Period Helpers for Automatic Reset System
+ * - Kas (Uang Kas & Jasra): Reset Otomatis Tiap Pergantian Bulan (1x sebulan)
+ * - Voucher (10 Treatment & 10 Pingsan): Reset Otomatis Tiap Hari Senin 00:00 (1x seminggu)
+ */
+export function getCurrentMonthKey(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`; // e.g. "2026-10"
+}
+
+export function getCurrentMonthLabel(d = new Date()) {
+  return d.toLocaleDateString("id-ID", { month: "long", year: "numeric" }); // e.g. "Oktober 2026"
+}
+
+export function getCurrentWeekKey(d = new Date()) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`; // e.g. "2026-W44"
+}
+
+export function getCurrentWeekLabel(d = new Date()) {
+  const current = new Date(d);
+  const day = current.getDay();
+  const diffToMonday = current.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(current.setDate(diffToMonday));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const monStr = monday.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+  const sunStr = sunday.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  return `${monStr} - ${sunStr}`; // e.g. "26 Okt - 1 Nov 2026"
+}
+
+/**
+ * Cek apakah kas anggota lunas untuk periode bulan berjalan
+ * Jika kasPeriod berbeda dengan bulan ini, otomatis dihitung BELUM BAYAR (expired/reset)
+ */
+export function isMemberKasPaidCurrentMonth(member, targetMonthKey = getCurrentMonthKey()) {
+  if (!member || !member.kasPaid) return false;
+  if (member.kasPeriod) {
+    return member.kasPeriod === targetMonthKey;
+  }
+  if (member.lastUpdatedStatusAt) {
+    const date = new Date(member.lastUpdatedStatusAt);
+    return getCurrentMonthKey(date) === targetMonthKey;
+  }
+  return true;
+}
+
+/**
+ * Cek apakah voucher anggota aktif untuk periode minggu berjalan
+ * Jika voucherPeriod berbeda dengan minggu ini, otomatis dihitung BELUM TERIMA (expired/reset)
+ */
+export function isMemberVoucherReceivedCurrentWeek(member, targetWeekKey = getCurrentWeekKey()) {
+  if (!member || !member.voucherJasraReceived) return false;
+  if (member.voucherPeriod) {
+    return member.voucherPeriod === targetWeekKey;
+  }
+  if (member.lastUpdatedStatusAt) {
+    const date = new Date(member.lastUpdatedStatusAt);
+    return getCurrentWeekKey(date) === targetWeekKey;
+  }
+  return true;
+}
+
+/**
  * Update member Kas (4k) and Voucher Jasra status (Admin Only)
  */
 export async function updateMemberKasAndVoucherCloud(id, updateData) {
@@ -144,24 +213,70 @@ export async function updateMemberKasAndVoucherCloud(id, updateData) {
 }
 
 /**
+ * Batch Reset: Reset status kas semua anggota (Admin Manual Action)
+ */
+export async function resetAllMembersKasCloud(membersList = []) {
+  const activePaid = membersList.filter((m) => m.kasPaid);
+  if (activePaid.length === 0) return true;
+
+  const tasks = activePaid.map((m) =>
+    updateMemberKasAndVoucherCloud(m.id, {
+      kasPaid: false,
+      kasPeriod: null,
+      kasPaidDate: null,
+      kasPeriodLabel: null,
+    })
+  );
+  await Promise.all(tasks);
+  return true;
+}
+
+/**
+ * Batch Reset: Reset status voucher semua anggota (Admin Manual Action)
+ */
+export async function resetAllMembersVouchersCloud(membersList = []) {
+  const activeVouchers = membersList.filter((m) => m.voucherJasraReceived);
+  if (activeVouchers.length === 0) return true;
+
+  const tasks = activeVouchers.map((m) =>
+    updateMemberKasAndVoucherCloud(m.id, {
+      voucherJasraReceived: false,
+      voucherPeriod: null,
+      voucherJasraDate: null,
+      voucherPeriodLabel: null,
+      voucherJasraDetail: null,
+    })
+  );
+  await Promise.all(tasks);
+  return true;
+}
+
+/**
  * Export members to formatted Excel (.xlsx) file
  */
 export function exportMembersToExcel(members) {
   if (!members || members.length === 0) return false;
 
-  const excelRows = members.map((m, index) => ({
-    No: index + 1,
-    "ID Anggota": m.id,
-    "NAMA IC": m.fullName || "-",
-    "NO KTP IC": m.icNumber || "-",
-    "NO TLP/WA IC": m.phone || "-",
-    "DISCORD (OOC)": m.discordTag || "-",
-    "Status Kas (4k)": m.kasPaid ? "LUNAS (Rp 4.000)" : "BELUM BAYAR",
-    "Tgl Bayar Kas": m.kasPaidDate || "-",
-    "Voucher Jasra": m.voucherJasraReceived ? "SUDAH DITERIMA (10 Treatment & 10 Pingsan)" : "BELUM DITERIMA",
-    "Tgl Terima Voucher": m.voucherJasraDate || "-",
-    "Tanggal Terdaftar": m.regDate || "-",
-  }));
+  const currentMonth = getCurrentMonthLabel();
+  const currentWeek = getCurrentWeekLabel();
+
+  const excelRows = members.map((m, index) => {
+    const isPaid = isMemberKasPaidCurrentMonth(m);
+    const isVoucherActive = isMemberVoucherReceivedCurrentWeek(m);
+    return {
+      No: index + 1,
+      "ID Anggota": m.id,
+      "NAMA IC": m.fullName || "-",
+      "NO KTP IC": m.icNumber || "-",
+      "NO TLP/WA IC": m.phone || "-",
+      "DISCORD (OOC)": m.discordTag || "-",
+      "Status Kas (4k)": isPaid ? `LUNAS (${m.kasPeriodLabel || currentMonth})` : "BELUM BAYAR",
+      "Tgl Bayar Kas": m.kasPaidDate || "-",
+      "Voucher Jasra": isVoucherActive ? `AKTIF (${m.voucherPeriodLabel || currentWeek})` : "BELUM DITERIMA",
+      "Tgl Terima Voucher": m.voucherJasraDate || "-",
+      "Tanggal Terdaftar": m.regDate || "-",
+    };
+  });
 
   const worksheet = XLSX.utils.json_to_sheet(excelRows);
   worksheet["!cols"] = [
@@ -215,19 +330,26 @@ export async function exportMembersToZip(members) {
   const folderIC = zip.folder("Foto_KTP_IC");
 
   // 1. Generate Excel inside ZIP
-  const excelRows = members.map((m, index) => ({
-    No: index + 1,
-    "ID Anggota": m.id,
-    "NAMA IC": m.fullName || "-",
-    "NO KTP IC": m.icNumber || "-",
-    "NO TLP/WA IC": m.phone || "-",
-    "DISCORD (OOC)": m.discordTag || "-",
-    "Status Kas (4k)": m.kasPaid ? "LUNAS (Rp 4.000)" : "BELUM BAYAR",
-    "Tgl Bayar Kas": m.kasPaidDate || "-",
-    "Voucher Jasra": m.voucherJasraReceived ? "SUDAH DITERIMA (10 Treatment & 10 Pingsan)" : "BELUM DITERIMA",
-    "Tgl Terima Voucher": m.voucherJasraDate || "-",
-    "Tanggal Terdaftar": m.regDate || "-",
-  }));
+  const currentMonth = getCurrentMonthLabel();
+  const currentWeek = getCurrentWeekLabel();
+
+  const excelRows = members.map((m, index) => {
+    const isPaid = isMemberKasPaidCurrentMonth(m);
+    const isVoucherActive = isMemberVoucherReceivedCurrentWeek(m);
+    return {
+      No: index + 1,
+      "ID Anggota": m.id,
+      "NAMA IC": m.fullName || "-",
+      "NO KTP IC": m.icNumber || "-",
+      "NO TLP/WA IC": m.phone || "-",
+      "DISCORD (OOC)": m.discordTag || "-",
+      "Status Kas (4k)": isPaid ? `LUNAS (${m.kasPeriodLabel || currentMonth})` : "BELUM BAYAR",
+      "Tgl Bayar Kas": m.kasPaidDate || "-",
+      "Voucher Jasra": isVoucherActive ? `AKTIF (${m.voucherPeriodLabel || currentWeek})` : "BELUM DITERIMA",
+      "Tgl Terima Voucher": m.voucherJasraDate || "-",
+      "Tanggal Terdaftar": m.regDate || "-",
+    };
+  });
 
   const worksheet = XLSX.utils.json_to_sheet(excelRows);
   worksheet["!cols"] = [
