@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import {
   subscribeMembersCloud,
+  getMemberKasSubscription,
+  getMemberVoucherSubscription,
   isMemberKasPaidCurrentMonth,
   isMemberVoucherReceivedCurrentWeek,
   getCurrentMonthLabel,
@@ -313,42 +315,50 @@ export default function MembersDirectoryModal({
                         </div>
                       </div>
 
-                      {/* Status Kas (Bulanan) & Voucher (Mingguan) (Read-Only) */}
+                      {/* Status Kas & Voucher Jasra (Read-Only) */}
                       {(() => {
-                        const isPaid = isMemberKasPaidCurrentMonth(member);
-                        const isVoucherActive = isMemberVoucherReceivedCurrentWeek(member);
+                        const kasSub = getMemberKasSubscription(member);
+                        const voucherSub = getMemberVoucherSubscription(member);
                         return (
                           <div className="flex flex-col gap-1.5 p-2 rounded bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
-                            {/* Status Kas Bulanan */}
+                            {/* Status Uang Kas (Rp 4.000) */}
                             <div className="flex items-center justify-between gap-1">
                               <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">
-                                KAS ({member.kasPeriodLabel || getCurrentMonthLabel()}):
+                                KAS (4K):
                               </span>
-                              {isPaid ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                  LUNAS (RP 4.000)
+                              {kasSub.isActive ? (
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded border ${
+                                  kasSub.isExpiringSoon
+                                    ? "bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border-amber-400"
+                                    : "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400"
+                                }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${kasSub.isExpiringSoon ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+                                  LUNAS ({kasSub.daysRemaining} HARI LAGI)
                                 </span>
-                              ) : (
+                              ) : kasSub.isExpired ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-400">
                                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                  LEWAT TEMPO
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                                   BELUM BAYAR
                                 </span>
                               )}
                             </div>
 
-                            {/* Status Voucher Mingguan */}
+                            {/* Status Voucher Jasra Mingguan */}
                             <div className="flex items-center justify-between gap-1 pt-1 border-t border-black/5 dark:border-white/5">
                               <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">
-                                VOUCHER MINGGU INI:
+                                VOUCHER JASRA:
                               </span>
-                              {isVoucherActive ? (
+                              {voucherSub.isActive ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded bg-[#FACC15]/25 dark:bg-[#FACC15]/15 text-amber-900 dark:text-[#FACC15] border border-amber-400">
-                                  ✓ 10 TRITMEN • 10 PINGSAN
+                                  ✓ 10 T • 10 P (SISA {voucherSub.daysRemaining}H)
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
-                                  BELUM KLAIM
+                                  SIAP DIAMBIL
                                 </span>
                               )}
                             </div>

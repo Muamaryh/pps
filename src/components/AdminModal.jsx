@@ -7,6 +7,12 @@ import {
   exportMembersToExcel,
   exportMembersToZip,
   updateMemberKasAndVoucherCloud,
+  getMemberKasSubscription,
+  getMemberVoucherSubscription,
+  renewMemberKasSubscriptionCloud,
+  cancelMemberKasSubscriptionCloud,
+  claimMemberVoucherSubscriptionCloud,
+  cancelMemberVoucherSubscriptionCloud,
   getCurrentMonthKey,
   getCurrentMonthLabel,
   getCurrentWeekKey,
@@ -15,6 +21,8 @@ import {
   isMemberVoucherReceivedCurrentWeek,
   resetAllMembersKasCloud,
   resetAllMembersVouchersCloud,
+  KAS_SUBSCRIPTION_DAYS,
+  VOUCHER_SUBSCRIPTION_DAYS,
 } from "../services/memberService";
 import {
   subscribeEventRegistrationsCloud,
@@ -261,86 +269,91 @@ export default function AdminModal({
     }
   }, [isOpen, isAuthenticated]);
 
-  // Handler: Toggle Kas Bulanan (Rp 4.000) - Admin Only
-  async function handleToggleKas(member) {
-    const isPaidNow = isMemberKasPaidCurrentMonth(member);
-    const nextStatus = !isPaidNow;
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-    const monthKey = getCurrentMonthKey(now);
-    const monthLabel = getCurrentMonthLabel(now);
-
+  // Handler: Catat Bayar / Tambah Masa Kas Anggota (+30 Hari)
+  async function handleRenewKas(member, days = KAS_SUBSCRIPTION_DAYS) {
     try {
-      await updateMemberKasAndVoucherCloud(member.id, {
-        kasPaid: nextStatus,
-        kasPeriod: nextStatus ? monthKey : null,
-        kasPaidDate: nextStatus ? dateStr : null,
-        kasPeriodLabel: nextStatus ? monthLabel : null,
-        kasAmount: nextStatus ? 4000 : 0,
-      });
+      const res = await renewMemberKasSubscriptionCloud(member, days);
+      const sub = getMemberKasSubscription(res);
       onShowToast(
-        nextStatus
-          ? `Kas Rp 4.000 (${monthLabel}) untuk ${member.fullName || "Anggota"} berhasil dicatat LUNAS.`
-          : `Status Kas untuk ${member.fullName || "Anggota"} diubah menjadi BELUM BAYAR.`,
+        `Kas Rp 4.000 untuk ${member.fullName || "Anggota"} berhasil dicatat (+${days} hari, jatuh tempo: ${sub.expiresAtFormatted}).`,
         "success"
       );
     } catch (err) {
-      console.error("Gagal toggle kas:", err);
+      console.error("Gagal update kas:", err);
       onShowToast("Gagal memperbarui status kas anggota.", "error");
     }
   }
 
-  // Handler: Toggle Voucher Mingguan (10 Treatment & 10 Pingsan) - Admin Only
-  async function handleToggleVoucherJasra(member) {
-    const isReceivedNow = isMemberVoucherReceivedCurrentWeek(member);
-    const nextStatus = !isReceivedNow;
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
+  // Handler: Reset Status Kas Anggota ke Belum Bayar
+  function handleCancelKas(member) {
+    setConfirmModal({
+      isOpen: true,
+      title: "Reset Status Kas Anggota?",
+      message: `Reset status kas ${member.fullName || "Anggota"} menjadi Belum Bayar?`,
+      confirmText: "Ya, Reset",
+      cancelText: "Kembali",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await cancelMemberKasSubscriptionCloud(member.id);
+          onShowToast(`Status kas ${member.fullName || "Anggota"} diubah menjadi Belum Bayar.`, "info");
+        } catch (err) {
+          console.error("Gagal reset kas:", err);
+          onShowToast("Gagal me-reset status kas anggota.", "error");
+        }
+      },
     });
-    const weekKey = getCurrentWeekKey(now);
-    const weekLabel = getCurrentWeekLabel(now);
+  }
 
+  // Handler: Berikan / Perbarui Voucher Mingguan (7 Hari - 10T & 10P)
+  async function handleClaimVoucher(member, days = VOUCHER_SUBSCRIPTION_DAYS) {
     try {
-      await updateMemberKasAndVoucherCloud(member.id, {
-        voucherJasraReceived: nextStatus,
-        voucherPeriod: nextStatus ? weekKey : null,
-        voucherJasraDate: nextStatus ? dateStr : null,
-        voucherPeriodLabel: nextStatus ? weekLabel : null,
-        voucherJasraDetail: nextStatus ? { treatment: 10, pingsan: 10 } : null,
-      });
+      const res = await claimMemberVoucherSubscriptionCloud(member, days);
+      const sub = getMemberVoucherSubscription(res);
       onShowToast(
-        nextStatus
-          ? `Voucher (10 Tritmen & 10 Pingsan) minggu ini untuk ${member.fullName || "Anggota"} BERHASIL DIAKTIFKAN.`
-          : `Status Voucher untuk ${member.fullName || "Anggota"} dinonaktifkan.`,
-        "info"
+        `Voucher 10 Tritmen & 10 Pingsan untuk ${member.fullName || "Anggota"} aktif 7 hari (s/d ${sub.expiresAtFormatted}).`,
+        "success"
       );
     } catch (err) {
-      console.error("Gagal toggle voucher:", err);
-      onShowToast("Gagal memperbarui status voucher anggota.", "error");
+      console.error("Gagal berikan voucher:", err);
+      onShowToast("Gagal memberikan voucher anggota.", "error");
     }
   }
 
-  // Handler: Reset Manual Massal Uang Kas Bulanan
-  function handleConfirmResetAllKas() {
-    const monthLabel = getCurrentMonthLabel();
+  // Handler: Reset Status Voucher Anggota
+  function handleCancelVoucher(member) {
     setConfirmModal({
       isOpen: true,
-      title: `Reset Status Kas Bulanan?`,
-      message: `Apakah Anda yakin ingin me-reset status pembayaran Uang Kas seluruh anggota untuk periode ${monthLabel}? Seluruh anggota akan berstatus BELUM BAYAR.`,
-      confirmText: "Ya, Reset Kas Semua Anggota",
+      title: "Reset Voucher Anggota?",
+      message: `Reset voucher mingguan untuk ${member.fullName || "Anggota"}? Status akan kembali menjadi Siap Diambil.`,
+      confirmText: "Ya, Reset",
+      cancelText: "Kembali",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await cancelMemberVoucherSubscriptionCloud(member.id);
+          onShowToast(`Voucher ${member.fullName || "Anggota"} di-reset ke Siap Diambil.`, "info");
+        } catch (err) {
+          console.error("Gagal reset voucher:", err);
+          onShowToast("Gagal me-reset voucher anggota.", "error");
+        }
+      },
+    });
+  }
+
+  // Handler: Reset Kas Semua Anggota
+  function handleConfirmResetAllKas() {
+    setConfirmModal({
+      isOpen: true,
+      title: `Reset Status Kas Semua Anggota?`,
+      message: `Apakah Anda yakin ingin me-reset status kas seluruh anggota menjadi Belum Bayar?`,
+      confirmText: "Ya, Reset Kas Semua",
       cancelText: "Batal",
       variant: "danger",
       onConfirm: async () => {
         try {
           await resetAllMembersKasCloud(membersList);
-          onShowToast(`Status Kas seluruh anggota periode ${monthLabel} berhasil di-reset ke Belum Bayar.`, "success");
+          onShowToast(`Status Kas seluruh anggota berhasil di-reset ke Belum Bayar.`, "success");
         } catch (err) {
           console.error("Gagal reset kas massal:", err);
           onShowToast("Gagal me-reset status kas anggota.", "error");
@@ -349,20 +362,19 @@ export default function AdminModal({
     });
   }
 
-  // Handler: Reset Manual Massal Voucher Mingguan
+  // Handler: Reset Voucher Semua Anggota
   function handleConfirmResetAllVouchers() {
-    const weekLabel = getCurrentWeekLabel();
     setConfirmModal({
       isOpen: true,
-      title: `Reset Voucher Mingguan?`,
-      message: `Apakah Anda yakin ingin me-reset status Voucher Tritmen & Pingsan seluruh anggota untuk periode minggu ${weekLabel}? Seluruh anggota akan berstatus BELUM KLAIM (siap klaim baru).`,
-      confirmText: "Ya, Reset Voucher Semua Anggota",
+      title: `Reset Voucher Semua Anggota?`,
+      message: `Apakah Anda yakin ingin me-reset voucher seluruh anggota menjadi Siap Diambil?`,
+      confirmText: "Ya, Reset Voucher Semua",
       cancelText: "Batal",
       variant: "danger",
       onConfirm: async () => {
         try {
           await resetAllMembersVouchersCloud(membersList);
-          onShowToast(`Voucher seluruh anggota periode ${weekLabel} berhasil di-reset.`, "success");
+          onShowToast(`Voucher seluruh anggota berhasil di-reset ke Siap Diambil.`, "success");
         } catch (err) {
           console.error("Gagal reset voucher massal:", err);
           onShowToast("Gagal me-reset voucher anggota.", "error");
@@ -1554,14 +1566,22 @@ export default function AdminModal({
     { id: "security", label: "Keamanan", icon: Shield },
   ];
 
-  const currentMonthKey = getCurrentMonthKey();
   const currentMonthLabel = getCurrentMonthLabel();
-  const currentWeekKey = getCurrentWeekKey();
   const currentWeekLabel = getCurrentWeekLabel();
 
-  const totalKasLunasCount = membersList.filter((m) => isMemberKasPaidCurrentMonth(m, currentMonthKey)).length;
-  const totalKasRupiah = totalKasLunasCount * 4000;
-  const totalVoucherJasraCount = membersList.filter((m) => isMemberVoucherReceivedCurrentWeek(m, currentWeekKey)).length;
+  // Subscription-based stats aggregation
+  const kasSubs = membersList.map((m) => ({
+    member: m,
+    kas: getMemberKasSubscription(m),
+    voucher: getMemberVoucherSubscription(m),
+  }));
+  const totalKasActiveCount = kasSubs.filter((item) => item.kas.isActive).length;
+  const totalKasExpiringCount = kasSubs.filter((item) => item.kas.isExpiringSoon).length;
+  const totalKasExpiredCount = kasSubs.filter((item) => item.kas.isExpired).length;
+  const totalKasRupiah = totalKasActiveCount * 4000;
+
+  const totalVoucherActiveCount = kasSubs.filter((item) => item.voucher.isActive).length;
+  const totalVoucherReadyCount = kasSubs.filter((item) => !item.voucher.isActive).length;
 
   const filteredMembers = membersList.filter((m) => {
     // 1. Text Search Filter
@@ -1576,15 +1596,17 @@ export default function AdminModal({
       }
     }
 
-    // 2. Filter Kas Status (Bulanan - Otomatis Reset Tiap Bulan)
-    const isKasPaid = isMemberKasPaidCurrentMonth(m, currentMonthKey);
-    if (filterKas === "paid" && !isKasPaid) return false;
-    if (filterKas === "unpaid" && isKasPaid) return false;
+    // 2. Filter Kas Subscription Status
+    const kasSub = getMemberKasSubscription(m);
+    if (filterKas === "active" && !kasSub.isActive) return false;
+    if (filterKas === "expiring" && !kasSub.isExpiringSoon) return false;
+    if (filterKas === "expired" && !kasSub.isExpired) return false;
+    if (filterKas === "unpaid" && (kasSub.isActive || kasSub.isExpired)) return false;
 
-    // 3. Filter Voucher Jasra Status (Mingguan - Otomatis Reset Tiap Senin)
-    const isVoucherReceived = isMemberVoucherReceivedCurrentWeek(m, currentWeekKey);
-    if (filterVoucher === "received" && !isVoucherReceived) return false;
-    if (filterVoucher === "unreceived" && isVoucherReceived) return false;
+    // 3. Filter Voucher Status
+    const voucherSub = getMemberVoucherSubscription(m);
+    if (filterVoucher === "active" && !voucherSub.isActive) return false;
+    if (filterVoucher === "ready" && voucherSub.isActive) return false;
 
     return true;
   });
@@ -3093,7 +3115,7 @@ export default function AdminModal({
                     </div>
                   </div>
 
-                  {/* Stats Ringkasan Kas (4k) & Voucher Jasra */}
+                  {/* Stats Ringkasan Kas (Langganan 30 Hari) & Voucher (7 Hari) */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-3">
                       <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center shrink-0">
@@ -3115,14 +3137,14 @@ export default function AdminModal({
                           </div>
                           <div>
                             <span className="text-[10px] font-sans font-black text-emerald-800 dark:text-emerald-400 uppercase block">
-                              Uang Kas ({currentMonthLabel})
+                              Uang Kas (Rp 4.000 / Bulan)
                             </span>
                             <div className="flex items-baseline gap-1.5">
                               <strong className="text-base font-mono font-black text-emerald-800 dark:text-emerald-300">
                                 Rp {totalKasRupiah.toLocaleString("id-ID")}
                               </strong>
                               <span className="text-[10px] font-mono text-emerald-700">
-                                ({totalKasLunasCount} Lunas)
+                                ({totalKasActiveCount} Lunas)
                               </span>
                             </div>
                           </div>
@@ -3130,14 +3152,14 @@ export default function AdminModal({
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t border-emerald-200 dark:border-emerald-800/40 text-[10px] font-mono">
                         <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-bold">
-                          <Clock size={11} /> Reset Otomatis Bulanan
+                          <Clock size={11} /> {totalKasExpiringCount} Mendekati Tempo • {totalKasExpiredCount} Lewat Tempo
                         </span>
                         <button
                           type="button"
                           onClick={handleConfirmResetAllKas}
-                          disabled={totalKasLunasCount === 0}
+                          disabled={totalKasActiveCount === 0}
                           className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold border border-black shadow-[1px_1px_0px_#000] disabled:opacity-40 cursor-pointer text-[10px]"
-                          title="Reset manual status kas seluruh anggota ke Belum Bayar"
+                          title="Reset status kas seluruh anggota ke Belum Bayar"
                         >
                           Reset Kas
                         </button>
@@ -3152,29 +3174,29 @@ export default function AdminModal({
                           </div>
                           <div>
                             <span className="text-[10px] font-sans font-black text-amber-800 dark:text-amber-300 uppercase block">
-                              Voucher Tritmen & Pingsan
+                              Voucher Jasra Mingguan
                             </span>
                             <div className="flex items-baseline gap-1.5">
                               <strong className="text-base font-mono font-black text-amber-900 dark:text-[#FACC15]">
-                                {totalVoucherJasraCount} Aktif
+                                {totalVoucherActiveCount} Aktif
                               </strong>
                               <span className="text-[10px] font-mono text-amber-700">
-                                ({membersList.length - totalVoucherJasraCount} Belum)
+                                ({totalVoucherReadyCount} Siap Ambil)
                               </span>
                             </div>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t border-amber-200 dark:border-amber-800/40 text-[10px] font-mono">
-                        <span className="text-amber-800 dark:text-amber-300 flex items-center gap-1 font-bold" title={currentWeekLabel}>
-                          <Clock size={11} /> Reset Tiap Senin
+                        <span className="text-amber-800 dark:text-amber-300 flex items-center gap-1 font-bold" title="Jatah 7 hari: 10 Tritmen + 10 Pingsan">
+                          <Clock size={11} /> 10 Tritmen + 10 Pingsan (7 Hari)
                         </span>
                         <button
                           type="button"
                           onClick={handleConfirmResetAllVouchers}
-                          disabled={totalVoucherJasraCount === 0}
+                          disabled={totalVoucherActiveCount === 0}
                           className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold border border-black shadow-[1px_1px_0px_#000] disabled:opacity-40 cursor-pointer text-[10px]"
-                          title="Reset manual status voucher seluruh anggota untuk minggu baru"
+                          title="Reset jatah voucher seluruh anggota ke Siap Ambil"
                         >
                           Reset Voucher
                         </button>
@@ -3227,22 +3249,44 @@ export default function AdminModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setFilterKas("paid")}
+                        onClick={() => setFilterKas("active")}
                         className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
-                          filterKas === "paid"
+                          filterKas === "active"
                             ? "bg-emerald-600 text-white border-black"
                             : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-400"
                         }`}
                       >
-                        ✓ Lunas (Rp 4k)
+                        ✓ Lunas ({totalKasActiveCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterKas("expiring")}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                          filterKas === "expiring"
+                            ? "bg-amber-500 text-slate-950 border-black font-black"
+                            : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-400"
+                        }`}
+                      >
+                        ⚠️ Mendekati Tempo ({totalKasExpiringCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterKas("expired")}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
+                          filterKas === "expired"
+                            ? "bg-rose-600 text-white border-black"
+                            : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-400"
+                        }`}
+                      >
+                        ✕ Lewat Tempo ({totalKasExpiredCount})
                       </button>
                       <button
                         type="button"
                         onClick={() => setFilterKas("unpaid")}
                         className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
                           filterKas === "unpaid"
-                            ? "bg-rose-600 text-white border-black"
-                            : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-400"
+                            ? "bg-slate-700 text-white border-black"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
                         }`}
                       >
                         Belum Bayar
@@ -3265,25 +3309,25 @@ export default function AdminModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setFilterVoucher("received")}
+                        onClick={() => setFilterVoucher("active")}
                         className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
-                          filterVoucher === "received"
+                          filterVoucher === "active"
                             ? "bg-amber-500 text-slate-950 border-black font-black"
                             : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-400"
                         }`}
                       >
-                        ✓ Diterima
+                        ✓ Aktif ({totalVoucherActiveCount})
                       </button>
                       <button
                         type="button"
-                        onClick={() => setFilterVoucher("unreceived")}
+                        onClick={() => setFilterVoucher("ready")}
                         className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
-                          filterVoucher === "unreceived"
+                          filterVoucher === "ready"
                             ? "bg-slate-600 text-white border-black"
                             : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
                         }`}
                       >
-                        Belum Diterima
+                        Siap Ambil ({totalVoucherReadyCount})
                       </button>
                     </div>
                   </div>
@@ -3369,84 +3413,146 @@ export default function AdminModal({
                               </div>
                             </div>
 
-                            {/* Admin Checklist: Status Kas Bulanan (4k) & Voucher Jasra */}
+                            {/* Admin Controls: Status Kas (30 Hari) & Voucher Jasra (7 Hari) */}
                             <div className="flex flex-col gap-2 p-2.5 rounded-lg bg-amber-50/70 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10">
                               <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300">
-                                  KONTROL HAK AKSES ADMIN
+                                <span className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                                  <DollarSign size={12} className="text-emerald-600" /> STATUS KAS & VOUCHER
                                 </span>
-                                <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-bold">
-                                  VERIFIKASI
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 font-bold border border-emerald-400">
+                                  PERIODE AKTIF
                                 </span>
                               </div>
 
-                              {/* Checkbox 1: Kas Bulanan (Rp 4.000) */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleKas(member)}
-                                className={`w-full py-1.5 px-2.5 rounded border-2 flex items-center justify-between text-xs font-mono font-bold transition-all cursor-pointer ${
-                                  isMemberKasPaidCurrentMonth(member, currentMonthKey)
-                                    ? "bg-emerald-600 text-white border-black shadow-[2px_2px_0px_#000]"
-                                    : "bg-white dark:bg-[#1F222C] text-slate-800 dark:text-slate-200 border-black/30 dark:border-white/20 hover:border-black shadow-sm"
-                                }`}
-                                title={
-                                  isMemberKasPaidCurrentMonth(member, currentMonthKey)
-                                    ? `Kas Lunas (${member.kasPeriodLabel || currentMonthLabel}). Klik untuk batalkan.`
-                                    : `Klik untuk menandai kas LUNAS (${currentMonthLabel})`
-                                }
-                              >
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  {isMemberKasPaidCurrentMonth(member, currentMonthKey) ? (
-                                    <CheckSquare size={15} className="shrink-0 text-[#FACC15]" />
-                                  ) : (
-                                    <Square size={15} className="shrink-0 text-slate-400" />
-                                  )}
-                                  <span className="truncate">
-                                    {isMemberKasPaidCurrentMonth(member, currentMonthKey)
-                                      ? `KAS: LUNAS (${member.kasPeriodLabel || currentMonthLabel})`
-                                      : "KAS: BELUM BAYAR (4K)"}
-                                  </span>
-                                </div>
-                                {isMemberKasPaidCurrentMonth(member, currentMonthKey) && member.kasPaidDate && (
-                                  <span className="text-[9px] opacity-90 shrink-0 font-normal ml-1">
-                                    {member.kasPaidDate}
-                                  </span>
-                                )}
-                              </button>
+                              {/* Box 1: Uang Kas (30 Hari) */}
+                              {(() => {
+                                const kasSub = getMemberKasSubscription(member);
+                                return (
+                                  <div className={`p-2 rounded border-2 transition-all ${
+                                    kasSub.isActive
+                                      ? kasSub.isExpiringSoon
+                                        ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-950 dark:text-amber-100"
+                                        : "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-600 text-emerald-950 dark:text-emerald-100"
+                                      : kasSub.isExpired
+                                      ? "bg-rose-50 dark:bg-rose-950/40 border-rose-500 text-rose-950 dark:text-rose-100"
+                                      : "bg-white dark:bg-[#1F222C] border-black/20 dark:border-white/20 text-slate-800 dark:text-slate-200"
+                                  }`}>
+                                    <div className="flex items-center justify-between gap-1 mb-1">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                          kasSub.isActive
+                                            ? kasSub.isExpiringSoon ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+                                            : kasSub.isExpired ? "bg-rose-500" : "bg-slate-400"
+                                        }`} />
+                                        <span className="font-heading font-black text-[11px] uppercase truncate">
+                                          UANG KAS (RP 4.000)
+                                        </span>
+                                      </div>
+                                      <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded border shrink-0 ${
+                                        kasSub.isActive
+                                          ? kasSub.isExpiringSoon
+                                            ? "bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border-amber-400"
+                                            : "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-400"
+                                          : kasSub.isExpired
+                                          ? "bg-rose-200 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200 border-rose-400"
+                                          : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300"
+                                      }`}>
+                                        {kasSub.isActive ? `${kasSub.daysRemaining} HARI LAGI` : kasSub.isExpired ? "LEWAT TEMPO" : "BELUM BAYAR"}
+                                      </span>
+                                    </div>
 
-                              {/* Checkbox 2: Voucher Tritmen & Pingsan (Mingguan) */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleVoucherJasra(member)}
-                                className={`w-full py-1.5 px-2.5 rounded border-2 flex items-center justify-between text-xs font-mono font-bold transition-all cursor-pointer ${
-                                  isMemberVoucherReceivedCurrentWeek(member, currentWeekKey)
-                                    ? "bg-[#FACC15] text-slate-950 border-black shadow-[2px_2px_0px_#000]"
-                                    : "bg-white dark:bg-[#1F222C] text-slate-800 dark:text-slate-200 border-black/30 dark:border-white/20 hover:border-black shadow-sm"
-                                }`}
-                                title={
-                                  isMemberVoucherReceivedCurrentWeek(member, currentWeekKey)
-                                    ? "Voucher Aktif Minggu Ini. Klik untuk reset."
-                                    : `Klik untuk berikan voucher minggu ini (${currentWeekLabel})`
-                                }
-                              >
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  {isMemberVoucherReceivedCurrentWeek(member, currentWeekKey) ? (
-                                    <CheckSquare size={15} className="shrink-0 text-[#DC2626]" />
-                                  ) : (
-                                    <Square size={15} className="shrink-0 text-slate-400" />
-                                  )}
-                                  <span className="truncate">
-                                    {isMemberVoucherReceivedCurrentWeek(member, currentWeekKey)
-                                      ? "VOUCHER MINGGU INI AKTIF"
-                                      : "VOUCHER: BELUM KLAIM"}
-                                  </span>
-                                </div>
-                                <span className="text-[9px] shrink-0 font-normal ml-1">
-                                  {isMemberVoucherReceivedCurrentWeek(member, currentWeekKey)
-                                    ? "10 T • 10 P"
-                                    : "10 Tritmen + Pingsan"}
-                                </span>
-                              </button>
+                                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 dark:text-slate-400 mb-2">
+                                      <span>{kasSub.isActive ? "Jatuh tempo:" : kasSub.isExpired ? "Lewat sejak:" : "Tarif:"}</span>
+                                      <strong className="text-slate-900 dark:text-slate-100">
+                                        {kasSub.expiresAt ? kasSub.expiresAtFormatted : "Rp 4.000 / Bulan"}
+                                      </strong>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRenewKas(member)}
+                                        className="flex-1 py-1 px-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-[10px] border border-black shadow-[1px_1px_0px_#000] flex items-center justify-center gap-1 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                                        title={kasSub.isActive ? "Tambah 30 hari dari tanggal jatuh tempo" : "Catat pembayaran kas (+30 hari)"}
+                                      >
+                                        <Plus size={11} />
+                                        <span>{kasSub.isActive ? "+30 Hari Kas" : "Catat Bayar Kas (+30H)"}</span>
+                                      </button>
+                                      {kasSub.isActive && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCancelKas(member)}
+                                          className="py-1 px-2 rounded bg-slate-200 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/60 text-slate-700 hover:text-rose-700 dark:text-slate-300 font-mono text-[10px] border border-black/30 cursor-pointer"
+                                          title="Ubah status kas kembali ke Belum Bayar"
+                                        >
+                                          Reset
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Box 2: Voucher Tritmen & Pingsan (7 Hari) */}
+                              {(() => {
+                                const voucherSub = getMemberVoucherSubscription(member);
+                                return (
+                                  <div className={`p-2 rounded border-2 transition-all ${
+                                    voucherSub.isActive
+                                      ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-950 dark:text-amber-100"
+                                      : "bg-white dark:bg-[#1F222C] border-black/20 dark:border-white/20 text-slate-800 dark:text-slate-200"
+                                  }`}>
+                                    <div className="flex items-center justify-between gap-1 mb-1">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                          voucherSub.isActive ? "bg-amber-500" : "bg-slate-400"
+                                        }`} />
+                                        <span className="font-heading font-black text-[11px] uppercase truncate">
+                                          VOUCHER JASRA (10T • 10P)
+                                        </span>
+                                      </div>
+                                      <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded border shrink-0 ${
+                                        voucherSub.isActive
+                                          ? "bg-[#FACC15] text-slate-950 border-amber-500"
+                                          : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300"
+                                      }`}>
+                                        {voucherSub.isActive ? `${voucherSub.daysRemaining} HARI LAGI` : "SIAP DIAMBIL"}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 dark:text-slate-400 mb-2">
+                                      <span>{voucherSub.isActive ? "Berlaku s/d:" : "Jatah Mingguan:"}</span>
+                                      <strong className="text-slate-900 dark:text-slate-100">
+                                        {voucherSub.isActive ? voucherSub.expiresAtFormatted : "10 Tritmen • 10 Pingsan"}
+                                      </strong>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleClaimVoucher(member)}
+                                        className="flex-1 py-1 px-2 rounded bg-[#FACC15] hover:bg-amber-400 text-slate-950 font-heading font-black text-[10px] border border-black shadow-[1px_1px_0px_#000] flex items-center justify-center gap-1 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                                        title="Berikan atau perpanjang voucher 7 hari (10 Tritmen + 10 Pingsan)"
+                                      >
+                                        <Gift size={11} className="text-[#DC2626]" />
+                                        <span>{voucherSub.isActive ? "Perpanjang (+7 Hari)" : "Beri Voucher (7 Hari)"}</span>
+                                      </button>
+                                      {voucherSub.isActive && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCancelVoucher(member)}
+                                          className="py-1 px-2 rounded bg-slate-200 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/60 text-slate-700 hover:text-rose-700 dark:text-slate-300 font-mono text-[10px] border border-black/30 cursor-pointer"
+                                          title="Reset voucher anggota ini ke Siap Diambil"
+                                        >
+                                          Reset
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             {/* Action Buttons: Lihat KTP & Hapus */}
