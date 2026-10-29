@@ -15,6 +15,8 @@ import {
 
 export default function Footer({
   brand,
+  discordUrl = "https://discord.gg/gb7ajBMduF",
+  discordVisitorUrl = "https://discord.gg/gb7ajBMduF",
   onOpenServicePortal,
   onOpenRegister,
   onOpenMembersDirectory,
@@ -185,7 +187,7 @@ export default function Footer({
             </h4>
             <div className="flex flex-col gap-2">
               <a
-                href="https://discord.gg/2wpeukyDdu"
+                href={discordUrl || "https://discord.gg/gb7ajBMduF"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn py-1.5 px-3 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[2px_2px_0px_#000] text-[11px] font-black flex items-center justify-between"
@@ -195,7 +197,7 @@ export default function Footer({
               </a>
 
               <a
-                href="https://discord.gg/duZhRpJEWY"
+                href={discordVisitorUrl || "https://discord.gg/gb7ajBMduF"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-[#1E212B] dark:hover:bg-[#2A2E3D] text-slate-900 dark:text-slate-100 border-2 border-black shadow-[2px_2px_0px_#000] text-[11px] font-bold flex items-center justify-between"

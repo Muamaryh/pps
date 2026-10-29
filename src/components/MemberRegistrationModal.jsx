@@ -19,12 +19,17 @@ import {
 import { submitMemberCloud } from "../services/memberService";
 import { scanKtpImage } from "../utils/ktpOcr";
 
-const DISCORD_INVITE_URL = "https://discord.gg/2wpeukyDdu";
-
-export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }) {
+export default function MemberRegistrationModal({
+  isOpen,
+  onClose,
+  onShowToast,
+  discordUrl = "https://discord.gg/gb7ajBMduF",
+}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  const activeDiscordUrl = discordUrl || "https://discord.gg/gb7ajBMduF";
 
   // Form State
   const [formData, setFormData] = useState({
@@ -371,7 +376,7 @@ export default function MemberRegistrationModal({ isOpen, onClose, onShowToast }
                 {/* Big Prominent Discord Button */}
                 <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-black/10 dark:border-white/10">
                   <a
-                    href={DISCORD_INVITE_URL}
+                    href={activeDiscordUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn py-3 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:translate-x-[1px] hover:translate-y-[1px] transition-all"

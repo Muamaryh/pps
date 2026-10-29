@@ -361,7 +361,7 @@ export default function App() {
         hash === "#/discord" ||
         hash === "#discord"
       ) {
-        window.location.href = "https://discord.gg/2wpeukyDdu";
+        window.location.href = data?.discordUrl || "https://discord.gg/gb7ajBMduF";
       }
     }
 
@@ -509,11 +509,12 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
 
-  // Extract Discord and Register URLs from navLinks if customized
-  let discordUrl = "https://discord.gg/2wpeukyDdu";
+  // Extract Discord and Register URLs from data / navLinks if customized
+  let discordUrl = data?.discordUrl || "https://discord.gg/gb7ajBMduF";
+  let discordVisitorUrl = data?.discordVisitorUrl || "https://discord.gg/gb7ajBMduF";
   let registerUrl = "https://daftaranggotapaps.netlify.app/";
 
-  if (data.navLinks) {
+  if (data?.navLinks) {
     const items = data.navLinks.split(",");
     for (const item of items) {
       const parts = item.split("|");
@@ -588,6 +589,8 @@ export default function App() {
       <Footer
         brand={data.brand}
         memberCount={memberCount}
+        discordUrl={discordUrl}
+        discordVisitorUrl={discordVisitorUrl}
         onOpenRegister={handleOpenRegister}
         onOpenServicePortal={handleOpenServicePortal}
         onOpenMembersDirectory={handleOpenMembersDirectory}
@@ -643,6 +646,7 @@ export default function App() {
         isOpen={memberModalOpen}
         onClose={handleCloseRegister}
         onShowToast={showToast}
+        discordUrl={discordUrl}
       />
 
       {/* Portal Layanan Warga: Lapak UMKM, Request Meeting & Lacak Tiket (GTA V IME Roleplay) */}
@@ -651,6 +655,8 @@ export default function App() {
         onClose={handleCloseServicePortal}
         onShowToast={showToast}
         initialTab={servicePortalTab}
+        discordUrl={discordUrl}
+        discordVisitorUrl={discordVisitorUrl}
       />
 
       {/* Admin CMS Modal */}

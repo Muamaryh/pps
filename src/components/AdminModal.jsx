@@ -986,6 +986,12 @@ export default function AdminModal({
       if (!cloned.charterTitle) {
         cloned.charterTitle = "Naskah Pendirian & Penjelasan Lengkap LSM";
       }
+      if (!cloned.discordUrl) {
+        cloned.discordUrl = "https://discord.gg/gb7ajBMduF";
+      }
+      if (!cloned.discordVisitorUrl) {
+        cloned.discordVisitorUrl = "https://discord.gg/gb7ajBMduF";
+      }
       setFormData(cloned);
     }
   }, [initialData, isOpen]);
@@ -1181,6 +1187,43 @@ export default function AdminModal({
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+  }
+
+  // Discord & Community Link Handlers
+  function handleDiscordUrlChange(newUrl) {
+    const trimmed = (newUrl || "").trim();
+    let updatedNavLinks = formData?.navLinks || "";
+    if (updatedNavLinks && (updatedNavLinks.includes("discord.gg") || /discord\s*\|\s*https?:\/\/[^\s,]+/i.test(updatedNavLinks))) {
+      updatedNavLinks = updatedNavLinks.replace(
+        /(discord\s*\|\s*)https?:\/\/[^\s,]+/i,
+        `$1${trimmed}`
+      );
+    }
+    setFormData((prev) => ({
+      ...prev,
+      discordUrl: newUrl,
+      navLinks: updatedNavLinks,
+    }));
+  }
+
+  function handleDiscordVisitorUrlChange(newUrl) {
+    setFormData((prev) => ({
+      ...prev,
+      discordVisitorUrl: newUrl,
+    }));
+  }
+
+  function handleNavLinksChange(newNav) {
+    let nextDiscordUrl = formData?.discordUrl;
+    const match = newNav.match(/discord\s*\|\s*(https?:\/\/[^\s,]+)/i);
+    if (match && match[1]) {
+      nextDiscordUrl = match[1].trim();
+    }
+    setFormData((prev) => ({
+      ...prev,
+      navLinks: newNav,
+      discordUrl: nextDiscordUrl,
+    }));
   }
 
   // Member Management
@@ -1771,28 +1814,118 @@ export default function AdminModal({
 
                   {/* Tab 1: Identity */}
                   {activeTab === "identity" && (
-                <div className="flex flex-col gap-3.5">
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2">
-                    <label className="card-label text-slate-700 dark:text-slate-300">Nama Brand / Judul Navbar</label>
-                    <input
-                      type="text"
-                      value={formData.brand || ""}
-                      onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                      className="input-field text-sm font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
-                    />
-                  </div>
+                    <div className="flex flex-col gap-4">
+                      {/* Brand Name */}
+                      <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2">
+                        <label className="card-label text-slate-700 dark:text-slate-300">Nama Brand / Judul Navbar</label>
+                        <input
+                          type="text"
+                          value={formData.brand || ""}
+                          onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                          className="input-field text-sm font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        />
+                      </div>
 
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2">
-                    <label className="card-label text-slate-700 dark:text-slate-300">Link Navigasi (Format: Nama | URL, pisahkan koma)</label>
-                    <input
-                      type="text"
-                      value={formData.navLinks || ""}
-                      onChange={(e) => setFormData({ ...formData, navLinks: e.target.value })}
-                      className="input-field text-xs font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
-                    />
-                  </div>
-                </div>
-              )}
+                      {/* Discord Links Settings Card */}
+                      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-4">
+                        <div className="flex items-center justify-between border-b-2 border-black/10 dark:border-white/10 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-[#5865F2] text-white flex items-center justify-center border border-black shadow-[1px_1px_0px_#000]">
+                              <MessageSquare size={16} />
+                            </div>
+                            <div>
+                              <h4 className="font-heading font-black text-xs sm:text-sm uppercase tracking-tight text-slate-950 dark:text-slate-100">
+                                Pengaturan Tautan Discord Komunitas & Layanan (OOC)
+                              </h4>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                Tautan invite Discord resmi yang digunakan di seluruh tombol, pop-up, formulir pendaftaran, dan redirect website.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Input 1: Discord Utama / Resmi */}
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="card-label text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                              <span>1. Link Discord Resmi / Utama PPS</span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#5865F2]/15 text-[#5865F2] dark:text-[#8ea1ff] font-bold border border-[#5865F2]/30">
+                                Redirect /discord • Anggota • Footer
+                              </span>
+                            </label>
+                            {formData.discordUrl && (
+                              <a
+                                href={formData.discordUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5865F2] dark:text-[#8ea1ff] hover:underline"
+                              >
+                                <span>Buka Link</span>
+                                <ExternalLink size={12} />
+                              </a>
+                            )}
+                          </div>
+                          <input
+                            type="url"
+                            value={formData.discordUrl || ""}
+                            onChange={(e) => handleDiscordUrlChange(e.target.value)}
+                            placeholder="https://discord.gg/gb7ajBMduF"
+                            className="input-field text-xs sm:text-sm font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          />
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Mengatur tautan invite server Discord resmi. Otomatis mengubah pintasan <code>/discord</code> & <code>#discord</code>, tombol Discord di Footer, dan tombol ajakan di akhir pendaftaran anggota.
+                          </span>
+                        </div>
+
+                        {/* Input 2: Discord Visitor / Layanan Lapak & Audiensi */}
+                        <div className="flex flex-col gap-1.5 pt-3 border-t border-black/10 dark:border-white/10">
+                          <div className="flex items-center justify-between">
+                            <label className="card-label text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                              <span>2. Link Discord Visitor (Layanan Stan Lapak & Audiensi)</span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/30">
+                                Portal Layanan • Tracking Tiket • Visitor
+                              </span>
+                            </label>
+                            {formData.discordVisitorUrl && (
+                              <a
+                                href={formData.discordVisitorUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5865F2] dark:text-[#8ea1ff] hover:underline"
+                              >
+                                <span>Buka Link</span>
+                                <ExternalLink size={12} />
+                              </a>
+                            )}
+                          </div>
+                          <input
+                            type="url"
+                            value={formData.discordVisitorUrl || ""}
+                            onChange={(e) => handleDiscordVisitorUrlChange(e.target.value)}
+                            placeholder="https://discord.gg/gb7ajBMduF"
+                            className="input-field text-xs sm:text-sm font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          />
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Mengatur channel visitor untuk pemohon stan lapak UMKM dan permohonan audiensi meeting. Tampil pada tiket bukti pendaftaran dan tombol pelacakan status tiket.
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Navigation Links */}
+                      <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2">
+                        <label className="card-label text-slate-700 dark:text-slate-300">Link Navigasi Navbar (Format: Nama | URL, pisahkan koma)</label>
+                        <input
+                          type="text"
+                          value={formData.navLinks || ""}
+                          onChange={(e) => handleNavLinksChange(e.target.value)}
+                          className="input-field text-xs font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        />
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Tautan menu navigasi atas. Jika kolom link Discord di atas diubah, tautan Discord di menu navigasi ini akan otomatis ikut tersinkronisasi.
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
               {/* Tab 2: Hero & 4 Pilar */}
               {activeTab === "hero" && (

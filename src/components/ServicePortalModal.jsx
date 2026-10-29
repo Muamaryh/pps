@@ -32,8 +32,8 @@ import BrutalistSelect from "./BrutalistSelect";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import { scanKtpImage } from "../utils/ktpOcr";
 
-const DISCORD_SERVER_INVITE_URL = "https://discord.gg/duZhRpJEWY";
-const DISCORD_VISITOR_CHANNEL_URL = "https://discord.gg/duZhRpJEWY";
+const DEFAULT_DISCORD_VISITOR_URL = "https://discord.gg/gb7ajBMduF";
+const DEFAULT_DISCORD_SERVER_URL = "https://discord.gg/gb7ajBMduF";
 
 // Helper untuk membuka gambar Base64 di Tab Baru tanpa blank
 function openImageSafely(dataUrl, title = "Dokumen KTP IC") {
@@ -133,7 +133,16 @@ const TOPIC_OPTIONS = [
   { value: "Topik Khusus Lainnya", label: "📌 Topik Khusus Lainnya (Wajib Tuliskan)" },
 ];
 
-export default function ServicePortalModal({ isOpen, onClose, onShowToast, initialTab = "lapak" }) {
+export default function ServicePortalModal({
+  isOpen,
+  onClose,
+  onShowToast,
+  initialTab = "lapak",
+  discordUrl = DEFAULT_DISCORD_SERVER_URL,
+  discordVisitorUrl = DEFAULT_DISCORD_VISITOR_URL,
+}) {
+  const activeVisitorUrl = discordVisitorUrl || discordUrl || DEFAULT_DISCORD_VISITOR_URL;
+  const activeServerUrl = discordUrl || discordVisitorUrl || DEFAULT_DISCORD_SERVER_URL;
   const [activeTab, setActiveTab] = useState(initialTab || "lapak"); // "lapak" | "meeting" | "tracking"
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedTicket, setSubmittedTicket] = useState(null);
@@ -593,7 +602,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
       submittedTicket.citizenId || "-"
     }\nTelepon IC: ${submittedTicket.phoneNumber}\nDiscord: ${
       submittedTicket.discordTag || "-"
-    }\nStatus: Menunggu Verifikasi Pengurus & Pertemuan di Sandy Shores\nServer Discord LSM PPS: ${DISCORD_SERVER_INVITE_URL}\nChannel Langsung Visitor: ${DISCORD_VISITOR_CHANNEL_URL}`;
+    }\nStatus: Menunggu Verifikasi Pengurus & Pertemuan di Sandy Shores\nServer Discord LSM PPS: ${activeServerUrl}\nChannel Langsung Visitor: ${activeVisitorUrl}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -795,7 +804,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
                     {/* Tombol Langsung ke Discord Visitor Channel */}
                     <div className="flex flex-col gap-1.5 mt-1 pt-2.5 border-t border-black/10 dark:border-white/10">
                       <a
-                        href={DISCORD_VISITOR_CHANNEL_URL}
+                        href={activeVisitorUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
@@ -2043,7 +2052,7 @@ export default function ServicePortalModal({ isOpen, onClose, onShowToast, initi
                                   </p>
                                 </div>
                                 <a
-                                  href={DISCORD_VISITOR_CHANNEL_URL}
+                                  href={activeVisitorUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="btn shrink-0 py-2 px-3.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-heading font-black border border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5"

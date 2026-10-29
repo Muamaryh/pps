@@ -36,7 +36,9 @@ export function sanitizeSandyShores(data) {
 
 export const defaultData = {
   brand: "PIZZA SANDY SHORES",
-  navLinks: "Beranda | #home, Tentang | #about, Struktur | #structure, Galeri | #gallery, Discord | https://discord.gg/92QASf3fus, Daftar Anggota | https://daftaranggotapaps.netlify.app/",
+  navLinks: "Beranda | #home, Tentang | #about, Struktur | #structure, Galeri | #gallery, Discord | https://discord.gg/gb7ajBMduF, Daftar Anggota | https://daftaranggotapaps.netlify.app/",
+  discordUrl: "https://discord.gg/gb7ajBMduF",
+  discordVisitorUrl: "https://discord.gg/gb7ajBMduF",
   heading: "LEMBAGA SWADAYA MASYARAKAT PAGUYUBAN PIZZA SANDY SHORES",
   subtext: "Bersatu • Berkarya • Untuk Masyarakat Sandy Shores",
   aboutText: "Kehidupan bermasyarakat merupakan salah satu unsur penting dalam membangun lingkungan yang aman, tertib, harmonis, dan sejahtera. Dalam kehidupan masyarakat Sandy Shores, diperlukan adanya wadah yang mampu menyatukan berbagai lapisan masyarakat, menampung aspirasi warga, serta mendorong terciptanya hubungan yang baik antara masyarakat, pelaku usaha, dan pemerintah.\n\nBerangkat dari semangat kebersamaan, solidaritas, dan kepedulian terhadap lingkungan sekitar, terbentuklah Lembaga Swadaya Masyarakat (LSM) Paguyuban Pizza Sandy Shores. Organisasi ini hadir sebagai wadah bagi masyarakat untuk berkumpul, berorganisasi, menyampaikan aspirasi, serta melaksanakan berbagai kegiatan sosial dan kemasyarakatan yang memberikan manfaat bagi warga Sandy Shores.\n\nPendirian LSM Paguyuban Pizza Sandy Shores dilandasi oleh keinginan untuk membangun masyarakat yang lebih kompak, mandiri, dan memiliki kepedulian terhadap kepentingan bersama. Organisasi ini tidak hanya berorientasi pada kegiatan perkumpulan, tetapi juga berupaya menjalankan fungsi sosial melalui kegiatan penggalangan dana, bantuan kemasyarakatan, pertemuan warga, kegiatan olahraga bersama, serta berbagai program yang dapat mempererat persaudaraan dan meningkatkan kesejahteraan masyarakat.\n\nSelain menjalankan kegiatan sosial, LSM Paguyuban Pizza Sandy Shores juga berkomitmen menjadi jembatan komunikasi antara masyarakat dan Government Ime City. Melalui dialog, musyawarah, penyampaian aspirasi, dan kerja sama yang konstruktif, organisasi ini diharapkan mampu membantu menciptakan solusi atas berbagai persoalan masyarakat serta mendorong kebijakan yang memperhatikan kebutuhan warga.\n\nSejalan dengan tujuan tersebut, LSM Paguyuban Pizza Sandy Shores berinisiatif mengembangkan program pemberdayaan ekonomi masyarakat melalui penyediaan dan pengelolaan lapak dagang, pendirian stand usaha, serta pengembangan fasilitas pembelajaran bagi warga. Program-program tersebut diharapkan dapat membuka kesempatan usaha, mendorong kemandirian ekonomi, dan menyediakan ruang yang bermanfaat bagi aktivitas masyarakat Sandy Shores, dengan tetap mengikuti ketentuan dan perizinan yang berlaku.\n\nDengan berlandaskan nilai solidaritas, gotong royong, keterbukaan, dan tanggung jawab, LSM Paguyuban Pizza Sandy Shores bertekad menjadi organisasi yang aktif, tertib, dan bermanfaat bagi masyarakat. Oleh karena itu, dukungan serta kerja sama dari Government Ime City sangat diharapkan agar seluruh program dan kegiatan organisasi dapat terlaksana secara terarah, terkoordinasi, dan memberikan dampak positif bagi kemajuan Sandy Shores.\n\nMelalui pembentukan LSM Paguyuban Pizza Sandy Shores, diharapkan tercipta sebuah wadah organisasi yang mampu menyatukan masyarakat, memperjuangkan aspirasi secara bertanggung jawab, mengembangkan potensi ekonomi lokal, serta berkontribusi dalam mewujudkan lingkungan Sandy Shores yang lebih maju, sejahtera, dan harmonis.",
@@ -121,11 +123,37 @@ export const defaultData = {
   adminPassHash: "259ccb1e006f68032bb7659d2b4d941132d0492e6530073a15271665dd29284e"
 };
 
+export function sanitizeDiscordLinks(data) {
+  if (!data) return data;
+  const legacyLinks = [
+    "https://discord.gg/92QASf3fus",
+    "https://discord.gg/2wpeukyDdu",
+    "https://discord.gg/duZhRpJEWY",
+  ];
+  let res = { ...data };
+  if (!res.discordUrl || legacyLinks.includes(res.discordUrl)) {
+    res.discordUrl = "https://discord.gg/gb7ajBMduF";
+  }
+  if (!res.discordVisitorUrl || legacyLinks.includes(res.discordVisitorUrl)) {
+    res.discordVisitorUrl = "https://discord.gg/gb7ajBMduF";
+  }
+  if (res.navLinks) {
+    legacyLinks.forEach((oldUrl) => {
+      if (res.navLinks.includes(oldUrl)) {
+        res.navLinks = res.navLinks.split(oldUrl).join("https://discord.gg/gb7ajBMduF");
+      }
+    });
+  }
+  return res;
+}
+
 export function mergeWithDefaults(cloudData) {
   if (!cloudData) return defaultData;
   return {
     ...defaultData,
     ...cloudData,
+    discordUrl: cloudData.discordUrl || defaultData.discordUrl,
+    discordVisitorUrl: cloudData.discordVisitorUrl || defaultData.discordVisitorUrl,
     adminPassHash: cloudData.adminPassHash || defaultData.adminPassHash,
     heroPillars: cloudData.heroPillars || defaultData.heroPillars,
     aboutHeader: { ...defaultData.aboutHeader, ...(cloudData.aboutHeader || {}) },
@@ -169,7 +197,7 @@ export async function loadCloudData() {
     const docSnap = await getDoc(docRef);
 
     let rawData = docSnap.exists() ? docSnap.data() : { ...defaultData };
-    let data = mergeWithDefaults(sanitizeSandyShores(rawData));
+    let data = sanitizeDiscordLinks(mergeWithDefaults(sanitizeSandyShores(rawData)));
 
     // 1. Load Org members from separate doc if available
     try {
@@ -226,7 +254,7 @@ export async function loadCloudData() {
     const cached = localStorage.getItem("pps_cached_data");
     if (cached) {
       try {
-        let parsed = mergeWithDefaults(sanitizeSandyShores(JSON.parse(cached)));
+        let parsed = sanitizeDiscordLinks(mergeWithDefaults(sanitizeSandyShores(JSON.parse(cached))));
         if (parsed.gallery) {
           parsed.gallery = normalizeGalleryOrder(parsed.gallery);
         }
