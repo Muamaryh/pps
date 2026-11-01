@@ -415,6 +415,80 @@ export const OFFICIAL_CHARTER_DISCLAIMER = [
   "Dokumen ini tidak boleh digunakan untuk menghalangi proses hukum, menghapus tanggung jawab atas pelanggaran, mengintimidasi pihak lain, atau menyembunyikan bukti.",
 ];
 
+export const GOVERNMENT_PERMIT_DATA = {
+  headerTitle: "OFFICIAL DOCUMENT",
+  title: "SURAT IZIN KOMUNITAS - LSM PIZZA SANDY SHORES",
+  issuer: {
+    firstName: "Daryl",
+    lastName: "Watkins Caera",
+    dob: "1998-08-08",
+    job: "GOVERNMENT",
+  },
+  subject: "Pemberian Izin Operasional Komunitas",
+  preamble:
+    "Berdasarkan permohonan yang diajukan oleh perwakilan komunitas pada tanggal 01 Oktober 2026 , serta hasil verifikasi dari Head Division Of Social & Comunity Affairs. dengan ini Government State of San Andreas memberikan izin kepada:",
+  community: {
+    name: "LSM Pizza Sandy Shores",
+    activityType: "Komunitas Pekerja Pizza",
+    secretariat: "Koordinat 1012",
+    responsiblePerson: "Evaan Wongso",
+  },
+  provisions: [
+    "Komunitas LSM Pizza Sandy Shores Los Santos berhak menyelenggarakan kegiatan sesuai dengan tujuan dan visi-misi yang telah disampaikan kepada Pemerintah.",
+    "Komunitas wajib mematuhi seluruh peraturan perundang-undangan yang berlaku di State of San Andreas.",
+    "Setiap kegiatan berskala besar (konvoi, event publik, pengumpulan massa) wajib dikoordinasikan terlebih dahulu dengan pihak kepolisian dan Division Of Social & Comunity Affairs.",
+    "Apabila komunitas terbukti melakukan pelanggaran, maka izin ini dapat dicabut sewaktu-waktu oleh Government.",
+    "Surat izin ini berlaku selama 1 Bulan terhitung sejak tanggal ditetapkan.",
+  ],
+  closing: "Demikian surat izin ini diberikan agar dipergunakan sebagaimana mestinya.",
+  issuanceDate: "31 Oktober 2026",
+  headDivision: "Head Division Of Social & Comunity Affairs",
+  headName: "Minja Jang",
+  permitType: "SURAT IZIN KOMUNITAS",
+  permitNumber: "001/SIK-DSC/SA/X/2026",
+  termsNote:
+    "This document, when signed, becomes an official document. By signing this document you are legally bound for its context and accept every legal consequence it may generate. Every copy of this document is equal in value of its original. Be extra careful when giving copies. Make sure you are fully aware of this document's context before you sign. Don't hesitate to seek help from legal council before signing.",
+  signature: {
+    signer: "Daryl Watkins Cae...",
+    date: "31 Oct 2026, 22:43",
+  },
+  imagePath: "/documents/surat-izin-operasional-pps.jpg",
+  sealPath: "/documents/san_andreas_seal.png",
+};
+
+/**
+ * Menghasilkan teks surat izin komunitas untuk disalin
+ */
+export function getGovernmentPermitPlainText() {
+  const p = GOVERNMENT_PERMIT_DATA;
+  let out = `OFFICIAL DOCUMENT\n`;
+  out += `${p.title}\n`;
+  out += `NO SURAT: ${p.permitNumber}\n\n`;
+  out += `ISSUER: ${p.issuer.firstName} ${p.issuer.lastName} (${p.issuer.job}) | DOB: ${p.issuer.dob}\n\n`;
+  out += `INFORMATION\n`;
+  out += `Perihal: ${p.subject}\n\n`;
+  out += `${p.preamble}\n\n`;
+  out += `- Nama Komunitas   : ${p.community.name}\n`;
+  out += `- Jenis Kegiatan   : ${p.community.activityType}\n`;
+  out += `- Alamat Sekretariat : ${p.community.secretariat}\n`;
+  out += `- Penanggung Jawab : ${p.community.responsiblePerson}\n\n`;
+  out += `Ketentuan Izin:\n`;
+  p.provisions.forEach((prov, idx) => {
+    out += `${idx + 1}. ${prov}\n`;
+  });
+  out += `\n${p.closing}\n\n`;
+  out += `Tanggal: ${p.issuanceDate}\n`;
+  out += `${p.headDivision}\n`;
+  out += `${p.headName}\n\n`;
+  out += `SURAT IZIN KOMUNITAS\n`;
+  out += `NO SURAT. ${p.permitNumber}\n\n`;
+  out += `TERMS AND SIGNING\n`;
+  out += `${p.termsNote}\n\n`;
+  out += `SIGNED BY: ${p.signature.signer}\n`;
+  out += `Date: ${p.signature.date}\n`;
+  return out;
+}
+
 /**
  * Menghasilkan teks lengkap format salinan untuk ditempel ke Discord / Dokumen Eksternal
  */
