@@ -35,12 +35,12 @@ import {
   getGovernmentPermitPlainText,
 } from "../data/officialCharter";
 
-export default function OfficialCharterViewer({ onShowToast }) {
+export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onShowToast }) {
   // Mode Tampilan Dokumen:
   // "CHARTER" = Pakta Pendirian & AD/ART (10 Bab)
   // "PERMIT_HD" = Surat Izin Komunitas Pemerintah (Replika Digital HD)
   // "SCAN_ORIGINAL" = Scan Dokumen Asli In-Game (Gambar Gabungan Utuh)
-  const [documentView, setDocumentView] = useState("PERMIT_HD");
+  const [documentView, setDocumentView] = useState(initialView);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeChapterFilter, setActiveChapterFilter] = useState("ALL");

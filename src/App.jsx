@@ -13,6 +13,7 @@ import MemberRegistrationModal from "./components/MemberRegistrationModal";
 import MembersDirectoryModal from "./components/MembersDirectoryModal";
 import EventRegistrationModal from "./components/EventRegistrationModal";
 import BansosModal from "./components/BansosModal";
+import PermitModal from "./components/PermitModal";
 import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
@@ -250,6 +251,8 @@ export default function App() {
     const hash = window.location.hash.toLowerCase();
     return path === "/bansos" || path.endsWith("/bansos") || hash === "#/bansos" || hash === "#bansos";
   });
+
+  const [isPermitModalOpen, setIsPermitModalOpen] = useState(false);
 
   useEffect(() => {
     function checkRoutes() {
@@ -557,6 +560,7 @@ export default function App() {
               heading={data.heading}
               subtext={data.subtext}
               heroPillars={data.heroPillars}
+              onOpenPermit={() => setIsPermitModalOpen(true)}
             />
 
             {/* Tentang Kami Section */}
@@ -669,6 +673,13 @@ export default function App() {
         eventsList={eventsList}
         bansosPrograms={bansosPrograms}
         onDataSaved={(newData) => setData(newData)}
+        onShowToast={showToast}
+      />
+
+      {/* Modal Surat Izin Komunitas Pemerintah San Andreas */}
+      <PermitModal
+        isOpen={isPermitModalOpen}
+        onClose={() => setIsPermitModalOpen(false)}
         onShowToast={showToast}
       />
 

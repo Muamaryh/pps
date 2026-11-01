@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { BookOpen, Users, Camera, MapPin, Store, HeartHandshake, ShieldCheck } from "lucide-react";
+import { BookOpen, Users, Camera, MapPin, Store, HeartHandshake, ShieldCheck, FileCheck2, ExternalLink } from "lucide-react";
 
-export default function Hero({ heading: _heading, subtext, heroPillars }) {
+export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPermit }) {
   // Typewriter effect state (3 distinct lines)
   const targetLine1 = "LEMBAGA SWADAYA MASYARAKAT";
   const targetLine2 = "PAGUYUBAN PIZZA";
@@ -125,19 +125,64 @@ export default function Hero({ heading: _heading, subtext, heroPillars }) {
       {/* 2. Seluruh Konten Lainnya Dipindahkan ke Luar / di Bawah Box Gambar */}
       <div className="mt-8 text-center max-w-4xl mx-auto flex flex-col items-center w-full px-4">
         {/* Slogan */}
-        <p className="font-body text-base sm:text-xl md:text-2xl text-slate-900 dark:text-slate-100 leading-relaxed mb-6 font-black">
+        <p className="font-body text-base sm:text-xl md:text-2xl text-slate-900 dark:text-slate-100 leading-relaxed mb-4 font-black">
           {subtext || "Bersatu • Berkarya • Untuk Masyarakat Sandy Shores"}
         </p>
 
-        {/* Tombol Aksi Taktil (Kuning & Merah) */}
+        {/* Lencana Verifikasi Surat Izin Operasional Pemerintah */}
+        <button
+          type="button"
+          onClick={onOpenPermit}
+          className="group inline-flex items-center gap-3 px-4 py-2.5 mb-7 rounded-lg bg-[#FFFDF9] dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] hover:shadow-[1.5px_1.5px_0px_#000] hover:translate-x-0.5 hover:translate-y-0.5 cursor-pointer transition-all text-left max-w-xl w-full sm:w-auto"
+          title="Klik untuk membuka dokumen Surat Izin Komunitas Resmi dari Pemerintah San Andreas"
+        >
+          <div className="w-10 h-10 rounded-full bg-[#171A21] border-2 border-[#8A7131] flex items-center justify-center shrink-0 p-0.5 shadow-sm group-hover:scale-105 transition-transform">
+            <img
+              src="/documents/san_andreas_seal.png"
+              alt="Seal San Andreas"
+              className="w-full h-full object-contain rounded-full"
+            />
+          </div>
+          <div className="flex-1 min-w-0 pr-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-mono font-black uppercase text-[#DC2626] dark:text-[#FACC15] tracking-wider">
+                Terverifikasi Pemerintah San Andreas
+              </span>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                IZIN AKTIF
+              </span>
+            </div>
+            <div className="font-heading font-black text-xs sm:text-sm text-slate-950 dark:text-slate-100 truncate mt-0.5">
+              Surat Izin Operasional No: 001/SIK-DSC/SA/X/2026
+            </div>
+            <div className="text-[11px] font-mono text-slate-500 truncate">
+              Sekretariat Koordinat 1012 • Penanggung Jawab: Evan Wongso
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-1 text-xs font-mono font-black text-[#DC2626] dark:text-[#FACC15] shrink-0 pl-2 border-l border-black/15 dark:border-white/15">
+            <span>Buka Izin</span>
+            <ExternalLink size={13} className="group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </button>
+
+        {/* Tombol Aksi Taktil (Kuning, Merah, & Surat Izin) */}
         <div className="flex flex-wrap items-center justify-center gap-3.5 mb-10">
           <a
             href="#about"
             className="btn bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black"
           >
             <BookOpen size={17} className="text-[#DC2626]" />
-            <span>Visi & Profil</span>
+            <span>Visi &amp; Profil</span>
           </a>
+
+          <button
+            type="button"
+            onClick={onOpenPermit}
+            className="btn bg-[#FFFDF9] dark:bg-[#1E212B] hover:bg-[#FACC15]/20 text-slate-950 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black cursor-pointer flex items-center gap-2"
+          >
+            <FileCheck2 size={17} className="text-emerald-600 dark:text-emerald-400" />
+            <span>Surat Izin Resmi</span>
+          </button>
 
           <a
             href="#structure"
