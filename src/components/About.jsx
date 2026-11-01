@@ -212,7 +212,7 @@ export default function About({
                   }`}
                 >
                   <Scale size={14} />
-                  <span>Pakta Pendirian &amp; AD/ART Resmi (10 Bab)</span>
+                  <span>Pakta Pendirian &amp; AD/ART Resmi</span>
                 </button>
 
                 <button

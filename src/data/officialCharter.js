@@ -449,7 +449,7 @@ export const GOVERNMENT_PERMIT_DATA = {
   termsNote:
     "This document, when signed, becomes an official document. By signing this document you are legally bound for its context and accept every legal consequence it may generate. Every copy of this document is equal in value of its original. Be extra careful when giving copies. Make sure you are fully aware of this document's context before you sign. Don't hesitate to seek help from legal council before signing.",
   signature: {
-    signer: "Daryl Watkins Cae...",
+    signer: "Daryl Watkins Caera",
     date: "31 Oct 2026, 22:43",
   },
   imagePath: "/documents/surat-izin-operasional-pps.jpg",

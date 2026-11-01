@@ -3,7 +3,7 @@
 // Riwayat Transaksi, Filter Arus Kas, Hapus Koreksi, dan Ekspor Excel
 // ==========================================================================
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   FileSpreadsheet,
@@ -41,6 +41,16 @@ export default function KasLedgerModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+
+  // Tutup dengan tombol Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   const summary = getKasSummary(transactions, fallbackActiveKasRupiah);
 
@@ -101,10 +111,16 @@ export default function KasLedgerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs">
-      <div className="card-brutal w-full max-w-4xl bg-[var(--modal-bg)] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b-2 border-black dark:border-[#475569]">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        className="card-brutal w-full max-w-4xl bg-[var(--modal-bg)] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Sticky di atas agar tidak tenggelam saat scroll */}
+        <div className="sticky top-0 z-20 flex items-center justify-between p-3.5 sm:p-4 border-b-2 border-black dark:border-[#475569] bg-[var(--modal-bg)] shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-slate-900 dark:bg-slate-700 border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[1.5px_1.5px_0px_#000]">
               <DollarSign size={18} />
@@ -126,7 +142,7 @@ export default function KasLedgerModal({
               title="Salin teks laporan kas untuk Discord / WhatsApp"
             >
               <Copy size={13} />
-              <span>Salin Teks</span>
+              <span className="hidden sm:inline">Salin Teks</span>
             </button>
             <button
               type="button"
@@ -135,17 +151,22 @@ export default function KasLedgerModal({
               title="Unduh format Excel"
             >
               <FileSpreadsheet size={13} />
-              <span>Ekspor Excel</span>
+              <span className="hidden sm:inline">Ekspor Excel</span>
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-slate-500"
+              className="w-8 h-8 rounded bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center justify-center shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+              aria-label="Tutup modal"
+              title="Tutup (Esc)"
             >
-              <X size={18} />
+              <X size={16} className="stroke-[3]" />
             </button>
           </div>
         </div>
+
+        {/* Content body yang scrollable */}
+        <div className="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto flex-1">
 
         {/* 3 Kartu Saldo: Kas Oita, Kas Darren, dan Saldo Bersih */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
@@ -383,6 +404,7 @@ export default function KasLedgerModal({
           </div>
         </div>
       </div>
+    </div>
 
       {/* Modal Salin Teks Laporan Kas (Discord / WA) */}
       <KasCopyModal

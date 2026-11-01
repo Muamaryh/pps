@@ -160,7 +160,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-1 text-xs font-mono font-black text-[#DC2626] dark:text-[#FACC15] shrink-0 pl-2 border-l border-black/15 dark:border-white/15">
-            <span>Buka Izin</span>
+            <span>Lihat Izin</span>
             <ExternalLink size={13} className="group-hover:translate-x-0.5 transition-transform" />
           </div>
         </button>

@@ -33,6 +33,16 @@ export default function KasCopyModal({
     setReportText(text);
   }, [mode, walletFilter, transactions, summary]);
 
+  // Tutup dengan tombol Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   async function handleCopy() {
     try {
       if (navigator.clipboard && window.isSecureContext) {
@@ -62,10 +72,16 @@ export default function KasCopyModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs">
-      <div className="card-brutal w-full max-w-2xl bg-[var(--modal-bg)] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b-2 border-black dark:border-[#475569]">
+    <div
+      className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        className="card-brutal w-full max-w-2xl bg-[var(--modal-bg)] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Sticky di atas agar tidak tenggelam */}
+        <div className="sticky top-0 z-20 flex items-center justify-between p-4 border-b-2 border-black dark:border-[#475569] bg-[var(--modal-bg)] shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shrink-0 shadow-[1.5px_1.5px_0px_#000]">
               <Copy size={18} />
@@ -82,11 +98,16 @@ export default function KasCopyModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-slate-500 transition-colors"
+            className="w-8 h-8 rounded bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center justify-center shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+            aria-label="Tutup modal"
+            title="Tutup (Esc)"
           >
-            <X size={18} />
+            <X size={16} className="stroke-[3]" />
           </button>
         </div>
+
+        {/* Content body yang scrollable */}
+        <div className="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto flex-1">
 
         {/* Kontrol Pilihan Format */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-black/10 dark:border-white/10">
@@ -206,6 +227,7 @@ export default function KasCopyModal({
               )}
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>

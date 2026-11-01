@@ -145,7 +145,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
           }`}
         >
           <FileCheck2 size={15} />
-          <span>Surat Izin Pemerintah (HD Digital)</span>
+          <span>Surat Izin Pemerintah</span>
         </button>
 
         <button
@@ -158,7 +158,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
           }`}
         >
           <Scale size={15} />
-          <span>Pakta Pendirian &amp; AD/ART (10 Bab)</span>
+          <span>Pakta Pendirian &amp; AD/ART</span>
         </button>
       </div>
 
