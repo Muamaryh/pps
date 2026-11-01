@@ -3968,9 +3968,6 @@ export default function AdminModal({
                         <span className="text-[10px] font-sans font-black text-amber-900 dark:text-amber-300 uppercase">
                           Kas di Oita (Bendahara)
                         </span>
-                        <span className="text-[10px] font-mono font-bold text-amber-800 dark:text-amber-200 px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/60 rounded border border-amber-300 dark:border-amber-700">
-                          FISIK
-                        </span>
                       </div>
                       <div className="flex items-baseline gap-1">
                         <strong className="text-xl font-mono font-black text-amber-950 dark:text-amber-200">
@@ -3988,9 +3985,6 @@ export default function AdminModal({
                         <span className="text-[10px] font-sans font-black text-indigo-900 dark:text-indigo-300 uppercase">
                           Kas di Darren (Bendahara)
                         </span>
-                        <span className="text-[10px] font-mono font-bold text-indigo-800 dark:text-indigo-200 px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/60 rounded border border-indigo-300 dark:border-indigo-700">
-                          FISIK
-                        </span>
                       </div>
                       <div className="flex items-baseline gap-1">
                         <strong className="text-xl font-mono font-black text-indigo-950 dark:text-indigo-200">
@@ -4007,9 +4001,6 @@ export default function AdminModal({
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-sans font-black text-emerald-900 dark:text-emerald-300 uppercase">
                           Total Saldo Bersih LSM
-                        </span>
-                        <span className="text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-200 px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-900/60 rounded border border-emerald-500 text-black">
-                          SINKRON
                         </span>
                       </div>
                       <div className="flex items-baseline gap-1">

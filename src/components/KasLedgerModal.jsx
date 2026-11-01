@@ -143,9 +143,6 @@ export default function KasLedgerModal({
               <span className="text-[10px] uppercase font-black text-amber-900 dark:text-amber-300">
                 Kas di Oita (Bendahara)
               </span>
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 bg-amber-200 rounded border border-amber-400 text-amber-900">
-                FISIK
-              </span>
             </div>
             <strong className="text-sm sm:text-base font-mono font-black text-amber-950 dark:text-amber-200">
               {formatCurrency(summary.oitaBalance)}
@@ -161,9 +158,6 @@ export default function KasLedgerModal({
               <span className="text-[10px] uppercase font-black text-indigo-900 dark:text-indigo-300">
                 Kas di Darren (Bendahara)
               </span>
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 bg-indigo-200 rounded border border-indigo-400 text-indigo-900">
-                FISIK
-              </span>
             </div>
             <strong className="text-sm sm:text-base font-mono font-black text-indigo-950 dark:text-indigo-200">
               {formatCurrency(summary.darrenBalance)}
@@ -178,9 +172,6 @@ export default function KasLedgerModal({
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase font-black text-emerald-900 dark:text-emerald-300">
                 Total Saldo Bersih LSM
-              </span>
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 bg-emerald-200 rounded border border-emerald-400 text-emerald-900">
-                SINKRON
               </span>
             </div>
             <strong className="text-sm sm:text-base font-mono font-black text-emerald-800 dark:text-emerald-300">
