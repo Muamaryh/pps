@@ -14,6 +14,7 @@ import {
   Trash2,
   Calendar,
   Plus,
+  Copy,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -22,6 +23,7 @@ import {
   exportKasLedgerToExcel,
   deleteKasTransactionCloud,
 } from "../services/kasService";
+import KasCopyModal from "./KasCopyModal";
 
 export default function KasLedgerModal({
   isOpen,
@@ -38,6 +40,7 @@ export default function KasLedgerModal({
   const [filterType, setFilterType] = useState("all"); // 'all' | 'INCOME' | 'EXPENSE' | 'OITA' | 'DARREN'
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
 
   const summary = getKasSummary(transactions, fallbackActiveKasRupiah);
 
@@ -116,6 +119,15 @@ export default function KasLedgerModal({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCopyModalOpen(true)}
+              className="py-1.5 px-3 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer flex items-center gap-1.5 rounded active:translate-x-0.5 active:translate-y-0.5"
+              title="Salin teks laporan kas untuk Discord / WhatsApp"
+            >
+              <Copy size={13} />
+              <span>Salin Teks</span>
+            </button>
             <button
               type="button"
               onClick={handleExport}
@@ -371,6 +383,15 @@ export default function KasLedgerModal({
           </div>
         </div>
       </div>
+
+      {/* Modal Salin Teks Laporan Kas (Discord / WA) */}
+      <KasCopyModal
+        isOpen={isCopyModalOpen}
+        onClose={() => setIsCopyModalOpen(false)}
+        transactions={filtered}
+        summary={summary}
+        onShowToast={onShowToast}
+      />
     </div>
   );
 }

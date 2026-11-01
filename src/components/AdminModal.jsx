@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -56,6 +56,7 @@ import KasPaymentModal from "./KasPaymentModal";
 import KasExpenseModal from "./KasExpenseModal";
 import KasIncomeModal from "./KasIncomeModal";
 import KasLedgerModal from "./KasLedgerModal";
+import KasCopyModal from "./KasCopyModal";
 import {
   loadKasLedgerCloud,
   subscribeKasLedger,
@@ -260,6 +261,7 @@ export default function AdminModal({
   const [isKasExpenseModalOpen, setIsKasExpenseModalOpen] = useState(false);
   const [isKasIncomeModalOpen, setIsKasIncomeModalOpen] = useState(false);
   const [isKasLedgerModalOpen, setIsKasLedgerModalOpen] = useState(false);
+  const [isKasCopyModalOpen, setIsKasCopyModalOpen] = useState(false);
   const [kasFilterType, setKasFilterType] = useState("ALL"); // 'ALL' | 'INCOME' | 'EXPENSE'
   const [kasSearchQuery, setKasSearchQuery] = useState("");
 
@@ -3957,6 +3959,16 @@ export default function AdminModal({
                         <FileSpreadsheet size={15} />
                         <span>Ekspor Excel</span>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsKasCopyModalOpen(true)}
+                        className="py-2 px-3.5 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        title="Salin laporan kas dalam format teks untuk Discord / WhatsApp"
+                      >
+                        <Copy size={15} />
+                        <span>Salin Laporan</span>
+                      </button>
                     </div>
                   </div>
 
@@ -6266,6 +6278,15 @@ export default function AdminModal({
             if (Array.isArray(list)) setKasTransactions(list);
           });
         }}
+      />
+
+      {/* Modal Salin Teks Laporan Kas (Discord / WA) */}
+      <KasCopyModal
+        isOpen={isKasCopyModalOpen}
+        onClose={() => setIsKasCopyModalOpen(false)}
+        transactions={kasTransactions}
+        summary={kasSummary}
+        onShowToast={onShowToast}
       />
 
       <BrutalistConfirmModal

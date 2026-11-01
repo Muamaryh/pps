@@ -534,3 +534,59 @@ export function exportKasLedgerToExcel(transactions = [], summary = null) {
     return false;
   }
 }
+
+/**
+ * Menghasilkan teks laporan kas terformat untuk Discord / WhatsApp
+ */
+export function generateKasReportText({
+  transactions = [],
+  summary = null,
+  mode = "FULL",
+  walletFilter = "ALL",
+} = {}) {
+  const allTx = transactions.length > 0 ? transactions : INITIAL_KAS_TRANSACTIONS;
+  const filteredTx = allTx.filter((tx) => {
+    if (walletFilter === "ALL") return true;
+    const walletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
+    const isDarren = tx.wallet === "Darren" || walletText.includes("darren");
+    return walletFilter === "DARREN" ? isDarren : !isDarren;
+  });
+
+  const sum = summary || getKasSummary(allTx);
+  const todayStr = getTodayIndonesianDateString();
+
+  let text = `[LAPORAN BUKU KAS LSM PAGUYUBAN PIZZA SANDY SHORES]\n`;
+  text += `Update: ${todayStr}\n\n`;
+
+  text += `RINGKASAN SALDO:\n`;
+  if (walletFilter === "ALL" || walletFilter === "DARREN") {
+    text += `• Kas di Darren : ${formatCurrency(sum.darrenBalance)}\n`;
+  }
+  if (walletFilter === "ALL" || walletFilter === "OITA") {
+    text += `• Kas di Oita   : ${formatCurrency(sum.oitaBalance)}\n`;
+  }
+  text += `----------------------------------------\n`;
+  text += `TOTAL SALDO BERSIH LSM: ${formatCurrency(sum.netBalance)}\n`;
+  text += `----------------------------------------\n`;
+  text += `Total Pemasukan  : +${formatCurrency(sum.totalIncome)} (${sum.incomeCount} transaksi)\n`;
+  text += `Total Pengeluaran: -${formatCurrency(sum.totalExpense)} (${sum.expenseCount} transaksi)\n`;
+
+  if (mode === "FULL" && filteredTx.length > 0) {
+    text += `\nDAFTAR MUTASI TRANSAKSI (${filteredTx.length} Transaksi):\n`;
+    filteredTx.forEach((tx, idx) => {
+      const isIncome = (tx.type || "").toUpperCase() === "INCOME";
+      const sign = isIncome ? "[+]" : "[-]";
+      const dateStr = tx.date || formatKasDate(tx.timestamp);
+      const walletLabel = tx.wallet ? `Kas ${tx.wallet}` : (tx.responsible || "Kas LSM");
+      const title = tx.title || tx.category || "Transaksi Kas";
+      const amtStr = formatCurrency(tx.amount);
+      const memberInfo = tx.memberName ? ` (${tx.memberName})` : "";
+
+      text += `${idx + 1}. ${sign} ${amtStr} | ${dateStr} | ${walletLabel}\n   ${title}${memberInfo}\n`;
+    });
+    text += `----------------------------------------\n`;
+  }
+
+  text += `Dicatat melalui Portal Web LSM PPS`;
+  return text;
+}
