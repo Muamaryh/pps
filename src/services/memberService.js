@@ -164,7 +164,7 @@ export function getCurrentWeekLabel(d = new Date()) {
 
 /**
  * Subscription Constants & Durations
- * - Kas (Uang Kas & Jasra): Langganan 30 Hari per pembayaran (Rp 4.000)
+ * - Kas (Uang Kas & Jasra): Langganan 30 Hari per pembayaran ($4.000)
  * - Voucher (10 Treatment & 10 Pingsan): Masa Aktif Kuota 7 Hari per klaim
  */
 export const KAS_SUBSCRIPTION_DAYS = 30;
@@ -392,18 +392,27 @@ export async function updateMemberKasAndVoucherCloud(id, updateData) {
 }
 
 /**
- * Berlangganan / Perpanjang Kas Anggota (+30 Hari)
- * Jika anggota masih aktif, durasi ditambahkan dari tanggal kadaluarsa saat ini (+30 hari)
- * Jika sudah expired / belum aktif, aktif dari hari ini selama 30 hari.
+ * Berlangganan / Perpanjang Kas Anggota (+30 Hari atau Custom Durasi Hasil Konversi Nominal)
+ * Jika anggota masih aktif, durasi ditambahkan dari tanggal kadaluarsa saat ini
+ * Jika sudah expired / belum aktif, aktif dari hari ini
  */
-export async function renewMemberKasSubscriptionCloud(member, additionalDays = KAS_SUBSCRIPTION_DAYS) {
+export async function renewMemberKasSubscriptionCloud(
+  member,
+  additionalDays = KAS_SUBSCRIPTION_DAYS,
+  options = {}
+) {
   const now = Date.now();
   const currentSub = getMemberKasSubscription(member);
-  let newExpiresAt = now + additionalDays * 86400000;
+  const daysNum = Math.max(1, Number(additionalDays) || KAS_SUBSCRIPTION_DAYS);
+  let newExpiresAt = now + daysNum * 86400000;
 
   if (currentSub.isActive && currentSub.expiresAt && currentSub.expiresAt > now) {
-    newExpiresAt = currentSub.expiresAt + additionalDays * 86400000;
+    newExpiresAt = currentSub.expiresAt + daysNum * 86400000;
   }
+
+  const amountPaid = typeof options.amount === "number" ? options.amount : 4000;
+  const customMonthlyRate = options.customMonthlyRate || null;
+  const allocationMode = options.allocationMode || "CONVERT_DURATION";
 
   const payload = {
     kasPaid: true,
@@ -411,7 +420,9 @@ export async function renewMemberKasSubscriptionCloud(member, additionalDays = K
     kasExpiresAt: newExpiresAt,
     kasPaidDate: formatDateId(now),
     kasPeriodLabel: `${formatDateId(now)} - ${formatDateId(newExpiresAt)}`,
-    kasAmount: 4000,
+    kasAmount: amountPaid,
+    kasCustomMonthlyRate: customMonthlyRate,
+    kasAllocationMode: allocationMode,
   };
 
   return await updateMemberKasAndVoucherCloud(member.id, payload);
@@ -526,7 +537,7 @@ export function exportMembersToExcel(members) {
       "NO KTP IC": m.icNumber || "-",
       "NO TLP/WA IC": m.phone || "-",
       "DISCORD (OOC)": m.discordTag || "-",
-      "Status Kas (Rp 4.000)": kasSub.isActive
+      "Status Kas ($4.000)": kasSub.isActive
         ? `LUNAS (Sisa ${kasSub.daysRemaining} Hari)`
         : kasSub.isExpired
         ? `LEWAT TEMPO (${kasSub.daysAgo} Hari)`
@@ -606,7 +617,7 @@ export async function exportMembersToZip(members) {
       "NO KTP IC": m.icNumber || "-",
       "NO TLP/WA IC": m.phone || "-",
       "DISCORD (OOC)": m.discordTag || "-",
-      "Status Kas (Rp 4.000)": kasSub.isActive
+      "Status Kas ($4.000)": kasSub.isActive
         ? `LUNAS (Sisa ${kasSub.daysRemaining} Hari)`
         : kasSub.isExpired
         ? `LEWAT TEMPO (${kasSub.daysAgo} Hari)`

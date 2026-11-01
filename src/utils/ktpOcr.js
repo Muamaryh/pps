@@ -1,17 +1,29 @@
 import Tesseract from "tesseract.js";
 
+// Blacklist of common card labels and dictionary words that must NEVER be treated as Citizen IDs
+const BLACKLIST_WORDS = new Set([
+  "SANTOS", "LOS", "IDENTITY", "LASTNAME", "FIRSTNAME", "CITIZEN", "CITIZENID",
+  "NATIONALITY", "INDONESIA", "INDONESIAN", "CIVILIAN", "FREELANCER",
+  "UNAFFILIATED", "PLAYERS", "FEMALE", "MALE", "AMERICAN", "TURBO",
+  "SANDY", "SHORES", "PAPS", "DATE", "BIRTH", "STATE", "CARD", "NAME", "GANG",
+  "FIRST", "LAST", "SIGNATURE", "SIGN", "BLAINE", "COUNTY", "SAN", "ANDREAS",
+  "CITY", "MEMBER", "REGISTRATION", "PHOTO", "PICTURE", "EXP", "EXPIRES",
+  "EXPIRE", "DRIVER", "LICENSE", "LICENCE", "VALID", "ISSUED", "CARDHOLDER",
+  "HOLDER", "SIGNATURES"
+]);
+
 /**
  * Preprocesses an image via canvas to optimize for OCR recognition:
  * - Upscales low-res screenshots (e.g. 500px -> 1200px+) with high-quality bicubic smoothing
- * - Binarizes / filters out background guilloche patterns, topographic elevation contours,
- *   and pastel map shading so only dark black text remains on a clean white background.
+ * - Smart background suppression: separates colored topographical terrain & guilloche patterns
+ *   from real dark ink text based on color saturation and luminance.
  */
 export async function preprocessImageForOcr(imageFileOrUrl, options = {}) {
   if (typeof window === "undefined" || typeof Image === "undefined") {
     return imageFileOrUrl;
   }
   const enableBinarize = options.binarize !== false;
-  const threshold = typeof options.threshold === "number" ? options.threshold : 118;
+  const threshold = typeof options.threshold === "number" ? options.threshold : 115;
 
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -50,14 +62,26 @@ export async function preprocessImageForOcr(imageFileOrUrl, options = {}) {
         ctx.drawImage(img, 0, 0, width, height);
 
         if (enableBinarize) {
-          // Adaptive thresholding: converts colored GTA V / FiveM ID backgrounds
-          // (topographic lines, green terrain, watermarks) into pure white #FFFFFF,
-          // and black text into pure black #000000.
+          // Color-aware background separation:
+          // In GTA V / FiveM ID cards, text is dark neutral monochrome (R ~= G ~= B).
+          // The background maps, elevation contours, and seals are colored (high saturation).
           const imgData = ctx.getImageData(0, 0, width, height);
           const d = imgData.data;
           for (let i = 0; i < d.length; i += 4) {
-            const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-            if (gray < threshold) {
+            const r = d[i];
+            const g = d[i + 1];
+            const b = d[i + 2];
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const sat = max - min;
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            // 1. Suppress colored map patterns (green vegetation, orange mountains, blue seals)
+            if (sat > 22 && gray > 60) {
+              d[i] = 255;
+              d[i + 1] = 255;
+              d[i + 2] = 255;
+            } else if (gray < threshold) {
               d[i] = 0;
               d[i + 1] = 0;
               d[i + 2] = 0;
@@ -102,6 +126,122 @@ export function cleanOcrName(raw) {
     .replace(/[^a-zA-Z\s\-]/g, "")
     .trim()
     .toUpperCase();
+}
+
+/**
+ * Smart FiveM Citizen ID Disambiguator & Variant Generator:
+ * FiveM / QB-Core character IDs are 8-character alphanumeric codes with both digits and uppercase letters.
+ * Standard OCR models (trained on English prose) frequently misread digits in codes as look-alike letters:
+ * - 'O' <-> '0' (especially pos 1 or after letters: J0..., E0...)
+ * - 'I' / 'l' <-> '9' / '1' (low-res GTA V fonts make loop of 9 appear like I or 1)
+ * - 'S' <-> '5'
+ * - 'B' <-> '8'
+ * - 'Z' <-> '2'
+ * - '0' <-> 'J' (e.g. E2109V03 -> E21J9V03)
+ * - Tesseract doubles characters in oval fonts (e.g. 'O' -> '0O' resulting in 9 characters like E21J9V0O3)
+ */
+export function generateCidSmartVariants(rawCid, extractedNames = []) {
+  if (!rawCid || typeof rawCid !== "string") return [];
+  const cid = rawCid.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (cid.length < 5 || cid.length > 12) return [];
+
+  if (BLACKLIST_WORDS.has(cid)) return [];
+
+  const nameParts = extractedNames
+    .flatMap((n) => (n || "").toUpperCase().split(/\s+/))
+    .filter(Boolean);
+  if (nameParts.includes(cid)) return [];
+
+  const candidates = new Set();
+
+  // If 9 characters (Tesseract doubled glyph artifact, e.g. E21J9V0O3 -> E21J9VO3)
+  if (cid.length === 9) {
+    let collapsed = false;
+    // 1. Collapse 0O or O0
+    if (/0O|O0/.test(cid)) {
+      candidates.add(cid.replace(/0O|O0/, "O"));
+      candidates.add(cid.replace(/0O|O0/, "0"));
+      collapsed = true;
+    }
+    // 2. Collapse OO or 00
+    if (/OO|00/.test(cid)) {
+      candidates.add(cid.replace(/OO|00/, "O"));
+      candidates.add(cid.replace(/OO|00/, "0"));
+      collapsed = true;
+    }
+    // 3. Collapse 1I or I1 or II
+    if (/1I|I1|II/.test(cid)) {
+      candidates.add(cid.replace(/1I|I1|II/, "I"));
+      candidates.add(cid.replace(/1I|I1|II/, "1"));
+      collapsed = true;
+    }
+    // 4. Collapse lI or Il
+    if (/lI|Il/i.test(cid)) {
+      candidates.add(cid.replace(/lI|Il/i, "I"));
+      candidates.add(cid.replace(/lI|Il/i, "1"));
+      collapsed = true;
+    }
+    // Only if not collapsed, try stripping leading or trailing noise char
+    if (!collapsed) {
+      const s1 = cid.slice(1);
+      const s2 = cid.slice(0, 8);
+      if (/[A-Z]/.test(s1) && /\d/.test(s1)) candidates.add(s1);
+      if (/[A-Z]/.test(s2) && /\d/.test(s2)) candidates.add(s2);
+    }
+  }
+
+  // If 8 characters
+  if (cid.length === 8) {
+    const hasDigits = /\d/.test(cid);
+    if (!hasDigits) {
+      // 0 digits: all letters (e.g. JORTPIDO) -> Smart substitutions
+      let v1 = cid;
+      if (v1[1] === "O") v1 = v1[0] + "0" + v1.slice(2);
+      if (v1[5] === "I") v1 = v1.slice(0, 5) + "9" + v1.slice(6);
+      candidates.add(v1);
+
+      let v2 = v1;
+      if (v2[7] === "O") v2 = v2.slice(0, 7) + "0";
+      candidates.add(v2);
+
+      let v3 = cid;
+      if (v3[1] === "O") v3 = v3[0] + "0" + v3.slice(2);
+      if (v3[5] === "I") v3 = v3.slice(0, 5) + "1" + v3.slice(6);
+      candidates.add(v3);
+
+      let v4 = cid;
+      if (v4[5] === "I") v4 = v4.slice(0, 5) + "9" + v4.slice(6);
+      candidates.add(v4);
+    } else {
+      candidates.add(cid);
+      if (cid.includes("0")) candidates.add(cid.replace(/0/g, "O"));
+      if (cid.includes("O")) candidates.add(cid.replace(/O/g, "0"));
+      if (/^[A-Z]\d{2}0\d[A-Z]/.test(cid)) {
+        candidates.add(cid[0] + cid.slice(1, 3) + "J" + cid.slice(4));
+      }
+    }
+  }
+
+  // Filter out any that are pure letters (0 digits) or invalid
+  const valid = Array.from(candidates).filter((c) => {
+    if (c.length !== 8 && !/^(CID|CTZ)[A-Z0-9]{4,8}$/.test(c)) return false;
+    if (!/[A-Z]/.test(c)) return false;
+    if (!/\d/.test(c)) return false;
+    if (BLACKLIST_WORDS.has(c)) return false;
+    if (nameParts.includes(c)) return false;
+    return true;
+  });
+
+  // Sort: prioritize realistic FiveM alphanumeric strings (mix of letters and numbers)
+  return valid.sort((a, b) => {
+    const aDigitCount = (a.match(/\d/g) || []).length;
+    const bDigitCount = (b.match(/\d/g) || []).length;
+    const aBalanced = aDigitCount >= 2 && aDigitCount <= 5;
+    const bBalanced = bDigitCount >= 2 && bDigitCount <= 5;
+    if (aBalanced && !bBalanced) return -1;
+    if (!aBalanced && bBalanced) return 1;
+    return 0;
+  });
 }
 
 /**
@@ -246,12 +386,12 @@ export function parseKtpOcrText(rawText) {
       if (val) result.nationality = cleanOcrName(val);
     }
 
-    // Citizen ID
+    // Citizen ID label matching (supports 'CITIZEN ID', 'CITIZEN 1D', 'ciTizen 1D', 'CID', etc.)
     if (
       !result.citizenId &&
-      /(?:citizen\s*id|citizenid|cid|nik|no\.?\s*ktp|id\s*warga|^id\b|c\.?i\.?d)/i.test(line)
+      /(?:citizen\s*[iI1!|][dD0]|citizenid|\bcid\b|\bc1d\b|\bnik\b|no\.?\s*ktp|id\s*warga|^id\b|^1d\b|c\.?[iI1!|]\.?d|state\s*[iI1!|][dD0]|citizen)/i.test(line)
     ) {
-      const match = line.match(/(?:citizen\s*id|citizenid|cid|nik|no\.?\s*ktp|id\s*warga|^id\b|c\.?i\.?d)\s*[:=\-]?\s*(.*)/i);
+      const match = line.match(/(?:citizen\s*[iI1!|][dD0]|citizenid|\bcid\b|\bc1d\b|\bnik\b|no\.?\s*ktp|id\s*warga|^id\b|^1d\b|c\.?[iI1!|]\.?d|state\s*[iI1!|][dD0]|citizen)\s*[:=\-]?\s*(.*)/i);
       let val = cleanVal(match?.[1]);
       if (!val && i + 1 < lines.length) {
         val = cleanVal(lines[i + 1]);
@@ -262,23 +402,66 @@ export function parseKtpOcrText(rawText) {
           val = val.replace(/\s+/g, "");
         }
         const idMatch = val.match(/[A-Z0-9_-]{3,20}/i);
-        result.citizenId = idMatch ? idMatch[0].toUpperCase() : val.toUpperCase();
+        const candidateVal = idMatch ? idMatch[0].toUpperCase() : val.toUpperCase();
+        if (!BLACKLIST_WORDS.has(candidateVal)) {
+          result.citizenId = candidateVal;
+        }
       }
     }
   }
 
-  // 2. Fallbacks scanning the entire raw string if still missing
+  // 2. Date of birth fallback
   if (!result.dob) {
     const rawDateMatch = rawText.match(/\b(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})\b/);
     if (rawDateMatch) result.dob = rawDateMatch[1];
   }
 
-  if (!result.citizenId) {
-    // Supports CTZ-xxx, CID-xxx, and FiveM alphanumeric hash CIDs (e.g. E21J9V03)
-    const candidate = rawText.match(/\b(CTZ[-_]?[A-Z0-9]+|CID[-_]?[A-Z0-9]+|[A-Z]{1,4}\d{4,8}|[£€]?[A-Z0-9]{6,10})\b/i);
-    if (candidate) {
-      result.citizenId = candidate[1].replace(/^[£€#]/, "E").replace(/[!|]/g, "I").toUpperCase();
+  // Full Name in full UPPERCASE (must be ready before filtering names from candidates)
+  result.fullName = [result.firstName, result.lastName].filter(Boolean).join(" ").trim().toUpperCase();
+
+  // 3. Multi-strategy candidate extraction for Citizen ID
+  const extractedNames = [result.firstName, result.lastName, result.fullName];
+  const rawList = [];
+  if (result.citizenId && !BLACKLIST_WORDS.has(result.citizenId)) {
+    rawList.push(result.citizenId);
+  }
+
+  // Strategy: Alphanumeric FiveM tokens (must have at least 1 digit, or 8 chars)
+  const tokenRegex = /\b([A-Za-z0-9_\-]{5,12})\b/g;
+  let m;
+  while ((m = tokenRegex.exec(rawText)) !== null) {
+    const word = m[1].toUpperCase();
+    if (BLACKLIST_WORDS.has(word)) continue;
+    if (/^\d{2,4}[-\/\.]\d{1,2}[-\/\.]\d{2,4}$/.test(word)) continue;
+    if (/^\d{1,2}:\d{2}$/.test(word)) continue;
+
+    // Discard any token that is purely letters unless it's exactly 8 chars (e.g. JORTPIDO)
+    const hasDigits = /\d/.test(word);
+    if (!hasDigits && word.length !== 8) continue;
+
+    // Discard any token that matches the person's name
+    const isName = extractedNames.some(
+      (n) => n && n.toUpperCase().split(/\s+/).includes(word)
+    );
+    if (isName) continue;
+
+    if (!rawList.includes(word)) rawList.push(word);
+  }
+
+  // Generate smart variants for each candidate
+  const allCandidates = [];
+  for (const raw of rawList) {
+    const variants = generateCidSmartVariants(raw, extractedNames);
+    for (const v of variants) {
+      if (!allCandidates.includes(v)) {
+        allCandidates.push(v);
+      }
     }
+  }
+
+  result.citizenIdCandidates = allCandidates.slice(0, 6);
+  if (allCandidates.length > 0) {
+    result.citizenId = allCandidates[0];
   }
 
   // Normalize default values if detected
@@ -287,9 +470,6 @@ export function parseKtpOcrText(rawText) {
     else if (/perempuan|female|\bf\b/i.test(result.sex)) result.sex = "Female";
   }
 
-  // Full Name in full UPPERCASE
-  result.fullName = [result.firstName, result.lastName].filter(Boolean).join(" ").trim().toUpperCase();
-
   return result;
 }
 
@@ -297,38 +477,84 @@ export function parseKtpOcrText(rawText) {
  * Runs OCR on an image and returns parsed KTP fields
  */
 export async function scanKtpImage(imageFileOrUrl, onProgress) {
+  let worker = null;
   try {
-    // Pass 1: Try with enhanced high-contrast binarization (removes 99% of GTA V KTP background textures)
-    const preprocessed = await preprocessImageForOcr(imageFileOrUrl, { binarize: true, threshold: 118 });
-    const { data } = await Tesseract.recognize(preprocessed, "eng", {
-      logger: (m) => {
-        if (m.status === "recognizing text" && typeof onProgress === "function") {
-          onProgress(Math.round(m.progress * 100));
+    // Pass 1: Column-aware OCR with smart background suppression
+    const preprocessed = await preprocessImageForOcr(imageFileOrUrl, { binarize: true, threshold: 115 });
+    
+    if (typeof Tesseract.createWorker === "function") {
+      worker = await Tesseract.createWorker("eng", 1, {
+        logger: (m) => {
+          if (m.status === "recognizing text" && typeof onProgress === "function") {
+            onProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
+
+      // PSM 4 (SINGLE_COLUMN): Specifically separates left labels and right card values
+      await worker.setParameters({
+        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_COLUMN,
+      });
+
+      const { data } = await worker.recognize(preprocessed);
+      let parsed = parseKtpOcrText(data.text);
+
+      // Pass 2 fallback: If either Citizen ID or Full Name is missing, scan with AUTO (3)
+      if (!parsed.citizenId || !parsed.fullName) {
+        try {
+          await worker.setParameters({
+            tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+          });
+          const retryResult = await worker.recognize(imageFileOrUrl);
+          const retryParsed = parseKtpOcrText(retryResult.data.text);
+
+          if (!parsed.citizenId && retryParsed.citizenId) {
+            parsed.citizenId = retryParsed.citizenId;
+            parsed.citizenIdCandidates = retryParsed.citizenIdCandidates;
+          }
+          if (!parsed.firstName && retryParsed.firstName) parsed.firstName = retryParsed.firstName;
+          if (!parsed.lastName && retryParsed.lastName) parsed.lastName = retryParsed.lastName;
+          if (!parsed.fullName && retryParsed.fullName) parsed.fullName = retryParsed.fullName;
+          if (!parsed.dob && retryParsed.dob) parsed.dob = retryParsed.dob;
+          if (!parsed.sex && retryParsed.sex) parsed.sex = retryParsed.sex;
+          if (!parsed.nationality && retryParsed.nationality) parsed.nationality = retryParsed.nationality;
+        } catch (pass2Err) {
+          console.warn("Pass 2 OCR fallback skipped:", pass2Err);
         }
-      },
-    });
+      }
 
-    let parsed = parseKtpOcrText(data.text);
+      await worker.terminate();
+      worker = null;
 
-    // If Pass 1 found neither name nor CID, try Pass 2 with non-binarized smoothed image
-    if (!parsed.fullName && !parsed.citizenId) {
+      return {
+        success: true,
+        rawText: data.text,
+        fields: parsed,
+        preprocessedImage: preprocessed,
+      };
+    } else {
+      // Direct recognize fallback
+      const { data } = await Tesseract.recognize(preprocessed, "eng", {
+        logger: (m) => {
+          if (m.status === "recognizing text" && typeof onProgress === "function") {
+            onProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
+      let parsed = parseKtpOcrText(data.text);
+      return {
+        success: true,
+        rawText: data.text,
+        fields: parsed,
+        preprocessedImage: preprocessed,
+      };
+    }
+  } catch (err) {
+    if (worker) {
       try {
-        const rawPreprocessed = await preprocessImageForOcr(imageFileOrUrl, { binarize: false });
-        const retryResult = await Tesseract.recognize(rawPreprocessed, "eng");
-        const retryParsed = parseKtpOcrText(retryResult.data.text);
-        if (retryParsed.fullName || retryParsed.citizenId) {
-          parsed = retryParsed;
-        }
+        await worker.terminate();
       } catch {}
     }
-
-    return {
-      success: true,
-      rawText: data.text,
-      fields: parsed,
-      preprocessedImage: preprocessed,
-    };
-  } catch (err) {
     console.error("OCR scan error:", err);
     return {
       success: false,
@@ -341,6 +567,7 @@ export async function scanKtpImage(imageFileOrUrl, onProgress) {
         sex: "",
         nationality: "",
         citizenId: "",
+        citizenIdCandidates: [],
       },
     };
   }
@@ -507,6 +734,11 @@ export function parseUfcScreenshotOcr(rawText, options = {}) {
         if (idM) citizenId = idM[1].toUpperCase();
       }
     }
+  }
+
+  if (citizenId) {
+    const refined = generateCidSmartVariants(citizenId, [firstName, lastName]);
+    if (refined.length > 0) citizenId = refined[0];
   }
 
   // Fallbacks if names or other fields not found via above loop

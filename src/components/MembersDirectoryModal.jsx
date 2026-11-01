@@ -321,7 +321,7 @@ export default function MembersDirectoryModal({
                         const voucherSub = getMemberVoucherSubscription(member);
                         return (
                           <div className="flex flex-col gap-1.5 p-2 rounded bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
-                            {/* Status Uang Kas (Rp 4.000) */}
+                            {/* Status Uang Kas ($4.000) */}
                             <div className="flex items-center justify-between gap-1">
                               <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">
                                 KAS (4K):

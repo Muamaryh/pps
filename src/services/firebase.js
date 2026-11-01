@@ -183,6 +183,52 @@ function chunkArray(items, maxChunkBytes = 350000) {
   return chunks;
 }
 
+// Helper: creates a lightweight snapshot for localStorage to never hit the browser's 5MB quota
+function createLightweightCache(data) {
+  if (!data) return data;
+  try {
+    const copy = { ...data };
+    if (Array.isArray(copy.gallery)) {
+      copy.gallery = copy.gallery.map((g) => ({
+        ...g,
+        // Only keep short photo URLs or small preview in localStorage offline cache
+        photo: typeof g.photo === "string" && g.photo.length < 80000 ? g.photo : "",
+        photos: Array.isArray(g.photos)
+          ? g.photos.filter((p) => typeof p === "string" && !p.startsWith("data:")).slice(0, 3)
+          : [],
+      }));
+    }
+    if (Array.isArray(copy.org)) {
+      copy.org = copy.org.map((o) => ({
+        ...o,
+        photo: typeof o.photo === "string" && o.photo.length < 80000 ? o.photo : "",
+      }));
+    }
+    return copy;
+  } catch {
+    return data;
+  }
+}
+
+// Safe localStorage setter that handles QuotaExceededError gracefully without crashing
+export function safeSetLocalStorage(key, value) {
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    const stringVal = typeof value === "string" ? value : JSON.stringify(value);
+    localStorage.setItem(key, stringVal);
+  } catch (err) {
+    console.warn(`localStorage quota exceeded for key '${key}', cleaning cache:`, err);
+    try {
+      localStorage.removeItem("pps_cached_data");
+      // Fallback: store minimal text-only object
+      if (typeof value === "object" && value !== null) {
+        const minimal = { ...value, gallery: [], org: [] };
+        localStorage.setItem(key, JSON.stringify(minimal));
+      }
+    } catch {}
+  }
+}
+
 // Helper: normalize gallery order so newest documentation is always at index 0 (top)
 function normalizeGalleryOrder(gallery) {
   if (Array.isArray(gallery) && gallery.length > 1 && gallery[0]?.title?.includes("AYO DEMO")) {
@@ -247,7 +293,7 @@ export async function loadCloudData() {
       data.navLinks = defaultData.navLinks;
     }
 
-    localStorage.setItem("pps_cached_data", JSON.stringify(data));
+    safeSetLocalStorage("pps_cached_data", createLightweightCache(data));
     return data;
   } catch (err) {
     console.warn("Firestore connection notice, using local cache or default fallback:", err);
@@ -288,6 +334,19 @@ export async function saveCloudData(newData) {
     const galleryItems = newData.gallery || [];
     const chunks = chunkArray(galleryItems, 350000);
 
+    // Clean up any leftover chunks from previous saves that had more chunks
+    try {
+      const metaSnap = await getDoc(doc(db, "pps_website", "gallery_meta"));
+      if (metaSnap.exists()) {
+        const prevCount = metaSnap.data()?.chunkCount || 0;
+        for (let i = chunks.length; i < prevCount; i++) {
+          tasks.push(deleteDoc(doc(db, "pps_website", "gallery_" + i)));
+        }
+      }
+    } catch (cleanErr) {
+      console.warn("Notice checking old chunks:", cleanErr);
+    }
+
     tasks.push(
       setDoc(doc(db, "pps_website", "gallery_meta"), {
         chunkCount: chunks.length,
@@ -326,8 +385,8 @@ export async function saveCloudData(newData) {
     // Run all Firestore operations simultaneously in parallel (10x faster!)
     await Promise.all(tasks);
 
-    // 4. Update local cache
-    localStorage.setItem("pps_cached_data", JSON.stringify(newData));
+    // 4. Update local cache safely without throwing QuotaExceededError
+    safeSetLocalStorage("pps_cached_data", createLightweightCache(newData));
     return true;
   } catch (err) {
     console.error("Critical error in saveCloudData:", err);
@@ -352,7 +411,7 @@ export async function resetCloudData() {
   await setDoc(doc(db, "pps_website", "gallery_0"), { items: defaultData.gallery || [] });
   await setDoc(doc(db, "pps_website", "gallery"), { items: defaultData.gallery || [] });
 
-  localStorage.setItem("pps_cached_data", JSON.stringify(defaultData));
+  safeSetLocalStorage("pps_cached_data", createLightweightCache(defaultData));
   return defaultData;
 }
 

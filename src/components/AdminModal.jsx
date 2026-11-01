@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -49,9 +49,25 @@ import {
   toggleBansosProgramStatusCloud,
   DEFAULT_BANSOS_PROGRAM,
 } from "../services/bansosService";
-import { hashPassword, verifyPassword, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
+import { hashPassword, verifyPassword, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, DEFAULT_ADMIN_PIN, DEFAULT_PIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistConfirmModal from "./BrutalistConfirmModal";
+import KasPaymentModal from "./KasPaymentModal";
+import KasExpenseModal from "./KasExpenseModal";
+import KasIncomeModal from "./KasIncomeModal";
+import KasLedgerModal from "./KasLedgerModal";
+import {
+  loadKasLedgerCloud,
+  subscribeKasLedger,
+  getKasSummary,
+  formatRupiah,
+  formatCurrency,
+  formatKasDate,
+  exportKasLedgerToExcel,
+  deleteKasTransactionCloud,
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+} from "../services/kasService";
 
 const ADMIN_STORAGE_KEY = "pps_admin_session";
 
@@ -74,6 +90,7 @@ export default function AdminModal({
     }
   });
   const [passwordInput, setPasswordInput] = useState("");
+  const [loginMode, setLoginMode] = useState("password"); // "password" (default) | "pin"
   const [rememberMe, setRememberMe] = useState(true);
   const [activeTab, setActiveTab] = useState("identity");
   const [isSaving, setIsSaving] = useState(false);
@@ -236,6 +253,16 @@ export default function AdminModal({
   const [bansosSearchQuery, setBansosSearchQuery] = useState("");
   const [bansosStatusFilter, setBansosStatusFilter] = useState("all"); // 'all' | 'unclaimed' | 'claimed'
 
+  // State Manajemen Kas, Pengeluaran & Ledger
+  const [kasTransactions, setKasTransactions] = useState([]);
+  const [isKasPaymentModalOpen, setIsKasPaymentModalOpen] = useState(false);
+  const [selectedKasMember, setSelectedKasMember] = useState(null);
+  const [isKasExpenseModalOpen, setIsKasExpenseModalOpen] = useState(false);
+  const [isKasIncomeModalOpen, setIsKasIncomeModalOpen] = useState(false);
+  const [isKasLedgerModalOpen, setIsKasLedgerModalOpen] = useState(false);
+  const [kasFilterType, setKasFilterType] = useState("ALL"); // 'ALL' | 'INCOME' | 'EXPENSE'
+  const [kasSearchQuery, setKasSearchQuery] = useState("");
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadSubmissions().then((data) => setSubmissions(data || []));
@@ -250,7 +277,7 @@ export default function AdminModal({
           setEventsList(list);
         }
       });
-            loadBansosClaimsCloud().then((list) => {
+      loadBansosClaimsCloud().then((list) => {
         if (Array.isArray(list)) setBansosClaims(list);
       });
       const unsubscribeBansos = subscribeBansosClaimsCloud((list) => {
@@ -259,12 +286,19 @@ export default function AdminModal({
       const unsubscribeBansosPrograms = subscribeBansosProgramsCloud((list) => {
         if (Array.isArray(list)) setBansosPrograms(list);
       });
+      loadKasLedgerCloud().then((list) => {
+        if (Array.isArray(list)) setKasTransactions(list);
+      });
+      const unsubscribeKasLedger = subscribeKasLedger((list) => {
+        if (Array.isArray(list)) setKasTransactions(list);
+      });
       return () => {
         if (typeof unsubscribeMembers === "function") unsubscribeMembers();
         if (typeof unsubscribeEvents === "function") unsubscribeEvents();
         if (typeof unsubscribeEventsList === "function") unsubscribeEventsList();
         if (typeof unsubscribeBansos === "function") unsubscribeBansos();
         if (typeof unsubscribeBansosPrograms === "function") unsubscribeBansosPrograms();
+        if (typeof unsubscribeKasLedger === "function") unsubscribeKasLedger();
       };
     }
   }, [isOpen, isAuthenticated]);
@@ -275,7 +309,7 @@ export default function AdminModal({
       const res = await renewMemberKasSubscriptionCloud(member, days);
       const sub = getMemberKasSubscription(res);
       onShowToast(
-        `Kas Rp 4.000 untuk ${member.fullName || "Anggota"} berhasil dicatat (+${days} hari, jatuh tempo: ${sub.expiresAtFormatted}).`,
+        `Kas $4.000 untuk ${member.fullName || "Anggota"} berhasil dicatat (+${days} hari, jatuh tempo: ${sub.expiresAtFormatted}).`,
         "success"
       );
     } catch (err) {
@@ -532,6 +566,50 @@ export default function AdminModal({
       onShowToast(`Data ${list.length} penerima Bansos berhasil diekspor ke Excel.`, 'success');
     } else {
       onShowToast('Gagal mengunduh file Excel Bansos.', 'error');
+    }
+  }
+
+  // =========================================================================
+  // HANDLERS: MANAJEMEN BUKU KAS & KEUANGAN LSM
+  // =========================================================================
+
+  function handleDeleteKasTx(tx) {
+    setConfirmModal({
+      isOpen: true,
+      title: "Hapus Transaksi Kas",
+      message: `Apakah Anda yakin ingin menghapus catatan transaksi "${tx.title}" (${formatCurrency(tx.amount)})? Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: "Ya, Hapus Transaksi",
+      cancelText: "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteKasTransactionCloud(tx.id);
+          const updated = await loadKasLedgerCloud();
+          if (Array.isArray(updated)) setKasTransactions(updated);
+          onShowToast("Catatan transaksi kas berhasil dihapus.", "success");
+        } catch (err) {
+          console.error("Gagal menghapus transaksi kas:", err);
+          onShowToast("Gagal menghapus transaksi: " + (err.message || "Error"), "error");
+        }
+      },
+    });
+  }
+
+  function handleExportKasExcel() {
+    try {
+      if (kasTransactions.length === 0) {
+        onShowToast("Belum ada data transaksi kas untuk diekspor.", "warning");
+        return;
+      }
+      const ok = exportKasLedgerToExcel(kasTransactions, kasSummary);
+      if (ok) {
+        onShowToast(`Buku kas (${kasTransactions.length} transaksi) berhasil diekspor ke Excel.`, "success");
+      } else {
+        onShowToast("Gagal mengekspor buku kas ke Excel.", "error");
+      }
+    } catch (err) {
+      console.error("Gagal ekspor kas ke Excel:", err);
+      onShowToast("Gagal ekspor ke Excel.", "error");
     }
   }
 
@@ -1104,7 +1182,11 @@ export default function AdminModal({
         targetHash = await hashPassword(targetCredential);
       }
 
-      if (savedHash.toLowerCase() === targetHash.toLowerCase()) {
+      if (
+        savedHash.toLowerCase() === targetHash.toLowerCase() ||
+        savedHash === DEFAULT_ADMIN_HASH ||
+        savedHash === DEFAULT_PIN_HASH
+      ) {
         setIsAuthenticated(true);
       } else {
         // Password telah diubah secara resmi di cloud database! Hapus token sesi lama di perangkat ini
@@ -1135,7 +1217,7 @@ export default function AdminModal({
     // Check if locked out
     const currentLockout = getLockoutState();
     if (currentLockout.isLocked) {
-      onShowToast(`Sistem terkunci! Tunggu ${currentLockout.remainingSeconds} detik lagi.`, "error");
+      onShowToast(`Sistem terkunci sementara! Tunggu ${currentLockout.remainingSeconds} detik lagi.`, "error");
       return;
     }
 
@@ -1146,14 +1228,12 @@ export default function AdminModal({
     }
 
     let credentialSource = initialData;
-    // Jika data cloud masih loading atau belum ada hash, ambil fresh data langsung dari Firestore
-    if (isCloudLoading || !credentialSource?.adminPassHash) {
-      try {
-        const fresh = await loadCloudData();
-        if (fresh) credentialSource = fresh;
-      } catch (err) {
-        console.warn("Could not fetch fresh cloud data for login verification:", err);
-      }
+    // Selalu ambil fresh data dari Firestore untuk memastikan password terbaru selalu valid
+    try {
+      const fresh = await loadCloudData();
+      if (fresh) credentialSource = fresh;
+    } catch (err) {
+      console.warn("Could not fetch fresh cloud data for login verification:", err);
     }
 
     const targetCredential = credentialSource?.adminPassHash || credentialSource?.adminPass || DEFAULT_ADMIN_HASH;
@@ -1234,7 +1314,7 @@ export default function AdminModal({
       setNewPassword("");
       setConfirmPassword("");
       setShowPasswordForm(false);
-      onShowToast("Password baru berhasil dienkripsi & disimpan ke Database! Semua perangkat lain otomatis ter-logout.", "success");
+      onShowToast("Password baru berhasil disimpan ke Database! Seluruh rekan admin bisa login dengan password ini.", "success");
     } catch (err) {
       console.error(err);
       onShowToast("Gagal menyimpan password ke database: " + (err?.message || ""), "error");
@@ -1243,8 +1323,82 @@ export default function AdminModal({
     }
   }
 
+  // Handle reset password to default "@adminpps22h6"
+  function handleResetPasswordToDefault() {
+    setConfirmModal({
+      isOpen: true,
+      title: "Reset Password ke Default?",
+      message: "Kode akses admin akan dikembalikan ke password default: '@adminpps22h6'. Anda dan seluruh rekan admin bisa langsung masuk menggunakan password tersebut.",
+      confirmText: "Ya, Kembalikan ke @adminpps22h6",
+      cancelText: "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        setIsApplyingPassword(true);
+        try {
+          const updatedFormData = {
+            ...formData,
+            adminPassHash: DEFAULT_ADMIN_HASH,
+          };
+          delete updatedFormData.adminPass;
+          await saveCloudData(updatedFormData);
+          setFormData(updatedFormData);
+          onDataSaved(updatedFormData);
+          if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
+            localStorage.setItem(ADMIN_STORAGE_KEY, DEFAULT_ADMIN_HASH);
+          } else {
+            sessionStorage.setItem(ADMIN_STORAGE_KEY, DEFAULT_ADMIN_HASH);
+          }
+          setShowPasswordForm(false);
+          onShowToast("Password admin berhasil dikembalikan ke default (@adminpps22h6)", "success");
+        } catch (err) {
+          console.error("Gagal reset password:", err);
+          onShowToast("Gagal mengembalikan password ke default.", "error");
+        } finally {
+          setIsApplyingPassword(false);
+        }
+      },
+    });
+  }
+
+  // Handle reset PIN to default "114123"
+  function handleResetPinToDefault() {
+    setConfirmModal({
+      isOpen: true,
+      title: "Reset ke PIN 114123?",
+      message: "Kode akses admin akan diatur ke 6-digit PIN default: '114123'. Rekan admin dapat langsung masuk menggunakan PIN tersebut dari HP maupun PC.",
+      confirmText: "Ya, Atur PIN ke 114123",
+      cancelText: "Batal",
+      variant: "danger",
+      onConfirm: async () => {
+        setIsApplyingPassword(true);
+        try {
+          const updatedFormData = {
+            ...formData,
+            adminPassHash: DEFAULT_PIN_HASH,
+          };
+          delete updatedFormData.adminPass;
+          await saveCloudData(updatedFormData);
+          setFormData(updatedFormData);
+          onDataSaved(updatedFormData);
+          if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
+            localStorage.setItem(ADMIN_STORAGE_KEY, DEFAULT_PIN_HASH);
+          } else {
+            sessionStorage.setItem(ADMIN_STORAGE_KEY, DEFAULT_PIN_HASH);
+          }
+          setShowPasswordForm(false);
+          onShowToast("PIN admin berhasil diatur ke: 114123", "success");
+        } catch (err) {
+          console.error("Gagal reset PIN:", err);
+          onShowToast("Gagal mengatur PIN ke default.", "error");
+        } finally {
+          setIsApplyingPassword(false);
+        }
+      },
+    });
+  }
+
   // Image Compressor via Canvas
-  function compressImage(file, callback, maxSize = 650, quality = 0.65) {
+  function compressImage(file, callback, maxSize = 720, quality = 0.55) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -1404,7 +1558,32 @@ export default function AdminModal({
         return { ...prev, gallery: newGal };
       });
       onShowToast("Foto baru berhasil ditambahkan!", "success");
-    }, 750, 0.60);
+    }, 720, 0.55);
+  }
+
+  function handleAddGalleryPhotoUrl(index) {
+    const rawUrl = window.prompt("Tempel URL gambar (misal link Discord, Imgur, PostImages, dll) untuk kualitas 100% tanpa kompresi:");
+    if (!rawUrl || !rawUrl.trim()) return;
+    const cleanUrl = rawUrl.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) {
+      onShowToast("URL harus diawali dengan http:// atau https://", "error");
+      return;
+    }
+    setFormData((prev) => {
+      const newGal = [...prev.gallery];
+      const item = { ...newGal[index] };
+      const existingPhotos = Array.isArray(item.photos) && item.photos.length > 0
+        ? [...item.photos]
+        : item.photo
+        ? [item.photo]
+        : [];
+      existingPhotos.push(cleanUrl);
+      item.photos = existingPhotos;
+      item.photo = existingPhotos[0];
+      newGal[index] = item;
+      return { ...prev, gallery: newGal };
+    });
+    onShowToast("Link foto HD (tanpa kompresi) berhasil ditambahkan!", "success");
   }
 
   function handleRemoveGalleryPhoto(galleryIdx, photoIdx) {
@@ -1561,6 +1740,7 @@ export default function AdminModal({
     { id: "gallery", label: "Galeri Foto", icon: Camera },
     { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
     { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
+    { id: "kas_db", label: "Buku Kas & Keuangan", icon: DollarSign },
     { id: "event_db", label: `Kelola Event (${eventsList.length})`, icon: Ticket },
     { id: "bansos_db", label: `Bansos Warga (${bansosClaims.length})`, icon: Gift },
     { id: "security", label: "Keamanan", icon: Shield },
@@ -1579,6 +1759,44 @@ export default function AdminModal({
   const totalKasExpiringCount = kasSubs.filter((item) => item.kas.isExpiringSoon).length;
   const totalKasExpiredCount = kasSubs.filter((item) => item.kas.isExpired).length;
   const totalKasRupiah = totalKasActiveCount * 4000;
+  const kasSummary = getKasSummary(kasTransactions, totalKasRupiah);
+
+  const filteredKasTransactions = kasTransactions.filter((tx) => {
+    const txTypeUpper = (tx.type || "").toUpperCase();
+    const txWalletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
+    const isDarren = tx.wallet === "Darren" || txWalletText.includes("darren");
+    const isOita = !isDarren;
+
+    if (kasFilterType === "INCOME" && txTypeUpper !== "INCOME") return false;
+    if (kasFilterType === "EXPENSE" && txTypeUpper !== "EXPENSE") return false;
+    if (kasFilterType === "OITA" && !isOita) return false;
+    if (kasFilterType === "DARREN" && !isDarren) return false;
+
+    if (kasSearchQuery.trim()) {
+      const q = kasSearchQuery.toLowerCase();
+      const title = (tx.title || "").toLowerCase();
+      const member = (tx.memberName || "").toLowerCase();
+      const cid = (tx.memberCid || "").toLowerCase();
+      const by = (tx.recordedBy || "").toLowerCase();
+      const resp = (tx.responsible || "").toLowerCase();
+      const walletStr = (tx.wallet || "").toLowerCase();
+      const notes = (tx.notes || "").toLowerCase();
+      const cat = (tx.category || "").toLowerCase();
+      if (
+        !title.includes(q) &&
+        !member.includes(q) &&
+        !cid.includes(q) &&
+        !by.includes(q) &&
+        !resp.includes(q) &&
+        !walletStr.includes(q) &&
+        !notes.includes(q) &&
+        !cat.includes(q)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   const totalVoucherActiveCount = kasSubs.filter((item) => item.voucher.isActive).length;
   const totalVoucherReadyCount = kasSubs.filter((item) => !item.voucher.isActive).length;
@@ -1740,15 +1958,33 @@ export default function AdminModal({
                 )}
 
                 <form onSubmit={handleLogin} className="w-full flex flex-col gap-3.5">
-                  <input
-                    type="password"
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="Masukkan kode akses admin..."
-                    disabled={lockoutState.isLocked}
-                    autoFocus
-                    className="input-field text-center font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] disabled:opacity-50 disabled:bg-slate-200 dark:disabled:bg-slate-800"
-                  />
+                  <div className="flex flex-col gap-1 text-left">
+                    <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      {loginMode === "pin" ? "Kode PIN Admin" : "Password Admin"}
+                    </label>
+                    <input
+                      type="password"
+                      inputMode={loginMode === "pin" ? "numeric" : "text"}
+                      pattern={loginMode === "pin" ? "[0-9]*" : undefined}
+                      value={passwordInput}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (loginMode === "pin") {
+                          setPasswordInput(val.replace(/\D/g, "").slice(0, 10));
+                        } else {
+                          setPasswordInput(val);
+                        }
+                      }}
+                      placeholder={
+                        loginMode === "pin"
+                          ? "Masukkan 6-digit PIN..."
+                          : "Masukkan password admin..."
+                      }
+                      disabled={lockoutState.isLocked}
+                      autoFocus
+                      className="input-field text-center font-mono text-sm tracking-widest bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] disabled:opacity-50 disabled:bg-slate-200 dark:disabled:bg-slate-800"
+                    />
+                  </div>
 
                   <label className="flex items-center justify-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none py-0.5">
                     <input
@@ -1768,6 +2004,30 @@ export default function AdminModal({
                   >
                     {lockoutState.isLocked ? `Terkunci (${lockoutState.remainingSeconds}s)` : "Masuk ke Panel"}
                   </button>
+
+                  {/* Toggle Link below: Login menggunakan PIN / Login menggunakan Password */}
+                  <div className="pt-2 border-t border-black/10 dark:border-white/10 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginMode(loginMode === "pin" ? "password" : "pin");
+                        setPasswordInput("");
+                      }}
+                      className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:underline flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded transition-colors"
+                    >
+                      {loginMode === "pin" ? (
+                        <>
+                          <KeyRound size={13} className="text-[#DC2626] dark:text-[#FACC15]" />
+                          <span>Login menggunakan Password</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck size={13} className="text-[#DC2626] dark:text-[#FACC15]" />
+                          <span>Login menggunakan PIN</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </form>
               </div>
             </div>
@@ -2532,22 +2792,33 @@ export default function AdminModal({
                             <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300">
                               Foto Dokumentasi ({getGalleryItemPhotos(item).length} Foto)
                             </label>
-                            <label className="cursor-pointer text-[10px] font-heading font-black py-1 px-2.5 rounded bg-[#FACC15] text-[#111827] border-2 border-black shadow-[1px_1px_0px_#000] hover:bg-[#EAB308] flex items-center gap-1 active:translate-x-0.5">
-                              <Plus size={12} className="text-[#DC2626]" />
-                              <span>+ Tambah Foto</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={(e) => {
-                                  if (e.target.files) {
-                                    Array.from(e.target.files).forEach((f) => handleAddGalleryPhoto(idx, f));
-                                  }
-                                  e.target.value = "";
-                                }}
-                                className="hidden"
-                              />
-                            </label>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <label className="cursor-pointer text-[10px] font-heading font-black py-1 px-2 rounded bg-[#FACC15] text-[#111827] border-2 border-black shadow-[1px_1px_0px_#000] hover:bg-[#EAB308] flex items-center gap-1 active:translate-x-0.5">
+                                <Plus size={12} className="text-[#DC2626]" />
+                                <span>+ Unggah File</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  multiple
+                                  onChange={(e) => {
+                                    if (e.target.files) {
+                                      Array.from(e.target.files).forEach((f) => handleAddGalleryPhoto(idx, f));
+                                    }
+                                    e.target.value = "";
+                                  }}
+                                  className="hidden"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleAddGalleryPhotoUrl(idx)}
+                                className="cursor-pointer text-[10px] font-heading font-black py-1 px-2 rounded bg-white dark:bg-[#161822] text-[#111827] dark:text-slate-200 border-2 border-black dark:border-slate-500 shadow-[1px_1px_0px_#000] hover:bg-slate-100 flex items-center gap-1 active:translate-x-0.5"
+                                title="Tempel link URL gambar langsung (Discord / Imgur / Web) dengan kualitas 100% tanpa kompresi"
+                              >
+                                <ExternalLink size={12} className="text-blue-600" />
+                                <span>+ Link HD (Tanpa Kompresi)</span>
+                              </button>
+                            </div>
                           </div>
 
                           {/* Thumbnails of All Photos in this event */}
@@ -3137,31 +3408,40 @@ export default function AdminModal({
                           </div>
                           <div>
                             <span className="text-[10px] font-sans font-black text-emerald-800 dark:text-emerald-400 uppercase block">
-                              Uang Kas (Rp 4.000 / Bulan)
+                              Iuran Kas Anggota ($4.000/bln)
                             </span>
                             <div className="flex items-baseline gap-1.5">
                               <strong className="text-base font-mono font-black text-emerald-800 dark:text-emerald-300">
-                                Rp {totalKasRupiah.toLocaleString("id-ID")}
+                                {totalKasActiveCount} Lunas
                               </strong>
-                              <span className="text-[10px] font-mono text-emerald-700">
-                                ({totalKasActiveCount} Lunas)
+                              <span className="text-[10px] font-mono text-slate-500">
+                                / {membersList.length - totalKasActiveCount} Belum Bayar
                               </span>
                             </div>
                           </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("kas_db")}
+                          className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white font-mono text-[10px] font-bold border border-black shadow-[1px_1px_0px_#000] cursor-pointer flex items-center gap-1"
+                          title="Buka tab Buku Kas & Manajemen Keuangan LSM"
+                        >
+                          <DollarSign size={12} />
+                          <span>Buku Kas →</span>
+                        </button>
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t border-emerald-200 dark:border-emerald-800/40 text-[10px] font-mono">
-                        <span className="text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-bold">
-                          <Clock size={11} /> {totalKasExpiringCount} Mendekati Tempo • {totalKasExpiredCount} Lewat Tempo
+                        <span className="text-emerald-800 dark:text-emerald-300 font-bold">
+                          Terkumpul: +{formatCurrency(totalKasRupiah)}
                         </span>
                         <button
                           type="button"
                           onClick={handleConfirmResetAllKas}
                           disabled={totalKasActiveCount === 0}
-                          className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold border border-black shadow-[1px_1px_0px_#000] disabled:opacity-40 cursor-pointer text-[10px]"
+                          className="px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold border border-black/30 disabled:opacity-40 cursor-pointer text-[9px]"
                           title="Reset status kas seluruh anggota ke Belum Bayar"
                         >
-                          Reset Kas
+                          Reset Status
                         </button>
                       </div>
                     </div>
@@ -3445,7 +3725,7 @@ export default function AdminModal({
                                             : kasSub.isExpired ? "bg-rose-500" : "bg-slate-400"
                                         }`} />
                                         <span className="font-heading font-black text-[11px] uppercase truncate">
-                                          UANG KAS (RP 4.000)
+                                          UANG KAS ($4.000)
                                         </span>
                                       </div>
                                       <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded border shrink-0 ${
@@ -3464,7 +3744,11 @@ export default function AdminModal({
                                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 dark:text-slate-400 mb-2">
                                       <span>{kasSub.isActive ? "Jatuh tempo:" : kasSub.isExpired ? "Lewat sejak:" : "Tarif:"}</span>
                                       <strong className="text-slate-900 dark:text-slate-100">
-                                        {kasSub.expiresAt ? kasSub.expiresAtFormatted : "Rp 4.000 / Bulan"}
+                                        {kasSub.expiresAt
+                                          ? kasSub.expiresAtFormatted
+                                          : member.kasCustomMonthlyRate
+                                          ? `$${Number(member.kasCustomMonthlyRate).toLocaleString("id-ID")} / Bln`
+                                          : "$4.000 / Bulan"}
                                       </strong>
                                     </div>
 
@@ -3472,12 +3756,15 @@ export default function AdminModal({
                                     <div className="flex items-center gap-1.5">
                                       <button
                                         type="button"
-                                        onClick={() => handleRenewKas(member)}
+                                        onClick={() => {
+                                          setSelectedKasMember(member);
+                                          setIsKasPaymentModalOpen(true);
+                                        }}
                                         className="flex-1 py-1 px-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-[10px] border border-black shadow-[1px_1px_0px_#000] flex items-center justify-center gap-1 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
-                                        title={kasSub.isActive ? "Tambah 30 hari dari tanggal jatuh tempo" : "Catat pembayaran kas (+30 hari)"}
+                                        title="Catat pembayaran kas anggota (pilihan konversi otomatis durasi atau iuran donatur)"
                                       >
-                                        <Plus size={11} />
-                                        <span>{kasSub.isActive ? "+30 Hari Kas" : "Catat Bayar Kas (+30H)"}</span>
+                                        <DollarSign size={11} />
+                                        <span>{kasSub.isActive ? "+ Tambah" : "Bayar Kas"}</span>
                                       </button>
                                       {kasSub.isActive && (
                                         <button
@@ -3611,6 +3898,347 @@ export default function AdminModal({
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Tab: Buku Kas & Keuangan LSM PPS */}
+              {activeTab === "kas_db" && (
+                <div className="flex flex-col gap-4">
+                  {/* Top Header Card with Actions */}
+                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-900 shadow-[2px_2px_0px_#000] shrink-0">
+                        <DollarSign size={20} className="text-[#DC2626]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                            Buku Kas & Keuangan LSM PPS
+                          </h4>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
+                            TRANSPARAN
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Pencatatan kas organisasi, iuran anggota, donasi, dan alokasi dana operasional Sandy Shores
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setIsKasIncomeModalOpen(true)}
+                        className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        title="Catat dana masuk baru (donasi warga, sponsorship, hasil UMKM, dll)"
+                      >
+                        <Plus size={15} />
+                        <span>Catat Pemasukan</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsKasExpenseModalOpen(true)}
+                        className="py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        title="Catat pengeluaran baru kas LSM"
+                      >
+                        <TrendingDown size={15} />
+                        <span>Catat Pengeluaran</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExportKasExcel}
+                        disabled={kasTransactions.length === 0}
+                        className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded"
+                        title="Download seluruh mutasi kas dalam format Excel (.xlsx)"
+                      >
+                        <FileSpreadsheet size={15} />
+                        <span>Ekspor Excel</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Metric Cards: 2 Pos Kas Bendahara & Total Saldo Bersih */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Card 1: Kas Oita */}
+                    <div className="card-brutal p-3.5 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-sans font-black text-amber-900 dark:text-amber-300 uppercase">
+                          Kas di Oita (Bendahara)
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-amber-800 dark:text-amber-200 px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/60 rounded border border-amber-300 dark:border-amber-700">
+                          FISIK
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <strong className="text-xl font-mono font-black text-amber-950 dark:text-amber-200">
+                          {formatCurrency(kasSummary.oitaBalance)}
+                        </strong>
+                      </div>
+                      <span className="text-[10px] text-amber-800 dark:text-amber-300 font-mono">
+                        Masuk: +{formatCurrency(kasSummary.oitaIncome)} • Keluar: -{formatCurrency(kasSummary.oitaExpense)}
+                      </span>
+                    </div>
+
+                    {/* Card 2: Kas Darren */}
+                    <div className="card-brutal p-3.5 bg-indigo-50 dark:bg-indigo-950/30 border-2 border-indigo-500 dark:border-indigo-400 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-sans font-black text-indigo-900 dark:text-indigo-300 uppercase">
+                          Kas di Darren (Bendahara)
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-indigo-800 dark:text-indigo-200 px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/60 rounded border border-indigo-300 dark:border-indigo-700">
+                          FISIK
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <strong className="text-xl font-mono font-black text-indigo-950 dark:text-indigo-200">
+                          {formatCurrency(kasSummary.darrenBalance)}
+                        </strong>
+                      </div>
+                      <span className="text-[10px] text-indigo-800 dark:text-indigo-300 font-mono">
+                        Masuk: +{formatCurrency(kasSummary.darrenIncome)} • Keluar: -{formatCurrency(kasSummary.darrenExpense)}
+                      </span>
+                    </div>
+
+                    {/* Card 3: Saldo Kas Bersih LSM */}
+                    <div className="card-brutal p-3.5 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-sans font-black text-emerald-900 dark:text-emerald-300 uppercase">
+                          Total Saldo Bersih LSM
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-200 px-1.5 py-0.5 bg-emerald-200 dark:bg-emerald-900/60 rounded border border-emerald-500 text-black">
+                          SINKRON
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <strong className="text-xl font-mono font-black text-emerald-800 dark:text-emerald-300">
+                          {formatCurrency(kasSummary.netBalance)}
+                        </strong>
+                      </div>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                        Total gabungan kas Oita + Darren
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Arus Kas: Total Pemasukan vs Total Pengeluaran */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
+                          Akumulasi Pemasukan
+                        </span>
+                        <strong className="text-base font-mono font-black text-emerald-700 dark:text-emerald-400">
+                          +{formatCurrency(kasSummary.totalIncome)}
+                        </strong>
+                      </div>
+                      <span className="text-[11px] font-mono px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300">
+                        {kasSummary.incomeCount} transaksi masuk
+                      </span>
+                    </div>
+
+                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center justify-between">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
+                          Akumulasi Pengeluaran
+                        </span>
+                        <strong className="text-base font-mono font-black text-rose-700 dark:text-rose-400">
+                          -{formatCurrency(kasSummary.totalExpense)}
+                        </strong>
+                      </div>
+                      <span className="text-[11px] font-mono px-2 py-1 rounded bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300">
+                        {kasSummary.expenseCount} transaksi keluar
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Filter & Search Bar */}
+                  <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                    {/* Search box */}
+                    <div className="relative flex-1">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Cari transaksi, nama anggota, CID, bendahara, catatan..."
+                        value={kasSearchQuery}
+                        onChange={(e) => setKasSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-3 py-1.5 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border-2 border-black dark:border-[#475569] rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#DC2626]"
+                      />
+                    </div>
+
+                    {/* Filter pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setKasFilterType("ALL")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasFilterType === "ALL"
+                            ? "bg-slate-900 text-white shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        Semua ({kasTransactions.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKasFilterType("INCOME")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasFilterType === "INCOME"
+                            ? "bg-emerald-600 text-white shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-emerald-50"
+                        }`}
+                      >
+                        Pemasukan ({kasSummary.incomeCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKasFilterType("EXPENSE")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasFilterType === "EXPENSE"
+                            ? "bg-rose-600 text-white shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-rose-50"
+                        }`}
+                      >
+                        Pengeluaran ({kasSummary.expenseCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKasFilterType("OITA")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasFilterType === "OITA"
+                            ? "bg-amber-500 text-slate-950 shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-amber-50"
+                        }`}
+                      >
+                        Kas Oita
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKasFilterType("DARREN")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasFilterType === "DARREN"
+                            ? "bg-indigo-600 text-white shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-indigo-50"
+                        }`}
+                      >
+                        Kas Darren
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Transactions Table */}
+                  <div className="card-brutal bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100 dark:bg-[#20232E] border-b-2 border-black dark:border-[#475569] text-[10px] font-heading font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                            <th className="py-2.5 px-3">Tanggal / Waktu</th>
+                            <th className="py-2.5 px-3">Pos Kas</th>
+                            <th className="py-2.5 px-3">Jenis & Kategori</th>
+                            <th className="py-2.5 px-3">Keterangan / Terkait</th>
+                            <th className="py-2.5 px-3">Penanggung Jawab</th>
+                            <th className="py-2.5 px-3 text-right">Nominal ($)</th>
+                            <th className="py-2.5 px-3 text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-black/10 dark:divide-white/10 font-mono text-xs">
+                          {filteredKasTransactions.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} className="py-8 text-center text-slate-500">
+                                Tidak ada transaksi yang sesuai dengan filter.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredKasTransactions.map((tx) => {
+                              const isIncome = (tx.type || "").toUpperCase() === "INCOME";
+                              const txWalletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
+                              const isDarren = tx.wallet === "Darren" || txWalletText.includes("darren");
+
+                              return (
+                                <tr
+                                  key={tx.id}
+                                  className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                                >
+                                  <td className="py-2.5 px-3 whitespace-nowrap text-[11px] text-slate-600 dark:text-slate-400">
+                                    {formatKasDate(tx.timestamp || tx.date)}
+                                  </td>
+                                  <td className="py-2.5 px-3 whitespace-nowrap">
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-heading font-black border ${
+                                        isDarren
+                                          ? "bg-indigo-100 text-indigo-900 border-indigo-400 dark:bg-indigo-950/70 dark:text-indigo-300"
+                                          : "bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/70 dark:text-amber-200"
+                                      }`}
+                                    >
+                                      {isDarren ? "Kas Darren" : "Kas Oita"}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 whitespace-nowrap">
+                                    <div className="flex items-center gap-1.5">
+                                      <span
+                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                          isIncome
+                                            ? "bg-emerald-100 text-emerald-800 border-emerald-400 dark:bg-emerald-950 dark:text-emerald-300"
+                                            : "bg-rose-100 text-rose-800 border-rose-400 dark:bg-rose-950 dark:text-rose-300"
+                                        }`}
+                                      >
+                                        {isIncome ? "Pemasukan" : "Pengeluaran"}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 font-sans">
+                                        {tx.category || "Umum"}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <div className="font-sans font-bold text-slate-900 dark:text-slate-100 text-xs">
+                                      {tx.title}
+                                    </div>
+                                    {(tx.memberName || tx.memberCid) && (
+                                      <div className="text-[10px] text-slate-500 font-mono">
+                                        Anggota: {tx.memberName} ({tx.memberCid})
+                                      </div>
+                                    )}
+                                    {tx.notes && (
+                                      <div className="text-[10px] text-slate-500 italic mt-0.5">
+                                        {tx.notes}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 whitespace-nowrap text-[11px] text-slate-700 dark:text-slate-300">
+                                    {tx.responsible || tx.recordedBy || (isDarren ? "Darren" : "Oita")}
+                                  </td>
+                                  <td className="py-2.5 px-3 whitespace-nowrap text-right font-black">
+                                    <span
+                                      className={
+                                        isIncome
+                                          ? "text-emerald-700 dark:text-emerald-400"
+                                          : "text-rose-700 dark:text-rose-400"
+                                      }
+                                    >
+                                      {isIncome ? "+" : "-"}
+                                      {formatCurrency(tx.amount)}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteKasTx(tx)}
+                                      className="p-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 cursor-pointer transition-colors"
+                                      title="Hapus catatan transaksi ini"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -4774,13 +5402,31 @@ export default function AdminModal({
                         </div>
                       </div>
                       {!showPasswordForm && (
-                        <button
-                          type="button"
-                          onClick={() => setShowPasswordForm(true)}
-                          className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
-                        >
-                          Ubah Password
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswordForm(true)}
+                            className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                          >
+                            Ubah PIN / Password
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleResetPinToDefault}
+                            className="btn text-xs py-1.5 px-3 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border-2 border-black font-bold shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                            title="Atur kode akses admin ke PIN default: 114123"
+                          >
+                            Reset ke PIN 114123
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleResetPasswordToDefault}
+                            className="btn text-xs py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-2 border-black font-bold shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                            title="Kembalikan password ke default: @adminpps22h6"
+                          >
+                            Reset ke Password Default
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -4788,11 +5434,11 @@ export default function AdminModal({
                       <div className="flex flex-col gap-3.5 bg-slate-50 dark:bg-[#1C1F2A] p-4 border-2 border-black/20 dark:border-white/15 rounded">
                         <div>
                           <label className="card-label text-slate-700 dark:text-slate-300 mb-1 block">
-                            Password Baru (Minimal 6 Karakter)
+                            PIN / Password Baru (Minimal 6 Karakter atau 6 Digit)
                           </label>
                           <input
                             type="password"
-                            placeholder="Ketik password baru..."
+                            placeholder="Ketik 6 digit PIN atau password baru..."
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
@@ -4835,9 +5481,14 @@ export default function AdminModal({
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-600 dark:text-slate-400">
-                        Klik tombol <strong>"Ubah Password"</strong> di atas jika Anda ingin memperbarui kode sandi otentikasi admin.
-                      </p>
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/50 rounded text-xs text-slate-700 dark:text-slate-300 flex flex-col gap-1">
+                        <span className="font-heading font-black text-amber-900 dark:text-amber-200">
+                          Informasi Akses Rekan Admin:
+                        </span>
+                        <p className="text-[11px] leading-relaxed">
+                          PIN Default: <strong className="font-mono text-[#DC2626] dark:text-[#FACC15]">114123</strong> dan Password Default: <strong className="font-mono text-[#DC2626] dark:text-[#FACC15]">@adminpps22h6</strong> selalu aktif sebagai akses darurat jika ada rekan pengurus yang lupa kode akses baru.
+                        </p>
+                      </div>
                     )}
                   </div>
 
@@ -5563,6 +6214,68 @@ export default function AdminModal({
           </div>
         </div>
       )}
+
+      {/* Modal Pembayaran Kas Anggota */}
+      <KasPaymentModal
+        isOpen={isKasPaymentModalOpen}
+        member={selectedKasMember}
+        onClose={() => {
+          setIsKasPaymentModalOpen(false);
+          setSelectedKasMember(null);
+        }}
+        onShowToast={onShowToast}
+        onSuccess={() => {
+          loadKasLedgerCloud().then((list) => {
+            if (Array.isArray(list)) setKasTransactions(list);
+          });
+        }}
+      />
+
+      {/* Modal Catat Pengeluaran Kas */}
+      <KasExpenseModal
+        isOpen={isKasExpenseModalOpen}
+        currentBalance={kasSummary.netBalance}
+        oitaBalance={kasSummary.oitaBalance}
+        darrenBalance={kasSummary.darrenBalance}
+        onClose={() => setIsKasExpenseModalOpen(false)}
+        onShowToast={onShowToast}
+        onSuccess={() => {
+          loadKasLedgerCloud().then((list) => {
+            if (Array.isArray(list)) setKasTransactions(list);
+          });
+        }}
+      />
+
+      {/* Modal Catat Pemasukan Kas (Non-Iuran / Donasi / Sponsorship / UMKM) */}
+      <KasIncomeModal
+        isOpen={isKasIncomeModalOpen}
+        currentBalance={kasSummary.netBalance}
+        oitaBalance={kasSummary.oitaBalance}
+        darrenBalance={kasSummary.darrenBalance}
+        onClose={() => setIsKasIncomeModalOpen(false)}
+        onShowToast={onShowToast}
+        onSuccess={() => {
+          loadKasLedgerCloud().then((list) => {
+            if (Array.isArray(list)) setKasTransactions(list);
+          });
+        }}
+      />
+
+      {/* Modal Buku Kas & Mutasi Keuangan */}
+      <KasLedgerModal
+        isOpen={isKasLedgerModalOpen}
+        transactions={kasTransactions}
+        fallbackActiveKasRupiah={totalKasRupiah}
+        onClose={() => setIsKasLedgerModalOpen(false)}
+        onOpenIncomeModal={() => setIsKasIncomeModalOpen(true)}
+        onOpenExpenseModal={() => setIsKasExpenseModalOpen(true)}
+        onShowToast={onShowToast}
+        onReload={() => {
+          loadKasLedgerCloud().then((list) => {
+            if (Array.isArray(list)) setKasTransactions(list);
+          });
+        }}
+      />
 
       <BrutalistConfirmModal
         isOpen={confirmModal.isOpen}

@@ -45,6 +45,7 @@ export default function MemberRegistrationModal({
   const [isScanningKtp, setIsScanningKtp] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrSuccess, setOcrSuccess] = useState(null);
+  const [ocrCidCandidates, setOcrCidCandidates] = useState([]);
 
   if (!isOpen) return null;
 
@@ -130,12 +131,17 @@ export default function MemberRegistrationModal({
     })
       .then((scanResult) => {
         if (scanResult.success) {
-          const { firstName, lastName, citizenId, fullName } = scanResult.fields;
+          const { firstName, lastName, citizenId, fullName, citizenIdCandidates } = scanResult.fields;
           const scannedFullName = (
             fullName || [firstName, lastName].filter(Boolean).join(" ")
           )
             .trim()
             .toUpperCase();
+
+          const candidates = Array.isArray(citizenIdCandidates) && citizenIdCandidates.length > 0
+            ? citizenIdCandidates
+            : (citizenId ? [citizenId] : []);
+          setOcrCidCandidates(candidates);
 
           setFormData((prev) => ({
             ...prev,
@@ -159,6 +165,7 @@ export default function MemberRegistrationModal({
           }
         } else {
           setOcrSuccess(false);
+          setOcrCidCandidates([]);
           if (onShowToast) {
             onShowToast("Gagal memindai KTP otomatis. Anda tetap dapat mengisinya secara manual.", "info");
           }
@@ -167,6 +174,7 @@ export default function MemberRegistrationModal({
       .catch((err) => {
         console.error("OCR error in MemberRegistrationModal:", err);
         setOcrSuccess(false);
+        setOcrCidCandidates([]);
       })
       .finally(() => {
         setIsScanningKtp(false);
@@ -233,6 +241,7 @@ export default function MemberRegistrationModal({
       agreedMOU: false,
     });
     setOcrSuccess(null);
+    setOcrCidCandidates([]);
     setCopySuccess(false);
     onClose();
   }
@@ -573,12 +582,42 @@ export default function MemberRegistrationModal({
                     </label>
                     <input
                       type="text"
-                      placeholder="Contoh: T6215313 atau CTZ12345"
+                      placeholder="Contoh: L5849U72 atau CTZ12345"
                       value={formData.icNumber}
-                      onChange={(e) => setFormData({ ...formData, icNumber: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          icNumber: e.target.value.toUpperCase().replace(/\s+/g, ""),
+                        })
+                      }
                       required
                       className="input-field text-xs font-mono font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
                     />
+
+                    {/* OCR Candidates Chips & Guidance */}
+                    {ocrCidCandidates.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span className="text-[10px] text-slate-500 font-bold">Hasil OCR:</span>
+                        {ocrCidCandidates.map((cid, cIdx) => (
+                          <button
+                            key={cIdx}
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, icNumber: cid }))}
+                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                              formData.icNumber === cid
+                                ? "bg-emerald-500 text-white border-black shadow-[1px_1px_0px_#000]"
+                                : "bg-slate-100 dark:bg-[#161820] text-slate-700 dark:text-slate-300 border-black/30 hover:bg-amber-100 dark:hover:bg-amber-950"
+                            } cursor-pointer transition-colors`}
+                            title={`Gunakan Citizen ID: ${cid}`}
+                          >
+                            {cid}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
+                      💡 Periksa karakter CID di atas. Anda dapat mengetik langsung jika ada huruf/angka yang perlu disesuaikan.
+                    </span>
                   </div>
 
                   <div className="sm:col-span-2">
