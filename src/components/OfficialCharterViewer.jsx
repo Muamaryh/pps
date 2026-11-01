@@ -243,18 +243,16 @@ export default function OfficialCharterViewer({ onShowToast }) {
             {/* Issuer Information Box */}
             <div className="grid grid-cols-12 gap-3.5 my-5 items-center">
               {/* Gold Seal San Andreas */}
-              <div className="col-span-3 sm:col-span-3 flex justify-center">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-[#8A7131] p-0.5 bg-[#171A21] shadow-md flex items-center justify-center">
-                  <img
-                    src={GOVERNMENT_PERMIT_DATA.sealPath}
-                    alt="San Andreas Government Seal"
-                    className="w-full h-full object-contain rounded-full"
-                  />
-                </div>
+              <div className="col-span-4 sm:col-span-3 flex justify-center items-center">
+                <img
+                  src={GOVERNMENT_PERMIT_DATA.sealPath}
+                  alt="San Andreas Government Seal"
+                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-full drop-shadow-sm select-none"
+                />
               </div>
 
               {/* Issuer Meta Box */}
-              <div className="col-span-9 sm:col-span-9 p-3 rounded bg-white/70 border border-[#4A453E]/40 font-mono text-xs text-slate-800 grid grid-cols-2 gap-2">
+              <div className="col-span-8 sm:col-span-9 p-3 rounded-lg bg-white/70 border border-[#4A453E]/40 font-mono text-xs text-slate-800 grid grid-cols-2 gap-2 shadow-xs">
                 <div>
                   <span className="text-[9px] text-slate-500 uppercase block font-bold">ISSUER FIRSTNAME</span>
                   <span className="font-bold text-xs">{GOVERNMENT_PERMIT_DATA.issuer.firstName}</span>
@@ -275,10 +273,12 @@ export default function OfficialCharterViewer({ onShowToast }) {
             </div>
 
             {/* Section Divider: INFORMATION */}
-            <div className="text-center my-4">
-              <span className="text-[11px] font-mono tracking-[0.2em] font-black text-[#5C5549] uppercase">
+            <div className="flex items-center justify-center gap-3 my-5">
+              <div className="flex-1 h-[1px] bg-[#8C8274]/50" />
+              <span className="text-[10px] sm:text-[11px] font-mono font-black text-[#5C5549] tracking-[0.3em] uppercase whitespace-nowrap">
                 • I N F O R M A T I O N •
               </span>
+              <div className="flex-1 h-[1px] bg-[#8C8274]/50" />
             </div>
 
             {/* Body Perihal & Permohonan */}
@@ -343,13 +343,14 @@ export default function OfficialCharterViewer({ onShowToast }) {
               </div>
             </div>
 
-            {/* Terms and Signing */}
-            <div className="mt-8 pt-4 border-t-2 border-[#4A453E]/40">
-              <div className="text-center mb-3">
-                <span className="text-[10px] font-mono tracking-[0.2em] font-black text-[#5C5549] uppercase">
-                  • T E R M S   A N D   S I G N I N G •
-                </span>
-              </div>
+            {/* Section Divider: TERMS AND SIGNING */}
+            <div className="flex items-center justify-center gap-3 mt-8 mb-4">
+              <div className="flex-1 h-[1px] bg-[#8C8274]/50" />
+              <span className="text-[10px] sm:text-[11px] font-mono font-black text-[#5C5549] tracking-[0.3em] uppercase whitespace-nowrap">
+                • TERMS AND SIGNING •
+              </span>
+              <div className="flex-1 h-[1px] bg-[#8C8274]/50" />
+            </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 items-center">
                 <p className="sm:col-span-8 text-[10px] leading-relaxed text-slate-600 font-mono text-justify">
@@ -372,7 +373,6 @@ export default function OfficialCharterViewer({ onShowToast }) {
               </div>
             </div>
           </div>
-        </div>
       )}
 
       {/* ==================================================================== */}
