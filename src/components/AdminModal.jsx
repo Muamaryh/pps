@@ -1699,7 +1699,7 @@ export default function AdminModal({
       } else if (sessionStorage.getItem(ADMIN_STORAGE_KEY)) {
         sessionStorage.setItem(ADMIN_STORAGE_KEY, activeHash);
       }
-      onDataSaved(formData);
+      onDataSaved(JSON.parse(JSON.stringify(formData)));
       onShowToast("Perubahan berhasil disimpan ke Database!", "success");
     } catch (err) {
       console.error(err);

@@ -34,6 +34,11 @@ function GalleryCard({ item, onOpenLightbox }) {
     return () => clearInterval(timer);
   }, [photos.length, isHovered]);
 
+  // Reset slide ke sampul (index 0) seketika saat foto diperbarui atau diganti di admin
+  useEffect(() => {
+    setCurrentSlide(0);
+  }, [photos]);
+
   const activePhoto = photos[currentSlide] || photos[0];
 
   function handleCardClick() {
@@ -60,7 +65,7 @@ function GalleryCard({ item, onOpenLightbox }) {
               const isCurrent = pIdx === currentSlide;
               return (
                 <img
-                  key={pIdx}
+                  key={`${pIdx}-${p.slice(0, 40)}`}
                   src={p}
                   alt={`${item.title} - ${pIdx + 1}`}
                   loading={pIdx === 0 ? "eager" : "lazy"}
@@ -362,9 +367,18 @@ export default function Gallery({ gallery = [], onOpenLightbox }) {
       {/* Gallery Cards Grid */}
       {visibleItems.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-          {visibleItems.map((item, idx) => (
-            <GalleryCard key={idx} item={item} onOpenLightbox={onOpenLightbox} />
-          ))}
+          {visibleItems.map((item, idx) => {
+            const photoKey = (Array.isArray(item.photos) && item.photos.length > 0 ? item.photos : [item.photo || ""])
+              .map((p) => (typeof p === "string" ? p.slice(0, 30) : ""))
+              .join(",");
+            return (
+              <GalleryCard
+                key={`${item.title || "gal"}-${idx}-${photoKey}`}
+                item={item}
+                onOpenLightbox={onOpenLightbox}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="card-brutal p-8 text-center bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000]">
