@@ -9,7 +9,10 @@ import {
   INCOME_CATEGORIES,
   recordKasIncomeCloud,
   formatCurrency,
+  getTodayIndonesianDateString,
 } from "../services/kasService";
+import BrutalistSelect from "./BrutalistSelect";
+import BrutalistDatePicker from "./BrutalistDatePicker";
 
 export default function KasIncomeModal({
   isOpen,
@@ -22,15 +25,13 @@ export default function KasIncomeModal({
 }) {
   if (!isOpen) return null;
 
-  const todayStr = new Date().toISOString().split("T")[0];
-
   const [wallet, setWallet] = useState("Oita"); // "Oita" | "Darren"
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Donasi Sukarela & Warga");
   const [amount, setAmount] = useState("");
   const [responsible, setResponsible] = useState("Oita");
   const [donorName, setDonorName] = useState("");
-  const [customDate, setCustomDate] = useState(todayStr);
+  const [customDate, setCustomDate] = useState(() => getTodayIndonesianDateString());
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -207,17 +208,12 @@ export default function KasIncomeModal({
               <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
                 Kategori Pemasukan
               </label>
-              <select
+              <BrutalistSelect
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="input-field text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
-              >
-                {INCOME_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setCategory(val)}
+                options={INCOME_CATEGORIES}
+                placeholder="Pilih kategori pemasukan..."
+              />
             </div>
 
             {/* Nominal */}
@@ -249,11 +245,11 @@ export default function KasIncomeModal({
               <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
                 Tanggal Pemasukan
               </label>
-              <input
-                type="date"
+              <BrutalistDatePicker
                 value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                className="input-field text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
+                onChange={(val) => setCustomDate(val)}
+                placeholder="Pilih tanggal pemasukan..."
+                dropUp="auto"
               />
             </div>
 

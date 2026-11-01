@@ -8,7 +8,10 @@ import {
   EXPENSE_CATEGORIES,
   recordKasExpenseCloud,
   formatCurrency,
+  getTodayIndonesianDateString,
 } from "../services/kasService";
+import BrutalistSelect from "./BrutalistSelect";
+import BrutalistDatePicker from "./BrutalistDatePicker";
 
 export default function KasExpenseModal({
   isOpen,
@@ -21,14 +24,12 @@ export default function KasExpenseModal({
 }) {
   if (!isOpen) return null;
 
-  const todayStr = new Date().toISOString().split("T")[0];
-
   const [wallet, setWallet] = useState("Oita"); // "Oita" | "Darren"
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Operasional & Logistik");
   const [amount, setAmount] = useState("");
   const [responsible, setResponsible] = useState("Oita");
-  const [customDate, setCustomDate] = useState(todayStr);
+  const [customDate, setCustomDate] = useState(() => getTodayIndonesianDateString());
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -199,17 +200,12 @@ export default function KasExpenseModal({
               <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
                 Kategori Pengeluaran
               </label>
-              <select
+              <BrutalistSelect
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="input-field text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
-              >
-                {EXPENSE_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setCategory(val)}
+                options={EXPENSE_CATEGORIES}
+                placeholder="Pilih kategori pengeluaran..."
+              />
             </div>
 
             {/* Nominal */}
@@ -241,11 +237,11 @@ export default function KasExpenseModal({
               <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
                 Tanggal Pengeluaran
               </label>
-              <input
-                type="date"
+              <BrutalistDatePicker
                 value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                className="input-field text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
+                onChange={(val) => setCustomDate(val)}
+                placeholder="Pilih tanggal pengeluaran..."
+                dropUp="auto"
               />
             </div>
 

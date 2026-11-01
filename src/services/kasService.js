@@ -164,6 +164,58 @@ export function formatKasDate(timestampOrDate) {
   });
 }
 
+const INDO_MONTHS_MAP = {
+  januari: 0, jan: 0,
+  februari: 1, feb: 1,
+  maret: 2, mar: 2,
+  april: 3, apr: 3,
+  mei: 4, may: 4,
+  juni: 5, jun: 5,
+  juli: 6, jul: 6,
+  agustus: 7, aug: 7, ags: 7,
+  september: 8, sep: 8,
+  oktober: 9, okt: 9, oct: 9,
+  november: 10, nov: 10,
+  desember: 11, des: 11, dec: 11,
+};
+
+// Helper: Konversi input tanggal (baik ISO '2026-11-01' maupun string BrutalistDatePicker 'Minggu, 1 November 2026') ke Unix timestamp
+export function parseDateInputToTimestamp(val) {
+  if (!val) return Date.now();
+  if (typeof val === "number") return val;
+  if (val instanceof Date) return val.getTime();
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+
+  const match = String(val).match(/(\d{1,2})\s+([A-Za-z'’]+)\s+(\d{4})/);
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const mStr = match[2].toLowerCase();
+    const year = parseInt(match[3], 10);
+    const mIdx = INDO_MONTHS_MAP[mStr];
+    if (mIdx !== undefined) {
+      return new Date(year, mIdx, day, 12, 0, 0).getTime();
+    }
+  }
+
+  const fallback = new Date(val);
+  return isNaN(fallback.getTime()) ? Date.now() : fallback.getTime();
+}
+
+// Helper: Format tanggal hari ini sesuai format BrutalistDatePicker
+export function getTodayIndonesianDateString() {
+  const INDO_DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jum'at", "Sabtu"];
+  const INDO_MONTHS = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+  const d = new Date();
+  return `${INDO_DAYS[d.getDay()]}, ${d.getDate()} ${INDO_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 // Helper: Format Dollar ringkas ($)
 export function formatCurrency(amount) {
   const num = Number(amount) || 0;
@@ -295,7 +347,7 @@ export async function recordKasIncomeCloud({
 
   const normalizedWallet = wallet === "Darren" ? "Darren" : "Oita";
   const now = Date.now();
-  const txTimestamp = customDate ? new Date(customDate).getTime() : now;
+  const txTimestamp = customDate ? parseDateInputToTimestamp(customDate) : now;
   const newId = `in-${now}-${Math.random().toString(36).substring(2, 6)}`;
   const payload = {
     type: "INCOME",
@@ -339,7 +391,7 @@ export async function recordKasExpenseCloud({
 
   const normalizedWallet = wallet === "Darren" ? "Darren" : "Oita";
   const now = Date.now();
-  const txTimestamp = customDate ? new Date(customDate).getTime() : now;
+  const txTimestamp = customDate ? parseDateInputToTimestamp(customDate) : now;
   const newId = `out-${now}-${Math.random().toString(36).substring(2, 6)}`;
 
   const payload = {
