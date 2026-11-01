@@ -22,7 +22,6 @@ import {
   Download,
   Eye,
   FileCheck2,
-  Image as ImageIcon,
 } from "lucide-react";
 import {
   OFFICIAL_CHARTER_METADATA,
@@ -37,9 +36,8 @@ import {
 
 export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onShowToast }) {
   // Mode Tampilan Dokumen:
-  // "CHARTER" = Pakta Pendirian & AD/ART (10 Bab)
   // "PERMIT_HD" = Surat Izin Komunitas Pemerintah (Replika Digital HD)
-  // "SCAN_ORIGINAL" = Scan Dokumen Asli In-Game (Gambar Gabungan Utuh)
+  // "CHARTER"   = Pakta Pendirian & AD/ART (10 Bab)
   const [documentView, setDocumentView] = useState(initialView);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -148,19 +146,6 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
         >
           <FileCheck2 size={15} />
           <span>Surat Izin Pemerintah (HD Digital)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setDocumentView("SCAN_ORIGINAL")}
-          className={`py-2 px-3.5 rounded text-xs font-heading font-black border-2 border-black cursor-pointer transition-all flex items-center gap-2 shrink-0 ${
-            documentView === "SCAN_ORIGINAL"
-              ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
-              : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-          }`}
-        >
-          <ImageIcon size={15} />
-          <span>Scan Dokumen In-Game (Full Utuh)</span>
         </button>
 
         <button
@@ -376,47 +361,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
       )}
 
       {/* ==================================================================== */}
-      {/* TAMPILAN 2: SCAN DOKUMEN IN-GAME ASLI (FULL UTUH GABUNGAN)            */}
-      {/* ==================================================================== */}
-      {documentView === "SCAN_ORIGINAL" && (
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-full max-w-2xl flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <h4 className="text-xs font-mono font-black uppercase text-slate-900 dark:text-slate-100">
-                Scan Arsip Utuh Dokumen In-Game
-              </h4>
-              <p className="text-[11px] font-mono text-slate-500">
-                Hasil penggabungan 2 screenshot tanpa terpotong (Resolusi Asli Game)
-              </p>
-            </div>
-
-            <a
-              href={GOVERNMENT_PERMIT_DATA.imagePath}
-              download="Surat_Izin_Komunitas_LSM_PPS.jpg"
-              className="py-2 px-4 rounded bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5"
-            >
-              <Download size={14} />
-              <span>Unduh File Gambar Penuh</span>
-            </a>
-          </div>
-
-          {/* Container Gambar */}
-          <div className="w-full max-w-xl rounded border-2 border-black dark:border-[#475569] shadow-[5px_5px_0px_#000000] overflow-hidden bg-black/90 p-1">
-            <img
-              src={GOVERNMENT_PERMIT_DATA.imagePath}
-              alt="Scan Utuh Surat Izin Komunitas LSM PPS"
-              className="w-full h-auto object-contain select-none"
-            />
-          </div>
-
-          <p className="text-xs font-mono text-slate-500 text-center">
-            Tip: Klik tombol unduh di atas untuk menyimpan file gambar dokumen utuh ke perangkat Anda.
-          </p>
-        </div>
-      )}
-
-      {/* ==================================================================== */}
-      {/* TAMPILAN 3: PAKTA PENDIRIAN & AD/ART (10 BAB & 27 PASAL)              */}
+      {/* TAMPILAN 2: PAKTA PENDIRIAN & AD/ART (10 BAB & 27 PASAL)              */}
       {/* ==================================================================== */}
       {documentView === "CHARTER" && (
         <div className="flex flex-col gap-6">
