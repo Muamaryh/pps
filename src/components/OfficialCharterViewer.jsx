@@ -19,8 +19,6 @@ import {
   Stamp,
   AlertCircle,
   ExternalLink,
-  Download,
-  Eye,
   FileCheck2,
 } from "lucide-react";
 import {
@@ -31,7 +29,6 @@ import {
   OFFICIAL_CHARTER_DISCLAIMER,
   GOVERNMENT_PERMIT_DATA,
   getOfficialCharterFullPlainText,
-  getGovernmentPermitPlainText,
 } from "../data/officialCharter";
 
 export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onShowToast }) {
@@ -43,7 +40,6 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
   const [searchQuery, setSearchQuery] = useState("");
   const [activeChapterFilter, setActiveChapterFilter] = useState("ALL");
   const [copiedCharter, setCopiedCharter] = useState(false);
-  const [copiedPermit, setCopiedPermit] = useState(false);
 
   // Filter bab & pasal AD/ART
   const filteredChapters = useMemo(() => {
@@ -99,30 +95,6 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
     }
   }
 
-  // Handler Salin Surat Izin Pemerintah
-  async function handleCopyPermit() {
-    const text = getGovernmentPermitPlainText();
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = text;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      }
-      setCopiedPermit(true);
-      if (onShowToast) {
-        onShowToast("Teks Surat Izin Komunitas Pemerintah berhasil disalin!", "success");
-      }
-      setTimeout(() => setCopiedPermit(false), 2500);
-    } catch (err) {
-      console.error("Gagal menyalin surat izin:", err);
-    }
-  }
-
   const showMukadimah =
     (activeChapterFilter === "ALL" || activeChapterFilter === "MUKADIMAH") &&
     (!searchQuery.trim() ||
@@ -167,45 +139,6 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
       {/* ==================================================================== */}
       {documentView === "PERMIT_HD" && (
         <div className="flex flex-col items-center gap-5">
-          {/* Action Bar */}
-          <div className="w-full max-w-2xl flex items-center justify-between gap-3 flex-wrap">
-           
-
-            <div className="flex items-center gap-2">
-              <a
-                href={GOVERNMENT_PERMIT_DATA.imagePath}
-                download="Surat_Izin_Komunitas_LSM_PPS.jpg"
-                className="py-1.5 px-3 rounded bg-slate-900 hover:bg-slate-800 text-white font-heading font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5"
-                title="Download file gambar dokumen utuh"
-              >
-                <Download size={13} />
-                <span>Unduh Gambar (.jpg)</span>
-              </a>
-
-              <button
-                type="button"
-                onClick={handleCopyPermit}
-                className={`py-1.5 px-3 rounded text-xs font-heading font-black border-2 border-black shadow-[1.5px_1.5px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-1.5 ${
-                  copiedPermit
-                    ? "bg-emerald-500 text-slate-950"
-                    : "bg-[#FACC15] hover:bg-[#EAB308] text-slate-950"
-                }`}
-              >
-                {copiedPermit ? (
-                  <>
-                    <Check size={13} className="stroke-[3]" />
-                    <span>Disalin!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={13} />
-                    <span>Salin Teks</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
           {/* Sertifikat Kertas Asli HD */}
           <div className="w-full max-w-2xl rounded-sm bg-[#EFECE6] text-slate-900 border-[3px] border-[#2C2925] shadow-[6px_6px_0px_#000000] p-6 sm:p-10 font-serif leading-relaxed relative overflow-hidden select-text">
             {/* Header Dokumen */}
