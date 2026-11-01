@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BookOpen, Users, Camera, MapPin, Store, HeartHandshake, ShieldCheck, FileCheck2, ExternalLink } from "lucide-react";
+import { BookOpen, Users, Camera, MapPin, Store, HeartHandshake, ShieldCheck, ExternalLink } from "lucide-react";
 
 export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPermit }) {
   // Typewriter effect state (3 distinct lines)
@@ -155,7 +155,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
             <div className="font-heading font-black text-xs sm:text-sm text-slate-950 dark:text-slate-100 truncate mt-0.5">
               Surat Izin Operasional No: 001/SIK-DSC/SA/X/2026
             </div>
-            <div className="text-[11px] font-mono text-slate-500 truncate">
+            <div className="text-[11px] font-mono text-slate-500 break-words sm:whitespace-nowrap">
               Sekretariat Koordinat 1012 • Penanggung Jawab: Evan Wongso
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
           </div>
         </button>
 
-        {/* Tombol Aksi Taktil (Kuning, Merah, & Surat Izin) */}
+        {/* Tombol Aksi Taktil (Kuning, Merah, & Dokumentasi) */}
         <div className="flex flex-wrap items-center justify-center gap-3.5 mb-10">
           <a
             href="#about"
@@ -174,15 +174,6 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
             <BookOpen size={17} className="text-[#DC2626]" />
             <span>Visi &amp; Profil</span>
           </a>
-
-          <button
-            type="button"
-            onClick={onOpenPermit}
-            className="btn bg-[#FFFDF9] dark:bg-[#1E212B] hover:bg-[#FACC15]/20 text-slate-950 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black cursor-pointer flex items-center gap-2"
-          >
-            <FileCheck2 size={17} className="text-emerald-600 dark:text-emerald-400" />
-            <span>Surat Izin Resmi</span>
-          </button>
 
           <a
             href="#structure"
