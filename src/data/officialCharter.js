@@ -426,7 +426,7 @@ export const GOVERNMENT_PERMIT_DATA = {
   },
   subject: "Pemberian Izin Operasional Komunitas",
   preamble:
-    "Berdasarkan permohonan yang diajukan oleh perwakilan komunitas pada tanggal 01 Oktober 2026 , serta hasil verifikasi dari Head Division Of Social & Comunity Affairs. dengan ini Government State of San Andreas memberikan izin kepada:",
+    "Berdasarkan permohonan yang diajukan oleh perwakilan komunitas pada tanggal 01 Oktober 2026, serta hasil verifikasi dari Head Division Of Social & Comunity Affairs. dengan ini Government State of San Andreas memberikan izin kepada:",
   community: {
     name: "LSM Pizza Sandy Shores",
     activityType: "Komunitas Pekerja Pizza",

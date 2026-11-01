@@ -169,12 +169,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
         <div className="flex flex-col items-center gap-5">
           {/* Action Bar */}
           <div className="w-full max-w-2xl flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-300" />
-              <span className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                Dokumen Resmi Terverifikasi Government State of San Andreas
-              </span>
-            </div>
+           
 
             <div className="flex items-center gap-2">
               <a
