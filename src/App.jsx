@@ -566,6 +566,7 @@ export default function App() {
               aboutPillars={data.aboutPillars}
               visionMission={data.visionMission}
               charterTitle={data.charterTitle}
+              onShowToast={showToast}
             />
 
             {/* Struktur Organisasi Section */}

@@ -117,7 +117,7 @@ export const defaultData = {
     ]
   },
 
-  charterTitle: "Naskah Pendirian & Penjelasan Lengkap LSM",
+  charterTitle: "Pakta Pendirian & Anggaran Dasar (AD/ART) Resmi LSM PPS",
 
   // SHA-256 hash of initial password "pps123123" - never stored in plain text
   adminPassHash: "259ccb1e006f68032bb7659d2b4d941132d0492e6530073a15271665dd29284e"
