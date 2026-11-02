@@ -83,7 +83,7 @@ export default function KasExpenseModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs">
-      <div className="card-brutal w-full max-w-lg bg-[var(--modal-bg)] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
+      <div className="w-full max-w-lg bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-xl shadow-[8px_8px_0px_#000] p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b-2 border-black dark:border-[#475569]">
           <div className="flex items-center gap-2">

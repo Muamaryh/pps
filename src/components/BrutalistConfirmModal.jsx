@@ -53,7 +53,7 @@ export default function BrutalistConfirmModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-md rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-150">
+      <div className="w-full max-w-md rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 border-b-2 border-black dark:border-[#475569] ${headerColors[variant] || headerColors.danger}`}>
           <div className="flex items-center gap-2 font-heading font-black text-sm uppercase tracking-wide">

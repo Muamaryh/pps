@@ -26,7 +26,7 @@ export default function PermitModal({ isOpen, onClose, onShowToast }) {
       onClick={onClose}
     >
       <div
-        className="card-brutal w-full max-w-4xl bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] shadow-[6px_6px_0px_#000000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-4xl bg-[var(--modal-bg)] rounded-xl border-[3px] border-black dark:border-[#475569] shadow-[8px_8px_0px_#000000] flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal - Pinned & Sticky di atas agar tombol close tidak pernah tenggelam saat scroll */}

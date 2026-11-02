@@ -466,7 +466,7 @@ export default function MembersDirectoryModal({
           aria-modal="true"
         >
           <div
-            className="w-full max-w-xl bg-[var(--card-bg)] border-[3px] border-black rounded-lg shadow-[8px_8px_0px_#000] p-4 flex flex-col gap-3"
+            className="w-full max-w-xl bg-[var(--card-bg)] border-[3px] border-black rounded-xl overflow-hidden shadow-[8px_8px_0px_#000] p-4 flex flex-col gap-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-2 border-black/15">

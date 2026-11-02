@@ -116,7 +116,7 @@ export default function KasLedgerModal({
       onClick={onClose}
     >
       <div
-        className="card-brutal w-full max-w-4xl bg-[var(--modal-bg)] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-4xl bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-xl shadow-[8px_8px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Sticky di atas agar tidak tenggelam saat scroll */}

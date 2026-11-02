@@ -385,7 +385,7 @@ export default function BansosModal({
       aria-labelledby="bansos-modal-title"
       className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn"
     >
-      <div className="relative w-full max-w-4xl bg-[#FFFDF9] dark:bg-[#161822] border-3 border-black dark:border-[#475569] shadow-[8px_8px_0px_#000] text-slate-900 dark:text-slate-100 my-auto rounded-none overflow-hidden transition-all">
+      <div className="relative w-full max-w-4xl bg-[#FFFDF9] dark:bg-[#161822] border-3 border-black dark:border-[#475569] shadow-[8px_8px_0px_#000] text-slate-900 dark:text-slate-100 my-auto rounded-xl overflow-hidden transition-all">
         {/* Top Header Banner */}
         <div className="bg-[#FACC15] text-[#111827] border-b-3 border-black px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">

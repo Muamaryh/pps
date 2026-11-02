@@ -172,7 +172,7 @@ export default function LightboxModal({
 
         {/* Details Card (Caption, Date, Location & Description) */}
         {(caption || desc || location || date) && (
-          <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] text-[#111827] dark:text-slate-100 border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000] w-full max-h-[30vh] overflow-y-auto">
+          <div className="p-4 sm:p-5 bg-[var(--card-bg)] rounded-xl text-[#111827] dark:text-slate-100 border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000] w-full max-h-[30vh] overflow-y-auto">
             {caption && (
               <h3 className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100 uppercase tracking-tight mb-2">
                 {caption}

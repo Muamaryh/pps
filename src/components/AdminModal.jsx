@@ -5565,7 +5565,7 @@ export default function AdminModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="card-brutal p-4 bg-white dark:bg-[#1E212B] border-3 border-black max-w-3xl w-full rounded-lg flex flex-col gap-3 shadow-[8px_8px_0px_#000] max-h-[92vh]"
+            className="p-4 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-3xl w-full rounded-xl overflow-hidden flex flex-col gap-3 shadow-[8px_8px_0px_#000] max-h-[92vh]"
           >
             {/* Header Modal Lightbox */}
             <div className="flex items-center justify-between w-full pb-2 border-b-2 border-black/15 dark:border-white/15">

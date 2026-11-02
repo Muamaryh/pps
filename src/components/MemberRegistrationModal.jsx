@@ -252,7 +252,7 @@ export default function MemberRegistrationModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-2xl max-h-[92vh] rounded border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+      <div className="w-full max-w-2xl max-h-[92vh] rounded-xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1F222C]">
           <div className="flex items-center gap-3">
