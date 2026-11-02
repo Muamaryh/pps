@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   X,
   Users,
@@ -12,6 +12,7 @@ import {
   Eye,
   Sparkles,
   ExternalLink,
+  HeartHandshake,
 } from "lucide-react";
 import {
   subscribeMembersCloud,
@@ -54,11 +55,25 @@ export default function MembersDirectoryModal({
     };
   }, [isOpen]);
 
+  const [filterJasraOnly, setFilterJasraOnly] = useState(false);
+
+  // Hitung jumlah anggota yang telah menerima manfaat voucher Jasra
+  const jasraRecipientsCount = useMemo(() => {
+    return members.filter((m) => {
+      const vSub = getMemberVoucherSubscription(m);
+      return vSub.isActive || m.voucherJasraReceived;
+    }).length;
+  }, [members]);
+
   if (!isOpen) return null;
 
-  // Filter members based on search query
+  // Filter members based on search query & filter Jasra
   const q = searchQuery.trim().toLowerCase();
   const filteredMembers = members.filter((m) => {
+    if (filterJasraOnly) {
+      const vSub = getMemberVoucherSubscription(m);
+      if (!vSub.isActive && !m.voucherJasraReceived) return false;
+    }
     if (!q) return true;
     const name = (m.fullName || "").toLowerCase();
     const ic = (m.icNumber || "").toLowerCase();
@@ -112,14 +127,47 @@ export default function MembersDirectoryModal({
 
           {/* Subheader Toolbar & Stats */}
           <div className="p-3.5 sm:p-5 bg-amber-50/60 dark:bg-[#171922] border-b-2 border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            {/* Total Members Pill */}
-            <div className="flex items-center gap-3">
-              <div className="px-3.5 py-2 rounded-lg bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2.5px_2.5px_0px_#000] flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide">
+            {/* Stats Badges & Jasra Counter */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setFilterJasraOnly(false)}
+                className={`px-3 py-2 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all ${
+                  !filterJasraOnly
+                    ? "bg-[#FACC15] text-[#111827]"
+                    : "bg-white dark:bg-[#1F222C] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+                title="Tampilkan seluruh anggota resmi terdaftar"
+              >
                 <Users size={16} />
                 <span>
                   {isLoading ? "Memuat..." : `${members.length} Anggota Terdaftar`}
                 </span>
-              </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterJasraOnly((prev) => !prev)}
+                className={`px-3 py-2 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all ${
+                  filterJasraOnly
+                    ? "bg-emerald-500 text-slate-950 ring-2 ring-emerald-300 dark:ring-emerald-700"
+                    : "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/80"
+                }`}
+                title="Klik untuk menyaring anggota yang telah menerima manfaat voucher Jasra"
+              >
+                <HeartHandshake
+                  size={16}
+                  className={filterJasraOnly ? "text-slate-950" : "text-emerald-700 dark:text-emerald-400"}
+                />
+                <span>
+                  {isLoading ? "..." : `${jasraRecipientsCount} Menerima Manfaat Jasra`}
+                </span>
+                {filterJasraOnly && (
+                  <span className="text-[10px] bg-black text-white px-1.5 py-0.2 rounded font-mono font-black">
+                    AKTIF
+                  </span>
+                )}
+              </button>
             </div>
 
             {/* Quick Action: Daftar Baru */}
@@ -367,31 +415,9 @@ export default function MembersDirectoryModal({
                       })()}
                     </div>
 
-                    {/* Bottom Action: Preview KTP Document */}
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-black/5 dark:border-white/5">
-                      {member.icPhoto ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPreviewKtp({
-                              image: member.icPhoto,
-                              name: member.fullName || "Anggota",
-                              citizenId: member.icNumber || "",
-                            })
-                          }
-                          className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-black border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
-                          title="Lihat dokumen KTP IC"
-                        >
-                          <FileText size={12} className="text-[#DC2626]" />
-                          <span>Lihat KTP</span>
-                        </button>
-                      ) : (
-                        <span className="text-[10px] text-slate-400 italic">
-                          Tanpa Dokumen KTP
-                        </span>
-                      )}
-
-                      {member.profilePhoto && (
+                    {/* Bottom Action: Foto Profil (Dokumen KTP khusus tersimpan di arsip Admin) */}
+                    {member.profilePhoto && (
+                      <div className="flex items-center justify-end pt-1 border-t border-black/5 dark:border-white/5">
                         <button
                           type="button"
                           onClick={() =>
@@ -401,14 +427,14 @@ export default function MembersDirectoryModal({
                               citizenId: member.icNumber || "",
                             })
                           }
-                          className="btn text-[11px] py-1 px-2 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold border border-black dark:border-slate-600 flex items-center gap-1 cursor-pointer"
+                          className="btn text-[11px] py-1 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold border border-black dark:border-slate-600 flex items-center gap-1.5 cursor-pointer active:translate-x-0.5"
                           title="Lihat foto profil resolusi penuh"
                         >
                           <Eye size={12} />
                           <span>Foto Profil</span>
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

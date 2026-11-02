@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   X,
   Gift,
@@ -20,9 +20,16 @@ import {
   Package,
   ShoppingBag,
   Wheat,
+  Clock,
+  Users,
+  Search,
 } from "lucide-react";
 import { scanKtpImage } from "../utils/ktpOcr";
-import { submitBansosClaimCloud, DEFAULT_BANSOS_PROGRAM } from "../services/bansosService";
+import {
+  submitBansosClaimCloud,
+  subscribeBansosClaimsCloud,
+  DEFAULT_BANSOS_PROGRAM,
+} from "../services/bansosService";
 import BrutalistSelect from "./BrutalistSelect";
 
 function getBansosIcon(iconName) {
@@ -85,6 +92,52 @@ export default function BansosModal({
     availablePrograms.find((p) => p.id === selectedProgramId) ||
     availablePrograms[0] ||
     DEFAULT_BANSOS_PROGRAM;
+
+  // View Tab State ("form" = Formulir Pengajuan, "recipients" = Transparansi Daftar Penerima)
+  const [activeTab, setActiveTab] = useState("form");
+  const [claimsList, setClaimsList] = useState([]);
+  const [isLoadingClaims, setIsLoadingClaims] = useState(false);
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [recipientFilter, setRecipientFilter] = useState("ALL"); // "ALL" | "CLAIMED" | "PENDING"
+
+  // Real-time subscription to bansos claims list
+  useEffect(() => {
+    if (!isOpen) return;
+    setIsLoadingClaims(true);
+    const unsub = subscribeBansosClaimsCloud(
+      (list) => {
+        setClaimsList(Array.isArray(list) ? list : []);
+        setIsLoadingClaims(false);
+      },
+      (err) => {
+        console.error("Gagal memuat transparansi penerima bansos:", err);
+        setIsLoadingClaims(false);
+      }
+    );
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, [isOpen]);
+
+  const totalClaims = claimsList.length;
+  const claimedCount = claimsList.filter((c) => c.claimed).length;
+  const pendingCount = totalClaims - claimedCount;
+
+  const filteredRecipients = useMemo(() => {
+    const q = recipientSearch.trim().toLowerCase();
+    return claimsList.filter((c) => {
+      if (recipientFilter === "CLAIMED" && !c.claimed) return false;
+      if (recipientFilter === "PENDING" && c.claimed) return false;
+      if (!q) return true;
+      const name = (c.fullName || "").toLowerCase();
+      const cid = (c.citizenId || "").toLowerCase();
+      const code = (c.claimCode || "").toLowerCase();
+      const prog = (c.programTitle || "").toLowerCase();
+      const items = Array.isArray(c.packageItems) ? c.packageItems.join(" ").toLowerCase() : "";
+      return name.includes(q) || cid.includes(q) || code.includes(q) || prog.includes(q) || items.includes(q);
+    });
+  }, [claimsList, recipientSearch, recipientFilter]);
+
   // Form State
   const [screenshotPreview, setScreenshotPreview] = useState("");
   const [isScanningOcr, setIsScanningOcr] = useState(false);
@@ -332,7 +385,7 @@ export default function BansosModal({
       aria-labelledby="bansos-modal-title"
       className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn"
     >
-      <div className="relative w-full max-w-2xl bg-[#FFFDF9] dark:bg-[#161822] border-3 border-black dark:border-[#475569] shadow-[8px_8px_0px_#000] text-slate-900 dark:text-slate-100 my-auto rounded-none overflow-hidden transition-all">
+      <div className="relative w-full max-w-4xl bg-[#FFFDF9] dark:bg-[#161822] border-3 border-black dark:border-[#475569] shadow-[8px_8px_0px_#000] text-slate-900 dark:text-slate-100 my-auto rounded-none overflow-hidden transition-all">
         {/* Top Header Banner */}
         <div className="bg-[#FACC15] text-[#111827] border-b-3 border-black px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -353,14 +406,50 @@ export default function BansosModal({
             type="button"
             onClick={handleModalClose}
             aria-label="Tutup Formulir Bansos"
-            className="w-9 h-9 flex items-center justify-center bg-white hover:bg-red-500 hover:text-white border-2 border-black shadow-[2px_2px_0px_#000] transition-colors text-black active:translate-x-0.5 active:translate-y-0.5"
+            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+            title="Tutup (Esc)"
           >
-            <X size={18} />
+            <X size={18} className="stroke-[3]" />
+          </button>
+        </div>
+
+        {/* Navigation Tabs (Formulir Klaim vs Transparansi Penerima Bansos) */}
+        <div className="flex items-center border-b-2 border-black bg-slate-100 dark:bg-[#1C1F2B] px-4 sm:px-6 pt-2.5 gap-2 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("form")}
+            className={`py-2 px-3 sm:px-4 text-xs font-heading font-black uppercase border-t-2 border-x-2 border-black transition-all flex items-center gap-1.5 cursor-pointer -mb-[2px] ${
+              activeTab === "form"
+                ? "bg-[#FFFDF9] dark:bg-[#161822] text-slate-900 dark:text-slate-100 border-b-2 border-b-transparent shadow-xs"
+                : "bg-slate-200 dark:bg-[#12141D] text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-[#191C27] border-b-2 border-black"
+            }`}
+          >
+            <Gift size={15} className="text-[#DC2626]" />
+            <span>Formulir Klaim Bansos</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("recipients")}
+            className={`py-2 px-3 sm:px-4 text-xs font-heading font-black uppercase border-t-2 border-x-2 border-black transition-all flex items-center gap-1.5 cursor-pointer -mb-[2px] ${
+              activeTab === "recipients"
+                ? "bg-[#FFFDF9] dark:bg-[#161822] text-slate-900 dark:text-slate-100 border-b-2 border-b-transparent shadow-xs"
+                : "bg-slate-200 dark:bg-[#12141D] text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-[#191C27] border-b-2 border-black"
+            }`}
+          >
+            <Users size={15} className="text-emerald-600" />
+            <span>Daftar Penerima Bansos</span>
+            <span className="text-[10px] font-mono font-black px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-400">
+              {claimsList.length}
+            </span>
           </button>
         </div>
 
         {/* Modal Body */}
         <div className="p-4 sm:p-6 max-h-[80vh] overflow-y-auto space-y-5">
+          {/* TAB 1: FORMULIR KLAIM BANSOS */}
+          {activeTab === "form" && (
+            <>
           {/* Multiple Programs Switcher (Shown if more than 1 active program) */}
           {availablePrograms.length > 1 && !issuedClaim && (
             <div className="bg-amber-100/70 dark:bg-[#1E212B] border-2 border-black p-3 shadow-[2px_2px_0px_#000] flex flex-col gap-1.5">
@@ -720,11 +809,247 @@ export default function BansosModal({
                   </div>
                 </form>
               )}
+            </>
+          )}
+
+          {/* TAB 2: TRANSPARANSI DAFTAR PENERIMA BANSOS WARGA */}
+          {activeTab === "recipients" && (
+            <div className="space-y-4">
+              {/* Header Info */}
+              <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-[#0b241b] dark:to-[#0f2e24] border-2 border-black dark:border-emerald-700/60 shadow-[3px_3px_0px_#000] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded bg-emerald-600 text-white border-2 border-black flex items-center justify-center font-bold shadow-[1.5px_1.5px_0px_#000] shrink-0">
+                    <CheckCircle2 size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-950 dark:text-slate-100">
+                      Transparansi Penyaluran Bansos Warga
+                    </h4>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 font-mono">
+                      Daftar resmi warga penerima paket bantuan sosial LSM Paguyuban Pizza Sandy Shores
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white dark:bg-[#181B24] border border-black text-slate-800 dark:text-slate-200 shadow-xs">
+                    Update Real-Time
+                  </span>
+                </div>
+              </div>
+
+              {/* 3 Stats Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="p-3 rounded bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded bg-[#FACC15] border border-black flex items-center justify-center font-bold text-slate-950 shrink-0">
+                    <Users size={16} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase block font-bold">Total Pemohon</span>
+                    <span className="font-heading font-black text-sm text-slate-950 dark:text-slate-100">{totalClaims} Warga</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded bg-emerald-500 border border-black flex items-center justify-center font-bold text-white shrink-0">
+                    <CheckCircle2 size={16} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase block font-bold">Sudah Disalurkan</span>
+                    <span className="font-heading font-black text-sm text-emerald-700 dark:text-emerald-400">{claimedCount} Penerima</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded bg-amber-400 border border-black flex items-center justify-center font-bold text-slate-950 shrink-0">
+                    <Clock size={16} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase block font-bold">Siap Diserahkan</span>
+                    <span className="font-heading font-black text-sm text-amber-800 dark:text-amber-300">{pendingCount} Warga</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search & Filter Bar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+                <div className="relative flex-1">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={recipientSearch}
+                    onChange={(e) => setRecipientSearch(e.target.value)}
+                    placeholder="Cari nama warga, Citizen ID / No KTP, atau nama bansos..."
+                    className="input-field w-full pl-9 pr-8 py-2 text-xs bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[1.5px_1.5px_0px_#000]"
+                  />
+                  {recipientSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setRecipientSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => setRecipientFilter("ALL")}
+                    className={`py-1.5 px-2.5 rounded text-[11px] font-heading font-bold border-2 border-black cursor-pointer transition-all ${
+                      recipientFilter === "ALL"
+                        ? "bg-slate-900 text-white shadow-[1px_1px_0px_#000]"
+                        : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                    }`}
+                  >
+                    Semua ({totalClaims})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecipientFilter("CLAIMED")}
+                    className={`py-1.5 px-2.5 rounded text-[11px] font-heading font-bold border-2 border-black cursor-pointer transition-all ${
+                      recipientFilter === "CLAIMED"
+                        ? "bg-emerald-600 text-white shadow-[1px_1px_0px_#000]"
+                        : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Sudah Diterima ({claimedCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecipientFilter("PENDING")}
+                    className={`py-1.5 px-2.5 rounded text-[11px] font-heading font-bold border-2 border-black cursor-pointer transition-all ${
+                      recipientFilter === "PENDING"
+                        ? "bg-amber-500 text-slate-950 shadow-[1px_1px_0px_#000]"
+                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100"
+                    }`}
+                  >
+                    Siap Ambil ({pendingCount})
+                  </button>
+                </div>
+              </div>
+
+              {/* List Cards of Recipients */}
+              {isLoadingClaims ? (
+                <div className="p-8 text-center text-xs text-slate-500 font-mono">
+                  <Loader2 size={24} className="animate-spin mx-auto mb-2 text-amber-500" />
+                  <span>Memuat data transparansi penerima bansos...</span>
+                </div>
+              ) : filteredRecipients.length === 0 ? (
+                <div className="p-8 text-center bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                  <Package size={28} className="mx-auto text-slate-400 mb-2" />
+                  <p className="font-heading font-black text-xs uppercase text-slate-800 dark:text-slate-200">
+                    Tidak Ada Data Penerima Bansos
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {recipientSearch
+                      ? `Tidak ditemukan warga dengan kata kunci "${recipientSearch}".`
+                      : "Belum ada permohonan bansos yang tercatat."}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {filteredRecipients.map((c) => {
+                    const isClaimed = Boolean(c.claimed);
+                    return (
+                      <div
+                        key={c.id || c.claimCode}
+                        className="p-3 sm:p-3.5 rounded bg-white dark:bg-[#1C1F2B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                      >
+                        {/* Warga Info */}
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div
+                            className={`w-9 h-9 rounded flex items-center justify-center font-heading font-black text-xs border-2 border-black shrink-0 shadow-[1px_1px_0px_#000] ${
+                              isClaimed ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
+                            }`}
+                          >
+                            {(c.fullName || "W")[0]}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-heading font-black text-xs sm:text-sm text-slate-900 dark:text-slate-100 uppercase tracking-tight">
+                                {c.fullName}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                                CID: {c.citizenId || "-"}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                KODE: {c.claimCode || "-"}
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-[#DC2626] dark:text-[#FACC15] font-heading font-bold mt-0.5 truncate">
+                              {c.programTitle || "Program Bansos Warga"}
+                            </p>
+
+                            {/* Paket Bansos yang Diterima */}
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px] font-mono text-slate-600 dark:text-slate-300">
+                              <span className="text-slate-500 font-bold">Bantuan:</span>
+                              {(Array.isArray(c.packageItems) && c.packageItems.length > 0
+                                ? c.packageItems
+                                : ["1 Paket Makanan", "Uang Tunai $2.500 USD"]
+                              ).map((it, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-800 text-[10px] font-bold"
+                                >
+                                  <Gift size={10} className="text-amber-600" />
+                                  <span>{it}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status & Timestamp */}
+                        <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto shrink-0 gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-black/10 dark:border-white/10">
+                          {isClaimed ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-300 border border-emerald-500 text-[11px] font-mono font-black uppercase shadow-xs">
+                              <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400" />
+                              <span>Sudah Diterima</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-500 text-[11px] font-mono font-bold uppercase shadow-xs">
+                              <Clock size={13} className="text-amber-600 dark:text-amber-400" />
+                              <span>Siap Ambil</span>
+                            </span>
+                          )}
+
+                          <span className="text-[10px] font-mono text-slate-500">
+                            {c.claimDate || "Baru saja"} {c.claimTime ? `• ${c.claimTime}` : ""}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}
         <div className="bg-[#FFFDF9] dark:bg-[#161822] border-t-2 border-black/20 dark:border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-          <span>LSM Paguyuban Pizza Sandy Shores &copy; 2026</span>
+          <span>LSM Paguyuban Pizza Sandy Shores &copy; 2026 • Transparansi Bansos</span>
+          {activeTab === "form" ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("recipients")}
+              className="text-xs font-mono font-bold text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <span>Lihat Daftar Penerima ({claimsList.length}) &rarr;</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setActiveTab("form")}
+              className="text-xs font-mono font-bold text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <span>&larr; Ajukan Klaim Bansos</span>
+            </button>
+          )}
         </div>
       </div>
 
