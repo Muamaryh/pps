@@ -422,16 +422,30 @@ export async function submitBansosClaimCloud(claimData) {
   }
 
   const cleanCid = String(claimData.citizenId).trim().toUpperCase();
-  const safeDocId = "cid_" + cleanCid.replace(/[^A-Z0-9_-]/g, "");
+  const targetProgramId = claimData.programId || DEFAULT_BANSOS_PROGRAM.id;
 
-  // 1. Direct Atomic Document ID Lookup (Fast 1-document check)
+  // 0. Verify if target program is active (Block submission if program is INACTIVE)
+  const programs = await loadBansosProgramsCloud();
+  const targetProgram = programs.find((p) => p.id === targetProgramId);
+  if (targetProgram && targetProgram.status !== "ACTIVE") {
+    throw new Error(
+      `Program bantuan sosial "${targetProgram.title || "ini"}" saat ini sedang ditutup atau dinonaktifkan oleh pengurus.`
+    );
+  }
+
+  // Scoped deterministic document ID per program: claim_<progId>_<cleanCid>
+  const cleanProgId = String(targetProgramId).replace(/[^a-zA-Z0-9_-]/g, "");
+  const cleanCidId = cleanCid.replace(/[^A-Z0-9_-]/g, "");
+  const safeDocId = `claim_${cleanProgId}_${cleanCidId}`;
+
+  // 1. Direct Atomic Document ID Lookup for this program
   const docRef = doc(getBansosDb(), ...BANSOS_COL_PATH, safeDocId);
   try {
     const existingSnap = await getDoc(docRef);
     if (existingSnap.exists()) {
       const data = existingSnap.data();
       const err = new Error(
-        `Citizen ID (${cleanCid}) sudah terdaftar dengan Kode Kupon ${data.claimCode || "-"}. Bantuan hanya dapat diklaim 1 kali per warga.`
+        `Citizen ID (${cleanCid}) sudah terdaftar pada program "${data.programTitle || "ini"}" dengan Kode Kupon ${data.claimCode || "-"}. Bantuan hanya dapat diklaim 1 kali per warga.`
       );
       err.code = "ALREADY_CLAIMED";
       err.existingClaim = data;
@@ -441,15 +455,36 @@ export async function submitBansosClaimCloud(claimData) {
     if (err.code === "ALREADY_CLAIMED") throw err;
   }
 
-  // 2. Fallback check across existing claims (supports legacy doc IDs)
+  // 2. Also check legacy doc ID ("cid_" + cleanCid) if it belongs to the same program
+  const legacyDocRef = doc(getBansosDb(), ...BANSOS_COL_PATH, "cid_" + cleanCidId);
+  try {
+    const legacySnap = await getDoc(legacyDocRef);
+    if (legacySnap.exists()) {
+      const data = legacySnap.data();
+      if (!data.programId || data.programId === targetProgramId) {
+        const err = new Error(
+          `Citizen ID (${cleanCid}) sudah terdaftar pada program "${data.programTitle || "ini"}" dengan Kode Kupon ${data.claimCode || "-"}. Bantuan hanya dapat diklaim 1 kali per warga.`
+        );
+        err.code = "ALREADY_CLAIMED";
+        err.existingClaim = data;
+        throw err;
+      }
+    }
+  } catch (err) {
+    if (err.code === "ALREADY_CLAIMED") throw err;
+  }
+
+  // 3. Fallback check across existing claims in this program
   const currentClaims = await loadBansosClaimsCloud();
   const legacyExisting = currentClaims.find(
-    (c) => String(c.citizenId).trim().toUpperCase() === cleanCid
+    (c) =>
+      String(c.citizenId).trim().toUpperCase() === cleanCid &&
+      (c.programId === targetProgramId || (!c.programId && targetProgramId === DEFAULT_BANSOS_PROGRAM.id))
   );
 
   if (legacyExisting) {
     const err = new Error(
-      `Citizen ID (${cleanCid}) sudah terdaftar dengan Kode Kupon ${legacyExisting.claimCode}. Bantuan hanya dapat diklaim 1 kali per warga.`
+      `Citizen ID (${cleanCid}) sudah terdaftar pada program "${legacyExisting.programTitle || "ini"}" dengan Kode Kupon ${legacyExisting.claimCode}. Bantuan hanya dapat diklaim 1 kali per warga.`
     );
     err.code = "ALREADY_CLAIMED";
     err.existingClaim = legacyExisting;

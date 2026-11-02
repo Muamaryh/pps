@@ -146,11 +146,9 @@ export default function App() {
     };
   }, []);
 
-  // Active Bansos Program for Public Visitors
+  // Active Bansos Program for Public Visitors (strictly null if no active program)
   const activeBansosProgram =
-    bansosPrograms.find((p) => p.status === "ACTIVE") ||
-    bansosPrograms[0] ||
-    DEFAULT_BANSOS_PROGRAM;
+    bansosPrograms.find((p) => p.status === "ACTIVE") || null;
 
   // Active Event for Public Visitors
   const activeEvent =

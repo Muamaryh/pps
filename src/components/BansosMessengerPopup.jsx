@@ -50,8 +50,9 @@ export default function BansosMessengerPopup({
 }) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
 
-  const activeProgram = program || DEFAULT_BANSOS_PROGRAM;
-  const isNotificationEnabled = activeProgram.showMessengerNotification !== false;
+  const activeProgram = program;
+  const isProgramActive = Boolean(activeProgram && activeProgram.status === "ACTIVE");
+  const isNotificationEnabled = isProgramActive && activeProgram.showMessengerNotification !== false;
 
   const isControlled = typeof controlledIsOpen === "boolean";
   const isOpen = isControlled ? controlledIsOpen : internalIsOpen;

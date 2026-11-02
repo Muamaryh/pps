@@ -23,6 +23,7 @@ import {
   Clock,
   Users,
   Search,
+  Lock,
 } from "lucide-react";
 import { scanKtpImage } from "../utils/ktpOcr";
 import {
@@ -71,26 +72,27 @@ export default function BansosModal({
   bansosPrograms = [],
 }) {
   const activePrograms = (bansosPrograms || []).filter((p) => p.status === "ACTIVE");
-  const availablePrograms =
-    activePrograms.length > 0
-      ? activePrograms
-      : bansosPrograms?.length > 0
-      ? bansosPrograms
-      : [DEFAULT_BANSOS_PROGRAM];
+  const isBansosClosed = activePrograms.length === 0;
+  const availablePrograms = activePrograms;
 
-  const [selectedProgramId, setSelectedProgramId] = useState(
-    () => activeProgram?.id || availablePrograms[0]?.id || DEFAULT_BANSOS_PROGRAM.id
-  );
+  const [selectedProgramId, setSelectedProgramId] = useState(() => {
+    if (activeProgram && activeProgram.status === "ACTIVE") return activeProgram.id;
+    return activePrograms[0]?.id || "";
+  });
 
   useEffect(() => {
-    if (activeProgram?.id) {
+    if (activeProgram && activeProgram.status === "ACTIVE") {
       setSelectedProgramId(activeProgram.id);
+    } else if (activePrograms.length > 0 && !activePrograms.some((p) => p.id === selectedProgramId)) {
+      setSelectedProgramId(activePrograms[0].id);
     }
-  }, [activeProgram?.id]);
+  }, [activeProgram, activePrograms, selectedProgramId]);
 
   const selectedProgram =
-    availablePrograms.find((p) => p.id === selectedProgramId) ||
-    availablePrograms[0] ||
+    activePrograms.find((p) => p.id === selectedProgramId) ||
+    activePrograms[0] ||
+    bansosPrograms.find((p) => p.id === selectedProgramId) ||
+    bansosPrograms[0] ||
     DEFAULT_BANSOS_PROGRAM;
 
   // View Tab State ("form" = Formulir Pengajuan, "recipients" = Transparansi Daftar Penerima)
@@ -99,6 +101,7 @@ export default function BansosModal({
   const [isLoadingClaims, setIsLoadingClaims] = useState(false);
   const [recipientSearch, setRecipientSearch] = useState("");
   const [recipientFilter, setRecipientFilter] = useState("ALL"); // "ALL" | "CLAIMED" | "PENDING"
+  const [recipientProgramFilter, setRecipientProgramFilter] = useState("ALL");
 
   // Real-time subscription to bansos claims list
   useEffect(() => {
@@ -126,6 +129,7 @@ export default function BansosModal({
   const filteredRecipients = useMemo(() => {
     const q = recipientSearch.trim().toLowerCase();
     return claimsList.filter((c) => {
+      if (recipientProgramFilter !== "ALL" && c.programId !== recipientProgramFilter) return false;
       if (recipientFilter === "CLAIMED" && !c.claimed) return false;
       if (recipientFilter === "PENDING" && c.claimed) return false;
       if (!q) return true;
@@ -136,7 +140,7 @@ export default function BansosModal({
       const items = Array.isArray(c.packageItems) ? c.packageItems.join(" ").toLowerCase() : "";
       return name.includes(q) || cid.includes(q) || code.includes(q) || prog.includes(q) || items.includes(q);
     });
-  }, [claimsList, recipientSearch, recipientFilter]);
+  }, [claimsList, recipientSearch, recipientFilter, recipientProgramFilter]);
 
   // Form State
   const [screenshotPreview, setScreenshotPreview] = useState("");
@@ -312,6 +316,11 @@ export default function BansosModal({
     e.preventDefault();
     setErrorMessage("");
 
+    if (isBansosClosed || !selectedProgram || selectedProgram.status !== "ACTIVE") {
+      setErrorMessage("Pendaftaran bantuan sosial saat ini sedang ditutup atau dinonaktifkan oleh pengurus.");
+      return;
+    }
+
     if (!screenshotPreview) {
       setErrorMessage("Wajib mengunggah foto atau tangkapan layar KTP IC.");
       return;
@@ -424,8 +433,13 @@ export default function BansosModal({
                 : "bg-slate-200 dark:bg-[#12141D] text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-[#191C27] border-b-2 border-black"
             }`}
           >
-            <Gift size={15} className="text-[#DC2626]" />
+            <Gift size={15} className={isBansosClosed ? "text-slate-400" : "text-[#DC2626]"} />
             <span>Formulir Klaim Bansos</span>
+            {isBansosClosed && (
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-200 text-amber-950 border border-amber-400 uppercase">
+                Tutup
+              </span>
+            )}
           </button>
 
           <button
@@ -450,33 +464,64 @@ export default function BansosModal({
           {/* TAB 1: FORMULIR KLAIM BANSOS */}
           {activeTab === "form" && (
             <>
-          {/* Multiple Programs Switcher (Shown if more than 1 active program) */}
-          {availablePrograms.length > 1 && !issuedClaim && (
-            <div className="bg-amber-100/70 dark:bg-[#1E212B] border-2 border-black p-3 shadow-[2px_2px_0px_#000] flex flex-col gap-1.5">
-              <span className="text-[10px] font-heading font-black uppercase text-amber-950 dark:text-amber-300">
-                Pilih Program Bansos Yang Ingin Diajukan:
-              </span>
-              <div className="flex items-center gap-2 flex-wrap">
-                {availablePrograms.map((p) => {
-                  const isSel = p.id === selectedProgramId;
-                  return (
+              {isBansosClosed ? (
+                /* BANSOS CLOSED / INACTIVE STATE */
+                <div className="p-6 sm:p-8 rounded-xl bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] text-center flex flex-col items-center justify-center gap-3.5 my-2">
+                  <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-950/60 border-2 border-black flex items-center justify-center text-amber-800 dark:text-amber-300 shadow-[2px_2px_0px_#000]">
+                    <Lock size={28} />
+                  </div>
+                  <div className="space-y-1.5 max-w-md">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-900/60 text-amber-950 dark:text-amber-200 border border-amber-400 uppercase tracking-wide inline-block">
+                      Status: Pendaftaran Nonaktif / Ditutup
+                    </span>
+                    <h3 className="font-heading font-black text-base sm:text-lg uppercase text-slate-900 dark:text-slate-100">
+                      Pendaftaran Bansos Sedang Ditutup
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Saat ini belum ada program bantuan sosial yang dibuka untuk permohonan baru. Program bansos sebelumnya telah dinonaktifkan atau telah selesai disalurkan oleh Pengurus LSM Paguyuban Pizza Sandy Shores.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
                     <button
-                      key={p.id}
                       type="button"
-                      onClick={() => setSelectedProgramId(p.id)}
-                      className={`px-3 py-1.5 rounded text-xs font-heading font-black uppercase border-2 border-black transition-all cursor-pointer ${
-                        isSel
-                          ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                          : "bg-white dark:bg-[#28251e] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-                      }`}
+                      onClick={() => setActiveTab("recipients")}
+                      className="py-2.5 px-4 rounded bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
                     >
-                      {p.title}
+                      <Users size={16} />
+                      <span>Lihat Transparansi Penerima Bansos ({claimsList.length})</span>
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Multiple Programs Switcher (Shown if more than 1 active program) */}
+                  {availablePrograms.length > 1 && !issuedClaim && (
+                    <div className="bg-amber-100/70 dark:bg-[#1E212B] border-2 border-black p-3 shadow-[2px_2px_0px_#000] flex flex-col gap-1.5">
+                      <span className="text-[10px] font-heading font-black uppercase text-amber-950 dark:text-amber-300">
+                        Pilih Program Bansos Yang Ingin Diajukan:
+                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {availablePrograms.map((p) => {
+                          const isSel = p.id === selectedProgramId;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setSelectedProgramId(p.id)}
+                              className={`px-3 py-1.5 rounded text-xs font-heading font-black uppercase border-2 border-black transition-all cursor-pointer ${
+                                isSel
+                                  ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                                  : "bg-white dark:bg-[#28251e] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                              }`}
+                            >
+                              {p.title}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
           {/* Package Highlight Banner */}
           <div className="bg-[#FFF8E7] dark:bg-[#1f1b13] border-2 border-black dark:border-[#715413] p-4 shadow-[3px_3px_0px_#000]">
@@ -809,6 +854,8 @@ export default function BansosModal({
                   </div>
                 </form>
               )}
+                </>
+              )}
             </>
           )}
 
@@ -892,6 +939,28 @@ export default function BansosModal({
                     </button>
                   )}
                 </div>
+
+                {/* Program Filter Dropdown (jika ada lebih dari 1 program bansos) */}
+                {bansosPrograms.length > 1 && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-mono font-bold uppercase text-slate-500">Program:</span>
+                    <select
+                      value={recipientProgramFilter}
+                      onChange={(e) => setRecipientProgramFilter(e.target.value)}
+                      className="py-1.5 px-2 text-[11px] font-heading font-black bg-white dark:bg-[#1E212B] text-slate-800 dark:text-slate-200 border-2 border-black dark:border-[#475569] shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                    >
+                      <option value="ALL">Semua Program ({claimsList.length})</option>
+                      {bansosPrograms.map((p) => {
+                        const cnt = claimsList.filter((c) => c.programId === p.id).length;
+                        return (
+                          <option key={p.id} value={p.id}>
+                            {p.title} ({cnt})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
 
                 {/* Filter Pills */}
                 <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto">
