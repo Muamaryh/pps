@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -100,6 +100,7 @@ export default function AdminModal({
   const [loginMode, setLoginMode] = useState("password"); // "password" (default) | "pin"
   const [rememberMe, setRememberMe] = useState(true);
   const [activeTab, setActiveTab] = useState("identity");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Anti Brute-Force Rate Limiting Lockout State
@@ -135,6 +136,17 @@ export default function AdminModal({
       }
     }
   }, [activeTab]);
+
+  // Close mobile navigation drawer on Escape key press
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape" && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMenuOpen]);
 
   // KTP Document Lightbox Preview State
   const [previewKtp, setPreviewKtp] = useState(null);
@@ -1930,6 +1942,9 @@ export default function AdminModal({
   const tabGroups = [
     {
       group: "Umum & Konten",
+      shortLabel: "Umum",
+      icon: Layout,
+      badgeCount: null,
       tabs: [
         { id: "identity", label: "Brand & Menu", icon: Layout },
         { id: "hero", label: "Beranda & 4 Pilar", icon: Compass },
@@ -1940,6 +1955,9 @@ export default function AdminModal({
     },
     {
       group: "Warga & Keuangan",
+      shortLabel: "Warga",
+      icon: Users2,
+      badgeCount: (submissions.length > 0 || membersList.length > 0) ? (submissions.length + membersList.length) : null,
       tabs: [
         { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
         { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
@@ -1948,6 +1966,9 @@ export default function AdminModal({
     },
     {
       group: "Event & Bansos",
+      shortLabel: "Event",
+      icon: Ticket,
+      badgeCount: (eventsList.length > 0 || bansosClaims.length > 0) ? (eventsList.length + bansosClaims.length) : null,
       tabs: [
         { id: "event_db", label: `Kelola Event (${eventsList.length})`, icon: Ticket },
         { id: "bansos_db", label: `Bansos Warga (${bansosClaims.length})`, icon: Gift },
@@ -1955,6 +1976,9 @@ export default function AdminModal({
     },
     {
       group: "Sistem & Keamanan",
+      shortLabel: "Sistem",
+      icon: Shield,
+      badgeCount: null,
       tabs: [
         { id: "security", label: "Keamanan", icon: Shield },
       ],
@@ -1962,6 +1986,8 @@ export default function AdminModal({
   ];
 
   const tabs = tabGroups.flatMap((g) => g.tabs);
+  const activeGroup = tabGroups.find((g) => g.tabs.some((t) => t.id === activeTab)) || tabGroups[0];
+  const activeTabObj = tabs.find((t) => t.id === activeTab) || tabs[0];
 
   const currentMonthLabel = getCurrentMonthLabel();
   const currentWeekLabel = getCurrentWeekLabel();
@@ -2341,83 +2367,138 @@ export default function AdminModal({
 
                 {/* RIGHT WORKSPACE AREA (Mobile Full-Width, Desktop Flex-1) */}
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                  {/* MOBILE ONLY TOP BAR (< md): Quick Tab Selector Dropdown */}
-                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-3 py-2 flex items-center gap-2">
-                    <span className="text-[11px] font-heading font-black text-slate-600 dark:text-slate-300 uppercase shrink-0">
-                      Menu:
-                    </span>
-                    <div className="relative flex-1">
-                      <select
-                        value={activeTab}
-                        onChange={(e) => setActiveTab(e.target.value)}
-                        className="w-full bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 font-heading font-black text-xs py-2 px-3 pr-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
-                      >
-                        {tabGroups.map((group, gIdx) => (
-                          <optgroup key={gIdx} label={`── ${group.group.toUpperCase()} ──`}>
-                            {group.tabs.map((tab) => (
-                              <option key={tab.id} value={tab.id}>
-                                {tab.label}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </select>
-                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-700 dark:text-slate-300">
-                        <ChevronDown size={14} />
+                  {/* MOBILE NAVIGATION (< md): 2-Tier Responsive Grouped Bar + Quick Drawer */}
+                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 flex flex-col">
+                    {/* Top Bar: Active Context Breadcrumb + Drawer Toggle Button */}
+                    <div className="px-3 py-2 flex items-center justify-between border-b border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-[#111827] shadow-[1.5px_1.5px_0px_#000] shrink-0">
+                          {React.createElement(activeTabObj.icon, { size: 16, className: "text-[#DC2626]" })}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[9px] font-heading font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider truncate">
+                            {activeGroup.group}
+                          </div>
+                          <div className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
+                            <span className="truncate">{activeTabObj.label.split(" (")[0]}</span>
+                            {activeTabObj.label.includes("(") && (
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000] shrink-0">
+                                {activeTabObj.label.match(/\((\d+)\)/)?.[1]}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* MOBILE ONLY HORIZONTAL PILLS (< md) with Left/Right Scroll Nudge */}
-                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 px-2 py-1.5 relative flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => scrollTabs("left")}
-                      className="shrink-0 p-1.5 mr-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5"
-                      title="Geser tab ke kiri"
-                    >
-                      <ChevronLeft size={13} />
-                    </button>
-                    <div
-                      ref={tabsNavRef}
-                      className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth py-1 px-1"
-                      style={{ WebkitOverflowScrolling: "touch" }}
-                    >
-                      {tabGroups.map((group, gIdx) => (
-                        <React.Fragment key={gIdx}>
-                          {gIdx > 0 && (
-                            <div className="h-5 w-[1.5px] bg-black/20 dark:bg-white/20 shrink-0 mx-1" />
-                          )}
-                          {group.tabs.map((tab) => {
-                            const Icon = tab.icon;
-                            const isActive = activeTab === tab.id;
-                            return (
-                              <button
-                                key={tab.id}
-                                id={`tab-nav-btn-${tab.id}`}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`tab-btn flex items-center gap-1.5 text-xs py-1.5 px-2.5 rounded shrink-0 border-2 border-black dark:border-[#475569] font-heading font-black transition-all ${
-                                  isActive
-                                    ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                                    : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-slate-100"
-                                }`}
-                              >
-                                <Icon size={13} className={isActive ? "text-[#DC2626]" : ""} />
-                                <span className="whitespace-nowrap">{tab.label}</span>
-                              </button>
-                            );
-                          })}
-                        </React.Fragment>
-                      ))}
+                      {/* Button Open All Categories Drawer */}
+                      <button
+                        type="button"
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="btn px-2.5 py-1.5 bg-white dark:bg-[#20232E] hover:bg-amber-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-1.5 shrink-0 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer min-h-[36px]"
+                        title="Buka daftar lengkap menu"
+                      >
+                        <Menu size={14} className="text-[#DC2626]" />
+                        <span>Semua Menu</span>
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => scrollTabs("right")}
-                      className="shrink-0 p-1.5 ml-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5"
-                      title="Geser tab ke kanan"
-                    >
-                      <ChevronRight size={13} />
-                    </button>
+
+                    {/* Tier 1: Category Chips Grid (4 Categories: Umum, Warga, Event, Sistem) */}
+                    <div className="grid grid-cols-4 gap-1 p-1.5 bg-[#F4EFE6]/70 dark:bg-black/40 border-b border-black/10 dark:border-white/10">
+                      {tabGroups.map((group, gIdx) => {
+                        const isCurrentCategory = activeGroup.group === group.group;
+                        const GroupIcon = group.icon;
+                        const hasBadge = group.badgeCount !== null && group.badgeCount > 0;
+                        return (
+                          <button
+                            key={gIdx}
+                            type="button"
+                            onClick={() => {
+                              if (!isCurrentCategory) {
+                                setActiveTab(group.tabs[0].id);
+                              }
+                            }}
+                            className={`flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-1 rounded border-2 font-heading text-[11px] font-black transition-all text-center relative cursor-pointer min-h-[44px] ${
+                              isCurrentCategory
+                                ? "bg-black text-[#FACC15] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                                : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/20 dark:border-[#475569] hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <GroupIcon size={14} className={isCurrentCategory ? "text-[#FACC15]" : "text-slate-500 dark:text-slate-400"} />
+                            <span className="truncate">{group.shortLabel}</span>
+                            {hasBadge && (
+                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#DC2626] border border-white dark:border-black animate-pulse" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Tier 2: Contextual Subtabs (Only tabs from active category) */}
+                    <div className="relative flex items-center px-1.5 py-1.5 bg-[#FFFDF9] dark:bg-[#161822]">
+                      {activeGroup.tabs.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => scrollTabs("left")}
+                          className="shrink-0 p-2 mr-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5 cursor-pointer min-w-[36px] min-h-[40px] flex items-center justify-center"
+                          title="Geser tab ke kiri"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                      )}
+
+                      <div
+                        ref={tabsNavRef}
+                        className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth py-0.5 px-0.5"
+                        style={{ WebkitOverflowScrolling: "touch" }}
+                      >
+                        {activeGroup.tabs.map((tab) => {
+                          const Icon = tab.icon;
+                          const isActive = activeTab === tab.id;
+                          const hasCount = tab.label.includes("(");
+                          const countText = hasCount ? tab.label.match(/\((\d+)\)/)?.[1] : null;
+                          const cleanTitle = tab.label.split(" (")[0];
+
+                          return (
+                            <button
+                              key={tab.id}
+                              id={`tab-nav-btn-${tab.id}`}
+                              type="button"
+                              onClick={() => setActiveTab(tab.id)}
+                              className={`tab-btn flex items-center gap-1.5 text-xs py-2 px-3 rounded shrink-0 border-2 font-heading font-black transition-all cursor-pointer min-h-[40px] ${
+                                isActive
+                                  ? "bg-[#FACC15] text-[#111827] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                                  : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-black/30 dark:border-[#475569] hover:bg-slate-100"
+                              }`}
+                            >
+                              <Icon size={14} className={isActive ? "text-[#DC2626]" : "text-slate-500"} />
+                              <span className="whitespace-nowrap">{cleanTitle}</span>
+                              {countText !== null && (
+                                <span
+                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
+                                    isActive
+                                      ? "bg-black text-[#FACC15]"
+                                      : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                  }`}
+                                >
+                                  {countText}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {activeGroup.tabs.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => scrollTabs("right")}
+                          className="shrink-0 p-2 ml-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5 cursor-pointer min-w-[36px] min-h-[40px] flex items-center justify-center"
+                          title="Geser tab ke kanan"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Main Scrollable Content Area */}
@@ -7146,6 +7227,126 @@ export default function AdminModal({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MOBILE FULL-MENU DRAWER MODAL (< md) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex flex-col justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
+          {/* Backdrop dismiss */}
+          <div
+            className="flex-1"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Tutup menu navigasi"
+          />
+
+          {/* Drawer Sheet Content */}
+          <div className="bg-[#FFFDF9] dark:bg-[#1A1D26] border-t-3 border-black dark:border-[#475569] rounded-t-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.35)] max-h-[85vh] flex flex-col overflow-hidden animate-slide-up">
+            {/* Header */}
+            <div className="p-3.5 border-b-2 border-black/10 dark:border-white/10 flex items-center justify-between bg-black/5 dark:bg-white/5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-black shadow-[1.5px_1.5px_0px_#000]">
+                  <Menu size={16} className="text-[#DC2626]" />
+                </div>
+                <div>
+                  <h4 className="font-heading font-black text-sm text-slate-900 dark:text-slate-100">
+                    Navigasi Menu Admin
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-mono">
+                    4 Kategori Sistem ({tabs.length} Menu)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-10 h-10 rounded-lg bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] flex items-center justify-center shadow-[1.5px_1.5px_0px_#000] active:translate-y-0.5 cursor-pointer"
+                title="Tutup Menu"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body: All 4 Groups */}
+            <div className="p-3.5 overflow-y-auto space-y-4">
+              {tabGroups.map((group, gIdx) => {
+                const GroupIcon = group.icon;
+                return (
+                  <div key={gIdx} className="space-y-1.5">
+                    {/* Category Header */}
+                    <div className="flex items-center gap-2 px-1">
+                      <GroupIcon size={14} className="text-[#DC2626] dark:text-[#FACC15]" />
+                      <span className="text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">
+                        {group.group}
+                      </span>
+                      <div className="flex-1 h-[1.5px] bg-black/10 dark:bg-white/10" />
+                    </div>
+
+                    {/* Tab Buttons */}
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {group.tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        const hasCount = tab.label.includes("(");
+                        const countText = hasCount ? tab.label.match(/\((\d+)\)/)?.[1] : null;
+                        const cleanTitle = tab.label.split(" (")[0];
+
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveTab(tab.id);
+                              setMobileMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border-2 font-heading font-black text-xs transition-all text-left cursor-pointer min-h-[44px] ${
+                              isActive
+                                ? "bg-[#FACC15] text-[#111827] border-black shadow-[3px_3px_0px_#000] -translate-y-0.5"
+                                : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-black/20 dark:border-[#475569] hover:bg-amber-50 dark:hover:bg-slate-800 shadow-[1.5px_1.5px_0px_#000]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <Icon size={16} className={isActive ? "text-[#DC2626]" : "text-slate-500"} />
+                              <span className="truncate">{cleanTitle}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {countText !== null && (
+                                <span
+                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
+                                    isActive
+                                      ? "bg-black text-[#FACC15]"
+                                      : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                  }`}
+                                >
+                                  {countText}
+                                </span>
+                              )}
+                              {isActive && (
+                                <span className="text-xs font-black text-[#DC2626] bg-black/10 px-1 rounded">
+                                  ✓
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t-2 border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="btn w-full py-2.5 bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-2 border-black dark:border-[#475569] font-heading font-black text-xs rounded-lg shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer min-h-[44px]"
+              >
+                Tutup Menu
+              </button>
+            </div>
           </div>
         </div>
       )}
