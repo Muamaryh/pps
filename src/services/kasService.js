@@ -197,6 +197,14 @@ export function parseDateInputToTimestamp(val) {
     const year = parseInt(match[3], 10);
     const mIdx = INDO_MONTHS_MAP[mStr];
     if (mIdx !== undefined) {
+      const now = new Date();
+      if (
+        now.getFullYear() === year &&
+        now.getMonth() === mIdx &&
+        now.getDate() === day
+      ) {
+        return now.getTime();
+      }
       return new Date(year, mIdx, day, 12, 0, 0).getTime();
     }
   }
