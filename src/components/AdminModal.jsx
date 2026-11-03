@@ -7254,7 +7254,12 @@ export default function AdminModal({
           setSelectedKasMember(null);
         }}
         onShowToast={onShowToast}
-        onSuccess={() => {
+        onSuccess={(updatedMember) => {
+          if (updatedMember) {
+            setMembersList((prev) =>
+              prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
+            );
+          }
           loadKasLedgerCloud().then((list) => {
             if (Array.isArray(list)) setKasTransactions(list);
           });
@@ -7269,7 +7274,12 @@ export default function AdminModal({
         darrenBalance={kasSummary.darrenBalance}
         onClose={() => setIsKasExpenseModalOpen(false)}
         onShowToast={onShowToast}
-        onSuccess={() => {
+        onSuccess={(updatedMember) => {
+          if (updatedMember) {
+            setMembersList((prev) =>
+              prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
+            );
+          }
           loadKasLedgerCloud().then((list) => {
             if (Array.isArray(list)) setKasTransactions(list);
           });
@@ -7284,7 +7294,12 @@ export default function AdminModal({
         darrenBalance={kasSummary.darrenBalance}
         onClose={() => setIsKasIncomeModalOpen(false)}
         onShowToast={onShowToast}
-        onSuccess={() => {
+        onSuccess={(updatedMember) => {
+          if (updatedMember) {
+            setMembersList((prev) =>
+              prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
+            );
+          }
           loadKasLedgerCloud().then((list) => {
             if (Array.isArray(list)) setKasTransactions(list);
           });
