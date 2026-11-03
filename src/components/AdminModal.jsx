@@ -215,6 +215,26 @@ export default function AdminModal({
     }
   });
 
+  // Snapshot of Last Saved Data for Dirty State Tracking
+  const [lastSavedData, setLastSavedData] = useState(() => {
+    if (!initialData) return null;
+    try {
+      return JSON.parse(JSON.stringify(initialData));
+    } catch {
+      return null;
+    }
+  });
+
+  // Tabs that modify formData and require manual saving (Umum & Konten group)
+  const CONTENT_CONFIG_TABS = ["identity", "hero", "about", "org", "gallery"];
+  const isContentConfigTab = CONTENT_CONFIG_TABS.includes(activeTab);
+
+  // Track if any content configuration fields have unsaved modifications
+  const isDirty = React.useMemo(() => {
+    if (!formData || !lastSavedData) return false;
+    return JSON.stringify(formData) !== JSON.stringify(lastSavedData);
+  }, [formData, lastSavedData]);
+
   // Submissions State (Kotak Masuk Lapak & Meeting)
   const [submissions, setSubmissions] = useState([]);
   const [submissionFilter, setSubmissionFilter] = useState("all");
@@ -1321,6 +1341,7 @@ export default function AdminModal({
         cloned.discordVisitorUrl = "https://discord.gg/gb7ajBMduF";
       }
       setFormData(cloned);
+      setLastSavedData(JSON.parse(JSON.stringify(cloned)));
     }
   }, [initialData, isOpen]);
 
@@ -1904,7 +1925,9 @@ export default function AdminModal({
       } else if (sessionStorage.getItem(ADMIN_STORAGE_KEY)) {
         sessionStorage.setItem(ADMIN_STORAGE_KEY, activeHash);
       }
-      onDataSaved(JSON.parse(JSON.stringify(formData)));
+      const savedSnapshot = JSON.parse(JSON.stringify(formData));
+      setLastSavedData(savedSnapshot);
+      onDataSaved(savedSnapshot);
       onShowToast("Perubahan berhasil disimpan ke Database!", "success");
     } catch (err) {
       console.error(err);
@@ -1927,6 +1950,7 @@ export default function AdminModal({
         try {
           const resetData = await resetCloudData();
           setFormData(resetData);
+          setLastSavedData(JSON.parse(JSON.stringify(resetData)));
           onDataSaved(resetData);
           localStorage.removeItem(ADMIN_STORAGE_KEY);
           sessionStorage.removeItem(ADMIN_STORAGE_KEY);
@@ -2139,17 +2163,44 @@ export default function AdminModal({
         <div className="flex items-center gap-2 sm:gap-2.5">
           {isAuthenticated && (
             <>
-              {/* Top Quick Save Button */}
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] rounded border-2 border-black shadow-[2px_2px_0px_#000] disabled:opacity-50 active:translate-x-0.5 active:translate-y-0.5"
-                title="Simpan semua perubahan ke Cloud Database"
-              >
-                <Save size={13} className="text-[#DC2626]" />
-                <span className="hidden sm:inline">{isSaving ? "Menyimpan..." : "Simpan Perubahan"}</span>
-              </button>
+              {/* Top Quick Save Button - Kondisional: Hanya muncul di tab pengeditan form umum & konten */}
+              {isContentConfigTab ? (
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving || !isDirty}
+                  className={`btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black rounded border-2 transition-all ${
+                    isDirty
+                      ? "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer ring-2 ring-red-500/50"
+                      : "bg-slate-100 dark:bg-[#20232E] text-slate-500 dark:text-slate-400 border-black/20 dark:border-white/10 cursor-default opacity-85 shadow-none"
+                  }`}
+                  title={isDirty ? "Ada perubahan form yang belum disimpan ke Database" : "Semua perubahan formulir sudah tersimpan"}
+                >
+                  {isSaving ? (
+                    <>
+                      <Save size={13} className="text-[#DC2626] animate-spin" />
+                      <span className="hidden sm:inline">Menyimpan...</span>
+                    </>
+                  ) : isDirty ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-red-600 animate-ping inline-block" />
+                      <Save size={13} className="text-[#DC2626]" />
+                      <span>Simpan Perubahan</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={13} className="text-emerald-500" />
+                      <span className="hidden sm:inline">Tersimpan</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                /* Auto-sync indicator untuk tab database warga, event, dan bansos */
+                <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Real-time Sync</span>
+                </div>
+              )}
 
               <button
                 type="button"
@@ -6204,37 +6255,73 @@ export default function AdminModal({
                 </div>
               </div>
 
-              {/* Bottom Actions (Fixed Bar at Bottom) */}
-              <div className="shrink-0 border-t-2 border-[#1A1A1A]/15 dark:border-slate-700/60 bg-white/95 dark:bg-[#1F222C]/95 backdrop-blur-sm px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3 shadow-[0_-2px_0_#000]/5">
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="text-xs font-heading font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1.5"
-                >
-                  <RotateCcw size={13} />
-                  <span>Reset Konfigurasi Awal</span>
-                </button>
+              {/* Bottom Actions (Fixed Bar at Bottom) - Kondisional: Hanya muncul di tab pengeditan form umum & konten */}
+              {isContentConfigTab && (
+                <div className="shrink-0 border-t-2 border-[#1A1A1A]/15 dark:border-slate-700/60 bg-white/95 dark:bg-[#1F222C]/95 backdrop-blur-sm px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3 shadow-[0_-2px_0_#000]/5 animate-fadeIn">
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="text-xs font-heading font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1.5 cursor-pointer"
+                    title="Reset konfigurasi website ke pengaturan bawaan awal"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Reset Konfigurasi Awal</span>
+                  </button>
 
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="btn btn-secondary text-xs py-2 px-4 border-2 border-black dark:border-[#475569]"
-                    title="Tutup panel admin dan lihat website utama"
-                  >
-                    Tutup Panel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="btn text-xs py-2 px-5 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] disabled:opacity-50 font-black"
-                  >
-                    <Save size={15} className="text-[#DC2626]" />
-                    <span>{isSaving ? "Menyimpan Data..." : "Simpan Perubahan"}</span>
-                  </button>
+                  <div className="flex items-center gap-2.5">
+                    {isDirty && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (lastSavedData) {
+                            setFormData(JSON.parse(JSON.stringify(lastSavedData)));
+                            onShowToast("Perubahan form dibatalkan.", "info");
+                          }
+                        }}
+                        className="btn text-xs py-2 px-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-black/30 dark:border-white/20 font-bold active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                        title="Batalkan perubahan formulir dan kembalikan ke kondisi tersimpan terakhir"
+                      >
+                        Batal Editan
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="btn btn-secondary text-xs py-2 px-4 border-2 border-black dark:border-[#475569] cursor-pointer"
+                      title="Tutup panel admin dan lihat website utama"
+                    >
+                      Tutup Panel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={isSaving || !isDirty}
+                      className={`btn text-xs py-2 px-5 border-2 font-black transition-all flex items-center gap-1.5 ${
+                        isDirty
+                          ? "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-black shadow-[2px_2px_0px_#000] cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                          : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-700 shadow-none"
+                      }`}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Save size={15} className="text-[#DC2626] animate-spin" />
+                          <span>Menyimpan Data...</span>
+                        </>
+                      ) : isDirty ? (
+                        <>
+                          <Save size={15} className="text-[#DC2626]" />
+                          <span>Simpan Perubahan</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={15} className="text-emerald-500" />
+                          <span>Sudah Tersimpan</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </>
