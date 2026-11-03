@@ -254,14 +254,48 @@ export function subscribeMembersCloud(onUpdate, onError) {
 }
 
 /**
- * Submit new member registration to cloud
+ * Submit new member registration to cloud with duplicate prevention
+ * Rejects registration if citizen ID or full name is already registered.
  */
 export async function submitMemberCloud(data) {
+  if (!data) throw new Error("Data pendaftaran tidak boleh kosong.");
+
+  const cleanCid = String(data.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+  const cleanName = String(data.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
+
+  if (!cleanCid) {
+    throw new Error("Citizen ID (No KTP IC) wajib diisi.");
+  }
+  if (!cleanName) {
+    throw new Error("Nama Lengkap IC wajib diisi.");
+  }
+
+  // 1. Check existing members to prevent duplicate registrations
+  const existingMembers = await loadMembersCloud();
+  const matchedMember = existingMembers.find((m) => {
+    const existingCid = String(m.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const existingName = String(m.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
+    return (cleanCid && existingCid === cleanCid) || (cleanName && existingName === cleanName);
+  });
+
+  if (matchedMember) {
+    const existingCid = String(matchedMember.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const isCidMatch = cleanCid && existingCid === cleanCid;
+    const reason = isCidMatch
+      ? `Citizen ID (${cleanCid}) sudah pernah terdaftar sebagai Anggota Resmi atas nama "${matchedMember.fullName || "Warga"}"`
+      : `Nama warga "${cleanName}" sudah pernah terdaftar sebagai Anggota Resmi (CID: ${matchedMember.icNumber || "-"})`;
+
+    const err = new Error(`Pendaftaran Ditolak: ${reason}. Setiap warga hanya diperbolehkan mendaftar 1 kali.`);
+    err.code = "ALREADY_REGISTERED";
+    err.existingMember = matchedMember;
+    throw err;
+  }
+
   const newDocId = "MEMBER_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
   const now = new Date();
   const payload = {
-    fullName: (data.fullName || "").trim(),
-    icNumber: (data.icNumber || "").trim(),
+    fullName: (data.fullName || "").trim().toUpperCase(),
+    icNumber: (data.icNumber || "").trim().toUpperCase(),
     phone: (data.phone || "").trim(),
     discordTag: (data.discordTag || "").trim(),
     profilePhoto: data.profilePhoto || "",

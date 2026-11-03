@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   UserPlus,
@@ -12,11 +12,12 @@ import {
   ScanLine,
   ExternalLink,
   ShieldCheck,
+  ShieldAlert,
   AlertCircle,
   Copy,
   Check,
 } from "lucide-react";
-import { submitMemberCloud } from "../services/memberService";
+import { submitMemberCloud, subscribeMembersCloud } from "../services/memberService";
 import { scanKtpImage } from "../utils/ktpOcr";
 
 export default function MemberRegistrationModal({
@@ -27,7 +28,9 @@ export default function MemberRegistrationModal({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedData, setSubmittedData] = useState(null);
+  const [rejectedData, setRejectedData] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [existingMembers, setExistingMembers] = useState([]);
 
   const activeDiscordUrl = discordUrl || "https://discord.gg/gb7ajBMduF";
 
@@ -46,6 +49,29 @@ export default function MemberRegistrationModal({
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrSuccess, setOcrSuccess] = useState(null);
   const [ocrCidCandidates, setOcrCidCandidates] = useState([]);
+
+  // Subscribe to existing members when modal is open to detect duplicates in real-time
+  useEffect(() => {
+    if (!isOpen) return;
+    const unsubscribe = subscribeMembersCloud((list) => {
+      setExistingMembers(list || []);
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [isOpen]);
+
+  // Compute duplicate member if CID or Name matches
+  const cleanCurrentCid = (formData.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+  const cleanCurrentName = (formData.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
+
+  const duplicateMember = existingMembers.find((m) => {
+    const existingCid = String(m.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const existingName = String(m.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
+    if (cleanCurrentCid && cleanCurrentCid.length >= 4 && existingCid === cleanCurrentCid) return true;
+    if (cleanCurrentName && cleanCurrentName.length >= 3 && existingName === cleanCurrentName) return true;
+    return false;
+  });
 
   if (!isOpen) return null;
 
@@ -210,6 +236,23 @@ export default function MemberRegistrationModal({
       return;
     }
 
+    // Direct client check rejection if already registered
+    if (duplicateMember) {
+      const isCid = cleanCurrentCid && String(duplicateMember.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "") === cleanCurrentCid;
+      const message = isCid
+        ? `Citizen ID (${cleanCurrentCid}) sudah terdaftar atas nama "${duplicateMember.fullName}".`
+        : `Nama warga "${cleanCurrentName}" sudah terdaftar sebagai anggota resmi.`;
+
+      setRejectedData({
+        message,
+        existingMember: duplicateMember,
+        inputName: formData.fullName,
+        inputCid: formData.icNumber,
+      });
+      if (onShowToast) onShowToast(`Pendaftaran Ditolak: ${message}`, "error");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const result = await submitMemberCloud(formData);
@@ -224,7 +267,17 @@ export default function MemberRegistrationModal({
       }
     } catch (err) {
       console.error("Submit member error:", err);
-      if (onShowToast) onShowToast("Gagal mengirim pendaftaran. Coba lagi.", "error");
+      if (err.code === "ALREADY_REGISTERED" || err.existingMember) {
+        setRejectedData({
+          message: err.message,
+          existingMember: err.existingMember,
+          inputName: formData.fullName,
+          inputCid: formData.icNumber,
+        });
+        if (onShowToast) onShowToast(err.message, "error");
+      } else {
+        if (onShowToast) onShowToast(err.message || "Gagal mengirim pendaftaran. Coba lagi.", "error");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -232,6 +285,7 @@ export default function MemberRegistrationModal({
 
   function handleCloseAndReset() {
     setSubmittedData(null);
+    setRejectedData(null);
     setFormData({
       fullName: "",
       icNumber: "",
@@ -411,9 +465,119 @@ export default function MemberRegistrationModal({
                 Selesai & Kembali ke Beranda
               </button>
             </div>
+          ) : rejectedData ? (
+            /* Rejection Screen */
+            <div className="py-3 flex flex-col items-center text-center max-w-lg mx-auto animate-fadeIn">
+              <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-400 border-[3px] border-black flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000]">
+                <ShieldAlert size={36} />
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 dark:bg-red-950/80 border border-red-500 text-red-700 dark:text-red-300 font-mono text-xs font-bold mb-2">
+                <AlertCircle size={13} />
+                <span>PENDAFTARAN DITOLAK (SUDAH TERDAFTAR)</span>
+              </div>
+
+              <h3 className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-slate-100 uppercase tracking-tight">
+                Anda Sudah Pernah Terdaftar!
+              </h3>
+
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 mb-4">
+                Sistem mendeteksi bahwa data Anda sudah tercatat resmi di Database Anggota LSM Paguyuban Pizza Sandy Shores.
+              </p>
+
+              {/* Detail Box */}
+              <div className="w-full text-left p-4 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-red-500 shadow-[4px_4px_0px_#000] flex flex-col gap-3 mb-4">
+                <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/15">
+                  <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-red-600 dark:text-red-400">
+                    <ShieldCheck size={16} />
+                    <span>DATA KEANGGOTAAN TERDAFTAR:</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-500">
+                    ANGGOTA RESMI
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Nama Lengkap (IC)</span>
+                    <strong className="text-slate-900 dark:text-slate-100 text-sm font-heading">
+                      {rejectedData.existingMember?.fullName || rejectedData.inputName || "-"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Citizen ID / No KTP</span>
+                    <strong className="text-[#DC2626] dark:text-[#FACC15] font-mono text-sm">
+                      {rejectedData.existingMember?.icNumber || rejectedData.inputCid || "-"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Tanggal Bergabung</span>
+                    <span className="text-slate-800 dark:text-slate-200 font-bold">
+                      {rejectedData.existingMember?.regDate || "Terdaftar Resmi"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Aturan Keanggotaan</span>
+                    <span className="text-slate-800 dark:text-slate-200 font-bold">
+                      1 Warga = 1 Kartu Anggota
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed mt-1">
+                  💡 <strong>Informasi Penting:</strong> Setiap warga hanya dapat mendaftarkan satu kartu identitas. Jika Anda ingin memperbarui nomor telepon IC, foto profil, atau ada pergantian data lainnya, silakan hubungi pengurus LSM PPS di Kantor Sandy Shores atau buka tiket di Discord resmi.
+                </div>
+
+                {/* Discord Button */}
+                <div className="flex flex-col gap-1.5 mt-1 pt-2 border-t border-black/10 dark:border-white/10">
+                  <a
+                    href={activeDiscordUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black text-xs uppercase flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                    </svg>
+                    <span>Buka Discord Pengurus LSM PPS</span>
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={handleCloseAndReset}
+                className="btn text-xs py-2 px-6 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-2 border-black font-heading font-black cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+              >
+                Tutup & Kembali
+              </button>
+            </div>
           ) : (
             /* Registration Form */
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              {/* Duplicate Member Warning Banner */}
+              {duplicateMember && (
+                <div className="p-3.5 rounded-lg bg-red-50 dark:bg-red-950/50 border-2 border-red-500 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 animate-fadeIn shadow-[3px_3px_0px_#ef4444]">
+                  <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <strong className="font-heading font-black uppercase text-red-700 dark:text-red-400 block text-xs">
+                      Peringatan: Anda Sudah Terdaftar Sebagai Anggota!
+                    </strong>
+                    <p className="mt-0.5 leading-relaxed text-[11px]">
+                      {String(duplicateMember.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "") === cleanCurrentCid ? (
+                        <>Citizen ID <strong>({cleanCurrentCid})</strong> sudah terdaftar atas nama <strong>{duplicateMember.fullName}</strong>.</>
+                      ) : (
+                        <>Nama warga <strong>{cleanCurrentName}</strong> sudah terdaftar dengan Citizen ID <strong>{duplicateMember.icNumber}</strong>.</>
+                      )}
+                    </p>
+                    <p className="text-[10px] mt-1 text-slate-600 dark:text-slate-400">
+                      Sesuai ketentuan, 1 warga hanya diperbolehkan mendaftar 1 kali. Formulir ini tidak dapat dikirim ulang.
+                    </p>
+                  </div>
+                </div>
+              )}
               {/* Info Banner */}
               <div className="p-3.5 rounded bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-400 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2.5">
                 <Sparkles size={18} className="text-amber-600 shrink-0 mt-0.5" />
@@ -657,11 +821,24 @@ export default function MemberRegistrationModal({
               {/* Tombol Submit */}
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="btn w-full py-3 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black font-heading font-black text-sm uppercase shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                disabled={isSubmitting || Boolean(duplicateMember)}
+                className={`btn w-full py-3 border-2 border-black font-heading font-black text-sm uppercase shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 ${
+                  duplicateMember
+                    ? "bg-red-500 hover:bg-red-600 text-white cursor-not-allowed opacity-90"
+                    : "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] disabled:opacity-50 cursor-pointer"
+                }`}
               >
-                <Send size={16} />
-                <span>{isSubmitting ? "Mengirim Formulir..." : "Kirim Formulir Pendaftaran Anggota"}</span>
+                {duplicateMember ? (
+                  <>
+                    <AlertCircle size={16} />
+                    <span>Pendaftaran Ditolak (Sudah Pernah Terdaftar)</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    <span>{isSubmitting ? "Mengirim Formulir..." : "Kirim Formulir Pendaftaran Anggota"}</span>
+                  </>
+                )}
               </button>
             </form>
           )}
