@@ -2153,20 +2153,21 @@ export default function AdminModal({
       className="fixed inset-0 z-[100] w-full h-full bg-[#F3F4F6] dark:bg-[#0D0F17] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100 select-text"
     >
       {/* Header Panel Administrator (Full Width Bar) */}
-      <header className="shrink-0 flex items-center justify-between px-4 sm:px-8 py-3.5 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1A1D26] shadow-[0_2px_0px_#000]/10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-[#DC2626] border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_#000]">
-            <Shield size={18} />
+      <header className="shrink-0 flex items-center justify-between px-3.5 sm:px-8 py-2.5 sm:py-3.5 border-b-2 border-black dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1A1D26] shadow-[0_2px_0px_#000]/10">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-[#DC2626] border-2 border-black flex items-center justify-center text-white shadow-[1.5px_1.5px_0px_#000] shrink-0">
+            <Shield size={16} />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-heading font-black text-sm sm:text-base uppercase tracking-tight text-slate-950 dark:text-slate-100">
-                Panel Kontrol Administrator
+              <span className="font-heading font-black text-xs sm:text-base uppercase tracking-tight text-slate-950 dark:text-slate-100 truncate">
+                <span className="sm:hidden">Admin Panel PPS</span>
+                <span className="hidden sm:inline">Panel Kontrol Administrator</span>
               </span>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-400">
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-400 shrink-0">
                 LSM PPS SANDY SHORES
               </span>
-              <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border border-emerald-400">
+              <span className="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border border-emerald-400 shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Cloud Terhubung
               </span>
@@ -2177,26 +2178,27 @@ export default function AdminModal({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {isAuthenticated && (
             <button
               type="button"
               onClick={handleLogout}
               title="Keluar dari sesi admin"
-              className="btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black bg-red-50 hover:bg-red-100 dark:bg-red-950/80 dark:hover:bg-red-900 text-red-600 dark:text-red-300 rounded border-2 border-black dark:border-red-500 shadow-[2px_2px_0px_#000] transition-all active:translate-x-0.5 active:translate-y-0.5"
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-heading font-black bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/80 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded border-2 border-black dark:border-rose-500 shadow-[1.5px_1.5px_0px_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
             >
-              <LogOut size={13} className="text-red-600 dark:text-red-300" />
+              <LogOut size={13} className="text-rose-600 dark:text-rose-300" />
               <span className="hidden sm:inline">Logout</span>
             </button>
           )}
           <button
             type="button"
             onClick={onClose}
-            className="btn py-1.5 px-3 bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-900 dark:text-red-200 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5"
+            className="py-1.5 px-2.5 sm:px-3 bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-900 dark:text-red-200 text-xs font-heading font-black border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer rounded"
             title="Tutup Panel Admin dan kembali ke website utama"
           >
-            <span>Tutup Panel</span>
-            <X size={15} />
+            <span className="hidden sm:inline">Tutup Panel</span>
+            <span className="sm:hidden">Tutup</span>
+            <X size={14} />
           </button>
         </div>
       </header>
@@ -2395,138 +2397,81 @@ export default function AdminModal({
 
                 {/* RIGHT WORKSPACE AREA (Mobile Full-Width, Desktop Flex-1) */}
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                  {/* MOBILE NAVIGATION (< md): 2-Tier Responsive Grouped Bar + Quick Drawer */}
-                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black/15 dark:border-white/10 flex flex-col">
-                    {/* Top Bar: Active Context Breadcrumb + Drawer Toggle Button */}
-                    <div className="px-3 py-2 flex items-center justify-between border-b border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-[#111827] shadow-[1.5px_1.5px_0px_#000] shrink-0">
-                          {React.createElement(activeTabObj.icon, { size: 16, className: "text-[#DC2626]" })}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[9px] font-heading font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider truncate">
-                            {activeGroup.group}
-                          </div>
-                          <div className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
-                            <span className="truncate">{activeTabObj.label.split(" (")[0]}</span>
-                            {Boolean(activeTabObj.label.match(/\(([^)]+)\)/)?.[1]) && (
-                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000] shrink-0">
-                                {activeTabObj.label.match(/\(([^)]+)\)/)?.[1]}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Button Open All Categories Drawer */}
+                  {/* MOBILE NAVIGATION (< md): Clean, Single Compact Bar */}
+                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black dark:border-[#475569]">
+                    {/* Top Line: Active Section Context & Quick Menu Trigger */}
+                    <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]">
                       <button
                         type="button"
                         onClick={() => setMobileMenuOpen(true)}
-                        className="btn px-2.5 py-1.5 bg-white dark:bg-[#20232E] hover:bg-amber-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-1.5 shrink-0 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer min-h-[36px]"
-                        title="Buka daftar lengkap menu"
+                        className="flex items-center gap-2.5 min-w-0 flex-1 text-left py-0.5 px-1 -ml-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.98] transition-all cursor-pointer"
+                        title="Buka menu navigasi"
                       >
-                        <Menu size={14} className="text-[#DC2626]" />
-                        <span>Semua Menu</span>
+                        <div className="w-7 h-7 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-[#111827] shadow-[1px_1px_0px_#000] shrink-0">
+                          {React.createElement(activeTabObj.icon, { size: 14, className: "text-[#DC2626]" })}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider leading-none">
+                            {activeGroup.group}
+                          </div>
+                          <div className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 flex items-center gap-1 mt-0.5 truncate">
+                            <span className="truncate">{activeTabObj.label.split(" (")[0]}</span>
+                            <ChevronDown size={13} className="text-slate-400 shrink-0" />
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="px-2.5 py-1.5 bg-[#FACC15] hover:bg-amber-400 text-slate-950 text-xs font-heading font-black rounded border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 shrink-0 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                        title="Buka semua menu navigasi"
+                      >
+                        <Menu size={13} />
+                        <span>Menu</span>
                       </button>
                     </div>
 
-                    {/* Tier 1: Category Chips Grid (4 Categories: Umum, Warga, Event, Sistem) */}
-                    <div className="grid grid-cols-4 gap-1 p-1.5 bg-[#F4EFE6]/70 dark:bg-black/40 border-b border-black/10 dark:border-white/10">
-                      {tabGroups.map((group, gIdx) => {
-                        const isCurrentCategory = activeGroup.group === group.group;
-                        const GroupIcon = group.icon;
-                        const hasBadge = group.badgeCount !== null && group.badgeCount > 0;
+                    {/* Bottom Line: Sibling Tabs in Active Category (Smooth Touch Horizontal Scroll) */}
+                    <div
+                      className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto no-scrollbar scroll-smooth"
+                      style={{ WebkitOverflowScrolling: "touch" }}
+                    >
+                      {activeGroup.tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        const hasCount = tab.label.includes("(");
+                        const countMatch = hasCount ? tab.label.match(/\(([^)]+)\)/) : null;
+                        const countText = countMatch ? countMatch[1] : null;
+                        const cleanTitle = tab.label.split(" (")[0];
+
                         return (
                           <button
-                            key={gIdx}
+                            key={tab.id}
                             type="button"
-                            onClick={() => {
-                              if (!isCurrentCategory) {
-                                setActiveTab(group.tabs[0].id);
-                              }
-                            }}
-                            className={`flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-1 rounded border-2 font-heading text-[11px] font-black transition-all text-center relative cursor-pointer min-h-[44px] ${
-                              isCurrentCategory
-                                ? "bg-black text-[#FACC15] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                                : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/20 dark:border-[#475569] hover:bg-slate-100 dark:hover:bg-slate-800"
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`flex items-center gap-1.5 text-xs py-1.5 px-2.5 rounded-md shrink-0 border-2 font-heading font-black transition-all cursor-pointer min-h-[34px] ${
+                              isActive
+                                ? "bg-slate-900 text-white border-black shadow-[1.5px_1.5px_0px_#000] -translate-y-0.5"
+                                : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/20 dark:border-[#475569] hover:bg-slate-100"
                             }`}
                           >
-                            <GroupIcon size={14} className={isCurrentCategory ? "text-[#FACC15]" : "text-slate-500 dark:text-slate-400"} />
-                            <span className="truncate">{group.shortLabel}</span>
-                            {hasBadge && (
-                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#DC2626] border border-white dark:border-black animate-pulse" />
+                            <Icon size={12} className={isActive ? "text-[#FACC15]" : "text-slate-500"} />
+                            <span className="whitespace-nowrap">{cleanTitle}</span>
+                            {Boolean(countText) && (
+                              <span
+                                className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded ${
+                                  isActive
+                                    ? "bg-[#FACC15] text-slate-950"
+                                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-black/10"
+                                }`}
+                              >
+                                {countText}
+                              </span>
                             )}
                           </button>
                         );
                       })}
-                    </div>
-
-                    {/* Tier 2: Contextual Subtabs (Only tabs from active category) */}
-                    <div className="relative flex items-center px-1.5 py-1.5 bg-[#FFFDF9] dark:bg-[#161822]">
-                      {activeGroup.tabs.length > 3 && (
-                        <button
-                          type="button"
-                          onClick={() => scrollTabs("left")}
-                          className="shrink-0 p-2 mr-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5 cursor-pointer min-w-[36px] min-h-[40px] flex items-center justify-center"
-                          title="Geser tab ke kiri"
-                        >
-                          <ChevronLeft size={14} />
-                        </button>
-                      )}
-
-                      <div
-                        ref={tabsNavRef}
-                        className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth py-0.5 px-0.5"
-                        style={{ WebkitOverflowScrolling: "touch" }}
-                      >
-                        {activeGroup.tabs.map((tab) => {
-                          const Icon = tab.icon;
-                          const isActive = activeTab === tab.id;
-                          const hasCount = tab.label.includes("(");
-                          const countMatch = hasCount ? tab.label.match(/\(([^)]+)\)/) : null;
-                          const countText = countMatch ? countMatch[1] : null;
-                          const cleanTitle = tab.label.split(" (")[0];
-
-                          return (
-                            <button
-                              key={tab.id}
-                              id={`tab-nav-btn-${tab.id}`}
-                              type="button"
-                              onClick={() => setActiveTab(tab.id)}
-                              className={`tab-btn flex items-center gap-1.5 text-xs py-2 px-3 rounded shrink-0 border-2 font-heading font-black transition-all cursor-pointer min-h-[40px] ${
-                                isActive
-                                  ? "bg-[#FACC15] text-[#111827] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                                  : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-black/30 dark:border-[#475569] hover:bg-slate-100"
-                              }`}
-                            >
-                              <Icon size={14} className={isActive ? "text-[#DC2626]" : "text-slate-500"} />
-                              <span className="whitespace-nowrap">{cleanTitle}</span>
-                              {Boolean(countText) && (
-                                <span
-                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
-                                    isActive
-                                      ? "bg-black text-[#FACC15]"
-                                      : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                                  }`}
-                                >
-                                  {countText}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {activeGroup.tabs.length > 3 && (
-                        <button
-                          type="button"
-                          onClick={() => scrollTabs("right")}
-                          className="shrink-0 p-2 ml-1 bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] rounded shadow-[1px_1px_0px_#000] active:translate-x-0.5 cursor-pointer min-w-[36px] min-h-[40px] flex items-center justify-center"
-                          title="Geser tab ke kanan"
-                        >
-                          <ChevronRight size={14} />
-                        </button>
-                      )}
                     </div>
                   </div>
 
