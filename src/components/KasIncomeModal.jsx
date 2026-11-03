@@ -215,7 +215,7 @@ export default function KasIncomeModal({
                 placeholder="Pilih kategori pemasukan..."
               />
               <p className="text-[10px] text-slate-500 mt-1">
-                Catatan: Iuran kas warga dicatat via menu <strong>Catat Uang Kas</strong>.
+                Catatan: Iuran kas anggota dicatat via menu <strong>Catat Uang Kas</strong>.
               </p>
             </div>
 
