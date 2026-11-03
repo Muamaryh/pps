@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -307,6 +307,8 @@ export default function AdminModal({
   const [isKasCopyModalOpen, setIsKasCopyModalOpen] = useState(false);
   const [kasFilterType, setKasFilterType] = useState("ALL"); // 'ALL' | 'INCOME' | 'EXPENSE'
   const [kasSearchQuery, setKasSearchQuery] = useState("");
+  const [kasMemberSearchQuery, setKasMemberSearchQuery] = useState("");
+  const [kasMemberStatusFilter, setKasMemberStatusFilter] = useState("all"); // 'all' | 'active' | 'expiring' | 'expired' | 'unpaid'
 
   // External Jasra Recipients State
   const [externalJasraList, setExternalJasraList] = useState(() => {
@@ -1985,7 +1987,8 @@ export default function AdminModal({
       tabs: [
         { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
         { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
-        { id: "kas_db", label: "Buku Kas & Keuangan", icon: DollarSign },
+        { id: "member_kas", label: `Catat Uang Kas (${totalKasActiveCount}/${membersList.length})`, icon: DollarSign },
+        { id: "kas_db", label: "Buku Kas & Keuangan", icon: Landmark },
       ],
     },
     {
@@ -2093,6 +2096,24 @@ export default function AdminModal({
     if (filterVoucher === "active" && !voucherSub.isActive) return false;
     if (filterVoucher === "ready" && voucherSub.isActive) return false;
 
+    return true;
+  });
+
+  const filteredKasMembers = membersList.filter((m) => {
+    if (kasMemberSearchQuery.trim()) {
+      const q = kasMemberSearchQuery.toLowerCase();
+      const name = (m.fullName || "").toLowerCase();
+      const ic = (m.icNumber || m.citizenId || "").toLowerCase();
+      const phone = (m.phone || "").toLowerCase();
+      if (!name.includes(q) && !ic.includes(q) && !phone.includes(q)) {
+        return false;
+      }
+    }
+    const kasSub = getMemberKasSubscription(m);
+    if (kasMemberStatusFilter === "active" && (!kasSub.isActive || kasSub.isExpiringSoon)) return false;
+    if (kasMemberStatusFilter === "expiring" && (!kasSub.isActive || !kasSub.isExpiringSoon)) return false;
+    if (kasMemberStatusFilter === "expired" && !kasSub.isExpired) return false;
+    if (kasMemberStatusFilter === "unpaid" && (kasSub.isActive || kasSub.isExpired)) return false;
     return true;
   });
 
@@ -4107,11 +4128,11 @@ export default function AdminModal({
                                 </span>
                               </div>
 
-                              {/* Box 1: Uang Kas (30 Hari) */}
+                              {/* Box 1: Status Kas Ringkas (Aksi pembayaran dipindahkan ke tab Catat Uang Kas) */}
                               {(() => {
                                 const kasSub = getMemberKasSubscription(member);
                                 return (
-                                  <div className={`p-2 rounded border-2 transition-all ${
+                                  <div className={`p-2 rounded border-2 transition-all flex items-center justify-between gap-2 ${
                                     kasSub.isActive
                                       ? kasSub.isExpiringSoon
                                         ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-950 dark:text-amber-100"
@@ -4120,17 +4141,15 @@ export default function AdminModal({
                                       ? "bg-rose-50 dark:bg-rose-950/40 border-rose-500 text-rose-950 dark:text-rose-100"
                                       : "bg-white dark:bg-[#1F222C] border-black/20 dark:border-white/20 text-slate-800 dark:text-slate-200"
                                   }`}>
-                                    <div className="flex items-center justify-between gap-1 mb-1">
-                                      <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className={`w-2 h-2 rounded-full shrink-0 ${
-                                          kasSub.isActive
-                                            ? kasSub.isExpiringSoon ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
-                                            : kasSub.isExpired ? "bg-rose-500" : "bg-slate-400"
-                                        }`} />
-                                        <span className="font-heading font-black text-[11px] uppercase truncate">
-                                          UANG KAS ($4.000)
-                                        </span>
-                                      </div>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                        kasSub.isActive
+                                          ? kasSub.isExpiringSoon ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+                                          : kasSub.isExpired ? "bg-rose-500" : "bg-slate-400"
+                                      }`} />
+                                      <span className="font-heading font-black text-[11px] uppercase truncate">
+                                        Kas:
+                                      </span>
                                       <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded border shrink-0 ${
                                         kasSub.isActive
                                           ? kasSub.isExpiringSoon
@@ -4144,42 +4163,18 @@ export default function AdminModal({
                                       </span>
                                     </div>
 
-                                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 dark:text-slate-400 mb-2">
-                                      <span>{kasSub.isActive ? "Jatuh tempo:" : kasSub.isExpired ? "Lewat sejak:" : "Tarif:"}</span>
-                                      <strong className="text-slate-900 dark:text-slate-100">
-                                        {kasSub.expiresAt
-                                          ? kasSub.expiresAtFormatted
-                                          : member.kasCustomMonthlyRate
-                                          ? `$${Number(member.kasCustomMonthlyRate).toLocaleString("id-ID")} / Bln`
-                                          : "$4.000 / Bulan"}
-                                      </strong>
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setSelectedKasMember(member);
-                                          setIsKasPaymentModalOpen(true);
-                                        }}
-                                        className="flex-1 py-1 px-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-[10px] border border-black shadow-[1px_1px_0px_#000] flex items-center justify-center gap-1 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
-                                        title="Catat pembayaran kas anggota (pilihan konversi otomatis durasi atau iuran donatur)"
-                                      >
-                                        <DollarSign size={11} />
-                                        <span>{kasSub.isActive ? "+ Tambah" : "Bayar Kas"}</span>
-                                      </button>
-                                      {kasSub.isActive && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCancelKas(member)}
-                                          className="py-1 px-2 rounded bg-slate-200 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/60 text-slate-700 hover:text-rose-700 dark:text-slate-300 font-mono text-[10px] border border-black/30 cursor-pointer"
-                                          title="Ubah status kas kembali ke Belum Bayar"
-                                        >
-                                          Reset
-                                        </button>
-                                      )}
-                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedKasMember(member);
+                                        setActiveTab("member_kas");
+                                      }}
+                                      className="text-[10px] font-heading font-black text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
+                                      title="Kelola pembayaran kas anggota ini di tab Catat Uang Kas"
+                                    >
+                                      <DollarSign size={11} />
+                                      <span>Kelola Kas &rarr;</span>
+                                    </button>
                                   </div>
                                 );
                               })()}
@@ -4536,6 +4531,296 @@ export default function AdminModal({
                 </div>
               )}
 
+              {/* Tab: Catat Uang Kas & Iuran Anggota */}
+              {activeTab === "member_kas" && (
+                <div className="flex flex-col gap-4">
+                  {/* Top Header Card with Actions */}
+                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-900 shadow-[2px_2px_0px_#000] shrink-0">
+                        <DollarSign size={20} className="text-[#DC2626]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                            Catat Uang Kas & Iuran Anggota
+                          </h4>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
+                            $4.000 / BULAN
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Pencatatan resmi iuran kas anggota LSM PPS Sandy Shores • Terhubung langsung ke kas bendahara
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("kas_db")}
+                        className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        title="Buka buku kas umum & mutasi keuangan"
+                      >
+                        <Landmark size={15} className="text-[#DC2626]" />
+                        <span>Buku Kas & Mutasi</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("members_db")}
+                        className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        title="Kembali ke Database Anggota & Foto KTP"
+                      >
+                        <Users2 size={15} className="text-[#DC2626]" />
+                        <span>Database Anggota</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
+                        Total Anggota
+                      </span>
+                      <div className="text-xl font-mono font-black text-slate-900 dark:text-slate-100 mt-1">
+                        {membersList.length}
+                      </div>
+                      <span className="text-[10px] text-slate-500">Warga terdaftar</span>
+                    </div>
+
+                    <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-sans font-black text-emerald-900 dark:text-emerald-300 uppercase">
+                        Kas Aktif / Lunas
+                      </span>
+                      <div className="text-xl font-mono font-black text-emerald-700 dark:text-emerald-300 mt-1">
+                        {totalKasActiveCount}
+                      </div>
+                      <span className="text-[10px] text-emerald-600 font-mono">
+                        {Math.round((totalKasActiveCount / (membersList.length || 1)) * 100)}% kepatuhan
+                      </span>
+                    </div>
+
+                    <div className="card-brutal p-3 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-sans font-black text-amber-900 dark:text-amber-300 uppercase">
+                        Mendekati Tempo
+                      </span>
+                      <div className="text-xl font-mono font-black text-amber-700 dark:text-amber-300 mt-1">
+                        {totalKasExpiringCount}
+                      </div>
+                      <span className="text-[10px] text-amber-600">Sisa &le; 3 hari lagi</span>
+                    </div>
+
+                    <div className="card-brutal p-3 bg-rose-50 dark:bg-rose-950/30 border-2 border-rose-500 dark:border-rose-400 shadow-[2px_2px_0px_#000]">
+                      <span className="text-[10px] font-sans font-black text-rose-900 dark:text-rose-300 uppercase">
+                        Tunggakan / Belum
+                      </span>
+                      <div className="text-xl font-mono font-black text-rose-700 dark:text-rose-300 mt-1">
+                        {membersList.length - totalKasActiveCount}
+                      </div>
+                      <span className="text-[10px] text-rose-600">Perlu ditagih iuran</span>
+                    </div>
+                  </div>
+
+                  {/* Search & Filter Bar */}
+                  <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                    {/* Search box */}
+                    <div className="relative flex-1">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Cari anggota berdasarkan nama, nomor telepon, atau CID..."
+                        value={kasMemberSearchQuery}
+                        onChange={(e) => setKasMemberSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-8 py-2 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border-2 border-black dark:border-[#475569] rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#DC2626]"
+                      />
+                      {kasMemberSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setKasMemberSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Filter Pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setKasMemberStatusFilter("all")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasMemberStatusFilter === "all"
+                            ? "bg-slate-900 text-white shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        Semua ({membersList.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKasMemberStatusFilter("active")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasMemberStatusFilter === "active"
+                            ? "bg-emerald-600 text-white shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-emerald-50"
+                        }`}
+                      >
+                        ✓ Lunas ({totalKasActiveCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKasMemberStatusFilter("expiring")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasMemberStatusFilter === "expiring"
+                            ? "bg-amber-500 text-slate-950 shadow-[1px_1px_0px_#000] font-black"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-amber-50"
+                        }`}
+                      >
+                        ⚠️ Mendekati Tempo ({totalKasExpiringCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKasMemberStatusFilter("expired")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasMemberStatusFilter === "expired"
+                            ? "bg-rose-600 text-white shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-rose-50"
+                        }`}
+                      >
+                        ✕ Lewat Tempo ({totalKasExpiredCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setKasMemberStatusFilter("unpaid")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                          kasMemberStatusFilter === "unpaid"
+                            ? "bg-slate-700 text-white shadow-[1px_1px_0px_#000]"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        Belum Bayar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* List / Cards of Members for Kas */}
+                  {filteredKasMembers.length === 0 ? (
+                    <div className="card-brutal p-8 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center text-slate-500">
+                      <DollarSign size={36} className="mx-auto text-slate-300 mb-2" />
+                      <p className="font-heading font-black text-sm">Tidak ada anggota yang cocok dengan filter pencarian.</p>
+                      <p className="text-xs text-slate-400 mt-1">Coba gunakan kata kunci nama atau nomor CID lain.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                      {filteredKasMembers.map((member) => {
+                        const kasSub = getMemberKasSubscription(member);
+                        return (
+                          <div
+                            key={member.id}
+                            className={`card-brutal p-4 rounded-xl border-2 transition-all flex flex-col justify-between gap-3 ${
+                              kasSub.isActive
+                                ? kasSub.isExpiringSoon
+                                  ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-500 shadow-[3px_3px_0px_#F59E0B]"
+                                  : "bg-white dark:bg-[#1A1D26] border-black dark:border-[#475569] shadow-[3px_3px_0px_#000]"
+                                : kasSub.isExpired
+                                ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-500 shadow-[3px_3px_0px_#DC2626]"
+                                : "bg-white dark:bg-[#1A1D26] border-black dark:border-[#475569] shadow-[3px_3px_0px_#000]"
+                            }`}
+                          >
+                            {/* Member Header */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white border-2 border-black flex items-center justify-center font-heading font-black text-sm shadow-[1.5px_1.5px_0px_#000] shrink-0">
+                                  {member.fullName ? member.fullName.charAt(0).toUpperCase() : "A"}
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-heading font-black text-sm text-slate-900 dark:text-slate-100 truncate">
+                                    {member.fullName}
+                                  </h4>
+                                  <div className="text-[11px] font-mono text-slate-500 flex items-center gap-1.5 truncate">
+                                    <span>CID: {member.icNumber || member.citizenId || "-"}</span>
+                                    <span>•</span>
+                                    <span>{member.phone || "-"}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Status Badge */}
+                              <span className={`text-[10px] font-mono font-black px-2 py-0.5 rounded border shrink-0 ${
+                                kasSub.isActive
+                                  ? kasSub.isExpiringSoon
+                                    ? "bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border-amber-400 animate-pulse"
+                                    : "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-400"
+                                  : kasSub.isExpired
+                                  ? "bg-rose-200 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200 border-rose-400"
+                                  : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300"
+                              }`}>
+                                {kasSub.isActive ? `${kasSub.daysRemaining} HARI LAGI` : kasSub.isExpired ? "LEWAT TEMPO" : "BELUM BAYAR"}
+                              </span>
+                            </div>
+
+                            {/* Kas Info Box */}
+                            <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 space-y-1.5 text-xs">
+                              <div className="flex items-center justify-between text-[11px] font-mono">
+                                <span className="text-slate-500">Tarif Bulanan:</span>
+                                <strong className="text-slate-900 dark:text-slate-100 font-bold">
+                                  {member.kasCustomMonthlyRate
+                                    ? `$${Number(member.kasCustomMonthlyRate).toLocaleString("id-ID")} (Donatur)`
+                                    : "$4.000 / Bulan"}
+                                </strong>
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] font-mono">
+                                <span className="text-slate-500">{kasSub.isActive ? "Jatuh Tempo:" : kasSub.isExpired ? "Lewat Sejak:" : "Status:"}</span>
+                                <strong className={`font-bold ${
+                                  kasSub.isActive
+                                    ? "text-emerald-700 dark:text-emerald-400"
+                                    : kasSub.isExpired
+                                    ? "text-rose-600 dark:text-rose-400"
+                                    : "text-slate-500"
+                                }`}>
+                                  {kasSub.expiresAt ? kasSub.expiresAtFormatted : "Belum Ada Transaksi"}
+                                </strong>
+                              </div>
+                            </div>
+
+                            {/* Action Button */}
+                            <div className="flex items-center gap-2 pt-1 border-t border-black/10 dark:border-white/10">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedKasMember(member);
+                                  setIsKasPaymentModalOpen(true);
+                                }}
+                                className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-xs border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all"
+                                title="Catat pembayaran iuran kas anggota ini"
+                              >
+                                <DollarSign size={14} />
+                                <span>{kasSub.isActive ? "Perpanjang / Tambah Kas" : "Catat Pembayaran Kas"}</span>
+                              </button>
+
+                              {kasSub.isActive && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelKas(member)}
+                                  className="py-2 px-3 rounded-lg bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950 text-slate-700 hover:text-rose-700 dark:text-slate-300 font-heading font-bold text-xs border border-black/30 cursor-pointer transition-colors"
+                                  title="Reset status kas anggota ini kembali ke Belum Bayar"
+                                >
+                                  Reset
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Tab: Buku Kas & Keuangan LSM PPS */}
               {activeTab === "kas_db" && (
                 <div className="flex flex-col gap-4">
@@ -4562,6 +4847,16 @@ export default function AdminModal({
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("member_kas")}
+                        className="py-2 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        title="Buka menu khusus pencatatan iuran kas anggota LSM"
+                      >
+                        <DollarSign size={15} />
+                        <span>Catat Kas Anggota</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setIsKasIncomeModalOpen(true)}
