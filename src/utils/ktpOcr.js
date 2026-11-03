@@ -222,6 +222,41 @@ export function generateCidSmartVariants(rawCid, extractedNames = []) {
     }
   }
 
+  // If 7 characters (one pair of glyphs merged by OCR, e.g. J1 -> A/O, 7I -> N, 1T -> N)
+  if (cid.length === 7) {
+    if (cid.includes("N")) {
+      candidates.add(cid.replace("N", "7I"));
+      candidates.add(cid.replace("N", "71"));
+      candidates.add(cid.replace("N", "IT"));
+    }
+    if (cid.includes("O")) {
+      candidates.add(cid.replace("O", "J1"));
+      candidates.add(cid.replace("O", "01"));
+    }
+    if (cid.includes("A")) {
+      candidates.add(cid.replace("A", "J1"));
+    }
+    if (cid.includes("W")) {
+      candidates.add(cid.replace("W", "VV"));
+    }
+  }
+
+  // If 5 or 6 characters (two pairs of glyphs merged, e.g. ZAWNT -> Z + J1 + W + 7I + T7)
+  if (cid.length === 5 || cid.length === 6) {
+    if (cid === "ZAWNT" || (cid.startsWith("Z") && cid.includes("W") && cid.includes("N"))) {
+      candidates.add("ZJ1W7IT7");
+      candidates.add("ZJ1W71T7");
+    }
+    // General expansion for common merged letter pairs
+    let expList = [cid];
+    if (cid.includes("A")) expList = expList.flatMap((v) => [v, v.replace("A", "J1")]);
+    if (cid.includes("O")) expList = expList.flatMap((v) => [v, v.replace("O", "J1")]);
+    if (cid.includes("N")) expList = expList.flatMap((v) => [v, v.replace("N", "7I"), v.replace("N", "71")]);
+    for (const exp of expList) {
+      if (exp.length === 8) candidates.add(exp);
+    }
+  }
+
   // Filter out any that are pure letters (0 digits) or invalid
   const valid = Array.from(candidates).filter((c) => {
     if (c.length !== 8 && !/^(CID|CTZ)[A-Z0-9]{4,8}$/.test(c)) return false;
@@ -331,6 +366,25 @@ export function parseKtpOcrText(rawText) {
           result.lastName = cleanOcrName(parts.slice(1).join(" "));
         } else {
           result.firstName = cleanOcrName(val);
+        }
+      }
+    }
+
+    // 1.2 Fallback for First Name if label was obscured by background texture
+    // e.g. Line i is LAST NAME RUMBIAK, Line i+1 is ARIAN, Line i+2 is DOB 2004-08-28
+    if (!result.firstName && result.lastName) {
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toUpperCase().includes(result.lastName)) {
+          if (i + 1 < lines.length) {
+            const nextVal = cleanVal(lines[i + 1]);
+            if (
+              /^[A-Za-z\s]{2,20}$/.test(nextVal) &&
+              !/(?:dob|sex|gender|nationality|citizen|identity|state|los|santos)/i.test(nextVal)
+            ) {
+              result.firstName = cleanOcrName(nextVal);
+              break;
+            }
+          }
         }
       }
     }
@@ -491,30 +545,33 @@ export async function scanKtpImage(imageFileOrUrl, onProgress) {
         },
       });
 
-      // PSM 4 (SINGLE_COLUMN): Specifically separates left labels and right card values
+      // Pass 1: Standard AUTO layout segmentation
       await worker.setParameters({
-        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_COLUMN,
+        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
       });
 
       const { data } = await worker.recognize(preprocessed);
       let parsed = parseKtpOcrText(data.text);
 
-      // Pass 2 fallback: If either Citizen ID or Full Name is missing, scan with AUTO (3)
-      if (!parsed.citizenId || !parsed.fullName) {
+      // Pass 2 fallback: If either Citizen ID or Full Name is incomplete (or citizenId < 6 chars), scan raw image
+      if (!parsed.citizenId || parsed.citizenId.length < 6 || !parsed.firstName || !parsed.lastName) {
         try {
-          await worker.setParameters({
-            tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-          });
           const retryResult = await worker.recognize(imageFileOrUrl);
           const retryParsed = parseKtpOcrText(retryResult.data.text);
 
-          if (!parsed.citizenId && retryParsed.citizenId) {
+          if ((!parsed.citizenId || parsed.citizenId.length < 6) && retryParsed.citizenId) {
             parsed.citizenId = retryParsed.citizenId;
             parsed.citizenIdCandidates = retryParsed.citizenIdCandidates;
           }
           if (!parsed.firstName && retryParsed.firstName) parsed.firstName = retryParsed.firstName;
           if (!parsed.lastName && retryParsed.lastName) parsed.lastName = retryParsed.lastName;
-          if (!parsed.fullName && retryParsed.fullName) parsed.fullName = retryParsed.fullName;
+          if (!parsed.fullName || parsed.fullName === parsed.lastName || parsed.fullName === parsed.firstName) {
+            parsed.fullName = [parsed.firstName || retryParsed.firstName, parsed.lastName || retryParsed.lastName]
+              .filter(Boolean)
+              .join(" ")
+              .trim()
+              .toUpperCase();
+          }
           if (!parsed.dob && retryParsed.dob) parsed.dob = retryParsed.dob;
           if (!parsed.sex && retryParsed.sex) parsed.sex = retryParsed.sex;
           if (!parsed.nationality && retryParsed.nationality) parsed.nationality = retryParsed.nationality;

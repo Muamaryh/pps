@@ -1085,13 +1085,28 @@ export default function AdminModal({
       setIsScanningExternalOcr(true);
       try {
         const ocrResult = await scanKtpImage(dataUrl);
-        if (ocrResult && (ocrResult.fullName || ocrResult.citizenId)) {
+        const fields = ocrResult?.fields || ocrResult || {};
+        const detectedName =
+          fields.fullName ||
+          [fields.firstName, fields.lastName].filter(Boolean).join(" ").trim() ||
+          fields.name ||
+          "";
+        const detectedCid =
+          fields.citizenId ||
+          (fields.citizenIdCandidates && fields.citizenIdCandidates[0]) ||
+          "";
+
+        if (detectedName || detectedCid) {
           setEditingExternalJasra((prev) => ({
             ...prev,
-            fullName: prev.fullName || ocrResult.fullName || "",
-            citizenId: prev.citizenId || ocrResult.citizenId || "",
+            fullName: detectedName ? detectedName.toUpperCase() : (prev?.fullName || ""),
+            citizenId: detectedCid ? detectedCid.toUpperCase() : (prev?.citizenId || ""),
+            cidCandidates: fields.citizenIdCandidates || [],
           }));
-          onShowToast("Foto KTP berhasil dipindai dengan OCR!", "success");
+          onShowToast(
+            `KTP berhasil dipindai! Terbaca: ${detectedName || "Nama"} (${detectedCid || "CID"})`,
+            "success"
+          );
         } else {
           onShowToast("Foto KTP diunggah. Silakan lengkapi Nama & CID.", "info");
         }
@@ -6863,6 +6878,30 @@ export default function AdminModal({
                     placeholder="Contoh: E21J9V03"
                     className="input-field w-full text-xs font-mono uppercase"
                   />
+                  {editingExternalJasra.cidCandidates && editingExternalJasra.cidCandidates.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                      <span className="text-[10px] text-slate-500 font-mono">Pilihan OCR:</span>
+                      {editingExternalJasra.cidCandidates.map((cand) => (
+                        <button
+                          key={cand}
+                          type="button"
+                          onClick={() =>
+                            setEditingExternalJasra((prev) => ({
+                              ...prev,
+                              citizenId: cand,
+                            }))
+                          }
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border transition-colors cursor-pointer ${
+                            editingExternalJasra.citizenId === cand
+                              ? "bg-amber-400 text-slate-950 border-black"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-black/20 hover:bg-slate-200"
+                          }`}
+                        >
+                          {cand}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>
