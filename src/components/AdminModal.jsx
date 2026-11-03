@@ -1965,6 +1965,21 @@ export default function AdminModal({
     });
   }
 
+  const currentMonthLabel = getCurrentMonthLabel();
+  const currentWeekLabel = getCurrentWeekLabel();
+
+  // Subscription-based stats aggregation (must be initialized before tabGroups)
+  const kasSubs = membersList.map((m) => ({
+    member: m,
+    kas: getMemberKasSubscription(m),
+    voucher: getMemberVoucherSubscription(m),
+  }));
+  const totalKasActiveCount = kasSubs.filter((item) => item.kas.isActive).length;
+  const totalKasExpiringCount = kasSubs.filter((item) => item.kas.isExpiringSoon).length;
+  const totalKasExpiredCount = kasSubs.filter((item) => item.kas.isExpired).length;
+  const totalKasRupiah = totalKasActiveCount * 4000;
+  const kasSummary = getKasSummary(kasTransactions, totalKasRupiah);
+
   const tabGroups = [
     {
       group: "Umum & Konten",
@@ -2015,21 +2030,6 @@ export default function AdminModal({
   const tabs = tabGroups.flatMap((g) => g.tabs);
   const activeGroup = tabGroups.find((g) => g.tabs.some((t) => t.id === activeTab)) || tabGroups[0];
   const activeTabObj = tabs.find((t) => t.id === activeTab) || tabs[0];
-
-  const currentMonthLabel = getCurrentMonthLabel();
-  const currentWeekLabel = getCurrentWeekLabel();
-
-  // Subscription-based stats aggregation
-  const kasSubs = membersList.map((m) => ({
-    member: m,
-    kas: getMemberKasSubscription(m),
-    voucher: getMemberVoucherSubscription(m),
-  }));
-  const totalKasActiveCount = kasSubs.filter((item) => item.kas.isActive).length;
-  const totalKasExpiringCount = kasSubs.filter((item) => item.kas.isExpiringSoon).length;
-  const totalKasExpiredCount = kasSubs.filter((item) => item.kas.isExpired).length;
-  const totalKasRupiah = totalKasActiveCount * 4000;
-  const kasSummary = getKasSummary(kasTransactions, totalKasRupiah);
 
   const filteredKasTransactions = kasTransactions.filter((tx) => {
     const txTypeUpper = (tx.type || "").toUpperCase();
