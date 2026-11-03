@@ -451,7 +451,7 @@ export function getMemberKasSubscription(member, now = new Date()) {
       expiresAtFormatted: formatDateId(expiresAt),
       startedAt: startedAt || null,
       startedAtFormatted: formatDateId(startedAt),
-      label: `Lunas (${diffDays} hari lagi)`,
+      label: `Sudah Bayar (${diffDays} hari lagi)`,
     };
   }
 
@@ -736,7 +736,7 @@ export function exportMembersToExcel(members) {
       "NO TLP/WA IC": m.phone || "-",
       "DISCORD (OOC)": m.discordTag || "-",
       "Status Kas ($4.000)": kasSub.isActive
-        ? `LUNAS (Sisa ${kasSub.daysRemaining} Hari)`
+        ? `SUDAH BAYAR (Sisa ${kasSub.daysRemaining} Hari)`
         : "BELUM BAYAR",
       "Tgl Bayar Kas": kasSub.startedAtFormatted || m.kasPaidDate || "-",
       "Aktif s/d": kasSub.expiresAtFormatted || "-",
@@ -814,7 +814,7 @@ export async function exportMembersToZip(members) {
       "NO TLP/WA IC": m.phone || "-",
       "DISCORD (OOC)": m.discordTag || "-",
       "Status Kas ($4.000)": kasSub.isActive
-        ? `LUNAS (Sisa ${kasSub.daysRemaining} Hari)`
+        ? `SUDAH BAYAR (Sisa ${kasSub.daysRemaining} Hari)`
         : "BELUM BAYAR",
       "Tgl Bayar Kas": kasSub.startedAtFormatted || m.kasPaidDate || "-",
       "Aktif s/d": kasSub.expiresAtFormatted || "-",

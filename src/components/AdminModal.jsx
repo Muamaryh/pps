@@ -3804,7 +3804,7 @@ export default function AdminModal({
                             </span>
                             <div className="flex items-baseline gap-1.5">
                               <strong className="text-base font-mono font-black text-emerald-800 dark:text-emerald-300">
-                                {totalKasActiveCount} Lunas
+                                {totalKasActiveCount} Sudah Bayar
                               </strong>
                               <span className="text-[10px] font-mono text-slate-500">
                                 / {membersList.length - totalKasActiveCount} Belum Bayar
@@ -3958,7 +3958,7 @@ export default function AdminModal({
                             : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-400"
                         }`}
                       >
-                        ✓ Lunas ({totalKasActiveCount})
+                        ✓ Sudah Bayar ({totalKasActiveCount})
                       </button>
                       <button
                         type="button"
@@ -4131,7 +4131,7 @@ export default function AdminModal({
                                           ? "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-400"
                                           : "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
                                       }`}>
-                                        {kasSub.isActive ? "LUNAS" : "BELUM BAYAR"}
+                                        {kasSub.isActive ? "SUDAH BAYAR" : "BELUM BAYAR"}
                                       </span>
                                     </div>
 
@@ -4565,13 +4565,13 @@ export default function AdminModal({
 
                     <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000]">
                       <span className="text-[10px] font-sans font-black text-emerald-900 dark:text-emerald-300 uppercase">
-                        Lunas
+                        Sudah Bayar
                       </span>
                       <div className="text-xl font-mono font-black text-emerald-700 dark:text-emerald-300 mt-1">
                         {totalKasActiveCount}
                       </div>
                       <span className="text-[10px] text-emerald-600 font-mono">
-                        {Math.round((totalKasActiveCount / (membersList.length || 1)) * 100)}% warga lunas
+                        {Math.round((totalKasActiveCount / (membersList.length || 1)) * 100)}% anggota bayar kas
                       </span>
                     </div>
 
@@ -4631,7 +4631,7 @@ export default function AdminModal({
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-emerald-50"
                         }`}
                       >
-                        ✓ Lunas ({totalKasActiveCount})
+                        ✓ Sudah Bayar ({totalKasActiveCount})
                       </button>
                       <button
                         type="button"
@@ -4687,7 +4687,7 @@ export default function AdminModal({
                                   ? "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-400"
                                   : "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
                               }`}>
-                                {kasSub.isActive ? "LUNAS" : "BELUM BAYAR"}
+                                {kasSub.isActive ? "SUDAH BAYAR" : "BELUM BAYAR"}
                               </span>
                             </div>
 
@@ -4709,7 +4709,7 @@ export default function AdminModal({
                                     : "text-rose-600 dark:text-rose-400"
                                 }`}>
                                   {kasSub.isActive
-                                    ? kasSub.expiresAtFormatted ? `Lunas (s/d ${kasSub.expiresAtFormatted})` : "Lunas"
+                                    ? kasSub.expiresAtFormatted ? `Sudah Bayar (s/d ${kasSub.expiresAtFormatted})` : "Sudah Bayar"
                                     : "Belum Bayar"}
                                 </strong>
                               </div>

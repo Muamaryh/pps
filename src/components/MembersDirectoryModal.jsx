@@ -571,7 +571,7 @@ export default function MembersDirectoryModal({
                               {kasSub.isActive ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded border bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-400">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                  LUNAS ({kasSub.daysRemaining} HARI)
+                                  SUDAH BAYAR ({kasSub.daysRemaining} HARI)
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
