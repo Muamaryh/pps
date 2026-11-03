@@ -1927,19 +1927,41 @@ export default function AdminModal({
     });
   }
 
-  const tabs = [
-    { id: "identity", label: "Brand & Menu", icon: Layout },
-    { id: "hero", label: "Beranda & 4 Pilar", icon: Compass },
-    { id: "about", label: "Tentang & Visi", icon: FileText },
-    { id: "org", label: "Pengurus", icon: Users },
-    { id: "gallery", label: "Galeri Foto", icon: Camera },
-    { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
-    { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
-    { id: "kas_db", label: "Buku Kas & Keuangan", icon: DollarSign },
-    { id: "event_db", label: `Kelola Event (${eventsList.length})`, icon: Ticket },
-    { id: "bansos_db", label: `Bansos Warga (${bansosClaims.length})`, icon: Gift },
-    { id: "security", label: "Keamanan", icon: Shield },
+  const tabGroups = [
+    {
+      group: "Umum & Konten",
+      tabs: [
+        { id: "identity", label: "Brand & Menu", icon: Layout },
+        { id: "hero", label: "Beranda & 4 Pilar", icon: Compass },
+        { id: "about", label: "Tentang & Visi", icon: FileText },
+        { id: "org", label: "Pengurus", icon: Users },
+        { id: "gallery", label: "Galeri Foto", icon: Camera },
+      ],
+    },
+    {
+      group: "Warga & Keuangan",
+      tabs: [
+        { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
+        { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
+        { id: "kas_db", label: "Buku Kas & Keuangan", icon: DollarSign },
+      ],
+    },
+    {
+      group: "Event & Bansos",
+      tabs: [
+        { id: "event_db", label: `Kelola Event (${eventsList.length})`, icon: Ticket },
+        { id: "bansos_db", label: `Bansos Warga (${bansosClaims.length})`, icon: Gift },
+      ],
+    },
+    {
+      group: "Sistem & Keamanan",
+      tabs: [
+        { id: "security", label: "Keamanan", icon: Shield },
+      ],
+    },
   ];
+
+  const tabs = tabGroups.flatMap((g) => g.tabs);
 
   const currentMonthLabel = getCurrentMonthLabel();
   const currentWeekLabel = getCurrentWeekLabel();
@@ -2254,43 +2276,60 @@ export default function AdminModal({
                       </span>
                     </div>
 
-                    {/* Vertical Tab Buttons */}
-                    {tabs.map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = activeTab === tab.id;
-                      const hasCount = tab.label.includes("(");
-                      const countText = hasCount ? tab.label.match(/\((\d+)\)/)?.[1] : null;
-                      const cleanTitle = tab.label.split(" (")[0];
-
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => setActiveTab(tab.id)}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded border-2 border-black dark:border-[#475569] font-heading font-black text-xs transition-all text-left cursor-pointer ${
-                            isActive
-                              ? "bg-[#FACC15] text-[#111827] shadow-[3px_3px_0px_#000] -translate-y-0.5 border-black ring-1 ring-black/20"
-                              : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-slate-800 shadow-[1.5px_1.5px_0px_#000]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <Icon size={16} className={isActive ? "text-[#DC2626]" : "text-slate-600 dark:text-slate-400"} />
-                            <span className="truncate">{cleanTitle}</span>
-                          </div>
-                          {countText !== null && (
-                            <span
-                              className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
-                                isActive
-                                  ? "bg-black text-[#FACC15]"
-                                  : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                              }`}
-                            >
-                              {countText}
+                    {/* Grouped Sidebar Navigation */}
+                    <div className="space-y-3.5">
+                      {tabGroups.map((group, gIdx) => (
+                        <div key={gIdx} className="space-y-1">
+                          {/* Group Section Header */}
+                          <div className="flex items-center gap-1.5 px-2 pt-1 pb-0.5">
+                            <span className="text-[10px] font-heading font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                              {group.group}
                             </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                            <div className="flex-1 h-[1.5px] bg-black/10 dark:bg-white/10" />
+                          </div>
+
+                          {/* Group Tab Buttons */}
+                          <div className="space-y-1">
+                            {group.tabs.map((tab) => {
+                              const Icon = tab.icon;
+                              const isActive = activeTab === tab.id;
+                              const hasCount = tab.label.includes("(");
+                              const countText = hasCount ? tab.label.match(/\((\d+)\)/)?.[1] : null;
+                              const cleanTitle = tab.label.split(" (")[0];
+
+                              return (
+                                <button
+                                  key={tab.id}
+                                  type="button"
+                                  onClick={() => setActiveTab(tab.id)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border-2 border-black dark:border-[#475569] font-heading font-black text-xs transition-all text-left cursor-pointer ${
+                                    isActive
+                                      ? "bg-[#FACC15] text-[#111827] shadow-[3px_3px_0px_#000] -translate-y-0.5 border-black ring-1 ring-black/20"
+                                      : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-slate-800 shadow-[1.5px_1.5px_0px_#000]"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <Icon size={15} className={isActive ? "text-[#DC2626]" : "text-slate-600 dark:text-slate-400"} />
+                                    <span className="truncate">{cleanTitle}</span>
+                                  </div>
+                                  {countText !== null && (
+                                    <span
+                                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
+                                        isActive
+                                          ? "bg-black text-[#FACC15]"
+                                          : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                      }`}
+                                    >
+                                      {countText}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Sidebar Footer Status */}
@@ -2313,10 +2352,14 @@ export default function AdminModal({
                         onChange={(e) => setActiveTab(e.target.value)}
                         className="w-full bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 font-heading font-black text-xs py-2 px-3 pr-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
                       >
-                        {tabs.map((tab) => (
-                          <option key={tab.id} value={tab.id}>
-                            {tab.label}
-                          </option>
+                        {tabGroups.map((group, gIdx) => (
+                          <optgroup key={gIdx} label={`── ${group.group.toUpperCase()} ──`}>
+                            {group.tabs.map((tab) => (
+                              <option key={tab.id} value={tab.id}>
+                                {tab.label}
+                              </option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-700 dark:text-slate-300">
@@ -2340,25 +2383,32 @@ export default function AdminModal({
                       className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth py-1 px-1"
                       style={{ WebkitOverflowScrolling: "touch" }}
                     >
-                      {tabs.map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-                        return (
-                          <button
-                            key={tab.id}
-                            id={`tab-nav-btn-${tab.id}`}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`tab-btn flex items-center gap-1.5 text-xs py-1.5 px-2.5 rounded shrink-0 border-2 border-black dark:border-[#475569] font-heading font-black transition-all ${
-                              isActive
-                                ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                                : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-slate-100"
-                            }`}
-                          >
-                            <Icon size={13} className={isActive ? "text-[#DC2626]" : ""} />
-                            <span className="whitespace-nowrap">{tab.label}</span>
-                          </button>
-                        );
-                      })}
+                      {tabGroups.map((group, gIdx) => (
+                        <React.Fragment key={gIdx}>
+                          {gIdx > 0 && (
+                            <div className="h-5 w-[1.5px] bg-black/20 dark:bg-white/20 shrink-0 mx-1" />
+                          )}
+                          {group.tabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                              <button
+                                key={tab.id}
+                                id={`tab-nav-btn-${tab.id}`}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`tab-btn flex items-center gap-1.5 text-xs py-1.5 px-2.5 rounded shrink-0 border-2 border-black dark:border-[#475569] font-heading font-black transition-all ${
+                                  isActive
+                                    ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                                    : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-slate-100"
+                                }`}
+                              >
+                                <Icon size={13} className={isActive ? "text-[#DC2626]" : ""} />
+                                <span className="whitespace-nowrap">{tab.label}</span>
+                              </button>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
                     </div>
                     <button
                       type="button"
