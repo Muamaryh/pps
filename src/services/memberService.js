@@ -432,7 +432,7 @@ export function getMemberKasSubscription(member, now = new Date()) {
       expiresAtFormatted: formatDateId(expiresAt),
       startedAt: startedAt || null,
       startedAtFormatted: formatDateId(startedAt),
-      label: expiresAt && nowMs >= expiresAt ? "Lewat Tempo" : "Belum Bayar",
+      label: "Belum Bayar",
     };
   }
 
@@ -445,13 +445,13 @@ export function getMemberKasSubscription(member, now = new Date()) {
       isActive: true,
       isExpiringSoon,
       isExpired: false,
-      status: isExpiringSoon ? "EXPIRING_SOON" : "ACTIVE",
+      status: "ACTIVE",
       daysRemaining: diffDays,
       expiresAt,
       expiresAtFormatted: formatDateId(expiresAt),
       startedAt: startedAt || null,
       startedAtFormatted: formatDateId(startedAt),
-      label: isExpiringSoon ? `Mendekati tempo (${diffDays} hari lagi)` : `Lunas (${diffDays} hari lagi)`,
+      label: `Lunas (${diffDays} hari lagi)`,
     };
   }
 
@@ -467,7 +467,7 @@ export function getMemberKasSubscription(member, now = new Date()) {
     expiresAtFormatted: formatDateId(expiresAt),
     startedAt: startedAt || null,
     startedAtFormatted: formatDateId(startedAt),
-    label: daysAgo === 0 ? "Jatuh tempo hari ini" : `Lewat tempo (${daysAgo} hari)`,
+    label: "Belum Bayar",
   };
 }
 
@@ -737,11 +737,9 @@ export function exportMembersToExcel(members) {
       "DISCORD (OOC)": m.discordTag || "-",
       "Status Kas ($4.000)": kasSub.isActive
         ? `LUNAS (Sisa ${kasSub.daysRemaining} Hari)`
-        : kasSub.isExpired
-        ? `LEWAT TEMPO (${kasSub.daysAgo} Hari)`
         : "BELUM BAYAR",
       "Tgl Bayar Kas": kasSub.startedAtFormatted || m.kasPaidDate || "-",
-      "Jatuh Tempo Kas": kasSub.expiresAtFormatted || "-",
+      "Aktif s/d": kasSub.expiresAtFormatted || "-",
       "Status Voucher": voucherSub.isActive
         ? `AKTIF (Sisa ${voucherSub.daysRemaining} Hari)`
         : "SIAP DIAMBIL",
@@ -817,11 +815,9 @@ export async function exportMembersToZip(members) {
       "DISCORD (OOC)": m.discordTag || "-",
       "Status Kas ($4.000)": kasSub.isActive
         ? `LUNAS (Sisa ${kasSub.daysRemaining} Hari)`
-        : kasSub.isExpired
-        ? `LEWAT TEMPO (${kasSub.daysAgo} Hari)`
         : "BELUM BAYAR",
       "Tgl Bayar Kas": kasSub.startedAtFormatted || m.kasPaidDate || "-",
-      "Jatuh Tempo Kas": kasSub.expiresAtFormatted || "-",
+      "Aktif s/d": kasSub.expiresAtFormatted || "-",
       "Status Voucher": voucherSub.isActive
         ? `AKTIF (Sisa ${voucherSub.daysRemaining} Hari)`
         : "SIAP DIAMBIL",

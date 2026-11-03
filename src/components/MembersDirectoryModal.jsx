@@ -569,21 +569,13 @@ export default function MembersDirectoryModal({
                                 KAS (4K):
                               </span>
                               {kasSub.isActive ? (
-                                <span className={`inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded border ${
-                                  kasSub.isExpiringSoon
-                                    ? "bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border-amber-400"
-                                    : "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400"
-                                }`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${kasSub.isExpiringSoon ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
-                                  LUNAS ({kasSub.daysRemaining} HARI LAGI)
-                                </span>
-                              ) : kasSub.isExpired ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-400">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                  LEWAT TEMPO
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded border bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-400">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  LUNAS ({kasSub.daysRemaining} HARI)
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                                   BELUM BAYAR
                                 </span>
                               )}

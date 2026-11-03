@@ -185,10 +185,10 @@ export default function KasPaymentModal({
         {/* Status Masa Aktif Saat Ini */}
         <div className="p-2.5 rounded bg-slate-100 dark:bg-[#161820] border border-black/20 text-xs flex items-center justify-between">
           <span className="text-slate-600 dark:text-slate-400">Status Saat Ini:</span>
-          <span className={`font-mono font-bold ${currentSub.isActive ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+          <span className={`font-mono font-bold ${currentSub.isActive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
             {currentSub.isActive
               ? `Lunas (${currentSub.daysRemaining} hari lagi, s.d. ${currentSub.expiresAtFormatted})`
-              : "Belum Bayar / Lewat Tempo"}
+              : "Belum Bayar"}
           </span>
         </div>
 
@@ -341,7 +341,7 @@ export default function KasPaymentModal({
               <strong className="font-bold">{durationLabel}</strong>
             </div>
             <div className="flex items-center justify-between font-mono text-[11px]">
-              <span>Jatuh Tempo Baru:</span>
+              <span>Lunas Hingga:</span>
               <strong className="font-bold">{formatKasDate(projectedExpiresAt)}</strong>
             </div>
             <div className="flex items-center justify-between font-mono text-[11px] pt-1 border-t border-emerald-300 dark:border-emerald-800/40">

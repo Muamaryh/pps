@@ -376,7 +376,7 @@ export default function AdminModal({
       const res = await renewMemberKasSubscriptionCloud(member, days);
       const sub = getMemberKasSubscription(res);
       onShowToast(
-        `Kas $4.000 untuk ${member.fullName || "Anggota"} berhasil dicatat (+${days} hari, jatuh tempo: ${sub.expiresAtFormatted}).`,
+        `Kas $4.000 untuk ${member.fullName || "Anggota"} berhasil dicatat (+${days} hari, aktif s/d: ${sub.expiresAtFormatted}).`,
         "success"
       );
     } catch (err) {
@@ -2087,9 +2087,7 @@ export default function AdminModal({
     // 2. Filter Kas Subscription Status
     const kasSub = getMemberKasSubscription(m);
     if (filterKas === "active" && !kasSub.isActive) return false;
-    if (filterKas === "expiring" && !kasSub.isExpiringSoon) return false;
-    if (filterKas === "expired" && !kasSub.isExpired) return false;
-    if (filterKas === "unpaid" && (kasSub.isActive || kasSub.isExpired)) return false;
+    if (filterKas === "unpaid" && kasSub.isActive) return false;
 
     // 3. Filter Voucher Status
     const voucherSub = getMemberVoucherSubscription(m);
@@ -2110,10 +2108,8 @@ export default function AdminModal({
       }
     }
     const kasSub = getMemberKasSubscription(m);
-    if (kasMemberStatusFilter === "active" && (!kasSub.isActive || kasSub.isExpiringSoon)) return false;
-    if (kasMemberStatusFilter === "expiring" && (!kasSub.isActive || !kasSub.isExpiringSoon)) return false;
-    if (kasMemberStatusFilter === "expired" && !kasSub.isExpired) return false;
-    if (kasMemberStatusFilter === "unpaid" && (kasSub.isActive || kasSub.isExpired)) return false;
+    if (kasMemberStatusFilter === "active" && !kasSub.isActive) return false;
+    if (kasMemberStatusFilter === "unpaid" && kasSub.isActive) return false;
     return true;
   });
 
@@ -3966,36 +3962,14 @@ export default function AdminModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setFilterKas("expiring")}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
-                          filterKas === "expiring"
-                            ? "bg-amber-500 text-slate-950 border-black font-black"
-                            : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-400"
-                        }`}
-                      >
-                        ⚠️ Mendekati Tempo ({totalKasExpiringCount})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFilterKas("expired")}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
-                          filterKas === "expired"
-                            ? "bg-rose-600 text-white border-black"
-                            : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-400"
-                        }`}
-                      >
-                        ✕ Lewat Tempo ({totalKasExpiredCount})
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => setFilterKas("unpaid")}
                         className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors cursor-pointer ${
                           filterKas === "unpaid"
-                            ? "bg-slate-700 text-white border-black"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
+                            ? "bg-rose-600 text-white border-black"
+                            : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
                         }`}
                       >
-                        Belum Bayar
+                        ✕ Belum Bayar ({membersList.length - totalKasActiveCount})
                       </button>
 
                       <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block" />
@@ -4154,14 +4128,10 @@ export default function AdminModal({
                                       </span>
                                       <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded border shrink-0 ${
                                         kasSub.isActive
-                                          ? kasSub.isExpiringSoon
-                                            ? "bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border-amber-400"
-                                            : "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-400"
-                                          : kasSub.isExpired
-                                          ? "bg-rose-200 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200 border-rose-400"
-                                          : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300"
+                                          ? "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-400"
+                                          : "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
                                       }`}>
-                                        {kasSub.isActive ? `${kasSub.daysRemaining} HARI LAGI` : kasSub.isExpired ? "LEWAT TEMPO" : "BELUM BAYAR"}
+                                        {kasSub.isActive ? "LUNAS" : "BELUM BAYAR"}
                                       </span>
                                     </div>
 
@@ -4582,7 +4552,7 @@ export default function AdminModal({
                   </div>
 
                   {/* Summary Metric Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
                       <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
                         Total Anggota
@@ -4595,34 +4565,24 @@ export default function AdminModal({
 
                     <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000]">
                       <span className="text-[10px] font-sans font-black text-emerald-900 dark:text-emerald-300 uppercase">
-                        Kas Aktif / Lunas
+                        Lunas
                       </span>
                       <div className="text-xl font-mono font-black text-emerald-700 dark:text-emerald-300 mt-1">
                         {totalKasActiveCount}
                       </div>
                       <span className="text-[10px] text-emerald-600 font-mono">
-                        {Math.round((totalKasActiveCount / (membersList.length || 1)) * 100)}% kepatuhan
+                        {Math.round((totalKasActiveCount / (membersList.length || 1)) * 100)}% warga lunas
                       </span>
-                    </div>
-
-                    <div className="card-brutal p-3 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000]">
-                      <span className="text-[10px] font-sans font-black text-amber-900 dark:text-amber-300 uppercase">
-                        Mendekati Tempo
-                      </span>
-                      <div className="text-xl font-mono font-black text-amber-700 dark:text-amber-300 mt-1">
-                        {totalKasExpiringCount}
-                      </div>
-                      <span className="text-[10px] text-amber-600">Sisa &le; 3 hari lagi</span>
                     </div>
 
                     <div className="card-brutal p-3 bg-rose-50 dark:bg-rose-950/30 border-2 border-rose-500 dark:border-rose-400 shadow-[2px_2px_0px_#000]">
                       <span className="text-[10px] font-sans font-black text-rose-900 dark:text-rose-300 uppercase">
-                        Tunggakan / Belum
+                        Belum Bayar
                       </span>
                       <div className="text-xl font-mono font-black text-rose-700 dark:text-rose-300 mt-1">
                         {membersList.length - totalKasActiveCount}
                       </div>
-                      <span className="text-[10px] text-rose-600">Perlu ditagih iuran</span>
+                      <span className="text-[10px] text-rose-600 font-mono">Belum iuran kas</span>
                     </div>
                   </div>
 
@@ -4675,36 +4635,14 @@ export default function AdminModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setKasMemberStatusFilter("expiring")}
+                        onClick={() => setKasMemberStatusFilter("unpaid")}
                         className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
-                          kasMemberStatusFilter === "expiring"
-                            ? "bg-amber-500 text-slate-950 shadow-[1px_1px_0px_#000] font-black"
-                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-amber-50"
-                        }`}
-                      >
-                        ⚠️ Mendekati Tempo ({totalKasExpiringCount})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setKasMemberStatusFilter("expired")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
-                          kasMemberStatusFilter === "expired"
+                          kasMemberStatusFilter === "unpaid"
                             ? "bg-rose-600 text-white shadow-[1px_1px_0px_#000]"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-rose-50"
                         }`}
                       >
-                        ✕ Lewat Tempo ({totalKasExpiredCount})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setKasMemberStatusFilter("unpaid")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
-                          kasMemberStatusFilter === "unpaid"
-                            ? "bg-slate-700 text-white shadow-[1px_1px_0px_#000]"
-                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-                        }`}
-                      >
-                        Belum Bayar
+                        ✕ Belum Bayar ({membersList.length - totalKasActiveCount})
                       </button>
                     </div>
                   </div>
@@ -4723,15 +4661,7 @@ export default function AdminModal({
                         return (
                           <div
                             key={member.id}
-                            className={`card-brutal p-4 rounded-xl border-2 transition-all flex flex-col justify-between gap-3 ${
-                              kasSub.isActive
-                                ? kasSub.isExpiringSoon
-                                  ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-500 shadow-[3px_3px_0px_#F59E0B]"
-                                  : "bg-white dark:bg-[#1A1D26] border-black dark:border-[#475569] shadow-[3px_3px_0px_#000]"
-                                : kasSub.isExpired
-                                ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-500 shadow-[3px_3px_0px_#DC2626]"
-                                : "bg-white dark:bg-[#1A1D26] border-black dark:border-[#475569] shadow-[3px_3px_0px_#000]"
-                            }`}
+                            className="card-brutal p-4 rounded-xl border-2 bg-white dark:bg-[#1A1D26] border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] transition-all flex flex-col justify-between gap-3"
                           >
                             {/* Member Header */}
                             <div className="flex items-start justify-between gap-2">
@@ -4754,14 +4684,10 @@ export default function AdminModal({
                               {/* Status Badge */}
                               <span className={`text-[10px] font-mono font-black px-2 py-0.5 rounded border shrink-0 ${
                                 kasSub.isActive
-                                  ? kasSub.isExpiringSoon
-                                    ? "bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border-amber-400 animate-pulse"
-                                    : "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-400"
-                                  : kasSub.isExpired
-                                  ? "bg-rose-200 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200 border-rose-400"
-                                  : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300"
+                                  ? "bg-emerald-200 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-400"
+                                  : "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
                               }`}>
-                                {kasSub.isActive ? `${kasSub.daysRemaining} HARI LAGI` : kasSub.isExpired ? "LEWAT TEMPO" : "BELUM BAYAR"}
+                                {kasSub.isActive ? "LUNAS" : "BELUM BAYAR"}
                               </span>
                             </div>
 
@@ -4776,15 +4702,15 @@ export default function AdminModal({
                                 </strong>
                               </div>
                               <div className="flex items-center justify-between text-[11px] font-mono">
-                                <span className="text-slate-500">{kasSub.isActive ? "Jatuh Tempo:" : kasSub.isExpired ? "Lewat Sejak:" : "Status:"}</span>
+                                <span className="text-slate-500">Status Iuran:</span>
                                 <strong className={`font-bold ${
                                   kasSub.isActive
                                     ? "text-emerald-700 dark:text-emerald-400"
-                                    : kasSub.isExpired
-                                    ? "text-rose-600 dark:text-rose-400"
-                                    : "text-slate-500"
+                                    : "text-rose-600 dark:text-rose-400"
                                 }`}>
-                                  {kasSub.expiresAt ? kasSub.expiresAtFormatted : "Belum Ada Transaksi"}
+                                  {kasSub.isActive
+                                    ? kasSub.expiresAtFormatted ? `Lunas (s/d ${kasSub.expiresAtFormatted})` : "Lunas"
+                                    : "Belum Bayar"}
                                 </strong>
                               </div>
                             </div>
