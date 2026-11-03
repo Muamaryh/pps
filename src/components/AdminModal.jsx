@@ -2002,8 +2002,8 @@ export default function AdminModal({
       tabs: [
         { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
         { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
-        { id: "member_kas", label: `Catat Uang Kas (${totalKasActiveCount}/${membersList.length})`, icon: DollarSign },
-        { id: "kas_db", label: "Buku Kas & Keuangan", icon: Landmark },
+        { id: "member_kas", label: "Catat Uang Kas", icon: DollarSign },
+        { id: "kas_db", label: "Keuangan", icon: Landmark },
       ],
     },
     {
@@ -2351,7 +2351,8 @@ export default function AdminModal({
                               const Icon = tab.icon;
                               const isActive = activeTab === tab.id;
                               const hasCount = tab.label.includes("(");
-                              const countText = hasCount ? tab.label.match(/\((\d+)\)/)?.[1] : null;
+                              const countMatch = hasCount ? tab.label.match(/\(([^)]+)\)/) : null;
+                              const countText = countMatch ? countMatch[1] : null;
                               const cleanTitle = tab.label.split(" (")[0];
 
                               return (
@@ -2369,7 +2370,7 @@ export default function AdminModal({
                                     <Icon size={15} className={isActive ? "text-[#DC2626]" : "text-slate-600 dark:text-slate-400"} />
                                     <span className="truncate">{cleanTitle}</span>
                                   </div>
-                                  {countText !== null && (
+                                  {Boolean(countText) && (
                                     <span
                                       className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
                                         isActive
@@ -2412,9 +2413,9 @@ export default function AdminModal({
                           </div>
                           <div className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
                             <span className="truncate">{activeTabObj.label.split(" (")[0]}</span>
-                            {activeTabObj.label.includes("(") && (
+                            {Boolean(activeTabObj.label.match(/\(([^)]+)\)/)?.[1]) && (
                               <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000] shrink-0">
-                                {activeTabObj.label.match(/\((\d+)\)/)?.[1]}
+                                {activeTabObj.label.match(/\(([^)]+)\)/)?.[1]}
                               </span>
                             )}
                           </div>
@@ -2486,7 +2487,8 @@ export default function AdminModal({
                           const Icon = tab.icon;
                           const isActive = activeTab === tab.id;
                           const hasCount = tab.label.includes("(");
-                          const countText = hasCount ? tab.label.match(/\((\d+)\)/)?.[1] : null;
+                          const countMatch = hasCount ? tab.label.match(/\(([^)]+)\)/) : null;
+                          const countText = countMatch ? countMatch[1] : null;
                           const cleanTitle = tab.label.split(" (")[0];
 
                           return (
@@ -2503,7 +2505,7 @@ export default function AdminModal({
                             >
                               <Icon size={14} className={isActive ? "text-[#DC2626]" : "text-slate-500"} />
                               <span className="whitespace-nowrap">{cleanTitle}</span>
-                              {countText !== null && (
+                              {Boolean(countText) && (
                                 <span
                                   className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
                                     isActive
@@ -3818,10 +3820,10 @@ export default function AdminModal({
                           type="button"
                           onClick={() => setActiveTab("kas_db")}
                           className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white font-mono text-[10px] font-bold border border-black shadow-[1px_1px_0px_#000] cursor-pointer flex items-center gap-1"
-                          title="Buka tab Buku Kas & Manajemen Keuangan LSM"
+                          title="Buka tab Keuangan & Kas LSM"
                         >
                           <DollarSign size={12} />
-                          <span>Buku Kas →</span>
+                          <span>Keuangan →</span>
                         </button>
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t border-emerald-200 dark:border-emerald-800/40 text-[10px] font-mono">
@@ -4561,10 +4563,10 @@ export default function AdminModal({
                         type="button"
                         onClick={() => setActiveTab("kas_db")}
                         className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Buka buku kas umum & mutasi keuangan"
+                        title="Buka menu Keuangan & mutasi kas"
                       >
                         <Landmark size={15} className="text-[#DC2626]" />
-                        <span>Buku Kas & Mutasi</span>
+                        <span>Keuangan</span>
                       </button>
 
                       <button
@@ -4833,7 +4835,7 @@ export default function AdminModal({
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
-                            Buku Kas & Keuangan LSM PPS
+                            Keuangan LSM PPS
                           </h4>
                           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
                             TRANSPARAN
@@ -7630,7 +7632,8 @@ export default function AdminModal({
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
                         const hasCount = tab.label.includes("(");
-                        const countText = hasCount ? tab.label.match(/\((\d+)\)/)?.[1] : null;
+                        const countMatch = hasCount ? tab.label.match(/\(([^)]+)\)/) : null;
+                        const countText = countMatch ? countMatch[1] : null;
                         const cleanTitle = tab.label.split(" (")[0];
 
                         return (
@@ -7652,7 +7655,7 @@ export default function AdminModal({
                               <span className="truncate">{cleanTitle}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              {countText !== null && (
+                              {Boolean(countText) && (
                                 <span
                                   className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
                                     isActive
