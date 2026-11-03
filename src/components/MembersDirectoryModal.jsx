@@ -13,9 +13,11 @@ import {
   Sparkles,
   ExternalLink,
   HeartHandshake,
+  Gift,
 } from "lucide-react";
 import {
   subscribeMembersCloud,
+  subscribeExternalJasraCloud,
   getMemberKasSubscription,
   getMemberVoucherSubscription,
   isMemberKasPaidCurrentMonth,
@@ -30,9 +32,12 @@ export default function MembersDirectoryModal({
   onOpenRegister,
 }) {
   const [members, setMembers] = useState([]);
+  const [externalJasraList, setExternalJasraList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [previewKtp, setPreviewKtp] = useState(null); // { image, name, citizenId }
+  const [filterJasraOnly, setFilterJasraOnly] = useState(false);
+  const [jasraScopeFilter, setJasraScopeFilter] = useState("ALL"); // 'ALL' | 'MEMBER' | 'EXTERNAL'
 
   // Subscribe to real-time Cloud Database
   useEffect(() => {
@@ -50,36 +55,79 @@ export default function MembersDirectoryModal({
       }
     );
 
+    const unsubExt = subscribeExternalJasraCloud(
+      (list) => {
+        setExternalJasraList(list || []);
+      },
+      (err) => {
+        console.warn("Gagal memuat penerima Jasra luar:", err);
+      }
+    );
+
     return () => {
       if (typeof unsub === "function") unsub();
+      if (typeof unsubExt === "function") unsubExt();
     };
   }, [isOpen]);
 
-  const [filterJasraOnly, setFilterJasraOnly] = useState(false);
-
-  // Hitung jumlah anggota yang telah menerima manfaat voucher Jasra
-  const jasraRecipientsCount = useMemo(() => {
+  // Hitung jumlah penerima manfaat voucher Jasra
+  const memberJasraList = useMemo(() => {
     return members.filter((m) => {
       const vSub = getMemberVoucherSubscription(m);
       return vSub.isActive || m.voucherJasraReceived;
-    }).length;
+    });
   }, [members]);
 
-  if (!isOpen) return null;
+  const memberJasraCount = memberJasraList.length;
+  const externalJasraCount = externalJasraList.length;
+  const totalJasraCount = memberJasraCount + externalJasraCount;
 
-  // Filter members based on search query & filter Jasra
+  // Filter items based on search query & filter Jasra & scope
   const q = searchQuery.trim().toLowerCase();
-  const filteredMembers = members.filter((m) => {
-    if (filterJasraOnly) {
-      const vSub = getMemberVoucherSubscription(m);
-      if (!vSub.isActive && !m.voucherJasraReceived) return false;
+
+  const displayedItems = useMemo(() => {
+    if (!filterJasraOnly) {
+      // Normal mode: All registered members
+      const list = members.filter((m) => {
+        if (!q) return true;
+        const name = (m.fullName || "").toLowerCase();
+        const ic = (m.icNumber || "").toLowerCase();
+        const phone = (m.phone || "").toLowerCase();
+        return name.includes(q) || ic.includes(q) || phone.includes(q);
+      });
+      return list.map((m) => ({ type: "MEMBER", data: m }));
     }
-    if (!q) return true;
-    const name = (m.fullName || "").toLowerCase();
-    const ic = (m.icNumber || "").toLowerCase();
-    const phone = (m.phone || "").toLowerCase();
-    return name.includes(q) || ic.includes(q) || phone.includes(q);
-  });
+
+    // Jasra Filter Mode
+    const result = [];
+
+    if (jasraScopeFilter === "ALL" || jasraScopeFilter === "MEMBER") {
+      const filteredMemJasra = memberJasraList.filter((m) => {
+        if (!q) return true;
+        const name = (m.fullName || "").toLowerCase();
+        const ic = (m.icNumber || "").toLowerCase();
+        const phone = (m.phone || "").toLowerCase();
+        return name.includes(q) || ic.includes(q) || phone.includes(q);
+      });
+      result.push(...filteredMemJasra.map((m) => ({ type: "MEMBER", data: m })));
+    }
+
+    if (jasraScopeFilter === "ALL" || jasraScopeFilter === "EXTERNAL") {
+      const filteredExt = externalJasraList.filter((item) => {
+        if (!q) return true;
+        const name = (item.fullName || "").toLowerCase();
+        const cid = (item.citizenId || "").toLowerCase();
+        const phone = (item.phone || "").toLowerCase();
+        const notes = (item.notes || "").toLowerCase();
+        return name.includes(q) || cid.includes(q) || phone.includes(q) || notes.includes(q);
+      });
+      result.push(...filteredExt.map((item) => ({ type: "EXTERNAL", data: item })));
+    }
+
+    return result;
+  }, [members, externalJasraList, filterJasraOnly, jasraScopeFilter, memberJasraList, q]);
+
+  if (!isOpen) return null;
 
   return (
     <>
@@ -160,7 +208,7 @@ export default function MembersDirectoryModal({
                   className={filterJasraOnly ? "text-slate-950" : "text-emerald-700 dark:text-emerald-400"}
                 />
                 <span>
-                  {isLoading ? "..." : `${jasraRecipientsCount} Menerima Manfaat Jasra`}
+                  {isLoading ? "..." : `${totalJasraCount} Menerima Manfaat Jasra`}
                 </span>
                 {filterJasraOnly && (
                   <span className="text-[10px] bg-black text-white px-1.5 py-0.2 rounded font-mono font-black">
@@ -196,7 +244,7 @@ export default function MembersDirectoryModal({
               />
               <input
                 type="text"
-                placeholder="Cari nama IC, Citizen ID / No KTP, atau No HP..."
+                placeholder={filterJasraOnly ? "Cari nama IC, Citizen ID, no HP, atau catatan penerima Jasra..." : "Cari nama IC, Citizen ID / No KTP, atau No HP..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="input-field w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]"
@@ -212,10 +260,23 @@ export default function MembersDirectoryModal({
               )}
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-2 px-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-2 px-1 gap-1">
               <span>
-                Menampilkan <strong>{filteredMembers.length}</strong> dari{" "}
-                <strong>{members.length}</strong> anggota resmi
+                {filterJasraOnly ? (
+                  <>
+                    Menampilkan <strong>{displayedItems.length}</strong> penerima manfaat Jasra{" "}
+                    {jasraScopeFilter === "MEMBER"
+                      ? "(Anggota Paguyuban)"
+                      : jasraScopeFilter === "EXTERNAL"
+                      ? "(Warga Luar Anggota)"
+                      : "(Semua)"}
+                  </>
+                ) : (
+                  <>
+                    Menampilkan <strong>{displayedItems.length}</strong> dari{" "}
+                    <strong>{members.length}</strong> anggota resmi
+                  </>
+                )}
               </span>
               {searchQuery && (
                 <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">
@@ -223,6 +284,50 @@ export default function MembersDirectoryModal({
                 </span>
               )}
             </div>
+
+            {/* Scope Filter Pills for Jasra: Semua vs Anggota vs Luar Anggota */}
+            {filterJasraOnly && (
+              <div className="flex items-center gap-1.5 pt-2 mt-2 border-t border-black/10 dark:border-white/10 flex-wrap">
+                <span className="text-[10px] font-heading font-black text-slate-600 dark:text-slate-400 uppercase mr-1">
+                  Kategori Penerima:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setJasraScopeFilter("ALL")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-heading font-black border-2 border-black flex items-center gap-1 cursor-pointer transition-all ${
+                    jasraScopeFilter === "ALL"
+                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 shadow-[1.5px_1.5px_0px_#000]"
+                      : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  Semua ({totalJasraCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setJasraScopeFilter("MEMBER")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-heading font-black border-2 border-black flex items-center gap-1 cursor-pointer transition-all ${
+                    jasraScopeFilter === "MEMBER"
+                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 shadow-[1.5px_1.5px_0px_#000]"
+                      : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  <Users size={12} />
+                  <span>Anggota Paguyuban ({memberJasraCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setJasraScopeFilter("EXTERNAL")}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-heading font-black border-2 border-black flex items-center gap-1 cursor-pointer transition-all ${
+                    jasraScopeFilter === "EXTERNAL"
+                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 shadow-[1.5px_1.5px_0px_#000]"
+                      : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  <HeartHandshake size={12} />
+                  <span>Warga Luar Anggota ({externalJasraCount})</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Member Cards Grid */}
@@ -276,16 +381,18 @@ export default function MembersDirectoryModal({
                   ))}
                 </div>
               </div>
-            ) : filteredMembers.length === 0 ? (
+            ) : displayedItems.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center text-center">
                 <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-950/60 border-2 border-black dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-400 mb-3 shadow-[2px_2px_0px_#000]">
                   <Search size={24} />
                 </div>
                 <h4 className="font-heading font-black text-base uppercase text-slate-800 dark:text-slate-200">
-                  Anggota Tidak Ditemukan
+                  Data Tidak Ditemukan
                 </h4>
                 <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4">
-                  Tidak ada data anggota dengan kata kunci "<strong>{searchQuery}</strong>". Silakan periksa ejaan nama atau Citizen ID Anda.
+                  {filterJasraOnly
+                    ? "Tidak ada penerima manfaat Jasra yang sesuai dengan filter atau kata kunci pencarian."
+                    : `Tidak ada data anggota dengan kata kunci "${searchQuery}". Silakan periksa ejaan nama atau Citizen ID Anda.`}
                 </p>
                 {searchQuery && (
                   <button
@@ -299,11 +406,98 @@ export default function MembersDirectoryModal({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {filteredMembers.map((member) => (
-                  <div
-                    key={member.id}
-                    className="card-brutal p-3.5 bg-white dark:bg-[#1A1D27] border-[2.5px] border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
-                  >
+                {displayedItems.map((item, idx) => {
+                  if (item.type === "EXTERNAL") {
+                    const ext = item.data;
+                    return (
+                      <div
+                        key={ext.id || `ext-${idx}`}
+                        className="card-brutal p-3.5 bg-white dark:bg-[#1A1D27] border-[2.5px] border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                      >
+                        <div>
+                          {/* Top: Avatar & Name */}
+                          <div className="flex items-center gap-3 pb-2.5 mb-2.5 border-b border-black/10 dark:border-white/10">
+                            <div className="w-12 h-12 rounded-full border-2 border-black dark:border-[#475569] overflow-hidden bg-blue-100 dark:bg-blue-950/60 shrink-0 shadow-sm flex items-center justify-center text-blue-700 dark:text-blue-300">
+                              <HeartHandshake size={22} />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <h4
+                                  className="font-heading font-black text-xs sm:text-sm text-slate-950 dark:text-slate-100 uppercase truncate"
+                                  title={ext.fullName}
+                                >
+                                  {ext.fullName || "Warga Umum"}
+                                </h4>
+                                <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-300 border border-blue-400 shrink-0">
+                                  WARGA UMUM
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-500 block truncate">
+                                Diberikan: {ext.dateGiven || "-"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Details Info: Citizen ID & Phone */}
+                          <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2.5">
+                            <div>
+                              <span className="text-[9px] text-slate-400 font-sans font-bold block">
+                                CITIZEN ID / KTP:
+                              </span>
+                              <strong
+                                className="text-[#DC2626] dark:text-[#FACC15] truncate block text-[11px]"
+                                title={ext.citizenId}
+                              >
+                                {ext.citizenId || "-"}
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-slate-400 font-sans font-bold block">
+                                NO TLP / WA:
+                              </span>
+                              <span
+                                className="text-slate-800 dark:text-slate-200 truncate block text-[11px]"
+                                title={ext.phone}
+                              >
+                                {ext.phone || "-"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status Voucher Jasra (Warga Luar) */}
+                          <div className="flex flex-col gap-1 p-2 rounded bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] font-mono font-bold text-slate-500 uppercase flex items-center gap-1">
+                                <Gift size={11} className="text-[#DC2626]" /> VOUCHER JASRA:
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded bg-[#FACC15]/25 dark:bg-[#FACC15]/15 text-amber-900 dark:text-[#FACC15] border border-amber-400">
+                                ✓ 10 T • 10 P (AKTIF)
+                              </span>
+                            </div>
+                            {ext.notes && (
+                              <div className="text-[10px] text-slate-600 dark:text-slate-400 italic pt-1 border-t border-black/5 dark:border-white/5">
+                                Catatan: {ext.notes}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Bottom Status Tag */}
+                        <div className="flex items-center justify-between pt-1 border-t border-black/5 dark:border-white/5 text-[10px] font-mono text-slate-500">
+                          <span>Penerima Jasra Non-Anggota</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Terverifikasi</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const member = item.data;
+                  return (
+                    <div
+                      key={member.id}
+                      className="card-brutal p-3.5 bg-white dark:bg-[#1A1D27] border-[2.5px] border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                    >
                     <div>
                       {/* Top: Avatar & Name */}
                       <div className="flex items-center gap-3 pb-2.5 mb-2.5 border-b border-black/10 dark:border-white/10">
@@ -436,8 +630,9 @@ export default function MembersDirectoryModal({
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
+            </div>
             )}
           </div>
 

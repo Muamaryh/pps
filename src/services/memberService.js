@@ -47,6 +47,170 @@ function getMemberDb() {
 
 const APP_ID = "portal-anggota-app";
 const MEMBERS_COL_PATH = ["artifacts", APP_ID, "public", "data", "members"];
+const EXTERNAL_JASRA_COL_PATH = ["artifacts", APP_ID, "public", "data", "external_jasra"];
+const EXTERNAL_JASRA_STORAGE_KEY = "pps_external_jasra_cache";
+
+/**
+ * Fetch all external Jasra recipients (non-members) from cloud database
+ */
+export async function loadExternalJasraCloud() {
+  try {
+    const colRef = collection(getMemberDb(), ...EXTERNAL_JASRA_COL_PATH);
+    const snap = await getDocs(colRef);
+    const list = [];
+    snap.forEach((d) => {
+      if (d.id !== "_meta") {
+        list.push({ id: d.id, ...d.data() });
+      }
+    });
+    list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    try {
+      localStorage.setItem(EXTERNAL_JASRA_STORAGE_KEY, JSON.stringify(list));
+    } catch {}
+    return list;
+  } catch (err) {
+    console.warn("Gagal memuat penerima Jasra luar dari cloud, membaca cache:", err);
+    try {
+      const cached = localStorage.getItem(EXTERNAL_JASRA_STORAGE_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  }
+}
+
+/**
+ * Real-time listener for external Jasra recipients (non-members)
+ */
+export function subscribeExternalJasraCloud(onUpdate, onError) {
+  try {
+    const colRef = collection(getMemberDb(), ...EXTERNAL_JASRA_COL_PATH);
+    return onSnapshot(
+      colRef,
+      (snap) => {
+        const list = [];
+        snap.forEach((d) => {
+          if (d.id !== "_meta") {
+            list.push({ id: d.id, ...d.data() });
+          }
+        });
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        try {
+          localStorage.setItem(EXTERNAL_JASRA_STORAGE_KEY, JSON.stringify(list));
+        } catch {}
+        if (typeof onUpdate === "function") onUpdate(list);
+      },
+      (err) => {
+        console.warn("Subscription external Jasra notice:", err);
+        try {
+          const cached = localStorage.getItem(EXTERNAL_JASRA_STORAGE_KEY);
+          if (cached && typeof onUpdate === "function") {
+            onUpdate(JSON.parse(cached));
+          }
+        } catch {}
+        if (typeof onError === "function") onError(err);
+      }
+    );
+  } catch (err) {
+    console.error("Gagal inisialisasi listener external Jasra:", err);
+    return () => {};
+  }
+}
+
+/**
+ * Save or update an external Jasra recipient (Admin)
+ */
+export async function saveExternalJasraCloud(data) {
+  const docId = data.id || "EXT_JASRA_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+  const now = new Date();
+  const dateStr = data.dateGiven || now.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  const payload = {
+    ...data,
+    id: docId,
+    fullName: String(data.fullName || "").trim().toUpperCase(),
+    citizenId: String(data.citizenId || "").trim().toUpperCase(),
+    phone: String(data.phone || "").trim(),
+    ktpPhoto: data.ktpPhoto || "",
+    voucherDetail: data.voucherDetail || { treatment: 10, pingsan: 10 },
+    packageLabel: data.packageLabel || "10 Tritmen • 10 Pingsan",
+    dateGiven: dateStr,
+    notes: String(data.notes || "").trim(),
+    status: data.status || "ACTIVE",
+    createdAt: data.createdAt || Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  const docRef = doc(getMemberDb(), ...EXTERNAL_JASRA_COL_PATH, docId);
+  await setDoc(docRef, payload, { merge: true });
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(EXTERNAL_JASRA_STORAGE_KEY) || "[]");
+    const updated = cached.some((item) => item.id === docId)
+      ? cached.map((item) => (item.id === docId ? { ...item, ...payload } : item))
+      : [payload, ...cached];
+    localStorage.setItem(EXTERNAL_JASRA_STORAGE_KEY, JSON.stringify(updated));
+  } catch {}
+
+  return payload;
+}
+
+/**
+ * Delete an external Jasra recipient
+ */
+export async function deleteExternalJasraCloud(id) {
+  const docRef = doc(getMemberDb(), ...EXTERNAL_JASRA_COL_PATH, id);
+  await deleteDoc(docRef);
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(EXTERNAL_JASRA_STORAGE_KEY) || "[]");
+    const updated = cached.filter((item) => item.id !== id);
+    localStorage.setItem(EXTERNAL_JASRA_STORAGE_KEY, JSON.stringify(updated));
+  } catch {}
+
+  return true;
+}
+
+/**
+ * Export external Jasra recipients to Excel
+ */
+export function exportExternalJasraToExcel(list = []) {
+  if (!Array.isArray(list) || list.length === 0) return false;
+
+  const rows = list.map((item, index) => ({
+    No: index + 1,
+    "ID Penerima": item.id,
+    "NAMA LENGKAP (IC)": item.fullName || "-",
+    "CITIZEN ID / NO KTP": item.citizenId || "-",
+    "NO TLP / WA": item.phone || "-",
+    "TANGGAL DIBERIKAN": item.dateGiven || "-",
+    "PAKET MANFAAT": item.packageLabel || "10 Tritmen • 10 Pingsan",
+    "STATUS": item.status === "ACTIVE" ? "AKTIF" : "SELESAI",
+    "CATATAN / KETERANGAN": item.notes || "-",
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  worksheet["!cols"] = [
+    { wch: 6 },
+    { wch: 20 },
+    { wch: 25 },
+    { wch: 20 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 25 },
+    { wch: 12 },
+    { wch: 30 },
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Penerima Jasra Luar Anggota");
+  const today = new Date().toISOString().split("T")[0];
+  XLSX.writeFile(workbook, `Penerima_Jasra_Luar_Anggota_PPS_${today}.xlsx`);
+  return true;
+}
 
 /**
  * Fetch all members from cloud database

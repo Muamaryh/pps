@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -23,7 +23,13 @@ import {
   resetAllMembersVouchersCloud,
   KAS_SUBSCRIPTION_DAYS,
   VOUCHER_SUBSCRIPTION_DAYS,
+  loadExternalJasraCloud,
+  subscribeExternalJasraCloud,
+  saveExternalJasraCloud,
+  deleteExternalJasraCloud,
+  exportExternalJasraToExcel,
 } from "../services/memberService";
+import { scanKtpImage } from "../utils/ktpOcr";
 import {
   subscribeEventRegistrationsCloud,
   deleteEventRegistrationCloud,
@@ -265,11 +271,30 @@ export default function AdminModal({
   const [kasFilterType, setKasFilterType] = useState("ALL"); // 'ALL' | 'INCOME' | 'EXPENSE'
   const [kasSearchQuery, setKasSearchQuery] = useState("");
 
+  // External Jasra Recipients State
+  const [externalJasraList, setExternalJasraList] = useState(() => {
+    try {
+      const cached = localStorage.getItem("pps_external_jasra_cache");
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+  const [memberTabSubView, setMemberTabSubView] = useState("members"); // 'members' | 'external_jasra'
+  const [editingExternalJasra, setEditingExternalJasra] = useState(null);
+  const [isScanningExternalOcr, setIsScanningExternalOcr] = useState(false);
+  const [externalJasraSearch, setExternalJasraSearch] = useState("");
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadSubmissions().then((data) => setSubmissions(data || []));
       const unsubscribeMembers = subscribeMembersCloud((list) => {
         setMembersList(list || []);
+      });
+      loadExternalJasraCloud().then((list) => {
+        if (Array.isArray(list)) setExternalJasraList(list);
+      });
+      const unsubscribeExternalJasra = subscribeExternalJasraCloud((list) => {
+        if (Array.isArray(list)) setExternalJasraList(list);
       });
       const unsubscribeEvents = subscribeEventRegistrationsCloud((list) => {
         setEventRegistrations(list || []);
@@ -296,6 +321,7 @@ export default function AdminModal({
       });
       return () => {
         if (typeof unsubscribeMembers === "function") unsubscribeMembers();
+        if (typeof unsubscribeExternalJasra === "function") unsubscribeExternalJasra();
         if (typeof unsubscribeEvents === "function") unsubscribeEvents();
         if (typeof unsubscribeEventsList === "function") unsubscribeEventsList();
         if (typeof unsubscribeBansos === "function") unsubscribeBansos();
@@ -1024,6 +1050,116 @@ export default function AdminModal({
       onShowToast("Gagal membuat file backup ZIP.", "error");
     } finally {
       setIsExportingZip(false);
+    }
+  }
+
+  // =========================================================================
+  // HANDLER: PENERIMA MANFAAT JASRA LUAR ANGGOTA (NON-MEMBER)
+  // =========================================================================
+
+  async function handleExternalKtpUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      onShowToast("File harus berupa gambar (JPG, PNG, WebP).", "error");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      onShowToast("Ukuran gambar maksimal 5MB.", "error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result;
+      if (!dataUrl) return;
+
+      setEditingExternalJasra((prev) => ({
+        ...prev,
+        ktpPhoto: dataUrl,
+      }));
+
+      // Jalankan auto OCR scan untuk mendeteksi Nama & Citizen ID
+      setIsScanningExternalOcr(true);
+      try {
+        const ocrResult = await scanKtpImage(dataUrl);
+        if (ocrResult && (ocrResult.fullName || ocrResult.citizenId)) {
+          setEditingExternalJasra((prev) => ({
+            ...prev,
+            fullName: prev.fullName || ocrResult.fullName || "",
+            citizenId: prev.citizenId || ocrResult.citizenId || "",
+          }));
+          onShowToast("Foto KTP berhasil dipindai dengan OCR!", "success");
+        } else {
+          onShowToast("Foto KTP diunggah. Silakan lengkapi Nama & CID.", "info");
+        }
+      } catch (err) {
+        console.warn("OCR scan notice:", err);
+        onShowToast("Foto KTP diunggah. Silakan periksa kembali Nama & CID.", "info");
+      } finally {
+        setIsScanningExternalOcr(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSaveExternalJasra(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!editingExternalJasra) return;
+
+    if (!editingExternalJasra.fullName?.trim() && !editingExternalJasra.citizenId?.trim()) {
+      onShowToast("Nama lengkap atau Citizen ID wajib diisi.", "error");
+      return;
+    }
+
+    try {
+      await saveExternalJasraCloud(editingExternalJasra);
+      onShowToast(
+        `Data Jasra untuk ${editingExternalJasra.fullName || "Warga"} berhasil disimpan!`,
+        "success"
+      );
+      setEditingExternalJasra(null);
+    } catch (err) {
+      console.error("Gagal simpan data jasra luar:", err);
+      onShowToast("Gagal menyimpan data penerima Jasra.", "error");
+    }
+  }
+
+  function handleDeleteExternalJasra(id, name) {
+    setConfirmModal({
+      isOpen: true,
+      title: "Hapus Data Jasra Luar Anggota?",
+      message: `Hapus pencatatan manfaat Jasra untuk ${name || "warga ini"} dari sistem?`,
+      confirmText: "Ya, Hapus",
+      cancelText: "Kembali",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteExternalJasraCloud(id);
+          onShowToast(`Data Jasra ${name || ""} berhasil dihapus.`, "info");
+        } catch (err) {
+          console.error("Gagal menghapus data:", err);
+          onShowToast("Gagal menghapus data.", "error");
+        }
+      },
+    });
+  }
+
+  function handleExportExternalJasraExcel() {
+    if (!externalJasraList || externalJasraList.length === 0) {
+      onShowToast("Tidak ada data penerima Jasra luar untuk diunduh.", "warning");
+      return;
+    }
+    try {
+      const ok = exportExternalJasraToExcel(externalJasraList);
+      if (ok) {
+        onShowToast("File Excel penerima Jasra luar anggota berhasil diunduh!", "success");
+      }
+    } catch (err) {
+      console.error(err);
+      onShowToast("Gagal mengekspor data Excel.", "error");
     }
   }
 
@@ -1829,6 +1965,16 @@ export default function AdminModal({
     if (filterVoucher === "ready" && voucherSub.isActive) return false;
 
     return true;
+  });
+
+  const filteredExternalJasra = externalJasraList.filter((item) => {
+    if (!externalJasraSearch.trim()) return true;
+    const q = externalJasraSearch.toLowerCase().trim();
+    const name = (item.fullName || "").toLowerCase();
+    const cid = (item.citizenId || "").toLowerCase();
+    const phone = (item.phone || "").toLowerCase();
+    const notes = (item.notes || "").toLowerCase();
+    return name.includes(q) || cid.includes(q) || phone.includes(q) || notes.includes(q);
   });
 
   const filteredEvents = eventRegistrations.filter((r) => {
@@ -3362,8 +3508,35 @@ export default function AdminModal({
                       </div>
                     </div>
 
-                    {/* Export Actions: Excel & ZIP */}
+                    {/* Export Actions: Excel & ZIP & Add External Jasra */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingExternalJasra({
+                            id: "",
+                            fullName: "",
+                            citizenId: "",
+                            phone: "",
+                            ktpPhoto: "",
+                            voucherDetail: { treatment: 10, pingsan: 10 },
+                            packageLabel: "10 Tritmen • 10 Pingsan",
+                            dateGiven: new Date().toLocaleDateString("id-ID", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }),
+                            notes: "",
+                            status: "ACTIVE",
+                          });
+                        }}
+                        className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                        title="Catat penerima voucher Jasra dari warga umum (luar anggota paguyuban)"
+                      >
+                        <HeartHandshake size={15} />
+                        <span>+ Catat Jasra Luar Anggota</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={handleExportExcel}
@@ -3486,7 +3659,37 @@ export default function AdminModal({
                     </div>
                   </div>
 
-                  {/* Search and Filter Pills Bar */}
+                  {/* Sub-Navigation Switcher: Anggota Paguyuban vs Penerima Jasra Luar Anggota */}
+                  <div className="flex items-center gap-2 border-b-2 border-black/20 dark:border-white/10 pb-2">
+                    <button
+                      type="button"
+                      onClick={() => setMemberTabSubView("members")}
+                      className={`px-4 py-2 rounded-lg text-xs font-heading font-black border-2 border-black flex items-center gap-2 cursor-pointer transition-all ${
+                        memberTabSubView === "members"
+                          ? "bg-slate-900 text-white shadow-[2px_2px_0px_#000] dark:bg-[#FACC15] dark:text-slate-950"
+                          : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <Users size={14} />
+                      <span>Anggota Paguyuban ({membersList.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMemberTabSubView("external_jasra")}
+                      className={`px-4 py-2 rounded-lg text-xs font-heading font-black border-2 border-black flex items-center gap-2 cursor-pointer transition-all ${
+                        memberTabSubView === "external_jasra"
+                          ? "bg-slate-900 text-white shadow-[2px_2px_0px_#000] dark:bg-[#FACC15] dark:text-slate-950"
+                          : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <HeartHandshake size={14} />
+                      <span>Penerima Jasra Luar Anggota ({externalJasraList.length})</span>
+                    </button>
+                  </div>
+
+                  {memberTabSubView === "members" ? (
+                    <>
+                      {/* Search and Filter Pills Bar */}
                   <div className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="relative w-full sm:max-w-md">
@@ -3898,6 +4101,238 @@ export default function AdminModal({
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                    </>
+                  ) : (
+                    /* Sub-View: Penerima Jasra Luar Anggota */
+                    <div className="flex flex-col gap-4">
+                      {/* Search & Actions Bar for External Jasra */}
+                      <div className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="relative w-full sm:max-w-md">
+                          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="Cari nama IC, Citizen ID, no HP, atau catatan..."
+                            value={externalJasraSearch}
+                            onChange={(e) => setExternalJasraSearch(e.target.value)}
+                            className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          />
+                          {externalJasraSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setExternalJasraSearch("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                          <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
+                            Menampilkan <span className="text-[#DC2626] dark:text-[#FACC15]">{filteredExternalJasra.length}</span> dari {externalJasraList.length} warga
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={handleExportExternalJasraExcel}
+                            disabled={externalJasraList.length === 0}
+                            className="btn py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
+                            title="Unduh daftar penerima Jasra luar anggota ke Excel"
+                          >
+                            <FileSpreadsheet size={13} />
+                            <span>Unduh Excel</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Cards Grid External Jasra */}
+                      {filteredExternalJasra.length === 0 ? (
+                        <div className="card-brutal p-10 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-3">
+                          <HeartHandshake size={38} className="text-slate-300 dark:text-slate-600" />
+                          <div>
+                            <p className="font-heading font-black text-sm text-slate-700 dark:text-slate-300">
+                              {externalJasraSearch ? "Tidak ditemukan data yang sesuai pencarian" : "Belum ada warga luar anggota yang dicatat"}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5 max-w-sm">
+                              Jika ada warga umum / non-anggota yang Anda berikan voucher Jasra, klik tombol di bawah untuk mencatatnya langsung dari foto KTP IC mereka.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingExternalJasra({
+                                id: "",
+                                fullName: "",
+                                citizenId: "",
+                                phone: "",
+                                ktpPhoto: "",
+                                voucherDetail: { treatment: 10, pingsan: 10 },
+                                packageLabel: "10 Tritmen • 10 Pingsan",
+                                dateGiven: new Date().toLocaleDateString("id-ID", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                }),
+                                notes: "",
+                                status: "ACTIVE",
+                              });
+                            }}
+                            className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer mt-1"
+                          >
+                            <Plus size={14} />
+                            <span>+ Catat Jasra Luar Anggota</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                          {filteredExternalJasra.map((item, idx) => (
+                            <div
+                              key={item.id || idx}
+                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
+                            >
+                              <div className="flex flex-col gap-2.5">
+                                {/* Header: Avatar/KTP Thumb + Name + Badge */}
+                                <div className="flex items-center gap-3">
+                                  {item.ktpPhoto ? (
+                                    <div
+                                      onClick={() =>
+                                        setPreviewKtp({
+                                          image: item.ktpPhoto,
+                                          name: item.fullName || "Warga",
+                                          citizenId: item.citizenId || "",
+                                        })
+                                      }
+                                      className="w-12 h-12 rounded border-2 border-black overflow-hidden bg-slate-100 shrink-0 cursor-pointer shadow-xs hover:opacity-85"
+                                      title="Klik untuk melihat foto KTP"
+                                    >
+                                      <img
+                                        src={item.ktpPhoto}
+                                        alt={item.fullName}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-12 h-12 rounded border-2 border-black bg-blue-100 dark:bg-blue-950 flex items-center justify-center shrink-0 text-blue-700 dark:text-blue-300 shadow-xs">
+                                      <HeartHandshake size={22} />
+                                    </div>
+                                  )}
+
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h4
+                                        className="font-heading font-black text-sm text-slate-900 dark:text-slate-100 uppercase truncate"
+                                        title={item.fullName}
+                                      >
+                                        {item.fullName || "Tanpa Nama"}
+                                      </h4>
+                                      <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-300 border border-blue-400 shrink-0">
+                                        LUAR ANGGOTA
+                                      </span>
+                                    </div>
+                                    <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1 mt-0.5">
+                                      <Calendar size={11} />
+                                      <span>Diberikan: {item.dateGiven || "-"}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Identity details */}
+                                <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded bg-slate-50 dark:bg-[#151720] border border-black/10 dark:border-white/10 font-mono">
+                                  <div>
+                                    <span className="text-[9px] text-slate-400 font-sans font-bold block uppercase">
+                                      Citizen ID / KTP:
+                                    </span>
+                                    <strong
+                                      className="text-[#DC2626] dark:text-[#FACC15] truncate block text-[11px]"
+                                      title={item.citizenId}
+                                    >
+                                      {item.citizenId || "-"}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[9px] text-slate-400 font-sans font-bold block uppercase">
+                                      No TLP / WA:
+                                    </span>
+                                    <span
+                                      className="text-slate-800 dark:text-slate-200 truncate block text-[11px]"
+                                      title={item.phone}
+                                    >
+                                      {item.phone || "-"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Benefit voucher box */}
+                                <div className="p-2.5 rounded border-2 bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-950 dark:text-amber-100">
+                                  <div className="flex items-center justify-between gap-1 mb-1">
+                                    <span className="font-heading font-black text-[11px] uppercase text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                                      <Gift size={12} className="text-[#DC2626]" />
+                                      MANFAAT JASRA KESEHATAN
+                                    </span>
+                                    <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-500 text-white">
+                                      AKTIF
+                                    </span>
+                                  </div>
+                                  <div className="font-mono font-black text-xs text-slate-900 dark:text-slate-100">
+                                    {item.packageLabel || "10 Tritmen • 10 Pingsan"}
+                                  </div>
+                                  {item.notes && (
+                                    <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 italic border-t border-amber-200 dark:border-amber-800/40 pt-1">
+                                      Catatan: {item.notes}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Card Actions */}
+                              <div className="flex items-center justify-between pt-2 border-t border-black/10 dark:border-white/10">
+                                <div className="flex items-center gap-1.5">
+                                  {item.ktpPhoto ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewKtp({
+                                          image: item.ktpPhoto,
+                                          name: item.fullName || "Warga",
+                                          citizenId: item.citizenId || "",
+                                        })
+                                      }
+                                      className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-black border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1 cursor-pointer"
+                                      title="Lihat dokumen KTP IC warga"
+                                    >
+                                      <FileText size={12} className="text-[#DC2626]" />
+                                      <span>Lihat KTP</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic">Tanpa Foto KTP</span>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingExternalJasra(item)}
+                                    className="btn text-[11px] py-1 px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold border border-black dark:border-slate-600 flex items-center gap-1 cursor-pointer"
+                                    title="Edit data penerima Jasra ini"
+                                  >
+                                    <Edit2 size={11} />
+                                    <span>Edit</span>
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteExternalJasra(item.id, item.fullName)}
+                                  className="p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 border border-transparent hover:border-red-500 transition-colors cursor-pointer"
+                                  title="Hapus pencatatan Jasra ini"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -6288,6 +6723,240 @@ export default function AdminModal({
         summary={kasSummary}
         onShowToast={onShowToast}
       />
+
+      {/* Modal Tambah / Edit Penerima Jasra Luar Anggota */}
+      {editingExternalJasra && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-xl bg-white dark:bg-[#151821] border-3 border-black rounded-xl shadow-[6px_6px_0px_#000] overflow-hidden my-auto text-slate-900 dark:text-slate-100">
+            {/* Header */}
+            <div className="bg-[#FACC15] text-[#111827] px-4 py-3 border-b-3 border-black flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HeartHandshake size={20} className="text-[#DC2626]" />
+                <h3 className="font-heading font-black text-sm uppercase tracking-wide">
+                  {editingExternalJasra.id ? "Edit Penerima Jasra (Luar Anggota)" : "Catat Penerima Jasra (Luar Anggota)"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingExternalJasra(null)}
+                className="w-7 h-7 rounded border-2 border-black bg-white hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Form Content */}
+            <form onSubmit={handleSaveExternalJasra} className="p-4 sm:p-5 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+              <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700/50 rounded-lg p-2.5 text-xs text-amber-900 dark:text-amber-200">
+                Pencatatan jatah voucher kesehatan Jasra (<strong>10 Tritmen • 10 Pingsan</strong>) untuk warga umum di luar keanggotaan resmi PPS. Warga cukup mengirimkan foto KTP IC.
+              </div>
+
+              {/* Upload Foto KTP IC dengan Auto OCR */}
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <ScanLine size={14} className="text-[#DC2626]" />
+                  <span>Foto KTP IC Warga & Scan Otomatis (OCR)</span>
+                </label>
+
+                {editingExternalJasra.ktpPhoto ? (
+                  <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border-2 border-dashed border-black/30 dark:border-white/20 bg-slate-50 dark:bg-[#1C202C]">
+                    <div className="relative w-28 h-20 rounded border-2 border-black overflow-hidden bg-slate-900 shrink-0">
+                      <img
+                        src={editingExternalJasra.ktpPhoto}
+                        alt="KTP Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 flex flex-col gap-1 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-heading font-black text-emerald-600 dark:text-emerald-400">
+                          {isScanningExternalOcr ? "Memindai KTP via OCR..." : "✓ Foto KTP Siap Disimpan"}
+                        </span>
+                        {isScanningExternalOcr && (
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        {isScanningExternalOcr
+                          ? "Membaca teks nama & Citizen ID otomatis..."
+                          : "Foto tersimpan di database admin dan dapat dibuka kapan saja."}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <label className="cursor-pointer px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold text-[10px] border border-black/30">
+                          Ganti Foto
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleExternalKtpUpload}
+                            className="hidden"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingExternalJasra((prev) => ({
+                              ...prev,
+                              ktpPhoto: "",
+                            }))
+                          }
+                          className="px-2.5 py-1 rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold text-[10px]"
+                        >
+                          Hapus Foto
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-black/40 dark:border-white/20 bg-slate-50 dark:bg-[#1A1D27] hover:bg-amber-50 dark:hover:bg-[#202533] cursor-pointer transition-colors text-center">
+                    <ScanLine size={24} className="text-slate-400 mb-1" />
+                    <span className="font-heading font-black text-xs text-slate-800 dark:text-slate-200">
+                      Klik untuk Unggah Foto KTP IC
+                    </span>
+                    <span className="text-[10px] text-slate-500 mt-0.5">
+                      Sistem otomatis memindai Nama & Citizen ID dengan OCR
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleExternalKtpUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Data Form Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Nama Lengkap (IC) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingExternalJasra.fullName || ""}
+                    onChange={(e) =>
+                      setEditingExternalJasra({
+                        ...editingExternalJasra,
+                        fullName: e.target.value.toUpperCase(),
+                      })
+                    }
+                    placeholder="Contoh: AIDIL SIRG"
+                    className="input-field w-full text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Citizen ID / No KTP <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingExternalJasra.citizenId || ""}
+                    onChange={(e) =>
+                      setEditingExternalJasra({
+                        ...editingExternalJasra,
+                        citizenId: e.target.value.toUpperCase(),
+                      })
+                    }
+                    placeholder="Contoh: E21J9V03"
+                    className="input-field w-full text-xs font-mono uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    No WhatsApp / HP (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingExternalJasra.phone || ""}
+                    onChange={(e) =>
+                      setEditingExternalJasra({
+                        ...editingExternalJasra,
+                        phone: e.target.value,
+                      })
+                    }
+                    placeholder="Contoh: 08123456789 atau 555-0199"
+                    className="input-field w-full text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Tanggal Diberikan
+                  </label>
+                  <input
+                    type="text"
+                    value={editingExternalJasra.dateGiven || ""}
+                    onChange={(e) =>
+                      setEditingExternalJasra({
+                        ...editingExternalJasra,
+                        dateGiven: e.target.value,
+                      })
+                    }
+                    placeholder="Contoh: 03 Nov 2026"
+                    className="input-field w-full text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Paket Manfaat Jasra */}
+              <div className="p-3 rounded-lg border-2 border-amber-400 bg-amber-50/70 dark:bg-amber-950/20 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-mono font-bold text-amber-800 dark:text-amber-300 uppercase block">
+                    Paket Voucher Manfaat:
+                  </span>
+                  <strong className="text-xs font-heading font-black text-slate-900 dark:text-slate-100">
+                    10 Tritmen • 10 Pingsan (Kesehatan)
+                  </strong>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-emerald-500 text-white font-mono font-black text-[10px]">
+                  STATUS: AKTIF
+                </span>
+              </div>
+
+              {/* Catatan / Keterangan */}
+              <div>
+                <label className="block text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                  Catatan / Keterangan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={editingExternalJasra.notes || ""}
+                  onChange={(e) =>
+                    setEditingExternalJasra({
+                      ...editingExternalJasra,
+                      notes: e.target.value,
+                    })
+                  }
+                  placeholder="Contoh: Warga Grapeseed, dikirim via DM Discord, keadaan darurat"
+                  className="input-field w-full text-xs"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingExternalJasra(null)}
+                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border-2 border-black font-bold text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="btn py-2 px-5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] text-xs flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                >
+                  <Save size={14} className="text-[#FACC15]" />
+                  <span>Simpan Data Jasra</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <BrutalistConfirmModal
         isOpen={confirmModal.isOpen}
