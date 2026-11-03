@@ -80,8 +80,6 @@ export const INCOME_CATEGORIES = [
   "Donasi Sukarela & Warga",
   "Sponsorship & Kemitraan",
   "Bagi Hasil Stand UMKM & Pizza",
-  "Iuran Kas Anggota",
-  "Iuran Kas Donatur",
   "Hadiah Event & Hibah",
   "Pengembalian / Talangan",
   "Saldo Awal & Kas Fisik",
