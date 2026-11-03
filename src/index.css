@@ -10,6 +10,7 @@
   --bg: #FFF9F2; /* Warm clean cream background */
   --card-bg: #FFFFFF; /* Clean solid card */
   --card-solid: #FFFFFF;
+  --modal-bg: #FFFFFF; /* Solid opaque modal background */
   --input-bg: #FFFFFF;
   --hover-bg: #FFFDF9;
   --text: #111827; /* High contrast charcoal black */
@@ -28,6 +29,7 @@ html.dark {
   --bg: #0D0F14; /* Deep premium solid dark canvas */
   --card-bg: #161820; /* Clean solid dark card */
   --card-solid: #161820;
+  --modal-bg: #161820; /* Solid opaque modal background */
   --input-bg: #1F222C;
   --hover-bg: #262A36;
   --text: #E2E8F0; /* Soft off-white (anti-glare, nyaman di mata) */

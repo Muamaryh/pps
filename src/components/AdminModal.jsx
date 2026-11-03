@@ -2162,56 +2162,15 @@ export default function AdminModal({
 
         <div className="flex items-center gap-2 sm:gap-2.5">
           {isAuthenticated && (
-            <>
-              {/* Top Quick Save Button - Kondisional: Hanya muncul di tab pengeditan form umum & konten */}
-              {isContentConfigTab ? (
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={isSaving || !isDirty}
-                  className={`btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black rounded border-2 transition-all ${
-                    isDirty
-                      ? "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer ring-2 ring-red-500/50"
-                      : "bg-slate-100 dark:bg-[#20232E] text-slate-500 dark:text-slate-400 border-black/20 dark:border-white/10 cursor-default opacity-85 shadow-none"
-                  }`}
-                  title={isDirty ? "Ada perubahan form yang belum disimpan ke Database" : "Semua perubahan formulir sudah tersimpan"}
-                >
-                  {isSaving ? (
-                    <>
-                      <Save size={13} className="text-[#DC2626] animate-spin" />
-                      <span className="hidden sm:inline">Menyimpan...</span>
-                    </>
-                  ) : isDirty ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-red-600 animate-ping inline-block" />
-                      <Save size={13} className="text-[#DC2626]" />
-                      <span>Simpan Perubahan</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check size={13} className="text-emerald-500" />
-                      <span className="hidden sm:inline">Tersimpan</span>
-                    </>
-                  )}
-                </button>
-              ) : (
-                /* Auto-sync indicator untuk tab database warga, event, dan bansos */
-                <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Real-time Sync</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleLogout}
-                title="Keluar dari sesi admin"
-                className="btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black bg-red-50 hover:bg-red-100 dark:bg-red-950/80 dark:hover:bg-red-900 text-red-600 dark:text-red-300 rounded border-2 border-black dark:border-red-500 shadow-[2px_2px_0px_#000] transition-all active:translate-x-0.5 active:translate-y-0.5"
-              >
-                <LogOut size={13} className="text-red-600 dark:text-red-300" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Keluar dari sesi admin"
+              className="btn flex items-center gap-1.5 px-3 py-1.5 text-xs font-heading font-black bg-red-50 hover:bg-red-100 dark:bg-red-950/80 dark:hover:bg-red-900 text-red-600 dark:text-red-300 rounded border-2 border-black dark:border-red-500 shadow-[2px_2px_0px_#000] transition-all active:translate-x-0.5 active:translate-y-0.5"
+            >
+              <LogOut size={13} className="text-red-600 dark:text-red-300" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           )}
           <button
             type="button"

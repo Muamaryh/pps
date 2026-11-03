@@ -116,11 +116,11 @@ export default function KasLedgerModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-xl shadow-[8px_8px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-4xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-xl shadow-[8px_8px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Sticky di atas agar tidak tenggelam saat scroll */}
-        <div className="sticky top-0 z-20 flex items-center justify-between p-3.5 sm:p-4 border-b-2 border-black dark:border-[#475569] bg-[var(--modal-bg)] shrink-0">
+        <div className="sticky top-0 z-20 flex items-center justify-between p-3.5 sm:p-4 border-b-2 border-black dark:border-[#475569] bg-white dark:bg-[#161820] bg-[var(--modal-bg)] shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-slate-900 dark:bg-slate-700 border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[1.5px_1.5px_0px_#000]">
               <DollarSign size={18} />

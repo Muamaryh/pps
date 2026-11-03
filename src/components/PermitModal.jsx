@@ -26,11 +26,11 @@ export default function PermitModal({ isOpen, onClose, onShowToast }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-[var(--modal-bg)] rounded-xl border-[3px] border-black dark:border-[#475569] shadow-[8px_8px_0px_#000000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-4xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] rounded-xl border-[3px] border-black dark:border-[#475569] shadow-[8px_8px_0px_#000000] flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal - Pinned & Sticky di atas agar tombol close tidak pernah tenggelam saat scroll */}
-        <div className="sticky top-0 z-30 flex items-center justify-between p-3.5 sm:p-5 border-b-[2.5px] border-black dark:border-[#475569] bg-[var(--modal-bg)] shrink-0 shadow-xs">
+        <div className="sticky top-0 z-30 flex items-center justify-between p-3.5 sm:p-5 border-b-[2.5px] border-black dark:border-[#475569] bg-white dark:bg-[#161820] bg-[var(--modal-bg)] shrink-0 shadow-xs">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-2">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#171A21] border-2 border-[#8A7131] flex items-center justify-center shrink-0 p-0.5 shadow-sm">
               <img
