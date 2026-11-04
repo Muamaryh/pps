@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BookOpen, Users, Camera, MapPin, Store, HeartHandshake, ShieldCheck, ExternalLink } from "lucide-react";
 
-export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPermit }) {
+export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPermit, onNavigateToGallery }) {
   // Typewriter effect state (3 distinct lines)
   const targetLine1 = "LEMBAGA SWADAYA MASYARAKAT";
   const targetLine2 = "PAGUYUBAN PIZZA";
@@ -72,16 +72,16 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
   return (
     <section id="home" className="pt-2 pb-10 sm:pb-14 w-full scroll-mt-24">
       {/* 1. Box Gambar pps.jpg (Ukuran Menyesuaikan Gambar, Teks di Depan Gambar dengan Efek Typing 3 Baris) */}
-      <div className="w-full relative rounded-lg overflow-hidden border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] aspect-[1840/855] min-h-[280px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center p-4 sm:p-8 text-center group">
-        {/* Gambar pps.jpg sebagai latar belakang (atur tingkat blur pada class `blur-[1px]` di bawah) */}
+      <div className="w-full relative rounded-lg overflow-hidden border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] aspect-[1840/855] min-h-[280px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center p-4 sm:p-8 text-center">
+        {/* Gambar pps.jpg sebagai latar belakang (Statis, tidak zoom saat mouse hover) */}
         <img
           src="/pps.jpg"
           alt="LSM Paguyuban Pizza Sandy Shores"
-          className="absolute inset-0 w-full h-full object-cover object-center scale-102 filter blur-[0px] group-hover:scale-105 transition-all duration-500"
+          className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
         />
 
         {/* Lapisan solid gelap agar teks putih, kuning, & merah sangat tajam terbaca di kedua mode tanpa gradasi */}
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 bg-black/60 pointer-events-none" />
 
         {/* Kalimat Utama Berada Tepat di Depan pps.jpg dengan Logo & Efek Typing 3 Baris Rapi */}
         <div className="relative z-10 max-w-5xl px-3 sm:px-6 py-4 flex flex-col items-center justify-center">
@@ -125,7 +125,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
       {/* 2. Seluruh Konten Lainnya Dipindahkan ke Luar / di Bawah Box Gambar */}
       <div className="mt-8 text-center max-w-4xl mx-auto flex flex-col items-center w-full px-4">
         {/* Slogan */}
-        <p className="font-body text-base sm:text-xl md:text-2xl text-slate-900 dark:text-slate-100 leading-relaxed mb-4 font-black">
+        <p className="font-body text-base sm:text-xl md:text-2xl text-slate-900 dark:text-slate-200 leading-relaxed mb-4 font-black">
           {subtext || "Bersatu • Berkarya • Untuk Masyarakat Sandy Shores"}
         </p>
 
@@ -184,8 +184,14 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
           </a>
 
           <a
-            href="#gallery"
-            className="btn btn-secondary border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100"
+            href="#/galeri"
+            onClick={(e) => {
+              if (onNavigateToGallery) {
+                e.preventDefault();
+                onNavigateToGallery();
+              }
+            }}
+            className="btn btn-secondary border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black text-slate-900 dark:text-slate-200 cursor-pointer"
           >
             <Camera size={17} className="text-[#DC2626] dark:text-[#FACC15]" />
             <span>Dokumentasi Kegiatan</span>
@@ -207,10 +213,10 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
                 <Icon size={20} className={meta.iconColor} />
               </div>
               <div>
-                <div className="card-label text-[11px] mb-1 text-slate-700 dark:text-slate-300">
+                <div className="card-label text-[11px] mb-1 text-slate-700 dark:text-slate-400">
                   {pilar.label}
                 </div>
-                <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100">
+                <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-200">
                   {pilar.title}
                 </div>
               </div>

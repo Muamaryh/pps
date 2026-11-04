@@ -86,11 +86,11 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
     <section id="structure" className="py-10 sm:py-14 w-full scroll-mt-24">
       {/* Title Bar (Centered) */}
       <div className="flex flex-col items-center text-center mb-8 pb-3 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569]">
-        <div className="card-label text-xs sm:text-sm font-black text-slate-700 dark:text-slate-300 mb-1">
+        <div className="card-label text-xs sm:text-sm font-black text-slate-700 dark:text-slate-400 mb-1">
           STRUKTUR RESMI
         </div>
         <div className="flex items-center justify-center gap-3 flex-wrap">
-          <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-950 dark:text-slate-100 uppercase tracking-tight">
+          <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-950 dark:text-slate-200 uppercase tracking-tight">
             Dewan Pengurus & Korda
           </h2>
           <div className="badge-brutal bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000]">
@@ -117,7 +117,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                 className={`tab-btn text-xs sm:text-sm border-2 border-black dark:border-[#475569] flex items-center gap-1.5 transition-all ${
                   isActive
                     ? "active !bg-[#FACC15] !text-[#111827] !border-black font-black"
-                    : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-100 hover:border-black font-bold"
+                    : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:border-black font-bold"
                 }`}
               >
                 {isActive && (
@@ -137,7 +137,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
             placeholder="Cari nama / posisi..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-field w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]"
+            className="input-field w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-200 dark:placeholder-slate-400 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]"
           />
         </div>
       </div>
@@ -148,10 +148,10 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
           <div className="w-14 h-14 rounded bg-[#FACC15] text-[#111827] border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center mb-4">
             <User size={28} />
           </div>
-          <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-100 mb-1.5">
+          <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-200 mb-1.5">
             Data Pengurus Tidak Ditemukan
           </h3>
-          <p className="text-sm text-slate-700 dark:text-slate-300">
+          <p className="text-sm text-slate-700 dark:text-slate-400">
             Tidak ada pengurus yang cocok dengan kata kunci "{searchQuery}".
           </p>
         </div>
@@ -230,7 +230,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                         <span className="badge-brutal text-[10px] uppercase py-0.5 px-2 self-center mb-2 bg-[#FACC15] text-[#111827] border border-black shadow-sm font-black">
                           {member.role}
                         </span>
-                        <h4 className="font-heading font-black text-xs sm:text-sm text-slate-950 dark:text-slate-100 uppercase tracking-tight line-clamp-2">
+                        <h4 className="font-heading font-black text-xs sm:text-sm text-slate-950 dark:text-slate-200 uppercase tracking-tight line-clamp-2">
                           {member.name}
                         </h4>
                       </div>

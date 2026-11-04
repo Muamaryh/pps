@@ -4,7 +4,7 @@ import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import About from "./components/About";
 import OrgStructure from "./components/OrgStructure";
-import Gallery from "./components/Gallery";
+import GalleryPage from "./components/GalleryPage";
 import Footer from "./components/Footer";
 import LightboxModal from "./components/LightboxModal";
 import AdminModal from "./components/AdminModal";
@@ -250,6 +250,25 @@ export default function App() {
     return path === "/bansos" || path.endsWith("/bansos") || hash === "#/bansos" || hash === "#bansos";
   });
 
+  // Dedicated Page Routing (default 'home', can be 'gallery' for #/galeri or /galeri)
+  const [currentPage, setCurrentPage] = useState(() => {
+    if (typeof window === "undefined") return "home";
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return (
+      path === "/galeri" ||
+      path.endsWith("/galeri") ||
+      path === "/gallery" ||
+      path.endsWith("/gallery") ||
+      hash === "#/galeri" ||
+      hash === "#galeri" ||
+      hash === "#/gallery" ||
+      hash === "#gallery"
+    )
+      ? "gallery"
+      : "home";
+  });
+
   const [isPermitModalOpen, setIsPermitModalOpen] = useState(false);
 
   useEffect(() => {
@@ -363,6 +382,23 @@ export default function App() {
         hash === "#discord"
       ) {
         window.location.href = data?.discordUrl || "https://discord.gg/gb7ajBMduF";
+      }
+
+      // 6. Check Gallery Dedicated Route (/galeri, #/galeri, /gallery, #gallery)
+      const isGalleryRoute =
+        path === "/galeri" ||
+        path.endsWith("/galeri") ||
+        path === "/gallery" ||
+        path.endsWith("/gallery") ||
+        hash === "#/galeri" ||
+        hash === "#galeri" ||
+        hash === "#/gallery" ||
+        hash === "#gallery";
+
+      if (isGalleryRoute) {
+        setCurrentPage("gallery");
+      } else {
+        setCurrentPage("home");
       }
     }
 
@@ -498,6 +534,29 @@ export default function App() {
     }
   }
 
+  // Dedicated Gallery Page navigation handlers
+  function handleNavigateToGallery() {
+    setCurrentPage("gallery");
+    if (!window.location.hash.includes("galeri") && !window.location.pathname.includes("galeri")) {
+      window.history.pushState(null, "", "#/galeri");
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleNavigateToHome(targetAnchor = "") {
+    setCurrentPage("home");
+    if (targetAnchor && targetAnchor !== "#home") {
+      window.history.pushState(null, "", targetAnchor);
+      setTimeout(() => {
+        const elem = document.getElementById(targetAnchor.replace("#", ""));
+        if (elem) elem.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 70);
+    } else {
+      window.history.pushState(null, "", "/");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
   // Toast Alerts State
   const [toasts, setToasts] = useState([]);
 
@@ -545,12 +604,22 @@ export default function App() {
         onOpenServicePortal={(tab) => handleOpenServicePortal(tab || "lapak")}
         onOpenRegister={handleOpenRegister}
         onOpenMembersDirectory={handleOpenMembersDirectory}
+        currentPage={currentPage}
+        onNavigateToGallery={handleNavigateToGallery}
+        onNavigateToHome={handleNavigateToHome}
       />
 
       {/* Main Content (Wide edge-to-edge max-w-[98%] 2xl:max-w-[1600px]) */}
       <main className="flex-1 w-full max-w-[98%] 2xl:max-w-[1600px] mx-auto px-2 sm:px-4 md:px-6 py-4 sm:py-6">
         {loading ? (
           <PizzaLoader />
+        ) : currentPage === "gallery" ? (
+          <GalleryPage
+            gallery={data.gallery}
+            onOpenLightbox={handleOpenLightbox}
+            onNavigateHome={handleNavigateToHome}
+            onOpenServicePortal={handleOpenServicePortal}
+          />
         ) : (
           <>
             {/* Hero Section */}
@@ -559,6 +628,7 @@ export default function App() {
               subtext={data.subtext}
               heroPillars={data.heroPillars}
               onOpenPermit={() => setIsPermitModalOpen(true)}
+              onNavigateToGallery={handleNavigateToGallery}
             />
 
             {/* Tentang Kami Section */}
@@ -573,9 +643,6 @@ export default function App() {
 
             {/* Struktur Organisasi Section */}
             <OrgStructure org={data.org} onOpenLightbox={handleOpenLightbox} />
-
-            {/* Galeri Kegiatan Section */}
-            <Gallery gallery={data.gallery} onOpenLightbox={handleOpenLightbox} />
           </>
         )}
       </main>
@@ -598,6 +665,8 @@ export default function App() {
         onOpenServicePortal={handleOpenServicePortal}
         onOpenMembersDirectory={handleOpenMembersDirectory}
         onOpenAdmin={() => setAdminModalOpen(true)}
+        onNavigateToGallery={handleNavigateToGallery}
+        onNavigateToHome={handleNavigateToHome}
       />
 
       {/* Floating Messenger Community Dock (Event & Bansos Anti-Collision System) */}

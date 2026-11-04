@@ -9,9 +9,12 @@ export default function Navbar({
   onOpenServicePortal,
   onOpenRegister,
   onOpenMembersDirectory,
+  currentPage = "home",
+  onNavigateToGallery,
+  onNavigateToHome,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("home");
+  const [activeSection, setActiveSection] = useState(currentPage === "gallery" ? "gallery" : "home");
 
   // Core navigation links
   const defaultNavList = [
@@ -43,7 +46,12 @@ export default function Navbar({
 
   // Scrollspy: detect active section when scrolling
   useEffect(() => {
-    const sectionIds = ["home", "about", "structure", "gallery"];
+    if (currentPage === "gallery") {
+      setActiveSection("gallery");
+      return;
+    }
+
+    const sectionIds = ["home", "about", "structure"];
     function onScroll() {
       const scrollY = window.scrollY;
       for (let i = sectionIds.length - 1; i >= 0; i--) {
@@ -62,21 +70,65 @@ export default function Navbar({
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [currentPage]);
 
-  // Smooth scroll handler for anchor links
-  function handleAnchorClick(e, url) {
-    if (url.startsWith("#")) {
+  // Unified link click handler (handles both Home and Dedicated Gallery Page)
+  function handleLinkClick(e, link) {
+    const isGallery =
+      link.name.toLowerCase().includes("galeri") ||
+      link.url.toLowerCase().includes("galeri") ||
+      link.url.toLowerCase().includes("gallery");
+
+    if (isGallery) {
       e.preventDefault();
-      const targetId = url.replace("#", "");
+      setMobileMenuOpen(false);
+      if (currentPage === "gallery") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (onNavigateToGallery) {
+        onNavigateToGallery();
+      } else {
+        window.history.pushState(null, "", "#/galeri");
+        window.dispatchEvent(new Event("hashchange"));
+      }
+      return;
+    }
+
+    // Returning to home from gallery
+    if (currentPage === "gallery") {
+      e.preventDefault();
+      setMobileMenuOpen(false);
+      if (onNavigateToHome) {
+        onNavigateToHome(link.url);
+      } else {
+        window.history.pushState(null, "", "/");
+        window.dispatchEvent(new Event("popstate"));
+      }
+      return;
+    }
+
+    // Default smooth scroll on home page
+    if (link.url.startsWith("#")) {
+      e.preventDefault();
+      const targetId = link.url.replace("#", "");
       const elem = document.getElementById(targetId);
       if (elem) {
         elem.scrollIntoView({ behavior: "smooth", block: "start" });
-        window.history.pushState(null, "", url);
+        window.history.pushState(null, "", link.url);
         setActiveSection(targetId);
       }
     }
     setMobileMenuOpen(false);
+  }
+
+  function handleBrandClick(e) {
+    if (currentPage === "gallery") {
+      e.preventDefault();
+      if (onNavigateToHome) {
+        onNavigateToHome("#home");
+      }
+      return;
+    }
+    handleLinkClick(e, { name: "Beranda", url: "#home" });
   }
 
   return (
@@ -87,8 +139,8 @@ export default function Navbar({
         {/* Left: Brand Identity with Circular Logo & 2 Lines Slim Typography */}
         <a
           href="#home"
-          onClick={(e) => handleAnchorClick(e, "#home")}
-          className="flex items-center gap-2.5 sm:gap-3 shrink-0 group select-none py-0.5"
+          onClick={handleBrandClick}
+          className="flex items-center gap-2.5 sm:gap-3 shrink-0 group select-none py-0.5 cursor-pointer"
         >
           {/* Logo Lingkaran Melengkung */}
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#FACC15]/20 dark:bg-[#FACC15]/15 border border-[#FACC15]/40 flex items-center justify-center shrink-0 p-1 group-hover:scale-105 transition-transform">
@@ -120,14 +172,18 @@ export default function Navbar({
           <div className="hidden md:flex items-center gap-1 bg-slate-200/50 dark:bg-[#1F222C]/70 p-1 rounded-full border border-black/10 dark:border-white/10 backdrop-blur-sm">
             {displayLinks.map((link, idx) => {
               const targetId = link.url.replace("#", "");
-              const isActive = activeSection === targetId;
+              const isGalleryLink =
+                link.name.toLowerCase().includes("galeri") ||
+                link.url.toLowerCase().includes("galeri") ||
+                link.url.toLowerCase().includes("gallery");
+              const isActive = currentPage === "gallery" ? isGalleryLink : activeSection === targetId;
 
               return (
                 <a
                   key={idx}
                   href={link.url}
-                  onClick={(e) => handleAnchorClick(e, link.url)}
-                  className={`font-heading font-black text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap ${
+                  onClick={(e) => handleLinkClick(e, link)}
+                  className={`font-heading font-black text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap cursor-pointer ${
                     isActive
                       ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000] border-2 border-black"
                       : "border-2 border-transparent text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5"
@@ -211,14 +267,18 @@ export default function Navbar({
         <div className="md:hidden mt-2 p-3.5 rounded-2xl bg-[#FFFDF9]/95 dark:bg-[#0D0F14]/95 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-lg flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
           {displayLinks.map((link, idx) => {
             const targetId = link.url.replace("#", "");
-            const isActive = activeSection === targetId;
+            const isGalleryLink =
+              link.name.toLowerCase().includes("galeri") ||
+              link.url.toLowerCase().includes("galeri") ||
+              link.url.toLowerCase().includes("gallery");
+            const isActive = currentPage === "gallery" ? isGalleryLink : activeSection === targetId;
 
             return (
               <a
                 key={idx}
                 href={link.url}
-                onClick={(e) => handleAnchorClick(e, link.url)}
-                className={`font-heading font-black text-xs uppercase tracking-wider py-2.5 px-3.5 rounded-full border-2 transition-all flex items-center justify-between ${
+                onClick={(e) => handleLinkClick(e, link)}
+                className={`font-heading font-black text-xs uppercase tracking-wider py-2.5 px-3.5 rounded-full border-2 transition-all flex items-center justify-between cursor-pointer ${
                   isActive
                     ? "bg-[#FACC15] text-[#111827] border-black shadow-[2px_2px_0px_#000]"
                     : "border-transparent text-slate-800 dark:text-slate-200 hover:bg-[#FACC15]/20"

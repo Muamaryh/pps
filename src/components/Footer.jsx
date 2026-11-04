@@ -21,6 +21,8 @@ export default function Footer({
   onOpenRegister,
   onOpenMembersDirectory,
   onOpenAdmin,
+  onNavigateToGallery,
+  onNavigateToHome,
 }) {
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -46,19 +48,19 @@ export default function Footer({
                 <span className="text-[10px] font-black uppercase tracking-wider text-[#DC2626] dark:text-[#FACC15] block">
                   LEMBAGA SWADAYA MASYARAKAT
                 </span>
-                <h3 className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100 uppercase tracking-tight">
+                <h3 className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-200 uppercase tracking-tight">
                   {brand || "PAGUYUBAN PIZZA SANDY SHORES"}
                 </h3>
               </div>
             </div>
 
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-body font-medium max-w-md">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-body font-medium max-w-md">
               Wadah persatuan, advokasi aspirasi warga, pembinaan stan & lapak UMKM mandiri, serta aksi kepedulian sosial di wilayah Sandy Shores dan sekitarnya.
             </p>
 
             {/* Jurisdiction Badge */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFFDF9] dark:bg-[#1F222C] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] text-[11px] font-bold text-slate-900 dark:text-slate-100">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFFDF9] dark:bg-[#1F222C] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] text-[11px] font-bold text-slate-900 dark:text-slate-300">
                 <MapPin size={13} className="text-[#DC2626]" />
                 <span>Sandy Shores, Blaine County</span>
               </div>
@@ -87,7 +89,13 @@ export default function Footer({
               <li>
                 <a
                   href="#about"
-                  className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-block transition-transform text-slate-700 dark:text-slate-300"
+                  onClick={(e) => {
+                    if (onNavigateToHome) {
+                      e.preventDefault();
+                      onNavigateToHome("#about");
+                    }
+                  }}
+                  className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-block transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
                   Profil & Visi Misi
                 </a>
@@ -95,15 +103,27 @@ export default function Footer({
               <li>
                 <a
                   href="#structure"
-                  className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-block transition-transform text-slate-700 dark:text-slate-300"
+                  onClick={(e) => {
+                    if (onNavigateToHome) {
+                      e.preventDefault();
+                      onNavigateToHome("#structure");
+                    }
+                  }}
+                  className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-block transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
                   Struktur Pengurus
                 </a>
               </li>
               <li>
                 <a
-                  href="#gallery"
-                  className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-block transition-transform text-slate-700 dark:text-slate-300"
+                  href="#/galeri"
+                  onClick={(e) => {
+                    if (onNavigateToGallery) {
+                      e.preventDefault();
+                      onNavigateToGallery();
+                    }
+                  }}
+                  className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-block transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
                   Galeri Dokumentasi
                 </a>

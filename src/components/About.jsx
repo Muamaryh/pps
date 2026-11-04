@@ -84,10 +84,10 @@ export default function About({
       {/* Title Bar (temp-mail-cf .inbox-title-bar style) */}
       <div className="flex items-center justify-between gap-4 mb-8 pb-3 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] flex-wrap">
         <div>
-          <div className="card-label text-xs sm:text-sm font-black text-slate-700 dark:text-slate-300">
+          <div className="card-label text-xs sm:text-sm font-black text-slate-700 dark:text-slate-400">
             {activeHeader.label}
           </div>
-          <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-950 dark:text-slate-100 uppercase tracking-tight">
+          <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-950 dark:text-slate-200 uppercase tracking-tight">
             {activeHeader.title}
           </h2>
         </div>
@@ -115,10 +115,10 @@ export default function About({
                     {pillar.badge}
                   </span>
                 </div>
-                <h3 className="font-heading font-black text-lg sm:text-xl text-slate-950 dark:text-slate-100 mb-2.5">
+                <h3 className="font-heading font-black text-lg sm:text-xl text-slate-950 dark:text-slate-200 mb-2.5">
                   {pillar.title}
                 </h3>
-                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                <p className="text-sm text-slate-700 dark:text-slate-400 leading-relaxed font-medium">
                   {pillar.desc}
                 </p>
               </div>
@@ -136,23 +136,23 @@ export default function About({
       <div className="card-brutal p-6 sm:p-8 lg:p-10 mb-8 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000]">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           <div className="lg:col-span-7">
-            <div className="card-label text-xs sm:text-sm mb-2 text-slate-700 dark:text-slate-300">
+            <div className="card-label text-xs sm:text-sm mb-2 text-slate-700 dark:text-slate-400">
               {activeVM.visionLabel}
             </div>
-            <h3 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-950 dark:text-slate-100 mb-4 leading-tight">
+            <h3 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-950 dark:text-slate-200 mb-4 leading-tight">
               {activeVM.visionTitle}
             </h3>
-            <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+            <p className="text-sm sm:text-base text-slate-700 dark:text-slate-400 leading-relaxed font-medium">
               {activeVM.visionDesc}
             </p>
           </div>
 
           <div className="lg:col-span-5 p-5 sm:p-6 rounded-lg bg-[#FFFDF9] dark:bg-[#1F222C] border-2 border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000]">
-            <h4 className="font-heading font-black text-base uppercase text-slate-950 dark:text-slate-100 mb-4 flex items-center gap-2">
+            <h4 className="font-heading font-black text-base uppercase text-slate-950 dark:text-slate-200 mb-4 flex items-center gap-2">
               <Target size={18} className="text-[#DC2626] dark:text-[#FACC15]" />
               <span>{activeVM.missionTitle}</span>
             </h4>
-            <ul className="space-y-3 text-xs sm:text-sm text-slate-900 dark:text-slate-100 font-bold">
+            <ul className="space-y-3 text-xs sm:text-sm text-slate-900 dark:text-slate-300 font-semibold">
               {activeVM.missionItems.map((item, mIdx) => (
                 <li key={mIdx} className="flex items-start gap-3">
                   <span className={`w-6 h-6 rounded ${mIdx % 2 === 0 ? "bg-[#DC2626] text-white" : "bg-[#FACC15] text-black"} flex items-center justify-center shrink-0 text-xs font-black border border-black shadow-sm`}>
@@ -170,7 +170,7 @@ export default function About({
       <div className="card-brutal overflow-hidden bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[5px_5px_0px_#000000]">
         <button
           onClick={() => setShowFullText(!showFullText)}
-          className="w-full px-5 sm:px-7 py-4 sm:py-5 bg-[#FFFDF9] dark:bg-[#1F222C] hover:bg-[#FACC15]/15 transition-colors flex items-center justify-between text-left font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100 cursor-pointer"
+          className="w-full px-5 sm:px-7 py-4 sm:py-5 bg-[#FFFDF9] dark:bg-[#1F222C] hover:bg-[#FACC15]/15 transition-colors flex items-center justify-between text-left font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-200 cursor-pointer"
         >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shadow-[1.5px_1.5px_0px_#000] shrink-0">
@@ -234,7 +234,7 @@ export default function About({
             {activeTab === "charter" ? (
               <OfficialCharterViewer onShowToast={onShowToast} />
             ) : (
-              <div className="p-5 sm:p-7 rounded bg-[#FFFDF9] dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] space-y-4 text-justify leading-relaxed text-sm sm:text-base font-medium text-slate-800 dark:text-slate-100">
+              <div className="p-5 sm:p-7 rounded bg-[#FFFDF9] dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] space-y-4 text-justify leading-relaxed text-sm sm:text-base font-medium text-slate-800 dark:text-slate-300">
                 <div className="flex items-center gap-2 pb-2 border-b border-black/10 dark:border-white/10 text-xs font-bold text-slate-500 font-mono">
                   <FileText size={14} className="text-[#DC2626]" />
                   <span>NASKAH NARASI DAN PENJELASAN PENDIRIAN ORGANISASI</span>
