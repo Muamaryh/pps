@@ -7183,17 +7183,16 @@ export default function AdminModal({
                   <label className="block text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
                     Tanggal Diberikan
                   </label>
-                  <input
-                    type="text"
+                  <BrutalistDatePicker
                     value={editingExternalJasra.dateGiven || ""}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setEditingExternalJasra({
                         ...editingExternalJasra,
-                        dateGiven: e.target.value,
+                        dateGiven: val,
                       })
                     }
-                    placeholder="Contoh: 03 Nov 2026"
-                    className="input-field w-full text-xs font-mono"
+                    placeholder="Pilih tanggal..."
+                    dropUp="auto"
                   />
                 </div>
               </div>

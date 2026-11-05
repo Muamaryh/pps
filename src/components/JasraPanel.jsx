@@ -47,6 +47,8 @@ import {
 } from "../services/jasraService";
 import { scanKtpImage } from "../utils/ktpOcr";
 import { saveExternalJasraCloud } from "../services/memberService";
+import BrutalistDatePicker from "./BrutalistDatePicker";
+import BrutalistTimePicker from "./BrutalistTimePicker";
 
 export default function JasraPanel({
   batches = [],
@@ -307,15 +309,38 @@ export default function JasraPanel({
   async function handleSaveBatch(e) {
     e.preventDefault();
     try {
-      const dateParts = batchFormData.receivedAtDate.split("-");
+      let year, monthIdx, day;
+      const rawDate = batchFormData.receivedAtDate || new Date().toISOString().slice(0, 10);
+      if (rawDate.includes("-")) {
+        const dateParts = rawDate.split("-");
+        year = parseInt(dateParts[0], 10);
+        monthIdx = parseInt(dateParts[1], 10) - 1;
+        day = parseInt(dateParts[2], 10);
+      } else {
+        const match = rawDate.match(/(\d{1,2})\s+([A-Za-z'’]+)\s+(\d{4})/);
+        if (match) {
+          day = parseInt(match[1], 10);
+          const mStr = match[2].toLowerCase();
+          year = parseInt(match[3], 10);
+          const INDO_MONTHS_NAMES = [
+            "januari", "februari", "maret", "april", "mei", "juni",
+            "juli", "agustus", "september", "oktober", "november", "desember"
+          ];
+          monthIdx = INDO_MONTHS_NAMES.findIndex((m) => m.startsWith(mStr.slice(0, 3)));
+          if (monthIdx === -1) monthIdx = new Date().getMonth();
+        } else {
+          const d = new Date(rawDate);
+          year = isNaN(d.getFullYear()) ? new Date().getFullYear() : d.getFullYear();
+          monthIdx = isNaN(d.getMonth()) ? new Date().getMonth() : d.getMonth();
+          day = isNaN(d.getDate()) ? new Date().getDate() : d.getDate();
+        }
+      }
+
       const timeParts = (batchFormData.receivedAtTime || "12:00").split(":");
-      const receivedDate = new Date(
-        parseInt(dateParts[0], 10),
-        parseInt(dateParts[1], 10) - 1,
-        parseInt(dateParts[2], 10),
-        parseInt(timeParts[0], 10) || 12,
-        parseInt(timeParts[1], 10) || 0
-      );
+      const hours = parseInt(timeParts[0], 10) || 12;
+      const minutes = parseInt(timeParts[1], 10) || 0;
+
+      const receivedDate = new Date(year, monthIdx, day, hours, minutes, 0);
 
       const payload = {
         id: batchFormData.id || undefined,
@@ -1023,24 +1048,24 @@ export default function JasraPanel({
                   <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Tanggal Diterima
                   </label>
-                  <input
-                    type="date"
-                    required
+                  <BrutalistDatePicker
                     value={batchFormData.receivedAtDate}
-                    onChange={(e) => setBatchFormData({ ...batchFormData, receivedAtDate: e.target.value })}
-                    className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                    onChange={(val) => setBatchFormData({ ...batchFormData, receivedAtDate: val })}
+                    outputFormat="iso"
+                    placeholder="Pilih tanggal..."
+                    dropUp="auto"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Jam Diterima
                   </label>
-                  <input
-                    type="time"
-                    required
+                  <BrutalistTimePicker
                     value={batchFormData.receivedAtTime}
-                    onChange={(e) => setBatchFormData({ ...batchFormData, receivedAtTime: e.target.value })}
-                    className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                    onChange={(val) => setBatchFormData({ ...batchFormData, receivedAtTime: val })}
+                    placeholder="Pilih jam..."
+                    align="right"
+                    dropUp="auto"
                   />
                 </div>
               </div>

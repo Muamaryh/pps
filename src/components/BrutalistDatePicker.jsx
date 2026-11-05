@@ -8,12 +8,49 @@ const INDO_MONTHS = [
 ];
 const DAY_HEADERS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
+// Helper to format date value into readable Indonesian string for button display
+function formatDisplayDate(val) {
+  if (!val) return "";
+  if (typeof val === "string") {
+    // If already in "Senin, 5 November 2026" format
+    if (val.includes(",")) return val;
+    // If ISO "YYYY-MM-DD"
+    if (/^\d{4}-\d{2}-\d{2}/.test(val)) {
+      const parts = val.split("-");
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const dateObj = new Date(y, m, d);
+      if (!isNaN(dateObj.getTime())) {
+        const dayName = INDO_DAYS[dateObj.getDay()];
+        const monthName = INDO_MONTHS[m];
+        return `${dayName}, ${d} ${monthName} ${y}`;
+      }
+    }
+    // If "05 Nov 2026" or similar
+    const match = val.match(/(\d{1,2})\s+([A-Za-z'’]+)\s+(\d{4})/);
+    if (match) {
+      const day = parseInt(match[1], 10);
+      const mStr = match[2].toLowerCase();
+      const year = parseInt(match[3], 10);
+      const mIdx = INDO_MONTHS.findIndex((m) => m.toLowerCase().startsWith(mStr.slice(0, 3)));
+      if (mIdx !== -1) {
+        const dateObj = new Date(year, mIdx, day);
+        const dayName = INDO_DAYS[dateObj.getDay()];
+        return `${dayName}, ${day} ${INDO_MONTHS[mIdx]} ${year}`;
+      }
+    }
+  }
+  return String(val);
+}
+
 export default function BrutalistDatePicker({
   value,
   onChange,
   placeholder = "Pilih / ketik tanggal...",
   readOnlyInput = false,
   dropUp = "auto",
+  outputFormat = "id", // "id" | "iso"
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -53,12 +90,25 @@ export default function BrutalistDatePicker({
   // Sync view to selected value on open
   useEffect(() => {
     if (isOpen && value && typeof value === "string") {
+      // Check ISO format "YYYY-MM-DD"
+      if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+        const parts = value.split("-");
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        if (!isNaN(y) && !isNaN(m)) {
+          setViewYear(y);
+          setViewMonth(m);
+          return;
+        }
+      }
+
+      // Check standard Indonesian format "Minggu, 1 November 2026"
       const match = value.match(/(\d{1,2})\s+([A-Za-z'’]+)\s+(\d{4})/);
       if (match) {
         const parsedMonthName = match[2];
         const parsedYear = parseInt(match[3], 10);
         const parsedMonthIdx = INDO_MONTHS.findIndex(
-          (m) => m.toLowerCase() === parsedMonthName.toLowerCase()
+          (m) => m.toLowerCase().startsWith(parsedMonthName.toLowerCase().slice(0, 3))
         );
         if (parsedMonthIdx !== -1) {
           setViewMonth(parsedMonthIdx);
@@ -108,13 +158,20 @@ export default function BrutalistDatePicker({
     }
   }
 
-  // Format selection into Indonesian standard string
+  // Format selection into requested format (Indonesian string or ISO)
   function handleSelectDay(day) {
     const selectedDate = new Date(viewYear, viewMonth, day);
-    const dayName = INDO_DAYS[selectedDate.getDay()];
-    const monthName = INDO_MONTHS[viewMonth];
-    const formatted = `${dayName}, ${day} ${monthName} ${viewYear}`;
-    onChange(formatted);
+    if (outputFormat === "iso") {
+      const y = viewYear;
+      const m = String(viewMonth + 1).padStart(2, "0");
+      const d = String(day).padStart(2, "0");
+      onChange(`${y}-${m}-${d}`);
+    } else {
+      const dayName = INDO_DAYS[selectedDate.getDay()];
+      const monthName = INDO_MONTHS[viewMonth];
+      const formatted = `${dayName}, ${day} ${monthName} ${viewYear}`;
+      onChange(formatted);
+    }
     setIsOpen(false);
   }
 
@@ -122,12 +179,20 @@ export default function BrutalistDatePicker({
   function handleSelectToday(e) {
     e.preventDefault();
     const d = new Date();
-    const dayName = INDO_DAYS[d.getDay()];
-    const monthName = INDO_MONTHS[d.getMonth()];
-    const formatted = `${dayName}, ${d.getDate()} ${monthName} ${d.getFullYear()}`;
     setViewYear(d.getFullYear());
     setViewMonth(d.getMonth());
-    onChange(formatted);
+
+    if (outputFormat === "iso") {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      onChange(`${y}-${m}-${day}`);
+    } else {
+      const dayName = INDO_DAYS[d.getDay()];
+      const monthName = INDO_MONTHS[d.getMonth()];
+      const formatted = `${dayName}, ${d.getDate()} ${monthName} ${d.getFullYear()}`;
+      onChange(formatted);
+    }
     setIsOpen(false);
   }
 
@@ -136,19 +201,30 @@ export default function BrutalistDatePicker({
   let isCurrentMonthAndYearSelected = false;
 
   if (value && typeof value === "string") {
-    const match = value.match(/(\d{1,2})\s+([A-Za-z'’]+)\s+(\d{4})/);
-    if (match) {
-      const parsedDay = parseInt(match[1], 10);
-      const parsedMonthName = match[2];
-      const parsedYear = parseInt(match[3], 10);
-
-      const parsedMonthIdx = INDO_MONTHS.findIndex(
-        (m) => m.toLowerCase() === parsedMonthName.toLowerCase()
-      );
-
-      if (parsedMonthIdx === viewMonth && parsedYear === viewYear) {
-        selectedDayNumber = parsedDay;
+    if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+      const parts = value.split("-");
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      if (y === viewYear && m === viewMonth) {
+        selectedDayNumber = d;
         isCurrentMonthAndYearSelected = true;
+      }
+    } else {
+      const match = value.match(/(\d{1,2})\s+([A-Za-z'’]+)\s+(\d{4})/);
+      if (match) {
+        const parsedDay = parseInt(match[1], 10);
+        const parsedMonthName = match[2];
+        const parsedYear = parseInt(match[3], 10);
+
+        const parsedMonthIdx = INDO_MONTHS.findIndex(
+          (m) => m.toLowerCase().startsWith(parsedMonthName.toLowerCase().slice(0, 3))
+        );
+
+        if (parsedMonthIdx === viewMonth && parsedYear === viewYear) {
+          selectedDayNumber = parsedDay;
+          isCurrentMonthAndYearSelected = true;
+        }
       }
     }
   }
@@ -164,6 +240,8 @@ export default function BrutalistDatePicker({
     calendarCells.push(d);
   }
 
+  const displayString = formatDisplayDate(value) || placeholder;
+
   return (
     <div className={`relative w-full ${isOpen ? "z-30" : ""}`} ref={containerRef}>
       {/* Unified Single Input Container with Integrated Calendar Icon */}
@@ -177,7 +255,7 @@ export default function BrutalistDatePicker({
         aria-label="Pilih tanggal kegiatan"
       >
         <span className={`truncate pr-1 ${value ? "text-slate-900 dark:text-slate-100 font-extrabold" : "text-slate-400"}`}>
-          {value || placeholder}
+          {displayString}
         </span>
         <div
           className={`w-6 h-6 rounded bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0 shadow-[1px_1px_0px_#000] transition-colors duration-200 ${
