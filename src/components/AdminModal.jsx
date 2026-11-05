@@ -63,6 +63,14 @@ import KasExpenseModal from "./KasExpenseModal";
 import KasIncomeModal from "./KasIncomeModal";
 import KasLedgerModal from "./KasLedgerModal";
 import KasCopyModal from "./KasCopyModal";
+import JasraPanel from "./JasraPanel";
+import {
+  loadJasraBatchesCloud,
+  subscribeJasraBatchesCloud,
+  loadJasraDistributionsCloud,
+  subscribeJasraDistributionsCloud,
+  distributeJasraCloud,
+} from "../services/jasraService";
 import {
   loadKasLedgerCloud,
   subscribeKasLedger,
@@ -87,6 +95,7 @@ export default function AdminModal({
   isCloudLoading = false,
   eventsList: externalEventsList = [],
   bansosPrograms: externalBansosPrograms = [],
+  onOpenTransparency,
 }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
@@ -100,6 +109,7 @@ export default function AdminModal({
   const [loginMode, setLoginMode] = useState("password"); // "password" (default) | "pin"
   const [rememberMe, setRememberMe] = useState(true);
   const [activeTab, setActiveTab] = useState("identity");
+  const [jasraInitialDistributeType, setJasraInitialDistributeType] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -323,6 +333,10 @@ export default function AdminModal({
   const [isScanningExternalOcr, setIsScanningExternalOcr] = useState(false);
   const [externalJasraSearch, setExternalJasraSearch] = useState("");
 
+  // Jasra Government Batches & Distributions State
+  const [jasraBatches, setJasraBatches] = useState([]);
+  const [jasraDistributions, setJasraDistributions] = useState([]);
+
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadSubmissions().then((data) => setSubmissions(data || []));
@@ -334,6 +348,18 @@ export default function AdminModal({
       });
       const unsubscribeExternalJasra = subscribeExternalJasraCloud((list) => {
         if (Array.isArray(list)) setExternalJasraList(list);
+      });
+      loadJasraBatchesCloud().then((list) => {
+        if (Array.isArray(list)) setJasraBatches(list);
+      });
+      const unsubscribeJasraBatches = subscribeJasraBatchesCloud((list) => {
+        if (Array.isArray(list)) setJasraBatches(list);
+      });
+      loadJasraDistributionsCloud().then((list) => {
+        if (Array.isArray(list)) setJasraDistributions(list);
+      });
+      const unsubscribeJasraDistributions = subscribeJasraDistributionsCloud((list) => {
+        if (Array.isArray(list)) setJasraDistributions(list);
       });
       const unsubscribeEvents = subscribeEventRegistrationsCloud((list) => {
         setEventRegistrations(list || []);
@@ -361,6 +387,8 @@ export default function AdminModal({
       return () => {
         if (typeof unsubscribeMembers === "function") unsubscribeMembers();
         if (typeof unsubscribeExternalJasra === "function") unsubscribeExternalJasra();
+        if (typeof unsubscribeJasraBatches === "function") unsubscribeJasraBatches();
+        if (typeof unsubscribeJasraDistributions === "function") unsubscribeJasraDistributions();
         if (typeof unsubscribeEvents === "function") unsubscribeEvents();
         if (typeof unsubscribeEventsList === "function") unsubscribeEventsList();
         if (typeof unsubscribeBansos === "function") unsubscribeBansos();
@@ -406,18 +434,46 @@ export default function AdminModal({
     });
   }
 
-  // Handler: Berikan / Perbarui Voucher Mingguan (7 Hari - 10T & 10P)
+  // Handler: Berikan / Perbarui Voucher Mingguan (Sinkron dengan Batch Pemerintah 7 Hari)
   async function handleClaimVoucher(member, days = VOUCHER_SUBSCRIPTION_DAYS) {
     try {
-      const res = await claimMemberVoucherSubscriptionCloud(member, days);
-      const sub = getMemberVoucherSubscription(res);
-      onShowToast(
-        `Voucher 10 Tritmen & 10 Pingsan untuk ${member.fullName || "Anggota"} aktif 7 hari (s/d ${sub.expiresAtFormatted}).`,
-        "success"
-      );
+      // Prioritaskan pemotongan dari Batch Pemerintah yang sedang Aktif
+      const activeBatch = jasraBatches.find(
+        (b) => b.status === "ACTIVE" && (b.remainingTreatment > 0 || b.remainingPingsan > 0)
+      ) || jasraBatches[0];
+
+      if (activeBatch && activeBatch.expiresAt > Date.now()) {
+        await distributeJasraCloud(
+          {
+            recipientType: "MEMBER",
+            recipientName: member.fullName || "Anggota",
+            citizenId: member.icNumber || member.citizenId || "",
+            phone: member.phone || "",
+            memberId: member.id,
+            treatmentCount: 10,
+            pingsanCount: 10,
+            officerName: "Admin Paguyuban",
+            notes: "Diserahkan langsung dari Database Anggota",
+          },
+          activeBatch
+        );
+
+        const remDays = Math.ceil((activeBatch.expiresAt - Date.now()) / 86400000);
+        onShowToast(
+          `Voucher (10 Tritmen • 10 Pingsan) untuk ${member.fullName || "Anggota"} berhasil dibagikan! Sisa masa berlaku ${remDays} hari (mengikuti batch pemerintah). Stok otomatis dipotong.`,
+          "success"
+        );
+      } else {
+        const res = await claimMemberVoucherSubscriptionCloud(member, days);
+        const sub = getMemberVoucherSubscription(res);
+        onShowToast(
+          `Voucher 10 Tritmen & 10 Pingsan untuk ${member.fullName || "Anggota"} aktif 7 hari (s/d ${sub.expiresAtFormatted}).`,
+          "success"
+        );
+      }
     } catch (err) {
       console.error("Gagal berikan voucher:", err);
-      onShowToast("Gagal memberikan voucher anggota.", "error");
+      onShowToast(err.message || "Gagal memberikan voucher anggota.", "error");
     }
   }
 
@@ -2003,6 +2059,7 @@ export default function AdminModal({
         { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
         { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
         { id: "member_kas", label: "Catat Uang Kas", icon: DollarSign },
+        { id: "jasra_panel", label: "Voucher Jasra", icon: HeartHandshake },
         { id: "kas_db", label: "Keuangan", icon: Landmark },
       ],
     },
@@ -3670,35 +3727,8 @@ export default function AdminModal({
                       </div>
                     </div>
 
-                    {/* Export Actions: Excel & ZIP & Add External Jasra */}
+                    {/* Export Actions: Excel & ZIP */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingExternalJasra({
-                            id: "",
-                            fullName: "",
-                            citizenId: "",
-                            phone: "",
-                            ktpPhoto: "",
-                            voucherDetail: { treatment: 10, pingsan: 10 },
-                            packageLabel: "10 Tritmen • 10 Pingsan",
-                            dateGiven: new Date().toLocaleDateString("id-ID", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            }),
-                            notes: "",
-                            status: "ACTIVE",
-                          });
-                        }}
-                        className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
-                        title="Catat penerima voucher Jasra dari warga umum (luar anggota paguyuban)"
-                      >
-                        <HeartHandshake size={15} />
-                        <span>+ Catat Jasra Luar Anggota</span>
-                      </button>
-
                       <button
                         type="button"
                         onClick={handleExportExcel}
@@ -3773,12 +3803,12 @@ export default function AdminModal({
                         </span>
                         <button
                           type="button"
-                          onClick={handleConfirmResetAllKas}
-                          disabled={totalKasActiveCount === 0}
-                          className="px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold border border-black/30 disabled:opacity-40 cursor-pointer text-[9px]"
-                          title="Reset status kas seluruh anggota ke Belum Bayar"
+                          onClick={() => setActiveTab("member_kas")}
+                          className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-[1px_1px_0px_#000] cursor-pointer text-[10px] flex items-center gap-1"
+                          title="Buka tab Catat Uang Kas untuk mengelola pembayaran kas anggota"
                         >
-                          Reset Status
+                          <DollarSign size={11} className="text-[#DC2626]" />
+                          <span>Kelola Kas &rarr;</span>
                         </button>
                       </div>
                     </div>
@@ -3810,48 +3840,18 @@ export default function AdminModal({
                         </span>
                         <button
                           type="button"
-                          onClick={handleConfirmResetAllVouchers}
-                          disabled={totalVoucherActiveCount === 0}
-                          className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold border border-black shadow-[1px_1px_0px_#000] disabled:opacity-40 cursor-pointer text-[10px]"
-                          title="Reset jatah voucher seluruh anggota ke Siap Ambil"
+                          onClick={() => setActiveTab("jasra_panel")}
+                          className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-[1px_1px_0px_#000] cursor-pointer text-[10px] flex items-center gap-1"
+                          title="Buka panel Voucher Jasra untuk mengelola jatah dan distribusi voucher"
                         >
-                          Reset Voucher
+                          <Gift size={11} className="text-[#DC2626]" />
+                          <span>Kelola di Panel Jasra &rarr;</span>
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Sub-Navigation Switcher: Anggota Paguyuban vs Penerima Jasra Luar Anggota */}
-                  <div className="flex items-center gap-2 border-b-2 border-black/20 dark:border-white/10 pb-2">
-                    <button
-                      type="button"
-                      onClick={() => setMemberTabSubView("members")}
-                      className={`px-4 py-2 rounded-lg text-xs font-heading font-black border-2 border-black flex items-center gap-2 cursor-pointer transition-all ${
-                        memberTabSubView === "members"
-                          ? "bg-slate-900 text-white shadow-[2px_2px_0px_#000] dark:bg-[#FACC15] dark:text-slate-950"
-                          : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      <Users size={14} />
-                      <span>Anggota Paguyuban ({membersList.length})</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMemberTabSubView("external_jasra")}
-                      className={`px-4 py-2 rounded-lg text-xs font-heading font-black border-2 border-black flex items-center gap-2 cursor-pointer transition-all ${
-                        memberTabSubView === "external_jasra"
-                          ? "bg-slate-900 text-white shadow-[2px_2px_0px_#000] dark:bg-[#FACC15] dark:text-slate-950"
-                          : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      <HeartHandshake size={14} />
-                      <span>Penerima Jasra Luar Anggota ({externalJasraList.length})</span>
-                    </button>
-                  </div>
-
-                  {memberTabSubView === "members" ? (
-                    <>
-                      {/* Search and Filter Pills Bar */}
+                  {/* Search and Filter Pills Bar */}
                   <div className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="relative w-full sm:max-w-md">
@@ -4130,27 +4130,20 @@ export default function AdminModal({
                                       </strong>
                                     </div>
 
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-1.5">
+                                    {/* Link & Status ke Panel Jasra */}
+                                    <div className="flex items-center justify-between pt-1.5 border-t border-black/10 dark:border-white/10 text-[10px]">
+                                      <span className="font-mono text-slate-500">
+                                        {voucherSub.isActive ? "Status: Kuota Terdistribusi" : "Status: Belum Menerima"}
+                                      </span>
                                       <button
                                         type="button"
-                                        onClick={() => handleClaimVoucher(member)}
-                                        className="flex-1 py-1 px-2 rounded bg-[#FACC15] hover:bg-amber-400 text-slate-950 font-heading font-black text-[10px] border border-black shadow-[1px_1px_0px_#000] flex items-center justify-center gap-1 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
-                                        title="Berikan atau perpanjang voucher 7 hari (10 Tritmen + 10 Pingsan)"
+                                        onClick={() => setActiveTab("jasra_panel")}
+                                        className="text-[10px] font-heading font-black text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
+                                        title="Buka panel Voucher Jasra untuk mengelola alokasi voucher"
                                       >
                                         <Gift size={11} className="text-[#DC2626]" />
-                                        <span>{voucherSub.isActive ? "Perpanjang (+7 Hari)" : "Beri Voucher (7 Hari)"}</span>
+                                        <span>Kelola di Panel Jasra &rarr;</span>
                                       </button>
-                                      {voucherSub.isActive && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCancelVoucher(member)}
-                                          className="py-1 px-2 rounded bg-slate-200 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/60 text-slate-700 hover:text-rose-700 dark:text-slate-300 font-mono text-[10px] border border-black/30 cursor-pointer"
-                                          title="Reset voucher anggota ini ke Siap Diambil"
-                                        >
-                                          Reset
-                                        </button>
-                                      )}
                                     </div>
                                   </div>
                                 );
@@ -4211,238 +4204,6 @@ export default function AdminModal({
                           </div>
                         );
                       })}
-                    </div>
-                  )}
-                    </>
-                  ) : (
-                    /* Sub-View: Penerima Jasra Luar Anggota */
-                    <div className="flex flex-col gap-4">
-                      {/* Search & Actions Bar for External Jasra */}
-                      <div className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <div className="relative w-full sm:max-w-md">
-                          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                          <input
-                            type="text"
-                            placeholder="Cari nama IC, Citizen ID, no HP, atau catatan..."
-                            value={externalJasraSearch}
-                            onChange={(e) => setExternalJasraSearch(e.target.value)}
-                            className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
-                          />
-                          {externalJasraSearch && (
-                            <button
-                              type="button"
-                              onClick={() => setExternalJasraSearch("")}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                          <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
-                            Menampilkan <span className="text-[#DC2626] dark:text-[#FACC15]">{filteredExternalJasra.length}</span> dari {externalJasraList.length} warga
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={handleExportExternalJasraExcel}
-                            disabled={externalJasraList.length === 0}
-                            className="btn py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
-                            title="Unduh daftar penerima Jasra luar anggota ke Excel"
-                          >
-                            <FileSpreadsheet size={13} />
-                            <span>Unduh Excel</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Cards Grid External Jasra */}
-                      {filteredExternalJasra.length === 0 ? (
-                        <div className="card-brutal p-10 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-3">
-                          <HeartHandshake size={38} className="text-slate-300 dark:text-slate-600" />
-                          <div>
-                            <p className="font-heading font-black text-sm text-slate-700 dark:text-slate-300">
-                              {externalJasraSearch ? "Tidak ditemukan data yang sesuai pencarian" : "Belum ada warga luar anggota yang dicatat"}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-0.5 max-w-sm">
-                              Jika ada warga umum / non-anggota yang Anda berikan voucher Jasra, klik tombol di bawah untuk mencatatnya langsung dari foto KTP IC mereka.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingExternalJasra({
-                                id: "",
-                                fullName: "",
-                                citizenId: "",
-                                phone: "",
-                                ktpPhoto: "",
-                                voucherDetail: { treatment: 10, pingsan: 10 },
-                                packageLabel: "10 Tritmen • 10 Pingsan",
-                                dateGiven: new Date().toLocaleDateString("id-ID", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                }),
-                                notes: "",
-                                status: "ACTIVE",
-                              });
-                            }}
-                            className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer mt-1"
-                          >
-                            <Plus size={14} />
-                            <span>+ Catat Jasra Luar Anggota</span>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                          {filteredExternalJasra.map((item, idx) => (
-                            <div
-                              key={item.id || idx}
-                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
-                            >
-                              <div className="flex flex-col gap-2.5">
-                                {/* Header: Avatar/KTP Thumb + Name + Badge */}
-                                <div className="flex items-center gap-3">
-                                  {item.ktpPhoto ? (
-                                    <div
-                                      onClick={() =>
-                                        setPreviewKtp({
-                                          image: item.ktpPhoto,
-                                          name: item.fullName || "Warga",
-                                          citizenId: item.citizenId || "",
-                                        })
-                                      }
-                                      className="w-12 h-12 rounded border-2 border-black overflow-hidden bg-slate-100 shrink-0 cursor-pointer shadow-xs hover:opacity-85"
-                                      title="Klik untuk melihat foto KTP"
-                                    >
-                                      <img
-                                        src={item.ktpPhoto}
-                                        alt={item.fullName}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="w-12 h-12 rounded border-2 border-black bg-blue-100 dark:bg-blue-950 flex items-center justify-center shrink-0 text-blue-700 dark:text-blue-300 shadow-xs">
-                                      <HeartHandshake size={22} />
-                                    </div>
-                                  )}
-
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-1">
-                                      <h4
-                                        className="font-heading font-black text-sm text-slate-900 dark:text-slate-100 uppercase truncate"
-                                        title={item.fullName}
-                                      >
-                                        {item.fullName || "Tanpa Nama"}
-                                      </h4>
-                                      <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-300 border border-blue-400 shrink-0">
-                                        LUAR ANGGOTA
-                                      </span>
-                                    </div>
-                                    <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1 mt-0.5">
-                                      <Calendar size={11} />
-                                      <span>Diberikan: {item.dateGiven || "-"}</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Identity details */}
-                                <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded bg-slate-50 dark:bg-[#151720] border border-black/10 dark:border-white/10 font-mono">
-                                  <div>
-                                    <span className="text-[9px] text-slate-400 font-sans font-bold block uppercase">
-                                      Citizen ID / KTP:
-                                    </span>
-                                    <strong
-                                      className="text-[#DC2626] dark:text-[#FACC15] truncate block text-[11px]"
-                                      title={item.citizenId}
-                                    >
-                                      {item.citizenId || "-"}
-                                    </strong>
-                                  </div>
-                                  <div>
-                                    <span className="text-[9px] text-slate-400 font-sans font-bold block uppercase">
-                                      No TLP / WA:
-                                    </span>
-                                    <span
-                                      className="text-slate-800 dark:text-slate-200 truncate block text-[11px]"
-                                      title={item.phone}
-                                    >
-                                      {item.phone || "-"}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Benefit voucher box */}
-                                <div className="p-2.5 rounded border-2 bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-950 dark:text-amber-100">
-                                  <div className="flex items-center justify-between gap-1 mb-1">
-                                    <span className="font-heading font-black text-[11px] uppercase text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                                      <Gift size={12} className="text-[#DC2626]" />
-                                      MANFAAT JASRA KESEHATAN
-                                    </span>
-                                    <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-500 text-white">
-                                      AKTIF
-                                    </span>
-                                  </div>
-                                  <div className="font-mono font-black text-xs text-slate-900 dark:text-slate-100">
-                                    {item.packageLabel || "10 Tritmen • 10 Pingsan"}
-                                  </div>
-                                  {item.notes && (
-                                    <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 italic border-t border-amber-200 dark:border-amber-800/40 pt-1">
-                                      Catatan: {item.notes}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Card Actions */}
-                              <div className="flex items-center justify-between pt-2 border-t border-black/10 dark:border-white/10">
-                                <div className="flex items-center gap-1.5">
-                                  {item.ktpPhoto ? (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setPreviewKtp({
-                                          image: item.ktpPhoto,
-                                          name: item.fullName || "Warga",
-                                          citizenId: item.citizenId || "",
-                                        })
-                                      }
-                                      className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-black border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1 cursor-pointer"
-                                      title="Lihat dokumen KTP IC warga"
-                                    >
-                                      <FileText size={12} className="text-[#DC2626]" />
-                                      <span>Lihat KTP</span>
-                                    </button>
-                                  ) : (
-                                    <span className="text-[10px] text-slate-400 italic">Tanpa Foto KTP</span>
-                                  )}
-
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingExternalJasra(item)}
-                                    className="btn text-[11px] py-1 px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold border border-black dark:border-slate-600 flex items-center gap-1 cursor-pointer"
-                                    title="Edit data penerima Jasra ini"
-                                  >
-                                    <Edit2 size={11} />
-                                    <span>Edit</span>
-                                  </button>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteExternalJasra(item.id, item.fullName)}
-                                  className="p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 border border-transparent hover:border-red-500 transition-colors cursor-pointer"
-                                  title="Hapus pencatatan Jasra ini"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -4692,6 +4453,20 @@ export default function AdminModal({
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Tab: Panel Kelola Voucher Jasra Pemerintah */}
+              {activeTab === "jasra_panel" && (
+                <JasraPanel
+                  batches={jasraBatches}
+                  distributions={jasraDistributions}
+                  membersList={membersList}
+                  externalJasraList={externalJasraList}
+                  onShowToast={onShowToast}
+                  initialDistributeType={jasraInitialDistributeType}
+                  onResetInitialDistributeType={() => setJasraInitialDistributeType(null)}
+                  onOpenTransparency={onOpenTransparency}
+                />
               )}
 
               {/* Tab: Buku Kas & Keuangan LSM PPS */}
@@ -5922,47 +5697,66 @@ export default function AdminModal({
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                          {/* Program Filter */}
-                          <select
-                            value={selectedBansosProgramFilter}
-                            onChange={(e) => setSelectedBansosProgramFilter(e.target.value)}
-                            className="bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] py-2 px-3 text-xs font-heading font-black shadow-[2px_2px_0px_#000] focus:outline-none cursor-pointer max-w-[200px] truncate"
-                          >
-                            <option value="ALL">Semua Program ({bansosClaims.length})</option>
-                            {bansosPrograms.map((p) => {
-                              const count = bansosClaims.filter((c) => c.programId === p.id).length;
-                              return (
-                                <option key={p.id} value={p.id}>
-                                  {p.title} ({count})
-                                </option>
-                              );
-                            })}
-                          </select>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Program Filter - Styled Brutalist with Chevron */}
+                          {bansosPrograms.length > 1 && (
+                            <div className="relative inline-block">
+                              <select
+                                value={selectedBansosProgramFilter}
+                                onChange={(e) => setSelectedBansosProgramFilter(e.target.value)}
+                                className="appearance-none bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] py-1.5 pl-3 pr-8 rounded-lg text-xs font-heading font-black shadow-[2px_2px_0px_#000] focus:outline-none cursor-pointer max-w-[200px] truncate"
+                              >
+                                <option value="ALL">Semua Program ({bansosClaims.length})</option>
+                                {bansosPrograms.map((p) => {
+                                  const count = bansosClaims.filter((c) => c.programId === p.id).length;
+                                  return (
+                                    <option key={p.id} value={p.id}>
+                                      {p.title} ({count})
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700 dark:text-slate-300">
+                                <ChevronDown size={14} />
+                              </div>
+                            </div>
+                          )}
 
-                          {/* Status Filter */}
-                          <select
-                            value={bansosStatusFilter}
-                            onChange={(e) => setBansosStatusFilter(e.target.value)}
-                            className="bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] py-2 px-3 text-xs font-heading font-black shadow-[2px_2px_0px_#000] focus:outline-none cursor-pointer"
-                          >
-                            <option value="all">Semua Status ({bansosClaims.length})</option>
-                            <option value="unclaimed">
-                              Belum Diambil ({bansosClaims.filter((c) => !c.claimed).length})
-                            </option>
-                            <option value="claimed">
-                              Sudah Diambil ({bansosClaims.filter((c) => c.claimed).length})
-                            </option>
-                          </select>
+                          {/* Filter Pills Status Bansos */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {[
+                              { id: "all", label: `Semua (${bansosClaims.length})` },
+                              { id: "unclaimed", label: `Belum Diambil (${bansosClaims.filter((c) => !c.claimed).length})` },
+                              { id: "claimed", label: `Sudah Diambil (${bansosClaims.filter((c) => c.claimed).length})` },
+                            ].map((f) => (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => setBansosStatusFilter(f.id)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                                  bansosStatusFilter === f.id
+                                    ? "bg-[#FACC15] text-[#111827] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                                    : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 border-black/30 dark:border-slate-700 hover:border-black"
+                                }`}
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
 
-                          {/* Export to Excel */}
+                          {/* Tombol Salin Link Transparansi Pemerintah */}
                           <button
                             type="button"
-                            onClick={handleExportBansosExcel}
-                            className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 shrink-0"
+                            onClick={() => {
+                              const url = `${window.location.origin}/transparansi?tab=bansos`;
+                              navigator.clipboard.writeText(url);
+                              onShowToast?.(`Link laporan bansos berhasil disalin: ${url}`, "success");
+                            }}
+                            className="py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                            title="Salin link laporan transparansi Bansos"
                           >
-                            <FileSpreadsheet size={15} />
-                            <span>Unduh (.xlsx)</span>
+                            <Copy size={14} className="text-[#DC2626]" />
+                            <span>Salin Link</span>
                           </button>
                         </div>
                       </div>

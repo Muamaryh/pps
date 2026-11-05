@@ -11,6 +11,7 @@ import {
   FileText,
   Camera,
   Compass,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function Footer({
@@ -21,6 +22,7 @@ export default function Footer({
   onOpenRegister,
   onOpenMembersDirectory,
   onOpenAdmin,
+  onOpenTransparency,
   onNavigateToGallery,
   onNavigateToHome,
 }) {
@@ -195,6 +197,19 @@ export default function Footer({
                     </button>
                   </li>
                 </>
+              )}
+              {onOpenTransparency && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => onOpenTransparency("jasra")}
+                    className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-flex items-center gap-1.5 text-slate-800 dark:text-slate-200 cursor-pointer transition-transform font-bold text-blue-700 dark:text-blue-400"
+                    title="Buka laporan transparansi resmi untuk Pemerintah Kota San Andreas"
+                  >
+                    <ShieldCheck size={13} className="shrink-0" />
+                    <span>Laporan Transparansi Pemerintah</span>
+                  </button>
+                </li>
               )}
             </ul>
           </div>

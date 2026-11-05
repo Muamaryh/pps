@@ -14,6 +14,7 @@ import MembersDirectoryModal from "./components/MembersDirectoryModal";
 import EventRegistrationModal from "./components/EventRegistrationModal";
 import BansosModal from "./components/BansosModal";
 import PermitModal from "./components/PermitModal";
+import TransparencyModal from "./components/TransparencyModal";
 import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
@@ -193,8 +194,8 @@ export default function App() {
   // Admin Route Management (/admin or #/admin)
   const [adminModalOpen, setAdminModalOpen] = useState(() => {
     if (typeof window === "undefined") return false;
-    const path = window.location.pathname.toLowerCase();
-    const hash = window.location.hash.toLowerCase();
+    const path = window.location.pathname.toLowerCase().replace(/\/+$/, "");
+    const hash = window.location.hash.toLowerCase().replace(/\/+$/, "");
     return path === "/admin" || path.endsWith("/admin") || hash === "#/admin" || hash === "#admin";
   });
 
@@ -250,6 +251,31 @@ export default function App() {
     return path === "/bansos" || path.endsWith("/bansos") || hash === "#/bansos" || hash === "#bansos";
   });
 
+  // Modal Portal Transparansi & Laporan Resmi Pemerintah (/transparansi, /laporan)
+  const [transparencyModalOpen, setTransparencyModalOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname.toLowerCase().replace(/\/+$/, "");
+    const hash = window.location.hash.toLowerCase().replace(/\/+$/, "");
+    return (
+      path === "/transparansi" ||
+      path.endsWith("/transparansi") ||
+      path === "/laporan" ||
+      path.endsWith("/laporan") ||
+      hash === "#/transparansi" ||
+      hash === "#transparansi" ||
+      hash === "#/laporan" ||
+      hash === "#laporan"
+    );
+  });
+  const [transparencyInitialTab, setTransparencyInitialTab] = useState(() => {
+    if (typeof window === "undefined") return "jasra";
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    const search = window.location.search.toLowerCase();
+    if (path.includes("bansos") || hash.includes("bansos") || search.includes("bansos")) return "bansos";
+    return "jasra";
+  });
+
   // Dedicated Page Routing (default 'home', can be 'gallery' for #/galeri or /galeri)
   const [currentPage, setCurrentPage] = useState(() => {
     if (typeof window === "undefined") return "home";
@@ -273,8 +299,8 @@ export default function App() {
 
   useEffect(() => {
     function checkRoutes() {
-      const path = window.location.pathname.toLowerCase();
-      const hash = window.location.hash.toLowerCase();
+      const path = window.location.pathname.toLowerCase().replace(/\/+$/, "");
+      const hash = window.location.hash.toLowerCase().replace(/\/+$/, "");
 
       // 1. Check Admin Route
       if (path === "/admin" || path.endsWith("/admin") || hash === "#/admin" || hash === "#admin") {
@@ -400,6 +426,28 @@ export default function App() {
       } else {
         setCurrentPage("home");
       }
+
+      // 7. Check Transparency Report Route (/transparansi, /laporan, #transparansi, #laporan)
+      if (
+        path === "/transparansi" ||
+        path.endsWith("/transparansi") ||
+        path === "/laporan" ||
+        path.endsWith("/laporan") ||
+        hash === "#/transparansi" ||
+        hash === "#transparansi" ||
+        hash === "#/laporan" ||
+        hash === "#laporan"
+      ) {
+        setTransparencyModalOpen(true);
+        const search = window.location.search.toLowerCase();
+        if (path.includes("bansos") || hash.includes("bansos") || search.includes("bansos")) {
+          setTransparencyInitialTab("bansos");
+        } else {
+          setTransparencyInitialTab("jasra");
+        }
+      } else {
+        setTransparencyModalOpen(false);
+      }
     }
 
     function handleKeyDown(e) {
@@ -450,6 +498,26 @@ export default function App() {
   function handleCloseRegister() {
     setMemberModalOpen(false);
     if (window.location.pathname.includes("/daftar") || window.location.hash.includes("daftar")) {
+      window.history.pushState(null, "", "/");
+    }
+  }
+
+  function handleOpenTransparency(tab = "jasra") {
+    setTransparencyInitialTab(tab);
+    setTransparencyModalOpen(true);
+    if (!window.location.pathname.includes("/transparansi")) {
+      window.history.pushState(null, "", `/transparansi?tab=${tab}`);
+    }
+  }
+
+  function handleCloseTransparency() {
+    setTransparencyModalOpen(false);
+    if (
+      window.location.pathname.includes("/transparansi") ||
+      window.location.pathname.includes("/laporan") ||
+      window.location.hash.includes("transparansi") ||
+      window.location.hash.includes("laporan")
+    ) {
       window.history.pushState(null, "", "/");
     }
   }
@@ -665,6 +733,7 @@ export default function App() {
         onOpenServicePortal={handleOpenServicePortal}
         onOpenMembersDirectory={handleOpenMembersDirectory}
         onOpenAdmin={() => setAdminModalOpen(true)}
+        onOpenTransparency={handleOpenTransparency}
         onNavigateToGallery={handleNavigateToGallery}
         onNavigateToHome={handleNavigateToHome}
       />
@@ -741,6 +810,7 @@ export default function App() {
         bansosPrograms={bansosPrograms}
         onDataSaved={(newData) => setData(newData)}
         onShowToast={showToast}
+        onOpenTransparency={handleOpenTransparency}
       />
 
       {/* Modal Surat Izin Komunitas Pemerintah San Andreas */}
@@ -748,6 +818,14 @@ export default function App() {
         isOpen={isPermitModalOpen}
         onClose={() => setIsPermitModalOpen(false)}
         onShowToast={showToast}
+      />
+
+      {/* Modal Portal Transparansi & Laporan Resmi Pemerintah (/transparansi) */}
+      <TransparencyModal
+        isOpen={transparencyModalOpen}
+        onClose={handleCloseTransparency}
+        onShowToast={showToast}
+        initialTab={transparencyInitialTab}
       />
 
       {/* Toast Notification Container (Positioned on the bottom-left so it never blocks floating actions) */}
