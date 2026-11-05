@@ -1,91 +1,144 @@
 import React, { useState, useEffect } from "react";
-import { BookOpen, Users, Camera, MapPin, Store, HeartHandshake, ShieldCheck, ExternalLink } from "lucide-react";
+import {
+  BookOpen,
+  Users,
+  Camera,
+  MapPin,
+  ShieldCheck,
+  ExternalLink,
+  Scale,
+  Sparkles,
+  CheckCircle2,
+  FileCheck2,
+} from "lucide-react";
 
-export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPermit, onNavigateToGallery }) {
-  // Typewriter effect state (3 distinct lines)
+export default function Hero({
+  heading: _heading,
+  subtext,
+  memberCount = 0,
+  onOpenPermit,
+  onOpenMembersDirectory,
+  onOpenTransparency,
+  onNavigateToGallery,
+}) {
+  // Snappy Typewriter effect state (3 distinct lines)
   const targetLine1 = "LEMBAGA SWADAYA MASYARAKAT";
   const targetLine2 = "PAGUYUBAN PIZZA";
   const targetLine3 = "SANDY SHORES";
 
-  const defaultHeroPillars = [
-    { label: "Wilayah Kerja", title: "Sandy Shores & Sekitarnya" },
-    { label: "Pemberdayaan UMKM", title: "Pengelolaan Lapak Warga" },
-    { label: "Solidaritas Sosial", title: "Aksi Gotong Royong Warga" },
-    { label: "Advokasi Aspirasi", title: "Mitra Dialog Pemerintah Kota" }
-  ];
-
-  const pillarMeta = [
-    { icon: MapPin, bg: "bg-[#FACC15] text-[#111827]", iconColor: "text-[#DC2626]" },
-    { icon: Store, bg: "bg-[#DC2626] text-white", iconColor: "text-[#FACC15]" },
-    { icon: HeartHandshake, bg: "bg-[#FACC15] text-[#111827]", iconColor: "text-[#DC2626]" },
-    { icon: ShieldCheck, bg: "bg-[#DC2626] text-white", iconColor: "text-[#FACC15]" },
-  ];
-
-  const activePillars = heroPillars && heroPillars.length === 4 ? heroPillars : defaultHeroPillars;
-
   const [text1, setText1] = useState("");
   const [text2, setText2] = useState("");
   const [text3, setText3] = useState("");
-  const [step, setStep] = useState(0); // 0 = logo arrival animation, 1 = line 1, 2 = line 2, 3 = line 3, 4 = completed
+  const [step, setStep] = useState(0); // 0 = logo arrival, 1 = line 1, 2 = line 2, 3 = line 3, 4 = completed
 
   useEffect(() => {
     let timeout;
     if (step === 0) {
-      // Tunggu animasi kedatangan logo mendarat mantap (~450ms) baru mulai ketik baris 1
+      // Tunggu animasi kedatangan logo mendarat mantap (~200ms) baru mulai ketik
       timeout = setTimeout(() => {
         setStep(1);
-      }, 450);
+      }, 200);
     } else if (step === 1) {
       if (text1.length < targetLine1.length) {
         timeout = setTimeout(() => {
           setText1(targetLine1.slice(0, text1.length + 1));
-        }, 35);
+        }, 16);
       } else {
         timeout = setTimeout(() => {
           setStep(2);
-        }, 180);
+        }, 70);
       }
     } else if (step === 2) {
       if (text2.length < targetLine2.length) {
         timeout = setTimeout(() => {
           setText2(targetLine2.slice(0, text2.length + 1));
-        }, 40);
+        }, 18);
       } else {
         timeout = setTimeout(() => {
           setStep(3);
-        }, 180);
+        }, 70);
       }
     } else if (step === 3) {
       if (text3.length < targetLine3.length) {
         timeout = setTimeout(() => {
           setText3(targetLine3.slice(0, text3.length + 1));
-        }, 45);
+        }, 20);
       } else {
         timeout = setTimeout(() => {
           setStep(4);
-        }, 300);
+        }, 120);
       }
     }
     return () => clearTimeout(timeout);
   }, [text1, text2, text3, step]);
 
+  const credibilityMetrics = [
+    {
+      label: "Legalitas Pemkot",
+      value: "Izin No. 001/2026",
+      desc: "Terverifikasi Resmi San Andreas",
+      badge: "AKTIF",
+      badgeClass: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800",
+      icon: ShieldCheck,
+      iconBg: "bg-[#DC2626] text-white",
+      onClick: onOpenPermit,
+      clickable: true,
+      hint: "Buka Dokumen Izin",
+    },
+    {
+      label: "Kekuatan Anggota",
+      value: `${memberCount || 49} Warga Terdaftar`,
+      desc: "KTP & CID Terdata Digital",
+      badge: "REAL-TIME",
+      badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-800",
+      icon: Users,
+      iconBg: "bg-[#FACC15] text-[#111827]",
+      onClick: onOpenMembersDirectory,
+      clickable: true,
+      hint: "Lihat Direktori Anggota",
+    },
+    {
+      label: "Sekretariat Wilayah",
+      value: "Koordinat 1012",
+      desc: "Sandy Shores & Senora Freeway",
+      badge: "POSKO UTAMA",
+      badgeClass: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800",
+      icon: MapPin,
+      iconBg: "bg-[#DC2626] text-white",
+      onClick: null,
+      clickable: false,
+    },
+    {
+      label: "Transparansi Terbuka",
+      value: "Kas & Subsidi Jasra",
+      desc: "Tersinkronisasi Cloud Firestore",
+      badge: "PUBLIK",
+      badgeClass: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-800",
+      icon: FileCheck2,
+      iconBg: "bg-[#FACC15] text-[#111827]",
+      onClick: () => onOpenTransparency && onOpenTransparency("jasra"),
+      clickable: true,
+      hint: "Buka Rekap Transparansi",
+    },
+  ];
+
   return (
     <section id="home" className="pt-2 pb-10 sm:pb-14 w-full scroll-mt-24">
-      {/* 1. Box Gambar pps.jpg (Ukuran Menyesuaikan Gambar, Teks di Depan Gambar dengan Efek Typing 3 Baris) */}
+      {/* 1. Box Gambar pps.jpg (Ukuran Menyesuaikan Gambar, Teks di Depan Gambar dengan Efek Typing 3 Baris Cepat) */}
       <div className="w-full relative rounded-2xl overflow-hidden border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] aspect-[1840/855] min-h-[280px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center p-4 sm:p-8 text-center">
-        {/* Gambar pps.jpg sebagai latar belakang (Statis, tidak zoom saat mouse hover) */}
+        {/* Gambar pps.jpg sebagai latar belakang */}
         <img
           src="/pps.jpg"
           alt="LSM Paguyuban Pizza Sandy Shores"
           className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
         />
 
-        {/* Lapisan solid gelap agar teks putih, kuning, & merah sangat tajam terbaca di kedua mode tanpa gradasi */}
+        {/* Lapisan solid gelap agar teks putih, kuning, & merah sangat tajam terbaca */}
         <div className="absolute inset-0 bg-black/60 pointer-events-none" />
 
         {/* Kalimat Utama Berada Tepat di Depan pps.jpg dengan Logo & Efek Typing 3 Baris Rapi */}
         <div className="relative z-10 max-w-5xl px-3 sm:px-6 py-4 flex flex-col items-center justify-center">
-          {/* Logo PPS di atas Judul Banner dengan Animasi Kedatangan */}
+          {/* Logo PPS di atas Judul Banner */}
           <div className="mb-2.5 sm:mb-4 select-none animate-logo-arrival">
             <img
               src="/logo.png"
@@ -122,7 +175,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
         </div>
       </div>
 
-      {/* 2. Seluruh Konten Lainnya Dipindahkan ke Luar / di Bawah Box Gambar */}
+      {/* 2. Seluruh Konten Slogan, Legalitas & CTA */}
       <div className="mt-8 text-center max-w-4xl mx-auto flex flex-col items-center w-full px-4">
         {/* Slogan */}
         <p className="font-body text-base sm:text-xl md:text-2xl text-slate-900 dark:text-slate-200 leading-relaxed mb-4 font-black">
@@ -176,10 +229,18 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
           </a>
 
           <a
-            href="#structure"
+            href="#program"
             className="btn btn-red border-2 border-black shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black"
           >
-            <Users size={17} className="text-[#FACC15]" />
+            <Sparkles size={17} className="text-[#FACC15]" />
+            <span>Program Warga</span>
+          </a>
+
+          <a
+            href="#structure"
+            className="btn bg-white dark:bg-[#1E222D] hover:bg-slate-100 dark:hover:bg-[#252A38] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black"
+          >
+            <Users size={17} className="text-[#DC2626] dark:text-[#FACC15]" />
             <span>Susunan Pengurus</span>
           </a>
 
@@ -199,28 +260,55 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
         </div>
       </div>
 
-      {/* 3. 4 Pilar Fokus Lapangan (Dinamis dari Admin Dashboard) */}
+      {/* 3. 4 Indikator Fakta & Kredibilitas Lembaga (Menggantikan pilar duplikat dengan metrik riil) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 w-full">
-        {activePillars.map((pilar, idx) => {
-          const meta = pillarMeta[idx % pillarMeta.length];
-          const Icon = meta.icon;
+        {credibilityMetrics.map((item, idx) => {
+          const Icon = item.icon;
+          const WrapperTag = item.clickable ? "button" : "div";
           return (
-            <div
+            <WrapperTag
               key={idx}
-              className="card-brutal p-5 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex items-start gap-3.5"
+              type={item.clickable ? "button" : undefined}
+              onClick={item.onClick || undefined}
+              className={`card-brutal p-5 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex items-start gap-3.5 text-left w-full transition-all duration-200 ${
+                item.clickable
+                  ? "hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#000] cursor-pointer group"
+                  : ""
+              }`}
+              title={item.hint || undefined}
             >
-              <div className={`w-10 h-10 rounded-xl ${meta.bg} border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0`}>
-                <Icon size={20} className={meta.iconColor} />
+              <div
+                className={`w-11 h-11 rounded-xl ${item.iconBg} border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0 ${
+                  item.clickable ? "group-hover:scale-105 transition-transform" : ""
+                }`}
+              >
+                <Icon size={20} />
               </div>
-              <div>
-                <div className="card-label text-[11px] mb-1 text-slate-700 dark:text-slate-400">
-                  {pilar.label}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1.5 mb-1">
+                  <span className="card-label text-[10px] sm:text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">
+                    {item.label}
+                  </span>
+                  <span
+                    className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border ${item.badgeClass}`}
+                  >
+                    {item.badge}
+                  </span>
                 </div>
-                <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-200">
-                  {pilar.title}
+                <div className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100 truncate">
+                  {item.value}
+                </div>
+                <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 flex items-center justify-between gap-1">
+                  <span className="truncate">{item.desc}</span>
+                  {item.clickable && (
+                    <ExternalLink
+                      size={11}
+                      className="shrink-0 text-[#DC2626] dark:text-[#FACC15] opacity-0 group-hover:opacity-100 transition-opacity"
+                    />
+                  )}
                 </div>
               </div>
-            </div>
+            </WrapperTag>
           );
         })}
       </div>

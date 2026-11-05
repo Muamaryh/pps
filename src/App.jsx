@@ -3,6 +3,7 @@ import { loadCloudData, defaultData, mergeWithDefaults, sanitizeSandyShores } fr
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import About from "./components/About";
+import ProgramsShowcase from "./components/ProgramsShowcase";
 import OrgStructure from "./components/OrgStructure";
 import GalleryPage from "./components/GalleryPage";
 import Footer from "./components/Footer";
@@ -694,8 +695,10 @@ export default function App() {
             <Hero
               heading={data.heading}
               subtext={data.subtext}
-              heroPillars={data.heroPillars}
+              memberCount={memberCount}
               onOpenPermit={() => setIsPermitModalOpen(true)}
+              onOpenMembersDirectory={handleOpenMembersDirectory}
+              onOpenTransparency={handleOpenTransparency}
               onNavigateToGallery={handleNavigateToGallery}
             />
 
@@ -707,6 +710,13 @@ export default function App() {
               visionMission={data.visionMission}
               charterTitle={data.charterTitle}
               onShowToast={showToast}
+            />
+
+            {/* Program & Layanan Unggulan Warga */}
+            <ProgramsShowcase
+              onOpenTransparency={handleOpenTransparency}
+              onOpenServicePortal={handleOpenServicePortal}
+              onOpenBansos={handleOpenBansosModal}
             />
 
             {/* Struktur Organisasi Section */}
