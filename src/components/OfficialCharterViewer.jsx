@@ -140,7 +140,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
       {documentView === "PERMIT_HD" && (
         <div className="flex flex-col items-center gap-5">
           {/* Sertifikat Kertas Asli HD */}
-          <div className="w-full max-w-2xl rounded-sm bg-[#EFECE6] text-slate-900 border-[3px] border-[#2C2925] shadow-[6px_6px_0px_#000000] p-6 sm:p-10 font-serif leading-relaxed relative overflow-hidden select-text">
+          <div className="w-full max-w-2xl rounded-2xl bg-[#EFECE6] text-slate-900 border-[3px] border-[#2C2925] shadow-[6px_6px_0px_#000000] p-6 sm:p-10 font-serif leading-relaxed relative overflow-hidden select-text">
             {/* Header Dokumen */}
             <div className="text-center space-y-1 pb-4">
               <div className="text-[10px] tracking-[0.25em] font-mono text-[#8C3A3A] font-black uppercase">
@@ -165,7 +165,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
               </div>
 
               {/* Issuer Meta Box */}
-              <div className="col-span-8 sm:col-span-9 p-3 rounded-lg bg-white/70 border border-[#4A453E]/40 font-mono text-xs text-slate-800 grid grid-cols-2 gap-2 shadow-xs">
+              <div className="col-span-8 sm:col-span-9 p-3 rounded-xl bg-white/70 border border-[#4A453E]/40 font-mono text-xs text-slate-800 grid grid-cols-2 gap-2 shadow-xs">
                 <div>
                   <span className="text-[9px] text-slate-500 uppercase block font-bold">ISSUER FIRSTNAME</span>
                   <span className="font-bold text-xs">{GOVERNMENT_PERMIT_DATA.issuer.firstName}</span>
@@ -204,7 +204,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
               </p>
 
               {/* Data Komunitas */}
-              <div className="p-3.5 rounded bg-white/50 border-l-4 border-[#2C2925] space-y-1 font-mono text-xs not-italic">
+              <div className="p-3.5 rounded-xl bg-white/50 border-l-4 border-[#2C2925] space-y-1 font-mono text-xs not-italic">
                 <div className="flex">
                   <span className="w-36 text-slate-600 font-bold">Nama Komunitas</span>
                   <span className="font-black text-slate-900">: {GOVERNMENT_PERMIT_DATA.community.name}</span>
@@ -271,7 +271,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 </p>
 
                 {/* Box Tanda Tangan Pemerintah */}
-                <div className="sm:col-span-4 p-3 rounded bg-white/90 border border-black/30 flex flex-col justify-between h-24">
+                <div className="sm:col-span-4 p-3 rounded-xl bg-white/90 border border-black/30 flex flex-col justify-between h-24">
                   <div className="flex items-center justify-between text-[9px] font-mono uppercase font-bold">
                     <span className="text-slate-500">SIGN HERE</span>
                     <span className="text-red-700 font-black">COPY</span>
@@ -294,7 +294,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
       {documentView === "CHARTER" && (
         <div className="flex flex-col gap-6">
           {/* Kop Surat Dokumen Kenegaraan / Naskah Konstitusi */}
-          <div className="p-5 sm:p-7 rounded-lg bg-gradient-to-b from-[#FFFDF9] to-[#F8F5EE] dark:from-[#1E212B] dark:to-[#171922] border-[2.5px] border-black dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col items-center text-center gap-3">
+          <div className="p-5 sm:p-7 rounded-2xl bg-gradient-to-b from-[#FFFDF9] to-[#F8F5EE] dark:from-[#1E212B] dark:to-[#171922] border-[2.5px] border-black dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col items-center text-center gap-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FACC15] text-slate-950 font-mono text-xs font-black uppercase tracking-wider border border-black shadow-[1.5px_1.5px_0px_#000]">
               <Scale size={14} />
               <span>DOKUMEN KONSTITUSI INTERNAL ORGANISASI • {OFFICIAL_CHARTER_METADATA.edition}</span>
@@ -312,13 +312,13 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
               </p>
             </div>
 
-            <div className="py-1 px-4 rounded bg-slate-900 text-[#FACC15] font-mono text-xs font-black tracking-wider border border-black shadow-[2px_2px_0px_#000]">
+            <div className="py-1 px-4 rounded-lg bg-slate-900 text-[#FACC15] font-mono text-xs font-black tracking-wider border border-black shadow-[2px_2px_0px_#000]">
               NOMOR: {OFFICIAL_CHARTER_METADATA.documentNumber}
             </div>
 
             {/* 4 Metadata Legalitas */}
             <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mt-2 pt-4 border-t-2 border-dashed border-black/20 dark:border-white/20 text-left font-mono">
-              <div className="p-2.5 rounded bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
                 <UserCheck size={16} className="text-[#DC2626] dark:text-[#FACC15] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Penanggung Jawab</span>
@@ -326,7 +326,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 </div>
               </div>
 
-              <div className="p-2.5 rounded bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
                 <MapPin size={16} className="text-[#DC2626] dark:text-[#FACC15] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Alamat Sekretariat</span>
@@ -334,7 +334,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 </div>
               </div>
 
-              <div className="p-2.5 rounded bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
                 <ShieldCheck size={16} className="text-[#DC2626] dark:text-[#FACC15] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Nomor Surat Izin</span>
@@ -342,7 +342,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 </div>
               </div>
 
-              <div className="p-2.5 rounded bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
                 <Calendar size={16} className="text-[#DC2626] dark:text-[#FACC15] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Tanggal Penetapan Izin</span>

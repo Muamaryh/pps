@@ -97,7 +97,7 @@ export default function LightboxModal({
 
           <button
             onClick={onClose}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] bg-[#DC2626] hover:bg-[#B91C1C] text-white flex items-center justify-center font-bold cursor-pointer transition-transform active:translate-x-0.5 active:translate-y-0.5"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] bg-[#DC2626] hover:bg-[#B91C1C] text-white flex items-center justify-center font-bold cursor-pointer transition-transform active:translate-x-0.5 active:translate-y-0.5"
             aria-label="Tutup"
             title="Tutup (Esc)"
           >
@@ -112,7 +112,7 @@ export default function LightboxModal({
           onTouchEnd={handleTouchEnd}
         >
           {/* Active Image Frame */}
-          <div className="relative inline-block overflow-hidden rounded-xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000] bg-white/5 max-w-full leading-none">
+          <div className="relative inline-block overflow-hidden rounded-2xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000] bg-white/5 max-w-full leading-none">
             <img
               key={currentIndex}
               src={currentPhoto}
@@ -145,7 +145,7 @@ export default function LightboxModal({
                     key={idx}
                     type="button"
                     onClick={() => setCurrentIndex(idx)}
-                    className={`w-14 h-11 sm:w-16 sm:h-12 rounded overflow-hidden border-2 shrink-0 transition-all ${
+                    className={`w-14 h-11 sm:w-16 sm:h-12 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${
                       isActive
                         ? "border-[#FACC15] scale-110 shadow-[2px_2px_0px_#000] ring-2 ring-black"
                         : "border-black/50 opacity-60 hover:opacity-100"

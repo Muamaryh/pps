@@ -37,7 +37,16 @@ export default {
         "brutal-red": "4px 4px 0px 0px #DC2626",
       },
       borderRadius: {
-        brutal: "6px",
+        none: "0px",
+        sm: "8px",
+        DEFAULT: "12px", // Default rounded class becomes soft and tactile (no sharp 4px corners)
+        md: "12px",
+        lg: "16px",
+        xl: "20px",
+        "2xl": "24px",
+        "3xl": "32px",
+        full: "9999px",
+        brutal: "16px",
       },
     },
   },

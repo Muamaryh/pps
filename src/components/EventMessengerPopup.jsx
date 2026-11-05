@@ -67,7 +67,7 @@ export default function EventMessengerPopup({
     <div className="select-none pointer-events-auto font-sans flex flex-col items-end">
       {/* Pop-up Window Card (Messenger Chat Style) */}
       {isOpen ? (
-        <div className="w-[310px] sm:w-[360px] rounded-xl border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_0px_#000000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col animate-slideUp">
+        <div className="w-[310px] sm:w-[360px] rounded-2xl border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_0px_#000000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col animate-slideUp">
           
           {/* Header Messenger Bar */}
           <div className="px-3.5 py-2.5 bg-[#FACC15] dark:bg-[#EAB308] border-b-2 border-black flex items-center justify-between text-slate-950">

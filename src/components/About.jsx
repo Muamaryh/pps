@@ -108,7 +108,7 @@ export default function About({
             >
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <div className={`w-11 h-11 rounded ${meta.iconBg} border-2 border-black dark:border-[#334155] shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0`}>
+                  <div className={`w-11 h-11 rounded-xl ${meta.iconBg} border-2 border-black dark:border-[#334155] shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0`}>
                     <Icon size={22} />
                   </div>
                   <span className="badge-brutal text-[11px] uppercase py-0.5 px-2.5 bg-transparent border-2 border-black dark:border-[#475569] text-slate-800 dark:text-slate-200">
@@ -147,7 +147,7 @@ export default function About({
             </p>
           </div>
 
-          <div className="lg:col-span-5 p-5 sm:p-6 rounded-lg bg-[#FFFDF9] dark:bg-[#1F222C] border-2 border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000]">
+          <div className="lg:col-span-5 p-5 sm:p-6 rounded-2xl bg-[#FFFDF9] dark:bg-[#1F222C] border-2 border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000]">
             <h4 className="font-heading font-black text-base uppercase text-slate-950 dark:text-slate-200 mb-4 flex items-center gap-2">
               <Target size={18} className="text-[#DC2626] dark:text-[#FACC15]" />
               <span>{activeVM.missionTitle}</span>
@@ -155,7 +155,7 @@ export default function About({
             <ul className="space-y-3 text-xs sm:text-sm text-slate-900 dark:text-slate-300 font-semibold">
               {activeVM.missionItems.map((item, mIdx) => (
                 <li key={mIdx} className="flex items-start gap-3">
-                  <span className={`w-6 h-6 rounded ${mIdx % 2 === 0 ? "bg-[#DC2626] text-white" : "bg-[#FACC15] text-black"} flex items-center justify-center shrink-0 text-xs font-black border border-black shadow-sm`}>
+                  <span className={`w-6 h-6 rounded-lg ${mIdx % 2 === 0 ? "bg-[#DC2626] text-white" : "bg-[#FACC15] text-black"} flex items-center justify-center shrink-0 text-xs font-black border border-black shadow-sm`}>
                     {mIdx + 1}
                   </span>
                   <span>{item}</span>
@@ -173,7 +173,7 @@ export default function About({
           className="w-full px-5 sm:px-7 py-4 sm:py-5 bg-[#FFFDF9] dark:bg-[#1F222C] hover:bg-[#FACC15]/15 transition-colors flex items-center justify-between text-left font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-200 cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shadow-[1.5px_1.5px_0px_#000] shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shadow-[1.5px_1.5px_0px_#000] shrink-0">
               <Scale size={18} />
             </div>
             <div>

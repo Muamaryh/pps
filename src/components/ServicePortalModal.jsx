@@ -653,7 +653,7 @@ export default function ServicePortalModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-3xl max-h-[92vh] rounded-xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+      <div className="w-full max-w-3xl max-h-[92vh] rounded-2xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
         
         {/* Header: Logo PPS Ukuran Full & Judul Resmi LSM PPS */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1F222C]">
@@ -2186,7 +2186,7 @@ export default function ServicePortalModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="p-4 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-2xl w-full rounded-xl overflow-hidden flex flex-col gap-3 shadow-[8px_8px_0px_#000] max-h-[92vh]"
+            className="p-4 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-2xl w-full rounded-2xl overflow-hidden flex flex-col gap-3 shadow-[8px_8px_0px_#000] max-h-[92vh]"
           >
             <div className="flex items-center justify-between w-full pb-2 border-b-2 border-black/15 dark:border-white/15">
               <div className="flex items-center gap-2">

@@ -145,7 +145,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
       {/* Empty State */}
       {filteredMembers.length === 0 ? (
         <div className="card-brutal p-12 text-center bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] flex flex-col items-center justify-center">
-          <div className="w-14 h-14 rounded bg-[#FACC15] text-[#111827] border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center mb-4">
+          <div className="w-14 h-14 rounded-xl bg-[#FACC15] text-[#111827] border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center mb-4">
             <User size={28} />
           </div>
           <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-200 mb-1.5">
@@ -195,7 +195,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                               alt={member.name}
                               className="w-full h-full object-cover object-top group-hover:scale-103 transition-transform duration-200"
                             />
-                            <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-[#DC2626] text-white border border-black opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-heading font-black text-[10px]">
+                            <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-[#DC2626] text-white border border-black opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-heading font-black text-[10px]">
                               <ZoomIn size={11} />
                               <span>Zoom</span>
                             </div>

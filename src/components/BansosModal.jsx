@@ -394,11 +394,11 @@ export default function BansosModal({
       aria-labelledby="bansos-modal-title"
       className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn"
     >
-      <div className="relative w-full max-w-4xl bg-[#FFFDF9] dark:bg-[#161822] border-3 border-black dark:border-[#475569] shadow-[8px_8px_0px_#000] text-slate-900 dark:text-slate-100 my-auto rounded-xl overflow-hidden transition-all">
+      <div className="relative w-full max-w-4xl bg-[#FFFDF9] dark:bg-[#161822] border-3 border-black dark:border-[#475569] shadow-[8px_8px_0px_#000] text-slate-900 dark:text-slate-100 my-auto rounded-2xl overflow-hidden transition-all">
         {/* Top Header Banner */}
         <div className="bg-[#FACC15] text-[#111827] border-b-3 border-black px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-black text-[#FACC15] flex items-center justify-center font-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,0.4)]">
+            <div className="w-10 h-10 rounded-xl bg-black text-[#FACC15] flex items-center justify-center font-black border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,0.4)]">
               <Gift size={22} />
             </div>
             <div>
@@ -1130,7 +1130,7 @@ export default function BansosModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col max-h-[90vh]"
+            className="w-full max-w-lg rounded-2xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col max-h-[90vh]"
           >
             {/* Header Modal */}
             <div className="flex items-center justify-between px-4 py-3 border-b-2 border-black bg-[#FACC15] text-slate-950">

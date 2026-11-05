@@ -77,13 +77,13 @@ export default function KasCopyModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-xl shadow-[8px_8px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-2xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-2xl shadow-[8px_8px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Sticky di atas agar tidak tenggelam */}
         <div className="sticky top-0 z-20 flex items-center justify-between p-4 border-b-2 border-black dark:border-[#475569] bg-white dark:bg-[#161820] bg-[var(--modal-bg)] shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+            <div className="w-8 h-8 rounded-lg bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shrink-0 shadow-[1.5px_1.5px_0px_#000]">
               <Copy size={18} />
             </div>
             <div>
@@ -201,14 +201,14 @@ export default function KasCopyModal({
             <button
               type="button"
               onClick={onClose}
-              className="py-2.5 px-4 rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
+              className="py-2.5 px-4 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
             >
               Tutup
             </button>
             <button
               type="button"
               onClick={handleCopy}
-              className={`py-2.5 px-5 rounded text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-2 ${
+              className={`py-2.5 px-5 rounded-xl text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-2 ${
                 copied
                   ? "bg-emerald-500 text-slate-950"
                   : "bg-[#FACC15] hover:bg-[#EAB308] text-slate-950"

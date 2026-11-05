@@ -26,7 +26,7 @@ export default function PermitModal({ isOpen, onClose, onShowToast }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] rounded-xl border-[3px] border-black dark:border-[#475569] shadow-[8px_8px_0px_#000000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-4xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] rounded-2xl border-[3px] border-black dark:border-[#475569] shadow-[8px_8px_0px_#000000] flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal - Pinned & Sticky di atas agar tombol close tidak pernah tenggelam saat scroll */}
@@ -44,7 +44,7 @@ export default function PermitModal({ isOpen, onClose, onShowToast }) {
                 <h3 className="text-xs sm:text-base font-heading font-black uppercase text-slate-900 dark:text-slate-100 truncate">
                   Surat Izin Komunitas &amp; Legalitas Organisasi
                 </h3>
-                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
                   RESMI PEMERINTAH
                 </span>
               </div>
@@ -58,7 +58,7 @@ export default function PermitModal({ isOpen, onClose, onShowToast }) {
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-md bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000000] flex items-center justify-center shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000000] flex items-center justify-center shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-transform"
             aria-label="Tutup dokumen"
             title="Tutup (Esc)"
           >

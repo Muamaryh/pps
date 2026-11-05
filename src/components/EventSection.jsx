@@ -57,8 +57,8 @@ export default function EventSection({ onOpenRegisterEvent }) {
 
               {/* Event Metadatas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-lg flex items-center gap-3">
-                  <div className="w-9 h-9 rounded bg-[#FACC15] border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-xl flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#FACC15] border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
                     <Calendar size={18} className="text-slate-900" />
                   </div>
                   <div>
@@ -67,8 +67,8 @@ export default function EventSection({ onOpenRegisterEvent }) {
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-lg flex items-center gap-3">
-                  <div className="w-9 h-9 rounded bg-[#DC2626] border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-xl flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#DC2626] border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
                     <Clock size={18} className="text-white" />
                   </div>
                   <div>
@@ -77,8 +77,8 @@ export default function EventSection({ onOpenRegisterEvent }) {
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-lg flex items-center gap-3">
-                  <div className="w-9 h-9 rounded bg-emerald-500 border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-xl flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500 border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
                     <MapPin size={18} className="text-white" />
                   </div>
                   <div>
@@ -87,8 +87,8 @@ export default function EventSection({ onOpenRegisterEvent }) {
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-lg flex items-center gap-3">
-                  <div className="w-9 h-9 rounded bg-amber-400 border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-xl flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-400 border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
                     <Award size={18} className="text-slate-900" />
                   </div>
                   <div>
@@ -100,7 +100,7 @@ export default function EventSection({ onOpenRegisterEvent }) {
             </div>
 
             {/* Right Column: Benefits Box & Direct CTA */}
-            <div className="lg:col-span-5 flex flex-col justify-between h-full bg-amber-50/70 dark:bg-[#14161F] p-5 sm:p-6 rounded-xl border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000]">
+            <div className="lg:col-span-5 flex flex-col justify-between h-full bg-amber-50/70 dark:bg-[#14161F] p-5 sm:p-6 rounded-2xl border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000]">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-black/10 dark:border-white/10">
                   <Users size={18} className="text-[#DC2626] dark:text-[#FACC15]" />

@@ -570,7 +570,7 @@ export default function JasraPanel({
       {/* 1. Header Card with Actions */}
       <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-lg bg-[#DC2626] border-2 border-black flex items-center justify-center text-[#FACC15] shadow-[2px_2px_0px_#000] shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#DC2626] border-2 border-black flex items-center justify-center text-[#FACC15] shadow-[2px_2px_0px_#000] shrink-0">
             <HeartHandshake size={24} />
           </div>
           <div>
@@ -578,7 +578,7 @@ export default function JasraPanel({
               <h3 className="font-heading font-black text-base sm:text-lg uppercase text-slate-900 dark:text-slate-100">
                 Kelola Voucher Jasra
               </h3>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] border border-black shadow-xs">
+              <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] border border-black shadow-xs">
                 SUBSIDI PEMERINTAH KOTA
               </span>
             </div>
@@ -643,7 +643,7 @@ export default function JasraPanel({
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-3 border-b-2 border-black/10 dark:border-white/10">
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-500">
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-500">
                   BATCH AKTIF
                 </span>
                 <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
@@ -663,7 +663,7 @@ export default function JasraPanel({
             </div>
 
             {/* Countdown Badge & Expiration Indicator */}
-            <div className={`p-3 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-3 shrink-0 ${
+            <div className={`p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-3 shrink-0 ${
               batchRemaining.isExpired
                 ? "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
                 : "bg-[#FACC15] text-slate-950"
@@ -684,7 +684,7 @@ export default function JasraPanel({
           </div>
 
           {/* Sisa Hari Penjelasan Real-time */}
-          <div className="p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-center gap-2">
+          <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-center gap-2">
             <Info size={15} className="text-amber-600 shrink-0" />
             <div className="leading-normal text-[11px] sm:text-xs">
               Masa berlaku batch dihitung 7 hari sejak diterima (sampai {formatJasraShortDate(batchRemaining.expiresAt)}). Penerima yang dicatat hari ini otomatis mendapatkan sisa masa berlaku {batchRemaining.daysRemaining} hari.
@@ -697,7 +697,7 @@ export default function JasraPanel({
             <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Stok Treatment</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
                   {effectiveRemainingTreatment} / {effectiveInitialTreatment} Sisa
                 </span>
               </div>
@@ -725,7 +725,7 @@ export default function JasraPanel({
             <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Stok Pingsan</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
                   {effectiveRemainingPingsan} / {effectiveInitialPingsan} Sisa
                 </span>
               </div>
@@ -753,7 +753,7 @@ export default function JasraPanel({
             <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Penerima Manfaat</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-400">
+                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-400">
                   {effectiveDistributedCount} Warga
                 </span>
               </div>
@@ -805,7 +805,7 @@ export default function JasraPanel({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari nama penerima, No. IC / KTP, nomor HP..."
-              className="w-full pl-9 pr-8 py-2 text-xs rounded border-2 border-black dark:border-[#475569] bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border-2 border-black dark:border-[#475569] bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
             />
             {searchQuery && (
               <button
@@ -844,7 +844,7 @@ export default function JasraPanel({
         </div>
 
         {/* Table of Distributions */}
-        <div className="overflow-x-auto border-2 border-black dark:border-[#475569] rounded-lg">
+        <div className="overflow-x-auto border-2 border-black dark:border-[#475569] rounded-xl overflow-hidden">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-900 text-white font-heading font-black uppercase text-[11px] tracking-wider border-b-2 border-black">
@@ -875,11 +875,11 @@ export default function JasraPanel({
                       <td className="py-2.5 px-3">
                         <div className="flex items-center gap-1.5">
                           {isMember ? (
-                            <span className="w-5 h-5 rounded bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0" title="Anggota Resmi LSM PPS">
+                            <span className="w-5 h-5 rounded-md bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0" title="Anggota Resmi LSM PPS">
                               <UserCheck size={12} />
                             </span>
                           ) : (
-                            <span className="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-black/30 flex items-center justify-center shrink-0" title="Warga Luar Anggota">
+                            <span className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-black/30 flex items-center justify-center shrink-0" title="Warga Luar Anggota">
                               <UserX size={12} />
                             </span>
                           )}
@@ -898,7 +898,7 @@ export default function JasraPanel({
                         {dist.citizenId || "-"}
                       </td>
                       <td className="py-2.5 px-3">
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 border border-amber-400 font-mono text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-400 font-mono text-[11px] font-bold text-amber-900 dark:text-amber-200">
                           <span>{dist.treatmentCount} Treatment</span>
                           <span>•</span>
                           <span>{dist.pingsanCount} Pingsan</span>
@@ -932,7 +932,7 @@ export default function JasraPanel({
                         <button
                           type="button"
                           onClick={() => handleDeleteDistribution(dist)}
-                          className="p-1 rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 border border-transparent hover:border-red-400 transition-colors cursor-pointer"
+                          className="p-1 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 border border-transparent hover:border-red-400 transition-colors cursor-pointer"
                           title="Batalkan & kembalikan kuota ke batch"
                         >
                           <Trash2 size={14} />
@@ -956,7 +956,7 @@ export default function JasraPanel({
       {/* 4. Modal: Catat Batch Jasra dari Pemerintah */}
       {isBatchModalOpen && (
         <div className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-[6px_6px_0px_#000] rounded-xl overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-[6px_6px_0px_#000] rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
             <div className="px-5 py-4 bg-[#FACC15] text-[#111827] border-b-2 border-black flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 size={20} className="text-[#DC2626]" />
@@ -1003,7 +1003,7 @@ export default function JasraPanel({
               </div>
 
               {/* Kuota Treatment & Pingsan */}
-              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border-2 border-black dark:border-amber-700/60">
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border-2 border-black dark:border-amber-700/60">
                 <div>
                   <label className="block text-xs font-black text-[#DC2626] dark:text-red-400 uppercase mb-1">
                     Kuota Treatment
@@ -1071,7 +1071,7 @@ export default function JasraPanel({
               </div>
 
               {/* Alert Countdown 7 Hari */}
-              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-400 text-xs text-blue-950 dark:text-blue-200 flex items-start gap-2">
+              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-400 text-xs text-blue-950 dark:text-blue-200 flex items-start gap-2">
                 <Clock size={16} className="text-blue-600 shrink-0 mt-0.5" />
                 <div className="leading-relaxed">
                   <strong>Masa Berlaku 7 Hari Otomatis:</strong> Sistem akan mulai menghitung mundur 7 hari terhitung sejak tanggal &amp; jam di atas. Voucher yang diserahkan ke warga/anggota di hari ke-2 atau ke-3 akan memiliki sisa masa berlaku mengikuti batas 7 hari batch ini.
@@ -1114,7 +1114,7 @@ export default function JasraPanel({
       {/* 5. Modal: Bagikan Voucher ke Anggota / Warga Luar */}
       {isDistributeModalOpen && (
         <div className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-[6px_6px_0px_#000] rounded-xl overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-[6px_6px_0px_#000] rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
             <div className="px-5 py-4 bg-[#DC2626] text-white border-b-2 border-black flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Gift size={20} className="text-[#FACC15]" />
@@ -1134,7 +1134,7 @@ export default function JasraPanel({
             <form onSubmit={handleSaveDistribution} className="p-5 overflow-y-auto space-y-4">
               {/* Info Active Batch Remaining */}
               {activeBatch && (
-                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border-2 border-black text-xs flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-2 border-black text-xs flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase block">Batch Alokasi Aktif</span>
                     <strong className="font-heading font-black text-slate-900 dark:text-slate-100">
@@ -1158,7 +1158,7 @@ export default function JasraPanel({
                   <button
                     type="button"
                     onClick={() => setDistFormData({ ...distFormData, recipientType: "MEMBER" })}
-                    className={`py-2 px-3 rounded-lg text-xs font-heading font-black border-2 border-black flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    className={`py-2 px-3 rounded-xl text-xs font-heading font-black border-2 border-black flex items-center justify-center gap-2 cursor-pointer transition-all ${
                       distFormData.recipientType === "MEMBER"
                         ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000]"
                         : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300"
@@ -1170,7 +1170,7 @@ export default function JasraPanel({
                   <button
                     type="button"
                     onClick={() => setDistFormData({ ...distFormData, recipientType: "NON_MEMBER", selectedMemberId: "" })}
-                    className={`py-2 px-3 rounded-lg text-xs font-heading font-black border-2 border-black flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    className={`py-2 px-3 rounded-xl text-xs font-heading font-black border-2 border-black flex items-center justify-center gap-2 cursor-pointer transition-all ${
                       distFormData.recipientType === "NON_MEMBER"
                         ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000]"
                         : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300"
@@ -1196,7 +1196,7 @@ export default function JasraPanel({
 
                   {distFormData.selectedMemberId && selectedMember ? (
                     /* Selected Member Preview Card */
-                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border-2 border-black dark:border-amber-500/60 shadow-[2px_2px_0px_#000] flex items-center justify-between gap-3">
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border-2 border-black dark:border-amber-500/60 shadow-[2px_2px_0px_#000] flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         {selectedMember.photoUrl ? (
                           <img
@@ -1214,7 +1214,7 @@ export default function JasraPanel({
                             <span className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100 truncate">
                               {distFormData.recipientName}
                             </span>
-                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-black text-[#FACC15]">
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-black text-[#FACC15]">
                               CID: {distFormData.citizenId || "-"}
                             </span>
                           </div>
@@ -1241,7 +1241,7 @@ export default function JasraPanel({
                           }));
                           setIsMemberDropdownOpen(true);
                         }}
-                        className="px-2.5 py-1 text-[11px] font-heading font-black rounded bg-white dark:bg-[#1A1D26] hover:bg-slate-100 text-slate-900 dark:text-slate-200 border-2 border-black shadow-[1.5px_1.5px_0px_#000] shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                        className="px-2.5 py-1 text-[11px] font-heading font-black rounded-md bg-white dark:bg-[#1A1D26] hover:bg-slate-100 text-slate-900 dark:text-slate-200 border-2 border-black shadow-[1.5px_1.5px_0px_#000] shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
                       >
                         Ganti
                       </button>
@@ -1262,7 +1262,7 @@ export default function JasraPanel({
                           }}
                           onFocus={() => setIsMemberDropdownOpen(true)}
                           placeholder="Ketik nama anggota atau Citizen ID..."
-                          className="w-full pl-9 pr-9 py-2 text-xs font-bold rounded-lg border-2 border-black dark:border-[#475569] bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                          className="w-full pl-9 pr-9 py-2 text-xs font-bold rounded-xl border-2 border-black dark:border-[#475569] bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
                         />
                         {memberSearch && (
                           <button
@@ -1277,7 +1277,7 @@ export default function JasraPanel({
 
                       {/* Dropdown list */}
                       {isMemberDropdownOpen && (
-                        <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto divide-y divide-black/10 dark:divide-white/10 border-2 border-black dark:border-[#475569] rounded-lg bg-white dark:bg-[#1A1D26] shadow-[4px_4px_0px_#000]">
+                        <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto divide-y divide-black/10 dark:divide-white/10 border-2 border-black dark:border-[#475569] rounded-xl overflow-hidden bg-white dark:bg-[#1A1D26] shadow-[4px_4px_0px_#000]">
                           {filteredMembersForPicker.length === 0 ? (
                             <div className="p-3 text-center text-xs text-slate-500 font-medium">
                               Tidak ada anggota yang cocok dengan "{memberSearch}"
@@ -1314,7 +1314,7 @@ export default function JasraPanel({
                                     </div>
                                   </div>
                                   <span
-                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${
+                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${
                                       isClaimed
                                         ? "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700"
                                         : "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700"
@@ -1337,7 +1337,7 @@ export default function JasraPanel({
               {distFormData.recipientType === "NON_MEMBER" && (
                 <div className="space-y-3">
                   {/* Notice */}
-                  <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700/50 text-xs text-amber-900 dark:text-amber-200">
+                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700/50 text-xs text-amber-900 dark:text-amber-200">
                     Penyaluran jatah voucher Jasra (<strong>10 Tritmen • 10 Pingsan</strong>) untuk warga umum di luar anggota paguyuban. Cukup unggah foto KTP IC untuk scan otomatis.
                   </div>
 
@@ -1349,8 +1349,8 @@ export default function JasraPanel({
                     </label>
 
                     {distFormData.ktpPhoto ? (
-                      <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border-2 border-dashed border-black/30 dark:border-white/20 bg-slate-50 dark:bg-[#1C202C]">
-                        <div className="relative w-28 h-20 rounded border-2 border-black overflow-hidden bg-slate-900 shrink-0 shadow-[2px_2px_0px_#000]">
+                      <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-xl border-2 border-dashed border-black/30 dark:border-white/20 bg-slate-50 dark:bg-[#1C202C]">
+                        <div className="relative w-28 h-20 rounded-lg border-2 border-black overflow-hidden bg-slate-900 shrink-0 shadow-[2px_2px_0px_#000]">
                           <img
                             src={distFormData.ktpPhoto}
                             alt="KTP Preview"
@@ -1372,7 +1372,7 @@ export default function JasraPanel({
                               : "Foto tersimpan di database dan tercatat sebagai bukti penyerahan."}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
-                            <label className="cursor-pointer px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold text-[10px] border border-black/30">
+                            <label className="cursor-pointer px-2.5 py-1 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold text-[10px] border border-black/30">
                               Ganti Foto
                               <input
                                 type="file"
@@ -1390,7 +1390,7 @@ export default function JasraPanel({
                                   cidCandidates: [],
                                 }))
                               }
-                              className="px-2.5 py-1 rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold text-[10px] cursor-pointer"
+                              className="px-2.5 py-1 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold text-[10px] cursor-pointer"
                             >
                               Hapus Foto
                             </button>
@@ -1398,7 +1398,7 @@ export default function JasraPanel({
                         </div>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-dashed border-black/40 dark:border-white/20 bg-slate-50 dark:bg-[#1A1D27] hover:bg-amber-50 dark:hover:bg-[#202533] cursor-pointer transition-colors text-center group">
+                      <label className="flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-black/40 dark:border-white/20 bg-slate-50 dark:bg-[#1A1D27] hover:bg-amber-50 dark:hover:bg-[#202533] cursor-pointer transition-colors text-center group">
                         <ScanLine size={24} className="text-slate-400 group-hover:text-[#DC2626] transition-colors mb-1" />
                         <span className="font-heading font-black text-xs text-slate-800 dark:text-slate-200">
                           Klik untuk Unggah Foto KTP IC Warga
@@ -1457,7 +1457,7 @@ export default function JasraPanel({
                               citizenId: cand.toUpperCase(),
                             }))
                           }
-                          className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/70 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-400 cursor-pointer"
+                          className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/70 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-400 cursor-pointer"
                         >
                           {cand}
                         </button>
@@ -1492,7 +1492,7 @@ export default function JasraPanel({
               </div>
 
               {/* Jatah Voucher yang Diberikan */}
-              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 border-2 border-black">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border-2 border-black">
                 <div className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
                   <span>Jumlah Voucher yang Diserahkan</span>
                   <span className="text-[10px] font-mono font-bold text-slate-500">Standar: 10T + 10P</span>
@@ -1532,7 +1532,7 @@ export default function JasraPanel({
               </div>
 
               {/* Dynamic Remaining Warning */}
-              <div className="p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500 text-xs text-emerald-900 dark:text-emerald-200">
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500 text-xs text-emerald-900 dark:text-emerald-200">
                 <strong>Masa Berlaku:</strong> Penerima voucher akan aktif dengan <strong>sisa masa berlaku {batchRemaining.daysRemaining} hari</strong> (berakhir pada {formatJasraShortDate(batchRemaining.expiresAt)} sesuai jadwal batch pemerintah).
               </div>
 

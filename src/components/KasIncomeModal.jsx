@@ -91,11 +91,11 @@ export default function KasIncomeModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs">
-      <div className="w-full max-w-lg bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-xl shadow-[8px_8px_0px_#000] p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
+      <div className="w-full max-w-lg bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-2xl shadow-[8px_8px_0px_#000] p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b-2 border-black dark:border-[#475569]">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-emerald-600 border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[1.5px_1.5px_0px_#000]">
               <TrendingUp size={18} />
             </div>
             <div>
@@ -110,7 +110,7 @@ export default function KasIncomeModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-slate-500 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-slate-500 transition-colors"
           >
             <X size={18} />
           </button>
@@ -118,13 +118,13 @@ export default function KasIncomeModal({
 
         {/* Ringkasan Saldo Kas Dua Bendahara */}
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="p-2.5 rounded bg-slate-100 dark:bg-[#161820] border border-black/20 flex flex-col gap-0.5">
+          <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#161820] border border-black/20 flex flex-col gap-0.5">
             <span className="text-[10px] text-slate-500 uppercase font-bold">Kas Oita</span>
             <span className="font-mono font-black text-emerald-700 dark:text-emerald-400 text-sm">
               {formatCurrency(oitaBalance)}
             </span>
           </div>
-          <div className="p-2.5 rounded bg-slate-100 dark:bg-[#161820] border border-black/20 flex flex-col gap-0.5">
+          <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#161820] border border-black/20 flex flex-col gap-0.5">
             <span className="text-[10px] text-slate-500 uppercase font-bold">Kas Darren</span>
             <span className="font-mono font-black text-emerald-700 dark:text-emerald-400 text-sm">
               {formatCurrency(darrenBalance)}
@@ -145,7 +145,7 @@ export default function KasIncomeModal({
                   setWallet("Oita");
                   if (responsible === "Darren") setResponsible("Oita");
                 }}
-                className={`p-2.5 rounded border-2 text-left cursor-pointer transition-all ${
+                className={`p-2.5 rounded-xl border-2 text-left cursor-pointer transition-all ${
                   wallet === "Oita"
                     ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] shadow-[2px_2px_0px_#000]"
                     : "bg-white dark:bg-[#1E212B] border-black/20 dark:border-white/20 hover:border-black"
@@ -168,7 +168,7 @@ export default function KasIncomeModal({
                   setWallet("Darren");
                   if (responsible === "Oita") setResponsible("Darren");
                 }}
-                className={`p-2.5 rounded border-2 text-left cursor-pointer transition-all ${
+                className={`p-2.5 rounded-xl border-2 text-left cursor-pointer transition-all ${
                   wallet === "Darren"
                     ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] shadow-[2px_2px_0px_#000]"
                     : "bg-white dark:bg-[#1E212B] border-black/20 dark:border-white/20 hover:border-black"
@@ -301,7 +301,7 @@ export default function KasIncomeModal({
 
           {/* Rincian Penambahan Saldo */}
           {numericAmount > 0 && (
-            <div className="p-3 rounded bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-500/40 text-xs flex flex-col gap-1 font-mono">
+            <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-500/40 text-xs flex flex-col gap-1 font-mono">
               <div className="flex items-center justify-between">
                 <span className="text-emerald-800 dark:text-emerald-300">Estimasi Saldo Kas {wallet} Menjadi:</span>
                 <strong className="text-emerald-800 dark:text-emerald-300 font-black">
@@ -321,14 +321,14 @@ export default function KasIncomeModal({
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="py-2.5 px-4 rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
+              className="py-2.5 px-4 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="py-2.5 px-5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-1.5"
+              className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-1.5"
             >
               <TrendingUp size={15} />
               <span>{isSubmitting ? "Menyimpan..." : "Simpan Pemasukan"}</span>

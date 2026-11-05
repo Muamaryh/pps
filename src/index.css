@@ -17,7 +17,7 @@
   --text-muted: #374151; /* Clearly legible dark gray */
   --border-color: #1A1A1A; /* Solid brutalist outlines */
   --shadow-color: #000000;
-  --radius: 6px;
+  --radius: 12px;
   --btn-yellow: #FACC15; /* Signature Pizza Yellow */
   --btn-red: #DC2626; /* Signature Pizza Red */
   --font-heading: 'Outfit', sans-serif;
@@ -142,7 +142,7 @@ h1, h2, h3, h4, h5, h6 {
 .card-brutal {
   background-color: var(--card-bg);
   border: 2.5px solid var(--border-color);
-  border-radius: var(--radius);
+  border-radius: 16px;
   box-shadow: 5px 5px 0px 0px var(--shadow-color);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }

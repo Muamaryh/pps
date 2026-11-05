@@ -72,7 +72,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
   return (
     <section id="home" className="pt-2 pb-10 sm:pb-14 w-full scroll-mt-24">
       {/* 1. Box Gambar pps.jpg (Ukuran Menyesuaikan Gambar, Teks di Depan Gambar dengan Efek Typing 3 Baris) */}
-      <div className="w-full relative rounded-lg overflow-hidden border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] aspect-[1840/855] min-h-[280px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center p-4 sm:p-8 text-center">
+      <div className="w-full relative rounded-2xl overflow-hidden border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] aspect-[1840/855] min-h-[280px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center p-4 sm:p-8 text-center">
         {/* Gambar pps.jpg sebagai latar belakang (Statis, tidak zoom saat mouse hover) */}
         <img
           src="/pps.jpg"
@@ -133,7 +133,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
         <button
           type="button"
           onClick={onOpenPermit}
-          className="group inline-flex items-center gap-3 px-4 py-2.5 mb-7 rounded-lg bg-[#FFFDF9] dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] hover:shadow-[1.5px_1.5px_0px_#000] hover:translate-x-0.5 hover:translate-y-0.5 cursor-pointer transition-all text-left max-w-xl w-full sm:w-auto"
+          className="group inline-flex items-center gap-3 px-4 py-2.5 mb-7 rounded-xl bg-[#FFFDF9] dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] hover:shadow-[1.5px_1.5px_0px_#000] hover:translate-x-0.5 hover:translate-y-0.5 cursor-pointer transition-all text-left max-w-xl w-full sm:w-auto"
           title="Klik untuk membuka dokumen Surat Izin Komunitas Resmi dari Pemerintah San Andreas"
         >
           <div className="w-10 h-10 rounded-full bg-[#171A21] border-2 border-[#8A7131] flex items-center justify-center shrink-0 p-0.5 shadow-sm group-hover:scale-105 transition-transform">
@@ -148,7 +148,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
               <span className="text-[10px] font-mono font-black uppercase text-[#DC2626] dark:text-[#FACC15] tracking-wider">
                 Terverifikasi Pemerintah San Andreas
               </span>
-              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                 IZIN AKTIF
               </span>
             </div>
@@ -209,7 +209,7 @@ export default function Hero({ heading: _heading, subtext, heroPillars, onOpenPe
               key={idx}
               className="card-brutal p-5 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex items-start gap-3.5"
             >
-              <div className={`w-10 h-10 rounded ${meta.bg} border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0`}>
+              <div className={`w-10 h-10 rounded-xl ${meta.bg} border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center shrink-0`}>
                 <Icon size={20} className={meta.iconColor} />
               </div>
               <div>

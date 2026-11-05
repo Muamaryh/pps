@@ -97,16 +97,16 @@ export default function FloatingActions({
               if (onOpenMembersDirectory) onOpenMembersDirectory();
               else if (onOpenRegister) onOpenRegister();
             }}
-            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
+            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
             title="Lihat Direktori Anggota Resmi LSM PPS & Pendaftaran"
           >
-            <div className="w-7 h-7 rounded bg-[#DC2626] text-white flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-7 h-7 rounded-lg bg-[#DC2626] text-white flex items-center justify-center shrink-0 shadow-sm">
               <Users size={15} />
             </div>
             <div className="flex flex-col text-left">
               <span className="leading-tight">Anggota LSM PPS</span>
             </div>
-            <span className="text-[10px] font-mono bg-black/10 text-slate-900 px-1.5 py-0.5 rounded font-bold">
+            <span className="text-[10px] font-mono bg-black/10 text-slate-900 px-1.5 py-0.5 rounded-md font-bold">
               {displayCount}
             </span>
           </button>
@@ -118,16 +118,16 @@ export default function FloatingActions({
               setIsOpen(false);
               if (onOpenServicePortal) onOpenServicePortal("lapak");
             }}
-            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-lg bg-[#DC2626] hover:bg-[#B91C1C] text-white border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
+            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
             title="Portal Layanan Warga (Lapak UMKM, Request Meeting & Lacak Tiket)"
           >
-            <div className="w-7 h-7 rounded bg-white/20 text-[#FACC15] flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-7 h-7 rounded-lg bg-white/20 text-[#FACC15] flex items-center justify-center shrink-0 shadow-sm">
               <Store size={15} />
             </div>
             <div className="flex flex-col text-left">
               <span className="leading-tight">Daftar Layanan</span>
             </div>
-            <span className="text-[10px] font-mono bg-black/25 text-white px-1.5 py-0.5 rounded font-bold">
+            <span className="text-[10px] font-mono bg-black/25 text-white px-1.5 py-0.5 rounded-md font-bold">
               PORTAL
             </span>
           </button>

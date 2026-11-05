@@ -53,7 +53,7 @@ export default function BrutalistConfirmModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-md rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-150">
+      <div className="w-full max-w-md rounded-2xl bg-[#FFFDF9] dark:bg-[#1E212B] border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className={`flex items-center justify-between px-4 py-3 border-b-2 border-black dark:border-[#475569] ${headerColors[variant] || headerColors.danger}`}>
           <div className="flex items-center gap-2 font-heading font-black text-sm uppercase tracking-wide">
@@ -63,7 +63,7 @@ export default function BrutalistConfirmModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded border border-black dark:border-slate-500 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 flex items-center justify-center font-black hover:scale-105 transition-transform"
+            className="w-7 h-7 rounded-lg border border-black dark:border-slate-500 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 flex items-center justify-center font-black hover:scale-105 transition-transform"
             title="Batal dan Tutup"
           >
             <X size={15} />
@@ -72,7 +72,7 @@ export default function BrutalistConfirmModal({
 
         {/* Body Message */}
         <div className="p-5 flex flex-col gap-3">
-          <div className="p-3.5 rounded bg-amber-50/60 dark:bg-[#161820] border-2 border-black/15 dark:border-white/10 text-xs sm:text-sm font-sans leading-relaxed text-slate-800 dark:text-slate-200">
+          <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-[#161820] border-2 border-black/15 dark:border-white/10 text-xs sm:text-sm font-sans leading-relaxed text-slate-800 dark:text-slate-200">
             {message}
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">

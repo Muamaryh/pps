@@ -521,7 +521,7 @@ export default function TransparencyModal({
                     value={jasraSearch}
                     onChange={(e) => setJasraSearch(e.target.value)}
                     placeholder="Cari nama penerima, Citizen ID (CID), atau telepon..."
-                    className="w-full pl-9 pr-8 py-2 text-xs rounded border-2 border-black dark:border-[#475569] bg-slate-50 dark:bg-[#202534] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border-2 border-black dark:border-[#475569] bg-slate-50 dark:bg-[#202534] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
                   />
                   {jasraSearch && (
                     <button
@@ -749,7 +749,7 @@ export default function TransparencyModal({
                     value={bansosSearch}
                     onChange={(e) => setBansosSearch(e.target.value)}
                     placeholder="Cari nama warga, Citizen ID (CID), atau kode kupon..."
-                    className="w-full pl-9 pr-8 py-2 text-xs rounded border-2 border-black dark:border-[#475569] bg-slate-50 dark:bg-[#202534] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border-2 border-black dark:border-[#475569] bg-slate-50 dark:bg-[#202534] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
                   />
                   {bansosSearch && (
                     <button

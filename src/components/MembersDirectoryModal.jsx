@@ -136,7 +136,7 @@ export default function MembersDirectoryModal({
         role="dialog"
         aria-modal="true"
       >
-        <div className="w-full max-w-5xl max-h-[92vh] rounded-xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+        <div className="w-full max-w-5xl max-h-[92vh] rounded-2xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
           {/* Modal Header */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1F222C]">
             <div className="flex items-center gap-3">
@@ -440,7 +440,7 @@ export default function MembersDirectoryModal({
                           </div>
 
                           {/* Details Info: Citizen ID & Phone */}
-                          <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2.5">
+                          <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded-xl bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2.5">
                             <div>
                               <span className="text-[9px] text-slate-400 font-sans font-bold block">
                                 CITIZEN ID / KTP:
@@ -466,7 +466,7 @@ export default function MembersDirectoryModal({
                           </div>
 
                           {/* Status Voucher Jasra (Warga Luar) */}
-                          <div className="flex flex-col gap-1 p-2 rounded bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
+                          <div className="flex flex-col gap-1 p-2 rounded-xl bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
                             <div className="flex items-center justify-between gap-1">
                               <span className="text-[10px] font-mono font-bold text-slate-500 uppercase flex items-center gap-1">
                                 <Gift size={11} className="text-[#DC2626]" /> VOUCHER JASRA:
@@ -532,7 +532,7 @@ export default function MembersDirectoryModal({
                       </div>
 
                       {/* Details Info: Citizen ID & Phone */}
-                      <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2.5">
+                      <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded-xl bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2.5">
                         <div>
                           <span className="text-[9px] text-slate-400 font-sans font-bold block">
                             CITIZEN ID / KTP:
@@ -562,7 +562,7 @@ export default function MembersDirectoryModal({
                         const kasSub = getMemberKasSubscription(member);
                         const voucherSub = getMemberVoucherSubscription(member);
                         return (
-                          <div className="flex flex-col gap-1.5 p-2 rounded bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
+                          <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
                             {/* Status Uang Kas ($4.000) */}
                             <div className="flex items-center justify-between gap-1">
                               <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">
@@ -653,7 +653,7 @@ export default function MembersDirectoryModal({
           aria-modal="true"
         >
           <div
-            className="w-full max-w-xl bg-[var(--card-bg)] border-[3px] border-black rounded-xl overflow-hidden shadow-[8px_8px_0px_#000] p-4 flex flex-col gap-3"
+            className="w-full max-w-xl bg-[var(--card-bg)] border-[3px] border-black rounded-2xl overflow-hidden shadow-[8px_8px_0px_#000] p-4 flex flex-col gap-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-2 border-black/15">
@@ -676,7 +676,7 @@ export default function MembersDirectoryModal({
               </button>
             </div>
 
-            <div className="max-h-[70vh] overflow-hidden rounded border-2 border-black flex items-center justify-center bg-black">
+            <div className="max-h-[70vh] overflow-hidden rounded-xl border-2 border-black flex items-center justify-center bg-black">
               <img
                 src={previewKtp.image}
                 alt={previewKtp.name}
