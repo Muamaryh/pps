@@ -136,11 +136,11 @@ export default function MembersDirectoryModal({
         role="dialog"
         aria-modal="true"
       >
-        <div className="w-full max-w-5xl max-h-[92vh] rounded-2xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+        <div className="w-full max-w-5xl max-h-[92vh] rounded-2xl border border-black/20 dark:border-white/15 shadow-2xl bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
           {/* Modal Header */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1F222C]">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-black/15 dark:border-white/10 bg-[#FFFDF9] dark:bg-[#151824]">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white dark:bg-[#161820] border-2 border-black dark:border-[#475569] flex items-center justify-center shrink-0 p-1 shadow-[2px_2px_0px_#000]">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white dark:bg-[#161820] border border-black/15 dark:border-white/15 flex items-center justify-center shrink-0 p-1 shadow-sm">
                 <img
                   src="/logo.png"
                   alt="Logo LSM PPS"
@@ -166,7 +166,7 @@ export default function MembersDirectoryModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] bg-[var(--card-bg)] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:translate-x-[1px] hover:translate-y-[1px] transition-transform cursor-pointer"
+              className="w-8 h-8 rounded-lg border border-black/15 dark:border-white/10 shadow-sm bg-[var(--card-bg)] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
               title="Tutup Direktori"
             >
               <X size={16} />
@@ -174,15 +174,15 @@ export default function MembersDirectoryModal({
           </div>
 
           {/* Subheader Toolbar & Stats */}
-          <div className="p-3.5 sm:p-5 bg-amber-50/60 dark:bg-[#171922] border-b-2 border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="p-3.5 sm:p-5 bg-amber-50/60 dark:bg-[#171922] border-b border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             {/* Stats Badges & Jasra Counter */}
             <div className="flex items-center gap-2.5 flex-wrap">
               <button
                 type="button"
                 onClick={() => setFilterJasraOnly(false)}
-                className={`px-3 py-2 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all ${
+                className={`px-3.5 py-2 rounded-xl border border-black/15 dark:border-white/10 shadow-sm flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide cursor-pointer active:scale-98 transition-all ${
                   !filterJasraOnly
-                    ? "bg-[#FACC15] text-[#111827]"
+                    ? "bg-[#FACC15] text-[#111827] border-yellow-400"
                     : "bg-white dark:bg-[#1F222C] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
                 title="Tampilkan seluruh anggota resmi terdaftar"
@@ -196,7 +196,7 @@ export default function MembersDirectoryModal({
               <button
                 type="button"
                 onClick={() => setFilterJasraOnly((prev) => !prev)}
-                className={`px-3 py-2 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all ${
+                className={`px-3.5 py-2 rounded-xl border border-black/15 dark:border-white/10 shadow-sm flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide cursor-pointer active:scale-98 transition-all ${
                   filterJasraOnly
                     ? "bg-emerald-500 text-slate-950 ring-2 ring-emerald-300 dark:ring-emerald-700"
                     : "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/80"
@@ -226,7 +226,7 @@ export default function MembersDirectoryModal({
                   onClose();
                   onOpenRegister();
                 }}
-                className="btn py-2 px-4 bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2.5px_2.5px_0px_#000] font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer hover:translate-x-[-1px] hover:translate-y-[-1px] active:translate-x-[1px] active:translate-y-[1px] transition-all shrink-0"
+                className="btn btn-red py-2 px-4 shadow-sm font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all shrink-0"
                 title="Daftar Menjadi Anggota LSM PPS Baru"
               >
                 <UserPlus size={14} />
@@ -247,7 +247,7 @@ export default function MembersDirectoryModal({
                 placeholder={filterJasraOnly ? "Cari nama IC, Citizen ID, no HP, atau catatan penerima Jasra..." : "Cari nama IC, Citizen ID / No KTP, atau No HP..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]"
+                className="input-field w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 shadow-inner"
               />
               {searchQuery && (
                 <button
@@ -412,7 +412,7 @@ export default function MembersDirectoryModal({
                     return (
                       <div
                         key={ext.id || `ext-${idx}`}
-                        className="card-brutal p-3.5 bg-white dark:bg-[#1A1D27] border-[2.5px] border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                        className="card-brutal p-3.5 bg-white dark:bg-[#141724] border border-black/15 dark:border-white/10 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all"
                       >
                         <div>
                           {/* Top: Avatar & Name */}
@@ -496,7 +496,7 @@ export default function MembersDirectoryModal({
                   return (
                     <div
                       key={member.id}
-                      className="card-brutal p-3.5 bg-white dark:bg-[#1A1D27] border-[2.5px] border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                      className="card-brutal p-3.5 bg-white dark:bg-[#141724] border border-black/15 dark:border-white/10 shadow-sm flex flex-col justify-between hover:-translate-y-1 transition-all"
                     >
                     <div>
                       {/* Top: Avatar & Name */}
@@ -636,7 +636,7 @@ export default function MembersDirectoryModal({
             <button
               type="button"
               onClick={onClose}
-              className="btn py-1.5 px-5 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black uppercase text-xs cursor-pointer ml-auto"
+              className="btn py-2 px-5 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-amber-400 font-heading font-black uppercase text-xs cursor-pointer ml-auto shadow-sm"
             >
               Tutup Direktori
             </button>
@@ -653,7 +653,7 @@ export default function MembersDirectoryModal({
           aria-modal="true"
         >
           <div
-            className="w-full max-w-xl bg-[var(--card-bg)] border-[3px] border-black rounded-2xl overflow-hidden shadow-[8px_8px_0px_#000] p-4 flex flex-col gap-3"
+            className="w-full max-w-xl bg-[var(--card-bg)] border border-black/20 dark:border-white/15 rounded-2xl overflow-hidden shadow-2xl p-4 flex flex-col gap-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b pb-2 border-black/15">
@@ -687,7 +687,7 @@ export default function MembersDirectoryModal({
             <button
               type="button"
               onClick={() => setPreviewKtp(null)}
-              className="btn py-2 bg-[#FACC15] text-[#111827] border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000]"
+              className="btn py-2 bg-[#FACC15] text-[#111827] border border-amber-400 font-heading font-black text-xs uppercase shadow-sm"
             >
               Tutup Pratinjau
             </button>

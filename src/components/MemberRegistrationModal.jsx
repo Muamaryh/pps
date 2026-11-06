@@ -306,11 +306,11 @@ export default function MemberRegistrationModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+      <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-black/20 dark:border-white/15 shadow-2xl bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1F222C]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-black/15 dark:border-white/10 bg-[#FFFDF9] dark:bg-[#151824]">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white dark:bg-[#161820] border-2 border-black dark:border-[#475569] flex items-center justify-center shrink-0 p-1 shadow-[2px_2px_0px_#000]">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white dark:bg-[#161820] border border-black/15 dark:border-white/15 flex items-center justify-center shrink-0 p-1 shadow-sm">
               <img
                 src="/logo.png"
                 alt="Logo LSM Paguyuban Pizza Sandy Shores"
@@ -330,7 +330,7 @@ export default function MemberRegistrationModal({
           <button
             type="button"
             onClick={handleCloseAndReset}
-            className="w-8 h-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] bg-[var(--card-bg)] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:translate-x-[1px] hover:translate-y-[1px] transition-transform cursor-pointer"
+            className="w-8 h-8 rounded-lg border border-black/15 dark:border-white/10 shadow-sm bg-[var(--card-bg)] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
             title="Tutup Formulir"
           >
             <X size={16} />
@@ -342,11 +342,11 @@ export default function MemberRegistrationModal({
           {submittedData ? (
             /* Custom Success Screen (No Ticket Code, Direct Discord Action) */
             <div className="py-3 flex flex-col items-center text-center max-w-lg mx-auto">
-              <div className="w-16 h-16 rounded-full bg-emerald-500 text-white border-[3px] border-black flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000] animate-bounce">
+              <div className="w-16 h-16 rounded-full bg-emerald-500 text-white border-2 border-emerald-400 flex items-center justify-center mb-3 shadow-md animate-bounce">
                 <CheckCircle2 size={36} />
               </div>
 
-              <span className="badge-brutal text-xs py-1 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black mb-1.5 shadow-[2px_2px_0px_#000]">
+              <span className="badge-brutal badge-yellow text-xs py-1 px-3 font-black mb-1.5 shadow-sm">
                 PENGAJUAN TERCATAT
               </span>
 
@@ -359,7 +359,7 @@ export default function MemberRegistrationModal({
               </p>
 
               {/* Status Points Container */}
-              <div className="w-full text-left p-4 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col gap-3 mb-4">
+              <div className="w-full text-left p-4 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3 mb-4">
                 <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] border-b pb-2 border-black/15 dark:border-white/15">
                   <ShieldCheck size={16} />
                   <span>INSTRUKSI LANGKAH SELANJUTNYA:</span>
@@ -592,13 +592,13 @@ export default function MemberRegistrationModal({
               </div>
 
               {/* Area 1: Unggah KTP dengan Auto-Scan OCR */}
-              <div className="p-3.5 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col gap-3">
+              <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
                   <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                     <CreditCard size={14} />
                     <span>1. Dokumen KTP IC (Auto-Scan OCR Aktif)</span>
                   </div>
-                  <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] flex items-center gap-1">
+                  <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-amber-400 shadow-sm flex items-center gap-1">
                     <ScanLine size={12} />
                     <span>AUTO-FILL AKTIF</span>
                   </span>
@@ -680,14 +680,14 @@ export default function MemberRegistrationModal({
               </div>
 
               {/* Area 2: Unggah Foto Profil / Wajah Karakter */}
-              <div className="p-3.5 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col gap-2">
+              <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-2">
                 <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1 border-b border-black/10 dark:border-white/10">
                   <User size={14} />
                   <span>2. Foto Profil Karakter IC</span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-full border-2 border-black dark:border-[#475569] overflow-hidden shrink-0 bg-slate-100 dark:bg-[#14161F] flex items-center justify-center shadow-sm">
+                  <div className="w-16 h-16 rounded-full border border-black/20 dark:border-white/20 overflow-hidden shrink-0 bg-slate-100 dark:bg-[#14161F] flex items-center justify-center shadow-sm">
                     {formData.profilePhoto ? (
                       <img
                         src={formData.profilePhoto}
@@ -700,7 +700,7 @@ export default function MemberRegistrationModal({
                   </div>
 
                   <div className="flex-1">
-                    <label className="btn inline-flex items-center gap-1.5 text-xs py-1.5 px-3 bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer hover:bg-slate-50">
+                    <label className="btn inline-flex items-center gap-1.5 text-xs py-1.5 px-3 bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 shadow-sm cursor-pointer hover:bg-slate-50">
                       <Camera size={13} />
                       <span>{formData.profilePhoto ? "Ganti Foto Profil" : "Pilih Foto Profil"}</span>
                       <input
@@ -719,7 +719,7 @@ export default function MemberRegistrationModal({
               </div>
 
               {/* Area 3: Data Identitas Lengkap */}
-              <div className="p-3.5 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col gap-3">
+              <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3">
                 <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1 border-b border-black/10 dark:border-white/10">
                   <UserPlus size={14} />
                   <span>3. Rincian Data Anggota</span>
@@ -822,7 +822,7 @@ export default function MemberRegistrationModal({
               <button
                 type="submit"
                 disabled={isSubmitting || Boolean(duplicateMember)}
-                className={`btn w-full py-3 border-2 border-black font-heading font-black text-sm uppercase shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 ${
+                className={`btn w-full py-3 border border-black/15 font-heading font-black text-sm uppercase shadow-md active:scale-98 flex items-center justify-center gap-2 ${
                   duplicateMember
                     ? "bg-red-500 hover:bg-red-600 text-white cursor-not-allowed opacity-90"
                     : "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] disabled:opacity-50 cursor-pointer"

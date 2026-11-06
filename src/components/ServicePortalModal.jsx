@@ -653,13 +653,13 @@ export default function ServicePortalModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-3xl max-h-[92vh] rounded-2xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+      <div className="w-full max-w-3xl max-h-[92vh] rounded-2xl border border-black/20 dark:border-white/15 shadow-2xl bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
         
         {/* Header: Logo PPS Ukuran Full & Judul Resmi LSM PPS */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1F222C]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-black/15 dark:border-white/10 bg-[#FFFDF9] dark:bg-[#151824]">
           <div className="flex items-center gap-3">
             {/* Logo PPS Image - Full Size, Prominent & Sharp */}
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white dark:bg-[#161820] border-2 border-black dark:border-[#475569] flex items-center justify-center shrink-0 p-1 shadow-[3px_3px_0px_#000]">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white dark:bg-[#161820] border border-black/15 dark:border-white/15 flex items-center justify-center shrink-0 p-1 shadow-sm">
               <img
                 src="/logo.png"
                 alt="Logo LSM Paguyuban Pizza Sandy Shores"
@@ -680,7 +680,7 @@ export default function ServicePortalModal({
           <button
             type="button"
             onClick={handleResetAndClose}
-            className="w-8 h-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] bg-[var(--card-bg)] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:translate-x-[1px] hover:translate-y-[1px] transition-transform"
+            className="w-8 h-8 rounded-lg border border-black/15 dark:border-white/10 shadow-sm bg-[var(--card-bg)] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
             title="Tutup Jendela Layanan"
           >
             <X size={16} />
@@ -700,10 +700,10 @@ export default function ServicePortalModal({
 
               return (
                 <div className="py-4 flex flex-col items-center text-center max-w-xl mx-auto">
-                  <div className="w-14 h-14 rounded-full bg-emerald-500 text-white border-[3px] border-black flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000]">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500 text-white border-2 border-emerald-400 flex items-center justify-center mb-3 shadow-md">
                     <CheckCircle2 size={30} />
                   </div>
-                  <span className="badge-brutal text-xs py-1 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black mb-1.5 shadow-[2px_2px_0px_#000]">
+                  <span className="badge-brutal badge-yellow text-xs py-1 px-3 font-black mb-1.5 shadow-sm">
                     PENGAJUAN TERCATAT • #{submittedTicket.id}
                   </span>
                   <h3 className="font-heading font-black text-lg sm:text-2xl text-slate-950 dark:text-slate-100 uppercase">

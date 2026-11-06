@@ -3078,7 +3078,7 @@ export default function AdminModal({
                       </div>
                       <div>
                         <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                          Tingkat 2 Kiri (Penasihat)
+                          Tingkat 2 (MPO / Penasihat)
                         </label>
                         <input
                           type="text"
@@ -3090,7 +3090,7 @@ export default function AdminModal({
                       </div>
                       <div>
                         <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                          Tingkat 2 Kanan (Wakil Ketua)
+                          Tingkat 3 (Wakil Ketua Umum)
                         </label>
                         <input
                           type="text"
@@ -3102,7 +3102,7 @@ export default function AdminModal({
                       </div>
                       <div>
                         <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                          Tingkat 3 (BPH &amp; Divisi)
+                          Tingkat 4 (BPH &amp; Divisi)
                         </label>
                         <input
                           type="text"
@@ -3114,7 +3114,7 @@ export default function AdminModal({
                       </div>
                       <div className="sm:col-span-2">
                         <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                          Tingkat 4 (Satgas &amp; Wilayah)
+                          Tingkat 5 (Satgas &amp; Wilayah)
                         </label>
                         <input
                           type="text"

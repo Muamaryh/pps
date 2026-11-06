@@ -93,14 +93,14 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
           <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-950 dark:text-slate-200 uppercase tracking-tight">
             Dewan Pengurus & Korda
           </h2>
-          <div className="badge-brutal bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000]">
+          <div className="badge-brutal badge-yellow">
             {filteredMembers.length} PERSONEL
           </div>
         </div>
       </div>
 
       {/* Control Bar: Filter Tabs & Search */}
-      <div className="card-brutal p-4 sm:p-5 mb-8 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="card-brutal p-4 sm:p-5 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Segmented Filter Buttons */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           {[
@@ -167,11 +167,11 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                 {/* Level Title Bar (Centered with balanced lines on left & right) */}
                 <div className="flex items-center justify-center gap-3 w-full">
                   <div className="flex-1 h-[2px] bg-[#1A1A1A]/20 dark:bg-slate-700/60" />
-                  <div className={`badge-brutal text-xs sm:text-sm uppercase ${meta.badgeStyle} border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 py-1.5 px-4`}>
+                  <div className={`badge-brutal text-xs sm:text-sm uppercase ${meta.badgeStyle} flex items-center gap-2 py-1.5 px-4`}>
                     <Icon size={16} className={meta.iconColor} />
                     <span className="font-heading font-black tracking-wide">{meta.title}</span>
                   </div>
-                  <div className="flex-1 h-[2px] bg-[#1A1A1A]/20 dark:bg-slate-700/60" />
+                  <div className="flex-1 h-[2px] bg-black/15 dark:bg-white/10" />
                 </div>
 
                 {/* Cards (Centered Flex Wrap) */}
@@ -179,7 +179,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                   {members.map((member, mIdx) => (
                     <div
                       key={mIdx}
-                      className="card-brutal overflow-hidden bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col group hover:-translate-y-1 hover:shadow-[6px_6px_0px_#000000] transition-all duration-200 w-[calc(50%-10px)] sm:w-[calc(33.333%-14px)] md:w-[calc(25%-16px)] lg:w-[calc(20%-16px)] min-w-[170px] max-w-[260px]"
+                      className="card-brutal overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300 w-[calc(50%-10px)] sm:w-[calc(33.333%-14px)] md:w-[calc(25%-16px)] lg:w-[calc(20%-16px)] min-w-[170px] max-w-[260px]"
                     >
                       {/* Photo Area (Tinggi disesuaikan dan posisi object-top agar wajah personel tampil jelas) */}
                       <div
@@ -209,7 +209,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                             </div>
 
                             {/* Initials Badge Circle */}
-                            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-[#FACC15] dark:bg-[#222634] border-2 border-black dark:border-[#475569] flex items-center justify-center text-xl sm:text-2xl font-heading font-black text-[#111827] dark:text-[#FACC15] shadow-[3px_3px_0px_#000] relative z-10 group-hover:scale-105 transition-transform">
+                            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-[#FACC15] dark:bg-[#222634] border-2 border-black/25 dark:border-white/20 flex items-center justify-center text-xl sm:text-2xl font-heading font-black text-[#111827] dark:text-[#FACC15] shadow-sm relative z-10 group-hover:scale-105 transition-transform">
                               {(() => {
                                 const clean = (member.name || "").trim().replace(/^(BAPAK|IBU|MR\.|MR|DE)\s+/i, "");
                                 const words = clean.split(/\s+/).filter(Boolean);

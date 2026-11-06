@@ -426,6 +426,39 @@ iframe[src*="netlify"] {
   pointer-events: none !important;
 }
 
+/* ==========================================================================
+   ELIMINATE LEGACY NEO-BRUTALIST OFFSET BLOCK SHADOWS GLOBALLY
+   Replaces harsh solid black 90-degree block shadows with sleek modern styling
+   ========================================================================== */
+[class*="shadow-["][class*="_0px_#000"],
+[class*="shadow-["][class*="_0px_0px_#000"],
+[class*="shadow-["][class*="_0px_rgba(0,0,0,"],
+[class*="shadow-["][class*="_0px_#1A1A1A"] {
+  box-shadow: none !important;
+}
+
+/* High-End Ambient Elevation for Modals & Dialogs */
+div[role="dialog"] > div {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+html.dark div[role="dialog"] > div {
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Soften heavy brutalist 2.5px - 3.5px borders into sleek 1.5px/1px precision outlines */
+.border-3,
+.border-\[3px\],
+.border-\[3\.5px\],
+.border-\[2\.5px\] {
+  border-width: 1.5px !important;
+}
+html.dark .border-3,
+html.dark .border-\[3px\],
+html.dark .border-\[3\.5px\],
+html.dark .border-\[2\.5px\] {
+  border-width: 1px !important;
+}
+
 /* Animasi Kedatangan Logo PPS (Pop Spring Arrival) */
 @keyframes logoPopArrival {
   0% {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from "react";
 import {
   ArrowLeft,
   Users,
@@ -99,7 +99,21 @@ export default function StructurePage({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
+  // Card DOM refs for FLIP layout animation (smooth position transitions when siblings expand or wrap)
+  const cardRefs = useRef(new Map());
+  const prevRectsRef = useRef(new Map());
+
   function toggleTeam(memberName) {
+    // 1. Snapshot all cards' live positions before layout change (FLIP)
+    const rects = new Map();
+    cardRefs.current.forEach((el, name) => {
+      if (el) {
+        rects.set(name, el.getBoundingClientRect());
+      }
+    });
+    prevRectsRef.current = rects;
+
+    // 2. Toggle expanded state
     setExpandedTeams((prev) => {
       const next = new Set();
       // If already open, close it; otherwise open only this one to keep layout elegant
@@ -109,6 +123,43 @@ export default function StructurePage({
       return next;
     });
   }
+
+  // FLIP Layout Animation: smoothly glide cards when siblings expand, shift, or wrap rows
+  useLayoutEffect(() => {
+    if (prevRectsRef.current.size === 0) return;
+
+    cardRefs.current.forEach((el, name) => {
+      if (!el) return;
+      const prevRect = prevRectsRef.current.get(name);
+      if (!prevRect) return;
+
+      const currentRect = el.getBoundingClientRect();
+      const deltaX = prevRect.left - currentRect.left;
+      const deltaY = prevRect.top - currentRect.top;
+
+      if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+        // INVERT: Immediately invert position before screen paint
+        el.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        el.style.transition = "none";
+        el.style.zIndex = "25";
+
+        // PLAY: Animate smoothly to new position on next frame
+        requestAnimationFrame(() => {
+          el.style.transition = "transform 450ms cubic-bezier(0.25, 1, 0.5, 1)";
+          el.style.transform = "";
+
+          const onTransitionEnd = () => {
+            el.style.transition = "";
+            el.style.zIndex = "";
+            el.removeEventListener("transitionend", onTransitionEnd);
+          };
+          el.addEventListener("transitionend", onTransitionEnd);
+        });
+      }
+    });
+
+    prevRectsRef.current.clear();
+  }, [expandedTeams]);
 
   // Total people count (leaders + subordinate staff)
   const totalPeopleCount = useMemo(() => {
@@ -124,29 +175,83 @@ export default function StructurePage({
     let ketua = null;
     const penasihat = [];
     const wakil = [];
-    const operationalDivisions = [];
+    const bphMembers = [];
+    const satgasMembers = [];
 
     org.forEach((member) => {
       const role = (member.role || "").toLowerCase().trim();
       const lvl = Number(member.level) || 4;
 
-      // Prioritize 'wakil' first so 'Wakil Ketua Umum' is never falsely captured by 'ketua umum'
-      if (role.includes("wakil") || lvl === 3) {
-        wakil.push(member);
-      } else if (role.includes("ketua umum") || lvl === 1) {
+      // 1. Pimpinan Tertinggi: Ketua Umum (Tier 1)
+      if (role.includes("ketua umum") || (lvl === 1 && !role.includes("wakil"))) {
         if (!ketua) ketua = member;
         else wakil.push(member);
-      } else if (role.includes("penasihat") || role.includes("pembina") || lvl === 2) {
+      }
+      // 2. Dewan Penasihat / MPO (Tier 2)
+      else if (role.includes("penasihat") || role.includes("pembina") || lvl === 2) {
         penasihat.push(member);
-      } else {
-        operationalDivisions.push(member);
+      }
+      // 3. Wakil Ketua Umum (Tier 3)
+      else if (role.includes("wakil") || lvl === 3) {
+        wakil.push(member);
+      }
+      // 4. Badan Pengurus Harian (BPH) & Satgas / Korda
+      else {
+        const isBphRole =
+          role.includes("sekjen") ||
+          role.includes("sekretaris") ||
+          role.includes("bendahara") ||
+          role.includes("keuangan") ||
+          role.includes("humas") ||
+          role.includes("logistik");
+
+        const isSatgasRole =
+          role.includes("korda") ||
+          role.includes("satgas") ||
+          role.includes("keamanan") ||
+          role.includes("media") ||
+          role.includes("lapangan") ||
+          role.includes("wilayah") ||
+          role.includes("pesisir");
+
+        if (isBphRole) {
+          bphMembers.push(member);
+        } else if (isSatgasRole) {
+          satgasMembers.push(member);
+        } else if (lvl === 4) {
+          bphMembers.push(member);
+        } else if (lvl === 5) {
+          satgasMembers.push(member);
+        } else {
+          // General fallback
+          if (bphMembers.length < 4) bphMembers.push(member);
+          else satgasMembers.push(member);
+        }
       }
     });
 
-    // Row 1 of Operational Divisions: BPH (e.g. Sekjen, Bendahara, Logistik, Humas)
-    // Row 2 of Operational Divisions: Satgas & Wilayah (e.g. Keamanan, Media, Korda)
-    const bphMembers = operationalDivisions.slice(0, 4);
-    const satgasMembers = operationalDivisions.slice(4);
+    // Urutan resmi BPH: 1. Sekjen -> 2. Bendahara 1 -> 3. Bendahara 2 -> 4. Humas -> 5. Logistik
+    const bphOrderRank = (m) => {
+      const r = (m.role || "").toLowerCase();
+      if (r.includes("sekjen") || r.includes("sekretaris")) return 1;
+      if (r.includes("bendahara 1")) return 2;
+      if (r.includes("bendahara 2")) return 2.1;
+      if (r.includes("bendahara") || r.includes("keuangan")) return 2.2;
+      if (r.includes("humas") || r.includes("relasi")) return 3;
+      if (r.includes("logistik") || r.includes("inventaris")) return 4;
+      return 5;
+    };
+    bphMembers.sort((a, b) => bphOrderRank(a) - bphOrderRank(b));
+
+    // Urutan Satgas / Korda: 1. Keamanan -> 2. Media -> 3. Wilayah / Lapangan
+    const satgasOrderRank = (m) => {
+      const r = (m.role || "").toLowerCase();
+      if (r.includes("keamanan") || r.includes("satgas")) return 1;
+      if (r.includes("media") || r.includes("publikasi") || r.includes("dokumentasi")) return 2;
+      if (r.includes("lapangan") || r.includes("wilayah") || r.includes("korda") || r.includes("pesisir")) return 3;
+      return 4;
+    };
+    satgasMembers.sort((a, b) => satgasOrderRank(a) - satgasOrderRank(b));
 
     return { ketua, penasihat, wakil, bphMembers, satgasMembers };
   }, [org]);
@@ -187,7 +292,7 @@ export default function StructurePage({
   }, [treeTiers]);
 
   // Helper to render an elegant Tree Node Card
-  function renderTreeNode(member, tierType = "normal") {
+  function renderTreeNode(member, tierType = "normal", isSolo = false) {
     if (!member) return null;
 
     const subMembers = getSubMembers(member);
@@ -202,10 +307,16 @@ export default function StructurePage({
 
     return (
       <div
-        className={`w-full transition-all duration-500 ease-out flex flex-col md:flex-row rounded-2xl overflow-hidden bg-[#0B0D14] border-2 shadow-[5px_5px_0px_#000000] group/card hover:shadow-[7px_7px_0px_#000000] relative ${
+        ref={(el) => {
+          if (el) cardRefs.current.set(member.name, el);
+          else cardRefs.current.delete(member.name);
+        }}
+        className={`transition-all duration-300 ease-out flex flex-col md:flex-row rounded-2xl overflow-hidden bg-[#0B0D14] border-2 group/card relative shadow-lg shadow-black/40 hover:-translate-y-1.5 shrink-0 ${
           isExpanded
-            ? "max-w-[270px] md:max-w-[505px]"
-            : "max-w-[260px] sm:max-w-[270px]"
+            ? "w-full max-w-[320px] sm:max-w-[280px] md:w-[505px] md:max-w-[505px]"
+            : isSolo
+            ? "w-full max-w-[270px] sm:w-[265px]"
+            : "w-[calc(50%-5px)] sm:w-[265px] max-w-[270px]"
         } ${
           isKetua ? "border-[#DC2626]" : "border-[#FACC15]"
         } ${
@@ -217,24 +328,24 @@ export default function StructurePage({
         }`}
       >
         {/* Left Section: Main Officer Card */}
-        <div className="w-full md:w-[265px] min-h-[326px] sm:min-h-[342px] flex flex-col justify-between shrink-0 bg-[#0B0D14]">
+        <div className={`w-full md:w-[265px] ${isSolo ? "min-h-[340px] sm:min-h-[342px]" : "min-h-[265px] sm:min-h-[342px]"} flex flex-col justify-between shrink-0 bg-[#0B0D14]`}>
           {/* 1. Tactical Dossier Top Micro Bar */}
           <div
-            className={`w-full px-3 py-1.5 flex items-center justify-between border-b select-none ${
+            className={`w-full px-2 sm:px-3 py-1 sm:py-1.5 flex items-center justify-between border-b select-none ${
               isKetua
                 ? "bg-[#DC2626]/15 border-[#DC2626]/30 text-red-400"
                 : "bg-[#FACC15]/10 border-[#FACC15]/20 text-[#FACC15]"
             }`}
           >
-            <div className="flex items-center gap-1.5 font-mono text-[9px] font-black tracking-widest uppercase min-w-0 pr-2">
+            <div className="flex items-center gap-1 font-mono text-[8px] sm:text-[9px] font-black tracking-wider uppercase min-w-0 pr-1">
               {isKetua ? (
                 <Crown
-                  size={11}
+                  size={10}
                   className="text-[#DC2626] shrink-0"
                 />
               ) : (
                 <Shield
-                  size={10}
+                  size={9}
                   className="text-[#FACC15] shrink-0"
                 />
               )}
@@ -242,13 +353,13 @@ export default function StructurePage({
                 {displayRole} // PPS
               </span>
             </div>
-            <div className="flex items-center gap-1 font-mono text-[8.5px] font-bold tracking-wider text-slate-400 shrink-0">
+            <div className="flex items-center gap-1 font-mono text-[7.5px] sm:text-[8.5px] font-bold tracking-wider text-slate-400 shrink-0">
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
                   isKetua ? "bg-red-500 animate-pulse" : "bg-emerald-400"
                 }`}
               />
-              <span>VERIFIED</span>
+              <span className="hidden xs:inline">VERIFIED</span>
             </div>
           </div>
 
@@ -259,7 +370,7 @@ export default function StructurePage({
               onOpenLightbox &&
               onOpenLightbox(member.photo, `${member.role} - ${member.name}`)
             }
-            className={`h-48 sm:h-52 w-full shrink-0 relative bg-[#131620] overflow-hidden flex items-center justify-center select-none ${
+            className={`${isSolo ? "h-52" : "h-36 sm:h-52"} w-full shrink-0 relative bg-[#131620] overflow-hidden flex items-center justify-center select-none ${
               member.photo ? "cursor-pointer group/photo" : ""
             }`}
           >
@@ -271,23 +382,23 @@ export default function StructurePage({
                   className="w-full h-full object-cover object-top group-hover/card:scale-106 transition-transform duration-500 ease-out"
                 />
                 {/* Tactical Viewfinder Corner Reticles */}
-                <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-white/40 pointer-events-none" />
-                <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-white/40 pointer-events-none" />
-                <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-white/40 pointer-events-none" />
-                <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-white/40 pointer-events-none" />
+                <div className="absolute top-2 left-2 w-2.5 h-2.5 sm:w-3 sm:h-3 border-t-2 border-l-2 border-white/40 pointer-events-none" />
+                <div className="absolute top-2 right-2 w-2.5 h-2.5 sm:w-3 sm:h-3 border-t-2 border-r-2 border-white/40 pointer-events-none" />
+                <div className="absolute bottom-2 left-2 w-2.5 h-2.5 sm:w-3 sm:h-3 border-b-2 border-l-2 border-white/40 pointer-events-none" />
+                <div className="absolute bottom-2 right-2 w-2.5 h-2.5 sm:w-3 sm:h-3 border-b-2 border-r-2 border-white/40 pointer-events-none" />
 
                 {/* Seamless Dark Bottom Fade */}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0B0D14] via-[#0B0D14]/50 via-35% to-transparent pointer-events-none" />
 
                 {/* Watermark Dossier Strip on bottom-left of photo */}
-                <div className="absolute bottom-2 left-2.5 z-10 font-mono text-[8px] tracking-widest text-slate-400/80 font-bold uppercase pointer-events-none">
+                <div className="absolute bottom-1.5 left-2 z-10 font-mono text-[7px] sm:text-[8px] tracking-widest text-slate-400/80 font-bold uppercase pointer-events-none">
                   SECTOR: SANDY SHORES
                 </div>
 
                 {/* Zoom Hover Pill */}
-                <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/20 text-white/90 font-mono text-[9px] font-bold opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center gap-1 shadow-md">
+                <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-md border border-white/20 text-white/90 font-mono text-[8.5px] sm:text-[9px] font-bold opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center gap-1 shadow-md">
                   <ZoomIn
-                    size={11}
+                    size={10}
                     className={isKetua ? "text-[#EF4444]" : "text-[#FACC15]"}
                   />
                   <span>INSPECT</span>
@@ -295,8 +406,8 @@ export default function StructurePage({
               </>
             ) : (
               /* Executive Monogram Avatar for No Photo */
-              <div className="w-full h-full p-4 flex flex-col items-center justify-center text-center relative overflow-hidden bg-gradient-to-b from-[#1C202C] to-[#0B0D14]">
-                <div className="w-16 h-16 rounded-xl bg-black/60 border-2 border-white/15 flex items-center justify-center text-2xl font-heading font-black text-[#FACC15] shadow-inner mb-2">
+              <div className="w-full h-full p-3 sm:p-4 flex flex-col items-center justify-center text-center relative overflow-hidden bg-gradient-to-b from-[#1C202C] to-[#0B0D14]">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-black/60 border-2 border-white/15 flex items-center justify-center text-xl sm:text-2xl font-heading font-black text-[#FACC15] shadow-inner mb-1.5">
                   {(() => {
                     const clean = (member.name || "")
                       .trim()
@@ -307,39 +418,39 @@ export default function StructurePage({
                     return (clean.slice(0, 2) || "PS").toUpperCase();
                   })()}
                 </div>
-                <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">
-                  DOSSIER RECORD // PPS
+                <span className="text-[8px] sm:text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">
+                  DOSSIER // PPS
                 </span>
               </div>
             )}
           </div>
 
           {/* 3. Dossier Info Content Area */}
-          <div className="p-3.5 pt-1.5 bg-[#0B0D14] flex flex-col justify-between flex-1 relative z-10">
-            <div className="min-h-[56px] flex flex-col justify-center">
+          <div className="p-2.5 sm:p-3.5 pt-1.5 bg-[#0B0D14] flex flex-col justify-between flex-1 relative z-10">
+            <div className={`${isSolo ? "min-h-[56px]" : "min-h-[46px] sm:min-h-[56px]"} flex flex-col justify-center`}>
               {/* Personel Name */}
-              <h3 className="font-heading font-black text-sm sm:text-base text-white uppercase tracking-tight leading-snug line-clamp-1 group-hover/card:text-[#FACC15] transition-colors">
+              <h3 className={`font-heading font-black text-white uppercase tracking-tight leading-snug line-clamp-1 group-hover/card:text-[#FACC15] transition-colors ${isSolo ? "text-[15px] sm:text-base" : "text-xs sm:text-base"}`}>
                 {member.name}
               </h3>
               {/* Operative Mandate Description with Left Accent Bar */}
               <div
-                className={`mt-1.5 pl-2 border-l-2 ${
+                className={`mt-1 sm:mt-1.5 pl-1.5 sm:pl-2 border-l-2 ${
                   isKetua ? "border-[#DC2626]" : "border-[#FACC15]/60"
                 }`}
               >
-                <p className="text-[10px] sm:text-[10.5px] text-slate-300 font-medium leading-tight line-clamp-2">
+                <p className={`text-slate-300 font-medium leading-tight line-clamp-2 ${isSolo ? "text-[11px] sm:text-[10.5px]" : "text-[9px] sm:text-[10.5px]"}`}>
                   {roleDesc}
                 </p>
               </div>
             </div>
 
-            {/* 4. Bottom Footer Area: Button if has staff, matching space if no staff */}
-            <div className="w-full mt-3 h-[34px] shrink-0">
-              {hasSubMembers && (
+            {/* 4. Bottom Footer Area: Button if has staff, matching space if no staff on desktop */}
+            {hasSubMembers ? (
+              <div className="w-full mt-2 sm:mt-3 h-7 sm:h-[34px] shrink-0">
                 <button
                   type="button"
                   onClick={() => toggleTeam(member.name)}
-                  className={`w-full h-full px-3 rounded-lg border font-mono font-black text-[10.5px] flex items-center justify-between cursor-pointer transition-all duration-200 select-none shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 uppercase tracking-wider ${
+                  className={`w-full h-full px-2 sm:px-3 rounded-lg border font-mono font-black text-[9px] sm:text-[10.5px] flex items-center justify-between cursor-pointer transition-all duration-200 select-none active:scale-98 uppercase tracking-wider ${
                     isExpanded
                       ? isKetua
                         ? "bg-[#DC2626] text-white border-white/20"
@@ -348,9 +459,9 @@ export default function StructurePage({
                   }`}
                   title={`Lihat anggota tim di bawah ${member.role}`}
                 >
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                     <Users
-                      size={12}
+                      size={11}
                       className={
                         isExpanded
                           ? isKetua
@@ -361,11 +472,13 @@ export default function StructurePage({
                           : "text-[#FACC15]"
                       }
                     />
-                    <span>ANGGOTA TIM ({subMembers.length})</span>
+                    <span className="truncate">
+                      <span className="hidden sm:inline">ANGGOTA </span>TIM ({subMembers.length})
+                    </span>
                   </div>
-                  <div className="flex items-center">
+                  <div className="flex items-center shrink-0">
                     <ChevronDown
-                      size={13}
+                      size={11}
                       className={`md:hidden transition-transform duration-300 ${
                         isExpanded ? "rotate-180" : ""
                       }`}
@@ -378,8 +491,10 @@ export default function StructurePage({
                     />
                   </div>
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="hidden md:block w-full mt-3 h-[34px] shrink-0" />
+            )}
           </div>
         </div>
 
@@ -633,53 +748,52 @@ export default function StructurePage({
               {activeTierTitles.tier1}
             </span>
           </div>
-          {renderTreeNode(treeTiers.ketua, "ketua")}
+          {renderTreeNode(treeTiers.ketua, "ketua", true)}
         </div>
 
         {/* ============================================================== */}
-        {/* TIER 2: DEWAN PENASIHAT & WAKIL KETUA UMUM */}
+        {/* TIER 2: MAJELIS PERTIMBANGAN ORGANISASI (MPO) */}
         {/* ============================================================== */}
-        <div className="w-full max-w-5xl flex flex-col md:flex-row justify-center items-stretch md:items-start gap-8 md:gap-12 lg:gap-16 mb-12">
-          {/* SISI KIRI: DEWAN PENASIHAT */}
-          <div className="flex-1 flex flex-col items-center">
-            <div className="badge-brutal badge-yellow mb-4 flex items-center gap-1.5 py-1.5 px-4 font-black">
-              <Shield size={13} />
-              <span className="font-heading font-black">
-                {activeTierTitles.tier2Left}
-              </span>
-            </div>
-            <div className="w-full flex flex-col items-center gap-4">
-              {treeTiers.penasihat.map((m, idx) => (
-                <React.Fragment key={idx}>
-                  {renderTreeNode(m, "normal")}
-                </React.Fragment>
-              ))}
-            </div>
+        <div className="flex flex-col items-center w-full mb-10 sm:mb-12">
+          <div className="badge-brutal badge-yellow mb-4 flex items-center gap-1.5 py-1.5 px-4 font-black">
+            <Shield size={13} />
+            <span className="font-heading font-black">
+              {activeTierTitles.tier2Left}
+            </span>
           </div>
-
-          {/* SISI KANAN: WAKIL KETUA UMUM */}
-          <div className="flex-1 flex flex-col items-center">
-            <div className="badge-brutal badge-red mb-4 flex items-center gap-1.5 py-1.5 px-4 font-black">
-              <Zap size={13} />
-              <span className="font-heading font-black">
-                {activeTierTitles.tier2Right}
-              </span>
-            </div>
-            {/* 2 Wakil Ketua side by side */}
-            <div className="w-full flex flex-wrap sm:flex-nowrap justify-center gap-4 items-start">
-              {treeTiers.wakil.map((m, idx) => (
-                <React.Fragment key={idx}>
-                  {renderTreeNode(m, "normal")}
-                </React.Fragment>
-              ))}
-            </div>
+          <div className="flex flex-wrap justify-center gap-2.5 sm:gap-6 w-full max-w-5xl items-start px-1 sm:px-0">
+            {treeTiers.penasihat.map((m, idx) => (
+              <React.Fragment key={idx}>
+                {renderTreeNode(m, "normal", treeTiers.penasihat.length === 1)}
+              </React.Fragment>
+            ))}
           </div>
         </div>
 
         {/* ============================================================== */}
-        {/* TIER 3: BADAN PENGURUS HARIAN (BPH) */}
+        {/* TIER 3: WAKIL KETUA UMUM & KOMANDO LAPANGAN */}
         {/* ============================================================== */}
-        <div className="flex flex-col items-center w-full mb-12">
+        <div className="flex flex-col items-center w-full mb-10 sm:mb-12">
+          <div className="badge-brutal badge-red mb-4 flex items-center gap-1.5 py-1.5 px-4 font-black">
+            <Zap size={13} />
+            <span className="font-heading font-black">
+              {activeTierTitles.tier2Right}
+            </span>
+          </div>
+          {/* 2 Wakil Ketua side by side */}
+          <div className="flex flex-wrap justify-center gap-2.5 sm:gap-6 w-full max-w-5xl items-start px-1 sm:px-0">
+            {treeTiers.wakil.map((m, idx) => (
+              <React.Fragment key={idx}>
+                {renderTreeNode(m, "normal", false)}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* TIER 4: BADAN PENGURUS HARIAN (BPH) */}
+        {/* ============================================================== */}
+        <div className="flex flex-col items-center w-full mb-10 sm:mb-12">
           <div className="badge-brutal badge-yellow mb-6 flex items-center gap-2 py-1.5 px-5 font-black">
             <Briefcase size={14} />
             <span className="font-heading font-black tracking-wide">
@@ -687,18 +801,18 @@ export default function StructurePage({
             </span>
           </div>
 
-          {/* BPH Cards Flex Layout (Fluid & Auto-sliding to the right) */}
-          <div className="flex flex-wrap justify-center gap-6 w-full max-w-7xl items-start">
+          {/* BPH Cards 2-col on mobile, full flex-wrap on desktop */}
+          <div className="flex flex-wrap justify-center gap-2.5 sm:gap-6 w-full max-w-7xl items-start px-1 sm:px-0">
             {treeTiers.bphMembers.map((dept, idx) => (
               <React.Fragment key={idx}>
-                {renderTreeNode(dept, "normal")}
+                {renderTreeNode(dept, "normal", false)}
               </React.Fragment>
             ))}
           </div>
         </div>
 
         {/* ============================================================== */}
-        {/* TIER 4: SATGAS LAPANGAN & KOORDINATOR WILAYAH */}
+        {/* TIER 5: SATGAS LAPANGAN & KOORDINATOR WILAYAH */}
         {/* ============================================================== */}
         <div className="flex flex-col items-center w-full mb-6">
           <div className="badge-brutal badge-red mb-6 flex items-center gap-2 py-1.5 px-5 font-black">
@@ -708,11 +822,11 @@ export default function StructurePage({
             </span>
           </div>
 
-          {/* Satgas Cards Flex Layout (Fluid & Auto-sliding to the right) */}
-          <div className="flex flex-wrap justify-center gap-6 sm:gap-8 w-full max-w-5xl items-start">
+          {/* Satgas Cards 2-col on mobile, full flex-wrap on desktop */}
+          <div className="flex flex-wrap justify-center gap-2.5 sm:gap-8 w-full max-w-5xl items-start px-1 sm:px-0">
             {treeTiers.satgasMembers.map((dept, idx) => (
               <React.Fragment key={idx}>
-                {renderTreeNode(dept, "normal")}
+                {renderTreeNode(dept, "normal", false)}
               </React.Fragment>
             ))}
           </div>
