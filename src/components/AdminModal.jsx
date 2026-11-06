@@ -64,6 +64,7 @@ import KasIncomeModal from "./KasIncomeModal";
 import KasLedgerModal from "./KasLedgerModal";
 import KasCopyModal from "./KasCopyModal";
 import JasraPanel from "./JasraPanel";
+import { getSubMembers } from "../services/orgService";
 import {
   loadJasraBatchesCloud,
   subscribeJasraBatchesCloud,
@@ -1780,6 +1781,71 @@ export default function AdminModal({
     }, 320, 0.65);
   }
 
+  function handleSubMemberPhoto(memberIndex, subIndex, file) {
+    if (!file) return;
+    compressImage(file, (base64) => {
+      setFormData((prev) => {
+        const newOrg = [...prev.org];
+        const currentSubs = Array.isArray(newOrg[memberIndex]?.subMembers)
+          ? [...newOrg[memberIndex].subMembers]
+          : getSubMembers(newOrg[memberIndex]);
+        if (currentSubs[subIndex]) {
+          currentSubs[subIndex] = { ...currentSubs[subIndex], photo: base64 };
+          newOrg[memberIndex] = { ...newOrg[memberIndex], subMembers: currentSubs };
+        }
+        return { ...prev, org: newOrg };
+      });
+      onShowToast("Foto staf divisi berhasil diunggah!", "success");
+    }, 280, 0.65);
+  }
+
+  function handleAddSubMember(memberIndex) {
+    setFormData((prev) => {
+      const newOrg = [...prev.org];
+      const currentSubs = Array.isArray(newOrg[memberIndex]?.subMembers)
+        ? [...newOrg[memberIndex].subMembers]
+        : getSubMembers(newOrg[memberIndex]);
+      const newSubs = [
+        ...currentSubs,
+        {
+          name: "Nama Staf Baru",
+          role: `Staf ${newOrg[memberIndex]?.role || "Divisi"}`,
+          photo: ""
+        }
+      ];
+      newOrg[memberIndex] = { ...newOrg[memberIndex], subMembers: newSubs };
+      return { ...prev, org: newOrg };
+    });
+    onShowToast("Anggota staf baru ditambahkan", "info");
+  }
+
+  function handleRemoveSubMember(memberIndex, subIndex) {
+    setFormData((prev) => {
+      const newOrg = [...prev.org];
+      const currentSubs = Array.isArray(newOrg[memberIndex]?.subMembers)
+        ? [...newOrg[memberIndex].subMembers]
+        : getSubMembers(newOrg[memberIndex]);
+      currentSubs.splice(subIndex, 1);
+      newOrg[memberIndex] = { ...newOrg[memberIndex], subMembers: currentSubs };
+      return { ...prev, org: newOrg };
+    });
+    onShowToast("Anggota staf berhasil dihapus", "info");
+  }
+
+  function handleSubMemberChange(memberIndex, subIndex, field, value) {
+    setFormData((prev) => {
+      const newOrg = [...prev.org];
+      const currentSubs = Array.isArray(newOrg[memberIndex]?.subMembers)
+        ? [...newOrg[memberIndex].subMembers]
+        : getSubMembers(newOrg[memberIndex]);
+      if (currentSubs[subIndex]) {
+        currentSubs[subIndex] = { ...currentSubs[subIndex], [field]: value };
+        newOrg[memberIndex] = { ...newOrg[memberIndex], subMembers: currentSubs };
+      }
+      return { ...prev, org: newOrg };
+    });
+  }
+
   // Gallery Management
   function handleAddGallery() {
     setFormData((prev) => ({
@@ -3063,37 +3129,99 @@ export default function AdminModal({
                           </div>
                         </div>
 
-                        <div>
-                          <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                            Anggota Tim / Staff Divisi (Opsional, pisahkan dengan koma)
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Contoh: Rian (Gudang), Joko (Stand), Budi (Logistik)"
-                            value={
-                              Array.isArray(member.subMembers)
-                                ? member.subMembers.map((s) => `${s.name}${s.role ? ` (${s.role})` : ""}`).join(", ")
-                                : Array.isArray(member.team)
-                                ? member.team.join(", ")
-                                : member.team || ""
-                            }
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              const parsed = raw
-                                .split(",")
-                                .map((s) => s.trim())
-                                .filter(Boolean)
-                                .map((item) => {
-                                  const match = item.match(/^(.+?)\s*\((.+?)\)$/);
-                                  if (match) {
-                                    return { name: match[1].trim(), role: match[2].trim(), photo: "" };
-                                  }
-                                  return { name: item, role: `Anggota Tim ${member.role || ""}`.trim(), photo: "" };
-                                });
-                              handleMemberChange(idx, "subMembers", parsed);
-                            }}
-                            className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
-                          />
+                        {/* Subordinate Staff / Anggota Tim Manager */}
+                        <div className="mt-2 pt-2.5 border-t border-black/15 dark:border-white/10">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-[11px] font-heading font-black text-slate-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
+                              <Users size={13} className="text-[#DC2626] dark:text-[#FACC15]" />
+                              <span>
+                                Anggota Tim / Staf Divisi (
+                                {Array.isArray(member.subMembers)
+                                  ? member.subMembers.length
+                                  : getSubMembers(member).length}
+                                )
+                              </span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleAddSubMember(idx)}
+                              className="btn text-[10px] py-1 px-2.5 bg-[#FACC15] text-[#111827] border border-black shadow-[1px_1px_0px_#000] font-black cursor-pointer"
+                            >
+                              + Tambah Staf
+                            </button>
+                          </div>
+
+                          <div className="space-y-2">
+                            {(Array.isArray(member.subMembers)
+                              ? member.subMembers
+                              : getSubMembers(member)
+                            ).map((sub, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="p-2 rounded-lg bg-slate-50 dark:bg-[#1A1D26] border border-black/20 dark:border-white/15 flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
+                              >
+                                {/* Sub Member Photo Upload */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <div className="w-9 h-9 rounded border border-black dark:border-white/20 overflow-hidden bg-slate-200 dark:bg-[#20232E] shrink-0 flex items-center justify-center">
+                                    {sub.photo ? (
+                                      <img
+                                        src={sub.photo}
+                                        alt={sub.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">
+                                        {(sub.name || "ST").slice(0, 2).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <label className="cursor-pointer text-[10px] font-bold py-1 px-2 rounded bg-white dark:bg-[#222634] border border-black dark:border-white/20 hover:bg-[#FACC15] hover:text-black">
+                                    Foto
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) =>
+                                        handleSubMemberPhoto(idx, sIdx, e.target.files[0])
+                                      }
+                                    />
+                                  </label>
+                                </div>
+
+                                {/* Sub Member Name & Role Input */}
+                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                                  <input
+                                    type="text"
+                                    placeholder="Nama Staf"
+                                    value={sub.name || ""}
+                                    onChange={(e) =>
+                                      handleSubMemberChange(idx, sIdx, "name", e.target.value)
+                                    }
+                                    className="input-field text-xs py-1 px-2 bg-white dark:bg-[#20232E] border border-black/30 dark:border-white/20"
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Jabatan Staf (contoh: Staf Gudang)"
+                                    value={sub.role || ""}
+                                    onChange={(e) =>
+                                      handleSubMemberChange(idx, sIdx, "role", e.target.value)
+                                    }
+                                    className="input-field text-xs py-1 px-2 bg-white dark:bg-[#20232E] border border-black/30 dark:border-white/20"
+                                  />
+                                </div>
+
+                                {/* Delete Sub Member */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSubMember(idx, sIdx)}
+                                  className="btn btn-secondary text-xs p-1.5 border border-black text-[#DC2626] hover:bg-[#DC2626] hover:text-white shrink-0 self-end sm:self-center cursor-pointer"
+                                  title="Hapus Staf"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     ))}

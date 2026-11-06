@@ -12,59 +12,11 @@ import {
   ZoomIn,
   ChevronDown,
   ChevronUp,
-  Sparkles,
   Home,
   CheckCircle2,
-  Layers,
   Building2,
-  FolderGit2,
 } from "lucide-react";
-
-// Default team members mapping if not yet customized in cloud data
-const DEFAULT_SUB_MEMBERS = {
-  "EVAN S KENNEDY": [
-    { name: "Staff Khusus Pimpinan", role: "Ajudan & Asisten Operasional", photo: "" },
-  ],
-  "MR.B": [
-    { name: "Anggota Kehormatan", role: "Staf Ahli Kebijakan Komunitas", photo: "" },
-  ],
-  "MANG KUMIS": [
-    { name: "Satgas Lapangan 1", role: "Pengawas Lapangan Pesisir", photo: "" },
-  ],
-  "DE BRACUK": [
-    { name: "Satgas Lapangan 2", role: "Pengawas Hubungan Antar-Warga", photo: "" },
-  ],
-  "VINO": [
-    { name: "Rendi Pratama", role: "Staf Administrasi & Notulensi", photo: "" },
-    { name: "Deni Sanjaya", role: "Staf Pengarsipan Surat & Berkas", photo: "" },
-  ],
-  "ANNELIESE & DARREN": [
-    { name: "Clara Wijaya", role: "Staf Pembukuan Kas Harian", photo: "" },
-    { name: "Toni Kusuma", role: "Staf Rekap Iuran & Audit Anggota", photo: "" },
-  ],
-  "GIBBON": [
-    { name: "Fajar Nugraha", role: "Staf Publikasi & Media Warga", photo: "" },
-    { name: "Bayu Saputra", role: "Staf Komunikasi Eksternal & Warga", photo: "" },
-  ],
-  "WAZA": [
-    { name: "Rian Hidayat", role: "Staf Gudang & Inventaris", photo: "" },
-    { name: "Joko Prabowo", role: "Staf Distribusi Stand & Tenda UMKM", photo: "" },
-    { name: "Budi Santoso", role: "Staf Pengadaan Perlengkapan Kegiatan", photo: "" },
-  ],
-  "BENTO": [
-    { name: "Agus Perkasa", role: "Satgas Pengamanan Lapak 01", photo: "" },
-    { name: "Hendro Wibowo", role: "Satgas Patroli Wilayah 02", photo: "" },
-    { name: "Yudi Santosa", role: "Satgas Penertiban Koordinat 1012", photo: "" },
-  ],
-  "KRAI ANDORYU & RIZMAN": [
-    { name: "Dimas Anggara", role: "Kreator Konten & Dokumentasi Visual", photo: "" },
-    { name: "Aldi Setiawan", role: "Operator Siaran & Desain Media", photo: "" },
-  ],
-  "MULA IDARI": [
-    { name: "Sandi Kurnia", role: "Koordinator Lapangan Sektor Pesisir", photo: "" },
-    { name: "Eko Wahyudi", role: "Petugas Penghubung Tokoh Warga", photo: "" },
-  ],
-};
+import { getSubMembers } from "../services/orgService";
 
 export default function StructurePage({
   org = [],
@@ -102,20 +54,6 @@ export default function StructurePage({
 
   function collapseAllTeams() {
     setExpandedTeams(new Set());
-  }
-
-  // Get subordinate members for an individual leader
-  function getSubMembers(member) {
-    if (Array.isArray(member.subMembers) && member.subMembers.length > 0) {
-      return member.subMembers;
-    }
-    if (Array.isArray(member.team) && member.team.length > 0) {
-      return member.team.map((t) =>
-        typeof t === "string" ? { name: t, role: `Anggota Tim ${member.role}` } : t
-      );
-    }
-    // Fallback to default realistic roster
-    return DEFAULT_SUB_MEMBERS[member.name] || [];
   }
 
   // Total team members count (leaders + subordinate staff)
@@ -205,7 +143,7 @@ export default function StructurePage({
         };
       default:
         return {
-          title: `Tingkat ${lvl}`,
+          title: "Struktural Organisasi",
           icon: Users,
           badgeStyle: "bg-[#FACC15] text-[#111827]",
           iconColor: "text-[#DC2626]",
@@ -371,7 +309,7 @@ export default function StructurePage({
 
             return (
               <div key={lvl} className="flex flex-col gap-5">
-                {/* Level Title Bar with Description */}
+                {/* Level Title Bar with Description (No LVL numbers) */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b-2 border-black/15 dark:border-white/15">
                   <div className="flex items-center gap-3">
                     <div
@@ -383,7 +321,7 @@ export default function StructurePage({
                       </span>
                     </div>
                     <span className="text-xs font-mono font-bold text-slate-500">
-                      ({members.length} Kepala / Koordinator)
+                      ({members.length} Jabatan)
                     </span>
                   </div>
                   {meta.desc && (
@@ -409,7 +347,7 @@ export default function StructurePage({
                             : ""
                         }`}
                       >
-                        {/* Photo Area (with zoom) */}
+                        {/* Leader Photo Area (with zoom) */}
                         <div
                           onClick={() =>
                             member.photo &&
@@ -450,11 +388,6 @@ export default function StructurePage({
                               </span>
                             </div>
                           )}
-
-                          {/* Level Badge Pill at top right */}
-                          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/80 text-white font-mono text-[10px] font-black tracking-wider">
-                            LVL {member.level}
-                          </div>
                         </div>
 
                         {/* Leader Info */}
@@ -468,7 +401,7 @@ export default function StructurePage({
                             </h3>
                           </div>
 
-                          {/* Team Members Toggle Button (if division has subordinate team) */}
+                          {/* Team Members Toggle Button */}
                           {hasSubMembers && (
                             <button
                               type="button"
@@ -493,12 +426,12 @@ export default function StructurePage({
                           )}
                         </div>
 
-                        {/* 6. Expandable Subordinate Team Tray (Smooth Grid Row Expansion) */}
+                        {/* 6. Expandable Subordinate Team Tray (With Profile Photos & Zoom) */}
                         {hasSubMembers && (
                           <div
                             className={`transition-all duration-300 ease-in-out border-t-2 border-black/10 dark:border-white/10 ${
                               isExpanded
-                                ? "max-h-[600px] opacity-100 bg-[#FFFDF9] dark:bg-[#151821] p-3.5"
+                                ? "max-h-[800px] opacity-100 bg-[#FFFDF9] dark:bg-[#151821] p-3.5"
                                 : "max-h-0 opacity-0 p-0 overflow-hidden"
                             }`}
                           >
@@ -511,22 +444,54 @@ export default function StructurePage({
                               </span>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-2.5">
                               {subMembers.map((sub, sIdx) => (
                                 <div
                                   key={sIdx}
-                                  className="p-2.5 rounded-lg bg-white dark:bg-[#1E222D] border border-black/15 dark:border-white/10 shadow-sm flex items-center gap-2.5 hover:border-[#DC2626] dark:hover:border-[#FACC15] transition-colors"
+                                  className="p-2.5 rounded-xl bg-white dark:bg-[#1C202C] border-2 border-black/25 dark:border-white/10 shadow-[2px_2px_0px_#000] flex items-center gap-3 hover:border-[#DC2626] dark:hover:border-[#FACC15] transition-all"
                                 >
-                                  {/* Sub member avatar initial */}
-                                  <div className="w-8 h-8 rounded-lg bg-[#FACC15]/30 dark:bg-[#FACC15]/20 border border-black/30 dark:border-white/20 flex items-center justify-center text-xs font-black font-mono shrink-0 text-[#111827] dark:text-[#FACC15]">
-                                    {sub.name.slice(0, 2).toUpperCase()}
+                                  {/* Sub member profile photo with Lightbox Zoom */}
+                                  <div
+                                    onClick={() =>
+                                      sub.photo &&
+                                      onOpenLightbox &&
+                                      onOpenLightbox(sub.photo, `${sub.role} - ${sub.name}`)
+                                    }
+                                    className={`w-12 h-12 rounded-lg bg-slate-100 dark:bg-[#252936] border-2 border-black dark:border-slate-700 overflow-hidden shrink-0 flex items-center justify-center relative select-none ${
+                                      sub.photo ? "cursor-pointer group/photo shadow-sm" : ""
+                                    }`}
+                                  >
+                                    {sub.photo ? (
+                                      <>
+                                        <img
+                                          src={sub.photo}
+                                          alt={sub.name}
+                                          className="w-full h-full object-cover object-top group-hover/photo:scale-105 transition-transform"
+                                        />
+                                        <div className="absolute inset-0 bg-black/45 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center text-white transition-opacity">
+                                          <ZoomIn size={13} />
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-400/20 via-transparent to-red-500/20 text-xs font-mono font-black text-[#111827] dark:text-[#FACC15]">
+                                        {(() => {
+                                          const clean = (sub.name || "")
+                                            .trim()
+                                            .replace(/^(BAPAK|IBU|MR\.|MR|DE)\s+/i, "");
+                                          const words = clean.split(/\s+/).filter(Boolean);
+                                          if (words.length >= 2)
+                                            return (words[0][0] + words[1][0]).toUpperCase();
+                                          return (clean.slice(0, 2) || "ST").toUpperCase();
+                                        })()}
+                                      </div>
+                                    )}
                                   </div>
 
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-heading font-black text-xs text-slate-950 dark:text-slate-100 truncate">
+                                  <div className="flex-1 min-w-0 pr-1">
+                                    <div className="font-heading font-black text-xs sm:text-sm text-slate-950 dark:text-slate-100 truncate">
                                       {sub.name}
                                     </div>
-                                    <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
+                                    <div className="text-[11px] font-mono font-bold text-[#DC2626] dark:text-[#FACC15] truncate mt-0.5">
                                       {sub.role}
                                     </div>
                                   </div>
