@@ -10,19 +10,22 @@ export default function Navbar({
   onOpenRegister,
   onOpenMembersDirectory,
   currentPage = "home",
+  onNavigateToStructure,
   onNavigateToGallery,
   onNavigateToHome,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState(currentPage === "gallery" ? "gallery" : "home");
+  const [activeSection, setActiveSection] = useState(
+    currentPage === "gallery" ? "gallery" : currentPage === "structure" ? "structure" : "home"
+  );
 
-  // Core navigation links
+  // Core navigation links (Renamed Galeri -> Dokumentasi & Dedicated Structure)
   const defaultNavList = [
     { name: "Beranda", url: "#home" },
     { name: "Tentang", url: "#about" },
     { name: "Program", url: "#program" },
-    { name: "Struktur", url: "#structure" },
-    { name: "Galeri", url: "#gallery" },
+    { name: "Struktur", url: "#/struktur" },
+    { name: "Dokumentasi", url: "#/dokumentasi" },
   ];
 
   const parsedLinks = navLinks
@@ -31,10 +34,13 @@ export default function Navbar({
         .map((item) => {
           const parts = item.split("|");
           if (parts.length === 2) {
-            const name = parts[0].trim();
+            let name = parts[0].trim();
             const url = parts[1].trim();
             if (name.toLowerCase().includes("discord") || name.toLowerCase().includes("daftar")) {
               return null;
+            }
+            if (name.toLowerCase().includes("galeri") || name.toLowerCase().includes("gallery")) {
+              name = "Dokumentasi";
             }
             return { name, url };
           }
@@ -45,14 +51,18 @@ export default function Navbar({
 
   const displayLinks = parsedLinks.length > 0 ? parsedLinks : defaultNavList;
 
-  // Scrollspy: detect active section when scrolling
+  // Scrollspy & Active Page Sync
   useEffect(() => {
     if (currentPage === "gallery") {
       setActiveSection("gallery");
       return;
     }
+    if (currentPage === "structure") {
+      setActiveSection("structure");
+      return;
+    }
 
-    const sectionIds = ["home", "about", "program", "structure"];
+    const sectionIds = ["home", "about", "program"];
     function onScroll() {
       const scrollY = window.scrollY;
       for (let i = sectionIds.length - 1; i >= 0; i--) {
@@ -73,10 +83,31 @@ export default function Navbar({
     return () => window.removeEventListener("scroll", onScroll);
   }, [currentPage]);
 
-  // Unified link click handler (handles both Home and Dedicated Gallery Page)
+  // Unified link click handler (handles Home, Dedicated Structure, and Dedicated Dokumentasi Page)
   function handleLinkClick(e, link) {
+    const isStructure =
+      link.name.toLowerCase().includes("struktur") ||
+      link.url.toLowerCase().includes("struktur") ||
+      link.url.toLowerCase().includes("structure");
+
+    if (isStructure) {
+      e.preventDefault();
+      setMobileMenuOpen(false);
+      if (currentPage === "structure") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (onNavigateToStructure) {
+        onNavigateToStructure();
+      } else {
+        window.history.pushState(null, "", "#/struktur");
+        window.dispatchEvent(new Event("hashchange"));
+      }
+      return;
+    }
+
     const isGallery =
+      link.name.toLowerCase().includes("dokumentasi") ||
       link.name.toLowerCase().includes("galeri") ||
+      link.url.toLowerCase().includes("dokumentasi") ||
       link.url.toLowerCase().includes("galeri") ||
       link.url.toLowerCase().includes("gallery");
 
@@ -88,14 +119,14 @@ export default function Navbar({
       } else if (onNavigateToGallery) {
         onNavigateToGallery();
       } else {
-        window.history.pushState(null, "", "#/galeri");
+        window.history.pushState(null, "", "#/dokumentasi");
         window.dispatchEvent(new Event("hashchange"));
       }
       return;
     }
 
-    // Returning to home from gallery
-    if (currentPage === "gallery") {
+    // Returning to home from gallery or structure
+    if (currentPage === "gallery" || currentPage === "structure") {
       e.preventDefault();
       setMobileMenuOpen(false);
       if (onNavigateToHome) {
@@ -122,7 +153,7 @@ export default function Navbar({
   }
 
   function handleBrandClick(e) {
-    if (currentPage === "gallery") {
+    if (currentPage === "gallery" || currentPage === "structure") {
       e.preventDefault();
       if (onNavigateToHome) {
         onNavigateToHome("#home");
@@ -169,10 +200,23 @@ export default function Navbar({
             {displayLinks.map((link, idx) => {
               const targetId = link.url.replace("#", "");
               const isGalleryLink =
+                link.name.toLowerCase().includes("dokumentasi") ||
                 link.name.toLowerCase().includes("galeri") ||
+                link.url.toLowerCase().includes("dokumentasi") ||
                 link.url.toLowerCase().includes("galeri") ||
                 link.url.toLowerCase().includes("gallery");
-              const isActive = currentPage === "gallery" ? isGalleryLink : activeSection === targetId;
+
+              const isStructureLink =
+                link.name.toLowerCase().includes("struktur") ||
+                link.url.toLowerCase().includes("struktur") ||
+                link.url.toLowerCase().includes("structure");
+
+              const isActive =
+                currentPage === "gallery"
+                  ? isGalleryLink
+                  : currentPage === "structure"
+                  ? isStructureLink
+                  : activeSection === targetId;
 
               return (
                 <a
@@ -265,10 +309,23 @@ export default function Navbar({
           {displayLinks.map((link, idx) => {
             const targetId = link.url.replace("#", "");
             const isGalleryLink =
+              link.name.toLowerCase().includes("dokumentasi") ||
               link.name.toLowerCase().includes("galeri") ||
+              link.url.toLowerCase().includes("dokumentasi") ||
               link.url.toLowerCase().includes("galeri") ||
               link.url.toLowerCase().includes("gallery");
-            const isActive = currentPage === "gallery" ? isGalleryLink : activeSection === targetId;
+
+            const isStructureLink =
+              link.name.toLowerCase().includes("struktur") ||
+              link.url.toLowerCase().includes("struktur") ||
+              link.url.toLowerCase().includes("structure");
+
+            const isActive =
+              currentPage === "gallery"
+                ? isGalleryLink
+                : currentPage === "structure"
+                ? isStructureLink
+                : activeSection === targetId;
 
             return (
               <a

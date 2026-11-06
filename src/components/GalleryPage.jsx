@@ -150,7 +150,7 @@ export default function GalleryPage({
           </button>
           <ChevronRight size={13} className="text-slate-400 shrink-0" />
           <span className="text-slate-900 dark:text-slate-300 font-black">
-            Arsip Galeri Dokumentasi
+            Arsip Dokumentasi Kegiatan
           </span>
         </div>
 

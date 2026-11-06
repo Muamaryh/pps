@@ -23,6 +23,7 @@ export default function Footer({
   onOpenMembersDirectory,
   onOpenAdmin,
   onOpenTransparency,
+  onNavigateToStructure,
   onNavigateToGallery,
   onNavigateToHome,
 }) {
@@ -104,21 +105,24 @@ export default function Footer({
               </li>
               <li>
                 <a
-                  href="#structure"
+                  href="#/struktur"
                   onClick={(e) => {
-                    if (onNavigateToHome) {
+                    if (onNavigateToStructure) {
+                      e.preventDefault();
+                      onNavigateToStructure();
+                    } else if (onNavigateToHome) {
                       e.preventDefault();
                       onNavigateToHome("#structure");
                     }
                   }}
                   className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-block transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
-                  Struktur Pengurus
+                  Susunan Pengurus
                 </a>
               </li>
               <li>
                 <a
-                  href="#/galeri"
+                  href="#/dokumentasi"
                   onClick={(e) => {
                     if (onNavigateToGallery) {
                       e.preventDefault();
@@ -127,7 +131,7 @@ export default function Footer({
                   }}
                   className="hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:translate-x-1 inline-block transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
                 >
-                  Galeri Dokumentasi
+                  Dokumentasi Kegiatan
                 </a>
               </li>
             </ul>

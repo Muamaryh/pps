@@ -2046,8 +2046,8 @@ export default function AdminModal({
         { id: "identity", label: "Brand & Menu", icon: Layout },
         { id: "hero", label: "Beranda & 4 Pilar", icon: Compass },
         { id: "about", label: "Tentang & Visi", icon: FileText },
-        { id: "org", label: "Pengurus", icon: Users },
-        { id: "gallery", label: "Galeri Foto", icon: Camera },
+        { id: "org", label: "Pengurus & Divisi", icon: Users },
+        { id: "gallery", label: "Dokumentasi", icon: Camera },
       ],
     },
     {
@@ -3061,6 +3061,39 @@ export default function AdminModal({
                               />
                             )}
                           </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                            Anggota Tim / Staff Divisi (Opsional, pisahkan dengan koma)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Contoh: Rian (Gudang), Joko (Stand), Budi (Logistik)"
+                            value={
+                              Array.isArray(member.subMembers)
+                                ? member.subMembers.map((s) => `${s.name}${s.role ? ` (${s.role})` : ""}`).join(", ")
+                                : Array.isArray(member.team)
+                                ? member.team.join(", ")
+                                : member.team || ""
+                            }
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              const parsed = raw
+                                .split(",")
+                                .map((s) => s.trim())
+                                .filter(Boolean)
+                                .map((item) => {
+                                  const match = item.match(/^(.+?)\s*\((.+?)\)$/);
+                                  if (match) {
+                                    return { name: match[1].trim(), role: match[2].trim(), photo: "" };
+                                  }
+                                  return { name: item, role: `Anggota Tim ${member.role || ""}`.trim(), photo: "" };
+                                });
+                              handleMemberChange(idx, "subMembers", parsed);
+                            }}
+                            className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          />
                         </div>
                       </div>
                     ))}

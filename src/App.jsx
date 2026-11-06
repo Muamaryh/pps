@@ -5,6 +5,7 @@ import Hero from "./components/Hero";
 import About from "./components/About";
 import ProgramsShowcase from "./components/ProgramsShowcase";
 import OrgStructure from "./components/OrgStructure";
+import StructurePage from "./components/StructurePage";
 import GalleryPage from "./components/GalleryPage";
 import Footer from "./components/Footer";
 import LightboxModal from "./components/LightboxModal";
@@ -277,23 +278,43 @@ export default function App() {
     return "jasra";
   });
 
-  // Dedicated Page Routing (default 'home', can be 'gallery' for #/galeri or /galeri)
+  // Dedicated Page Routing (default 'home', can be 'gallery' for #/dokumentasi or 'structure' for #/struktur)
   const [currentPage, setCurrentPage] = useState(() => {
     if (typeof window === "undefined") return "home";
     const path = window.location.pathname.toLowerCase();
     const hash = window.location.hash.toLowerCase();
-    return (
+
+    if (
+      path === "/struktur" ||
+      path.endsWith("/struktur") ||
+      path === "/structure" ||
+      path.endsWith("/structure") ||
+      hash === "#/struktur" ||
+      hash === "#struktur" ||
+      hash === "#/structure" ||
+      hash === "#structure"
+    ) {
+      return "structure";
+    }
+
+    if (
+      path === "/dokumentasi" ||
+      path.endsWith("/dokumentasi") ||
       path === "/galeri" ||
       path.endsWith("/galeri") ||
       path === "/gallery" ||
       path.endsWith("/gallery") ||
+      hash === "#/dokumentasi" ||
+      hash === "#dokumentasi" ||
       hash === "#/galeri" ||
       hash === "#galeri" ||
       hash === "#/gallery" ||
       hash === "#gallery"
-    )
-      ? "gallery"
-      : "home";
+    ) {
+      return "gallery";
+    }
+
+    return "home";
   });
 
   const [isPermitModalOpen, setIsPermitModalOpen] = useState(false);
@@ -411,18 +432,35 @@ export default function App() {
         window.location.href = data?.discordUrl || "https://discord.gg/gb7ajBMduF";
       }
 
-      // 6. Check Gallery Dedicated Route (/galeri, #/galeri, /gallery, #gallery)
+      // 6. Check Structure Dedicated Route (/struktur, #/struktur, /structure, #structure)
+      const isStructureRoute =
+        path === "/struktur" ||
+        path.endsWith("/struktur") ||
+        path === "/structure" ||
+        path.endsWith("/structure") ||
+        hash === "#/struktur" ||
+        hash === "#struktur" ||
+        hash === "#/structure" ||
+        hash === "#structure";
+
+      // 7. Check Gallery / Dokumentasi Dedicated Route (/dokumentasi, #/dokumentasi, /galeri, #/galeri)
       const isGalleryRoute =
+        path === "/dokumentasi" ||
+        path.endsWith("/dokumentasi") ||
         path === "/galeri" ||
         path.endsWith("/galeri") ||
         path === "/gallery" ||
         path.endsWith("/gallery") ||
+        hash === "#/dokumentasi" ||
+        hash === "#dokumentasi" ||
         hash === "#/galeri" ||
         hash === "#galeri" ||
         hash === "#/gallery" ||
         hash === "#gallery";
 
-      if (isGalleryRoute) {
+      if (isStructureRoute) {
+        setCurrentPage("structure");
+      } else if (isGalleryRoute) {
         setCurrentPage("gallery");
       } else {
         setCurrentPage("home");
@@ -603,11 +641,20 @@ export default function App() {
     }
   }
 
-  // Dedicated Gallery Page navigation handlers
+  // Dedicated Structure Page navigation handlers
+  function handleNavigateToStructure() {
+    setCurrentPage("structure");
+    if (!window.location.hash.includes("struktur") && !window.location.pathname.includes("struktur")) {
+      window.history.pushState(null, "", "#/struktur");
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // Dedicated Gallery / Dokumentasi Page navigation handlers
   function handleNavigateToGallery() {
     setCurrentPage("gallery");
-    if (!window.location.hash.includes("galeri") && !window.location.pathname.includes("galeri")) {
-      window.history.pushState(null, "", "#/galeri");
+    if (!window.location.hash.includes("dokumentasi") && !window.location.pathname.includes("dokumentasi")) {
+      window.history.pushState(null, "", "#/dokumentasi");
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -674,6 +721,7 @@ export default function App() {
         onOpenRegister={handleOpenRegister}
         onOpenMembersDirectory={handleOpenMembersDirectory}
         currentPage={currentPage}
+        onNavigateToStructure={handleNavigateToStructure}
         onNavigateToGallery={handleNavigateToGallery}
         onNavigateToHome={handleNavigateToHome}
       />
@@ -689,16 +737,20 @@ export default function App() {
             onNavigateHome={handleNavigateToHome}
             onOpenServicePortal={handleOpenServicePortal}
           />
+        ) : currentPage === "structure" ? (
+          <StructurePage
+            org={data.org}
+            onOpenLightbox={handleOpenLightbox}
+            onNavigateHome={handleNavigateToHome}
+          />
         ) : (
           <>
             {/* Hero Section */}
             <Hero
               heading={data.heading}
               subtext={data.subtext}
-              memberCount={memberCount}
               onOpenPermit={() => setIsPermitModalOpen(true)}
-              onOpenMembersDirectory={handleOpenMembersDirectory}
-              onOpenTransparency={handleOpenTransparency}
+              onNavigateToStructure={handleNavigateToStructure}
               onNavigateToGallery={handleNavigateToGallery}
             />
 
@@ -719,8 +771,28 @@ export default function App() {
               onOpenBansos={handleOpenBansosModal}
             />
 
-            {/* Struktur Organisasi Section */}
-            <OrgStructure org={data.org} onOpenLightbox={handleOpenLightbox} />
+            {/* Banner Teaser Susunan Pengurus */}
+            <div className="card-brutal p-6 sm:p-8 my-8 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[5px_5px_0px_#000] flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="max-w-2xl">
+                <div className="card-label text-xs sm:text-sm font-black text-slate-700 dark:text-slate-400 mb-1">
+                  BAGAN KEPENGURUSAN
+                </div>
+                <h3 className="font-heading font-black text-xl sm:text-2xl lg:text-3xl text-slate-950 dark:text-slate-100 uppercase leading-snug">
+                  Susunan Pengurus, BPH &amp; Koordinator Wilayah
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 font-medium">
+                  Mengenal jajaran pimpinan, dewan penasihat, badan pengurus harian, kepala seksi divisi, serta koordinator satgas lapangan LSM PPS periode 2026 - 2027.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleNavigateToStructure}
+                className="btn bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[3px_3px_0px_#000] py-3 px-6 text-xs sm:text-sm font-black shrink-0 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-2"
+              >
+                <span>Buka Susunan Pengurus Lengkap</span>
+                <span className="font-mono text-sm font-black">→</span>
+              </button>
+            </div>
           </>
         )}
       </main>
@@ -744,6 +816,7 @@ export default function App() {
         onOpenMembersDirectory={handleOpenMembersDirectory}
         onOpenAdmin={() => setAdminModalOpen(true)}
         onOpenTransparency={handleOpenTransparency}
+        onNavigateToStructure={handleNavigateToStructure}
         onNavigateToGallery={handleNavigateToGallery}
         onNavigateToHome={handleNavigateToHome}
       />
