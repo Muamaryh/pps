@@ -470,37 +470,36 @@ export default function StructurePage({
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+    <div className="w-full pb-16 pt-2 animate-in fade-in duration-200">
       {/* 1. Header Navigation & Breadcrumb */}
-      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-        <button
-          type="button"
-          onClick={onNavigateHome}
-          className="btn btn-secondary px-4 py-2 text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all"
-        >
-          <ArrowLeft size={16} />
-          <span>Kembali ke Beranda</span>
-        </button>
-
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-3 border-b-2 border-black/10 dark:border-white/10">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400">
           <button
             type="button"
             onClick={onNavigateHome}
-            className="flex items-center gap-1 hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 hover:text-[#DC2626] dark:hover:text-[#FACC15] transition-colors cursor-pointer"
           >
-            <Home size={13} />
+            <Home size={14} className="text-[#DC2626] dark:text-[#FACC15]" />
             <span>Beranda</span>
           </button>
-          <span>/</span>
-          <span className="text-[#DC2626] dark:text-[#FACC15] font-black uppercase">
+          <ChevronRight size={13} className="text-slate-400 shrink-0" />
+          <span className="text-slate-900 dark:text-slate-300 font-black">
             Bagan Struktur Organisasi
           </span>
         </div>
+
+        <button
+          type="button"
+          onClick={onNavigateHome}
+          className="btn btn-secondary text-xs py-1.5 px-3.5 font-bold flex items-center gap-1.5 cursor-pointer"
+        >
+          <ArrowLeft size={14} />
+          <span>Kembali ke Beranda</span>
+        </button>
       </div>
 
-      {/* 2. Hero Banner Most Wanted & Syndicate Dossier */}
-      <div className="p-6 sm:p-8 mb-8 bg-[#07080E] border border-black/10 dark:border-white/15 shadow-md dark:shadow-[0_15px_45px_rgba(0,0,0,0.8)] rounded-2xl relative overflow-hidden">
+      {/* 2. Hero Banner Most Wanted & Syndicate Dossier (Dimensi & Format Identik Dokumentasi) */}
+      <div className="p-6 sm:p-8 md:p-10 mb-8 bg-[#090A10] border border-black/10 dark:border-white/15 shadow-md dark:shadow-[0_15px_45px_rgba(0,0,0,0.8)] rounded-2xl relative overflow-hidden min-h-[310px] flex items-center">
         {/* Most Wanted Syndicate Board Background / Lineup of Real Structure Photos */}
         <div className="absolute right-0 top-0 bottom-0 w-full md:w-[60%] lg:w-[64%] xl:w-[67%] flex items-center justify-end pr-2 sm:pr-6 pointer-events-auto overflow-hidden select-none">
           {/* Connecting Red Crime Investigation Thread */}
@@ -571,43 +570,59 @@ export default function StructurePage({
           </div>
 
           {/* Deep and wide dark gradient mask on the left so text stays 100% crystal clear */}
-          <div className="absolute inset-y-0 left-0 w-48 sm:w-64 md:w-80 bg-gradient-to-r from-[#07080E] via-[#07080E]/90 to-transparent pointer-events-none z-20" />
+          <div className="absolute inset-y-0 left-0 w-48 sm:w-64 md:w-80 bg-gradient-to-r from-[#090A10] via-[#090A10]/95 to-transparent pointer-events-none z-20" />
         </div>
 
         {/* Foreground Content Area (100% Readable, Ample Breathing Room) */}
-        <div className="relative z-30 max-w-md sm:max-w-lg pointer-events-auto">
+        <div className="relative z-30 max-w-md sm:max-w-lg lg:max-w-xl w-full pointer-events-auto">
           {/* Header Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded-full bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] text-[11px] font-mono font-black uppercase">
+          <div className="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded-full bg-[#FACC15] text-[#07080E] border border-yellow-400/80 shadow-md text-[11px] font-mono font-black uppercase">
             <Building2 size={13} />
             <span>BAGAN STRUKTUR HIERARKI RESMI LSM PPS</span>
           </div>
 
-          <h1 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-white uppercase tracking-tight leading-tight drop-shadow-md">
+          <h1 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-white uppercase tracking-tight leading-tight mb-2 drop-shadow-md">
             Bagan Struktur Kepengurusan
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium mt-2 max-w-sm sm:max-w-md">
-            Diagram alur kepemimpinan resmi LSM Paguyuban Pizza Sandy Shores.
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium mb-5 max-w-sm sm:max-w-md">
+            Diagram alur kepemimpinan resmi, badan pengurus harian, koordinator divisi, dan satgas lapangan LSM Paguyuban Pizza Sandy Shores.
           </p>
 
-          {/* Tactical Status Metrics */}
-          <div className="flex flex-wrap items-center gap-2.5 mt-4 pt-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 border border-white/20 text-slate-300 font-mono text-[10.5px]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-bold">STATUS: AKTIF</span>
+          {/* Quick Stat Chips (Format Presisi & Selaras dengan Dokumentasi) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+            <div className="p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 shadow-sm hover:border-[#FACC15]/40 transition-colors">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase">
+                Status Operasional
+              </div>
+              <div className="font-heading font-black text-sm sm:text-base text-emerald-400 flex items-center gap-1.5 mt-0.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>TERVERIFIKASI</span>
+              </div>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 border border-white/20 text-[#FACC15] font-mono text-[10.5px] font-bold">
-              <Users size={12} />
-              <span>{totalPeopleCount}+ Personel Terdaftar</span>
+
+            <div className="p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 shadow-sm hover:border-white/30 transition-colors">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase">
+                Total Personel
+              </div>
+              <div className="font-heading font-black text-lg sm:text-xl text-[#FACC15]">
+                {totalPeopleCount}+ Anggota
+              </div>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 border border-white/20 text-red-400 font-mono text-[10.5px] font-bold">
-              <span>SEKTOR: SANDY SHORES | BLAINE COUNTY</span>
+
+            <div className="col-span-2 sm:col-span-1 p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 shadow-sm hover:border-[#FACC15]/40 transition-colors">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase">
+                Wilayah Komando
+              </div>
+              <div className="font-heading font-black text-xs sm:text-sm text-slate-200 truncate mt-0.5" title="Sandy Shores & Blaine County">
+                Sandy Shores
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* 3. BAGAN STRUKTUR POHON (LUAS, TERBUKA, PAS 100% DI LAYAR) */}
-      <div className="w-full flex flex-col items-center py-4">
+      <div className="w-full max-w-7xl mx-auto flex flex-col items-center py-4">
         {/* ============================================================== */}
         {/* TIER 1: KETUA UMUM */}
         {/* ============================================================== */}
