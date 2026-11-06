@@ -68,7 +68,7 @@ export default function Hero({
   return (
     <section id="home" className="pt-2 pb-8 sm:pb-12 w-full scroll-mt-24">
       {/* 1. Box Gambar pps.jpg (Teks di Depan Gambar dengan Efek Typing 3 Baris Cepat) */}
-      <div className="w-full relative rounded-2xl overflow-hidden border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] aspect-[1840/855] min-h-[280px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center p-4 sm:p-8 text-center">
+      <div className="w-full relative rounded-2xl overflow-hidden border border-black/20 dark:border-white/10 shadow-none aspect-[1840/855] min-h-[280px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center p-4 sm:p-8 text-center">
         {/* Gambar pps.jpg sebagai latar belakang */}
         <img
           src="/pps.jpg"
@@ -92,7 +92,7 @@ export default function Hero({
 
           <h1 className="leading-[1.1] uppercase w-full flex flex-col items-center justify-center">
             {/* Baris 1: LEMBAGA SWADAYA MASYARAKAT (Typing Putih) */}
-            <span className="block font-heading text-base sm:text-2xl md:text-3xl lg:text-4xl text-white tracking-widest font-black uppercase mb-1 sm:mb-2 drop-shadow-[0_4px_14px_rgba(0,0,0,0.95)]">
+            <span className="block font-heading text-base sm:text-2xl md:text-3xl lg:text-4xl text-white tracking-widest font-black uppercase mb-1 sm:mb-2">
               {text1}
               {step === 1 && (
                 <span className="inline-block w-1.5 sm:w-2 h-4 sm:h-7 bg-[#FACC15] ml-1 animate-pulse align-middle" />
@@ -100,7 +100,7 @@ export default function Hero({
             </span>
 
             {/* Baris 2: PAGUYUBAN PIZZA (Typing Kuning) */}
-            <span className="block font-heading text-2xl sm:text-4xl md:text-5xl lg:text-6xl text-[#FACC15] tracking-tight font-black uppercase drop-shadow-[0_4px_18px_rgba(0,0,0,0.95)] leading-tight">
+            <span className="block font-heading text-2xl sm:text-4xl md:text-5xl lg:text-6xl text-[#FACC15] tracking-tight font-black uppercase leading-tight">
               {text2}
               {step === 2 && (
                 <span className="inline-block w-1.5 sm:w-2.5 h-6 sm:h-11 bg-[#FACC15] ml-1.5 animate-pulse align-middle" />
@@ -108,7 +108,7 @@ export default function Hero({
             </span>
 
             {/* Baris 3: SANDY SHORES (Typing Merah) */}
-            <span className="block font-heading text-2xl sm:text-4xl md:text-5xl lg:text-6xl text-[#DC2626] tracking-tight font-black uppercase drop-shadow-[0_4px_18px_rgba(0,0,0,0.95)] leading-tight mt-0.5 sm:mt-1">
+            <span className="block font-heading text-2xl sm:text-4xl md:text-5xl lg:text-6xl text-[#DC2626] tracking-tight font-black uppercase leading-tight mt-0.5 sm:mt-1">
               {text3}
               {(step === 3 || step === 4) && (
                 <span className="inline-block w-1.5 sm:w-2.5 h-6 sm:h-11 bg-[#DC2626] ml-1.5 animate-pulse align-middle" />
@@ -129,10 +129,10 @@ export default function Hero({
         <button
           type="button"
           onClick={onOpenPermit}
-          className="group inline-flex items-center gap-3 px-4 py-2.5 mb-7 rounded-xl bg-[#FFFDF9] dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3.5px_3.5px_0px_#000] hover:shadow-[1.5px_1.5px_0px_#000] hover:translate-x-0.5 hover:translate-y-0.5 cursor-pointer transition-all text-left max-w-xl w-full sm:w-auto"
+          className="group inline-flex items-center gap-3 px-4 py-2.5 mb-7 rounded-2xl bg-white dark:bg-[#0B0D14] border border-black/20 dark:border-white/15 hover:border-[#FACC15]/60 shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.6)] hover:shadow-[0_8px_30px_rgba(250,204,21,0.15)] hover:-translate-y-0.5 cursor-pointer transition-all text-left max-w-xl w-full sm:w-auto"
           title="Klik untuk membuka dokumen Surat Izin Komunitas Resmi dari Pemerintah San Andreas"
         >
-          <div className="w-10 h-10 rounded-full bg-[#171A21] border-2 border-[#8A7131] flex items-center justify-center shrink-0 p-0.5 shadow-sm group-hover:scale-105 transition-transform">
+          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-[#171A21] border-2 border-[#8A7131] flex items-center justify-center shrink-0 p-0.5 shadow-sm group-hover:scale-105 transition-transform">
             <img
               src="/documents/san_andreas_seal.png"
               alt="Seal San Andreas"
@@ -148,34 +148,34 @@ export default function Hero({
                 IZIN AKTIF
               </span>
             </div>
-            <div className="font-heading font-black text-xs sm:text-sm text-slate-950 dark:text-slate-100 truncate mt-0.5">
+            <div className="font-heading font-black text-xs sm:text-sm text-slate-900 dark:text-slate-100 truncate mt-0.5">
               Surat Izin Operasional No: 001/SIK-DSC/SA/X/2026
             </div>
-            <div className="text-[11px] font-mono text-slate-500 break-words sm:whitespace-nowrap">
+            <div className="text-[11px] font-mono text-slate-600 dark:text-slate-400 break-words sm:whitespace-nowrap">
               Sekretariat Koordinat 1012 • Penanggung Jawab: Evan Wongso
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-1 text-xs font-mono font-black text-[#DC2626] dark:text-[#FACC15] shrink-0 pl-2 border-l border-black/15 dark:border-white/15">
+          <div className="hidden sm:flex items-center gap-1 text-xs font-mono font-black text-[#DC2626] dark:text-[#FACC15] shrink-0 pl-2 border-l border-black/20 dark:border-white/15">
             <span>Lihat Izin</span>
             <ExternalLink size={13} className="group-hover:translate-x-0.5 transition-transform" />
           </div>
         </button>
 
-        {/* Tombol Aksi Taktil (Kuning, Merah, & Dokumentasi) */}
-        <div className="flex flex-wrap items-center justify-center gap-3.5">
+        {/* Tombol Aksi Taktil Selang-Seling Kuning & Merah Khas PPS (Sejajar Rapi 1 Baris) */}
+        <div className="grid grid-cols-2 md:flex md:flex-row md:flex-nowrap items-center justify-center gap-2.5 sm:gap-3 w-full max-w-4xl mx-auto">
           <a
             href="#about"
-            className="btn bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black"
+            className="btn bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-yellow-400/80 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black shadow-[0_4px_15px_rgba(250,204,21,0.25)] hover:shadow-[0_6px_25px_rgba(250,204,21,0.4)] whitespace-nowrap"
           >
-            <BookOpen size={17} className="text-[#DC2626]" />
+            <BookOpen size={16} className="text-[#DC2626] shrink-0" />
             <span>Visi &amp; Profil</span>
           </a>
 
           <a
             href="#program"
-            className="btn btn-red border-2 border-black shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black"
+            className="btn btn-red bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/80 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black shadow-[0_4px_15px_rgba(220,38,38,0.3)] hover:shadow-[0_6px_25px_rgba(220,38,38,0.5)] whitespace-nowrap"
           >
-            <Sparkles size={17} className="text-[#FACC15]" />
+            <Sparkles size={16} className="text-[#FACC15] shrink-0" />
             <span>Program Warga</span>
           </a>
 
@@ -187,9 +187,9 @@ export default function Hero({
                 onNavigateToStructure();
               }
             }}
-            className="btn bg-white dark:bg-[#1E222D] hover:bg-slate-100 dark:hover:bg-[#252A38] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black cursor-pointer"
+            className="btn bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-yellow-400/80 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black shadow-[0_4px_15px_rgba(250,204,21,0.25)] hover:shadow-[0_6px_25px_rgba(250,204,21,0.4)] cursor-pointer whitespace-nowrap"
           >
-            <Users size={17} className="text-[#DC2626] dark:text-[#FACC15]" />
+            <Users size={16} className="text-[#DC2626] shrink-0" />
             <span>Susunan Pengurus</span>
           </a>
 
@@ -201,9 +201,9 @@ export default function Hero({
                 onNavigateToGallery();
               }
             }}
-            className="btn btn-secondary border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] px-5 py-2.5 text-xs sm:text-sm font-black text-slate-900 dark:text-slate-200 cursor-pointer"
+            className="btn btn-red bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/80 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black shadow-[0_4px_15px_rgba(220,38,38,0.3)] hover:shadow-[0_6px_25px_rgba(220,38,38,0.5)] cursor-pointer whitespace-nowrap"
           >
-            <Camera size={17} className="text-[#DC2626] dark:text-[#FACC15]" />
+            <Camera size={16} className="text-[#FACC15] shrink-0" />
             <span>Dokumentasi Kegiatan</span>
           </a>
         </div>

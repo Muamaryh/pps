@@ -8,8 +8,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        heading: ["'Outfit'", "'Space Grotesk'", "sans-serif"],
-        body: ["'Plus Jakarta Sans'", "sans-serif"],
+        heading: ["var(--font-heading)", "'Space Grotesk'", "sans-serif"],
+        body: ["var(--font-body)", "'Plus Jakarta Sans'", "sans-serif"],
         mono: ["'JetBrains Mono'", "monospace"],
       },
       colors: {

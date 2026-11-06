@@ -46,10 +46,10 @@ export const DEFAULT_SUB_MEMBERS = {
 
 export function getSubMembers(member) {
   if (!member) return [];
-  if (Array.isArray(member.subMembers) && member.subMembers.length > 0) {
+  if (Array.isArray(member.subMembers)) {
     return member.subMembers;
   }
-  if (Array.isArray(member.team) && member.team.length > 0) {
+  if (Array.isArray(member.team)) {
     return member.team.map((t) =>
       typeof t === "string" ? { name: t, role: `Anggota Tim ${member.role || ""}`, photo: "" } : t
     );

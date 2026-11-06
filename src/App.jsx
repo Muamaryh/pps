@@ -21,6 +21,7 @@ import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
+import { Users, Camera, ArrowRight } from "lucide-react";
 import { subscribeMembersCloud } from "./services/memberService";
 import { subscribeEventsCloud, DEFAULT_EVENT } from "./services/eventService";
 import { subscribeBansosProgramsCloud, DEFAULT_BANSOS_PROGRAM } from "./services/bansosService";
@@ -740,6 +741,7 @@ export default function App() {
         ) : currentPage === "structure" ? (
           <StructurePage
             org={data.org}
+            tierTitles={data?.orgTierTitles}
             onOpenLightbox={handleOpenLightbox}
             onNavigateHome={handleNavigateToHome}
           />
@@ -771,28 +773,110 @@ export default function App() {
               onOpenBansos={handleOpenBansosModal}
             />
 
-            {/* Banner Teaser Susunan Pengurus */}
-            <div className="card-brutal p-6 sm:p-8 my-8 bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[5px_5px_0px_#000] flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="max-w-2xl">
-                <div className="card-label text-xs sm:text-sm font-black text-slate-700 dark:text-slate-400 mb-1">
-                  BAGAN KEPENGURUSAN
+            {/* Section Pemisah: Direktori Pengurus & Dokumentasi Kegiatan */}
+            <section id="portal-arsip" className="pt-12 sm:pt-16 mt-10 sm:mt-14 border-t border-black/20 dark:border-white/10 w-full scroll-mt-24">
+              {/* Title Bar Pemisah */}
+              <div className="flex items-center justify-between gap-4 mb-6 sm:mb-8 pb-4 border-b border-black/20 dark:border-white/10 flex-wrap">
+                <div>
+                  <div className="card-label mb-1">
+                    PORTAL INFORMASI &amp; ARSIP LEMBAGA
+                  </div>
+                  <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
+                    Struktur &amp; Dokumentasi Kegiatan
+                  </h2>
                 </div>
-                <h3 className="font-heading font-black text-xl sm:text-2xl lg:text-3xl text-slate-950 dark:text-slate-100 uppercase leading-snug">
-                  Susunan Pengurus, BPH &amp; Koordinator Wilayah
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 font-medium">
-                  Mengenal jajaran pimpinan, dewan penasihat, badan pengurus harian, kepala seksi divisi, serta koordinator satgas lapangan LSM PPS periode 2026 - 2027.
-                </p>
+                <div className="badge-brutal badge-yellow font-black">
+                  DIREKTORI RESMI
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={handleNavigateToStructure}
-                className="btn bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[3px_3px_0px_#000] py-3 px-6 text-xs sm:text-sm font-black shrink-0 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-2"
-              >
-                <span>Buka Susunan Pengurus Lengkap</span>
-                <span className="font-mono text-sm font-black">→</span>
-              </button>
-            </div>
+
+              {/* Dual Quick-Access Teasers: Susunan Pengurus & Dokumentasi Kegiatan */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
+                {/* Card 1: Bagan Kepengurusan */}
+                <div
+                  onClick={handleNavigateToStructure}
+                  className="card-brutal p-6 sm:p-8 border border-black/25 dark:border-white/10 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.7)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
+                  title="Buka Halaman Struktur & Susunan Pengurus LSM PPS"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-red-600/5 via-transparent to-amber-500/5 dark:from-red-600/10 dark:to-transparent opacity-80 pointer-events-none" />
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <div className="card-label">
+                        BAGAN KEPENGURUSAN
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950/70 text-[#DC2626] dark:text-[#EF4444] border border-red-200 dark:border-red-800/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-sm">
+                        <Users size={20} />
+                      </div>
+                    </div>
+                    <h3 className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-white uppercase leading-snug group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors mb-2.5">
+                      Susunan Pengurus, BPH &amp; Koordinator Wilayah
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-normal leading-relaxed">
+                      Mengenal jajaran pimpinan, dewan penasihat, badan pengurus harian, kepala seksi divisi, serta koordinator satgas lapangan LSM PPS.
+                    </p>
+                  </div>
+
+                  <div className="pt-6 mt-5 border-t border-black/15 dark:border-white/10 flex items-center justify-between relative z-10">
+                    <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+                      // STRUKTUR ORGANISASI //
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNavigateToStructure();
+                      }}
+                      className="btn btn-red py-2.5 px-5 text-xs font-bold shrink-0 cursor-pointer flex items-center gap-2 group-hover:brightness-105"
+                    >
+                      <span>Buka Susunan Pengurus</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card 2: Dokumentasi Kegiatan */}
+                <div
+                  onClick={handleNavigateToGallery}
+                  className="card-brutal p-6 sm:p-8 border border-black/25 dark:border-white/10 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.7)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
+                  title="Buka Halaman Dokumentasi Kegiatan LSM PPS"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-red-600/5 dark:from-amber-500/10 dark:to-transparent opacity-80 pointer-events-none" />
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <div className="card-label !text-amber-700 dark:!text-[#FACC15]">
+                        DOKUMENTASI KEGIATAN
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-[#FACC15] border border-amber-200 dark:border-amber-800/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-sm">
+                        <Camera size={20} />
+                      </div>
+                    </div>
+                    <h3 className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-white uppercase leading-snug group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors mb-2.5">
+                      Arsip Dokumentasi &amp; Warta Aksi Lapangan
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-normal leading-relaxed">
+                      Rekam jejak visual aksi sosial, pembagian bansos, advokasi warga, penertiban lapak UMKM, dan kegiatan resmi Paguyuban Pizza Sandy Shores.
+                    </p>
+                  </div>
+
+                  <div className="pt-6 mt-5 border-t border-black/15 dark:border-white/10 flex items-center justify-between relative z-10">
+                    <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
+                      // GALERI &amp; WARTA KEGIATAN //
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNavigateToGallery();
+                      }}
+                      className="btn py-2.5 px-5 text-xs font-bold shrink-0 cursor-pointer flex items-center gap-2 group-hover:brightness-105"
+                    >
+                      <span>Buka Dokumentasi Lengkap</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
           </>
         )}
       </main>

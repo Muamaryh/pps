@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -1788,7 +1788,7 @@ export default function AdminModal({
         const newOrg = [...prev.org];
         const currentSubs = Array.isArray(newOrg[memberIndex]?.subMembers)
           ? [...newOrg[memberIndex].subMembers]
-          : getSubMembers(newOrg[memberIndex]);
+          : getSubMembers(newOrg[memberIndex]).map((s) => ({ ...s }));
         if (currentSubs[subIndex]) {
           currentSubs[subIndex] = { ...currentSubs[subIndex], photo: base64 };
           newOrg[memberIndex] = { ...newOrg[memberIndex], subMembers: currentSubs };
@@ -1804,7 +1804,7 @@ export default function AdminModal({
       const newOrg = [...prev.org];
       const currentSubs = Array.isArray(newOrg[memberIndex]?.subMembers)
         ? [...newOrg[memberIndex].subMembers]
-        : getSubMembers(newOrg[memberIndex]);
+        : getSubMembers(newOrg[memberIndex]).map((s) => ({ ...s }));
       const newSubs = [
         ...currentSubs,
         {
@@ -1824,7 +1824,7 @@ export default function AdminModal({
       const newOrg = [...prev.org];
       const currentSubs = Array.isArray(newOrg[memberIndex]?.subMembers)
         ? [...newOrg[memberIndex].subMembers]
-        : getSubMembers(newOrg[memberIndex]);
+        : getSubMembers(newOrg[memberIndex]).map((s) => ({ ...s }));
       currentSubs.splice(subIndex, 1);
       newOrg[memberIndex] = { ...newOrg[memberIndex], subMembers: currentSubs };
       return { ...prev, org: newOrg };
@@ -1837,13 +1837,32 @@ export default function AdminModal({
       const newOrg = [...prev.org];
       const currentSubs = Array.isArray(newOrg[memberIndex]?.subMembers)
         ? [...newOrg[memberIndex].subMembers]
-        : getSubMembers(newOrg[memberIndex]);
+        : getSubMembers(newOrg[memberIndex]).map((s) => ({ ...s }));
       if (currentSubs[subIndex]) {
         currentSubs[subIndex] = { ...currentSubs[subIndex], [field]: value };
         newOrg[memberIndex] = { ...newOrg[memberIndex], subMembers: currentSubs };
       }
       return { ...prev, org: newOrg };
     });
+  }
+
+  function handleClearAllSubMembers(memberIndex) {
+    setFormData((prev) => {
+      const newOrg = [...prev.org];
+      newOrg[memberIndex] = { ...newOrg[memberIndex], subMembers: [] };
+      return { ...prev, org: newOrg };
+    });
+    onShowToast("Seluruh staf anggota divisi ini berhasil dikosongkan/dihapus", "info");
+  }
+
+  function handleTierTitleChange(field, value) {
+    setFormData((prev) => ({
+      ...prev,
+      orgTierTitles: {
+        ...(prev.orgTierTitles || {}),
+        [field]: value,
+      },
+    }));
   }
 
   // Gallery Management
@@ -3036,6 +3055,78 @@ export default function AdminModal({
               {/* Tab 3: Organization */}
               {activeTab === "org" && (
                 <div className="flex flex-col gap-3.5">
+                  {/* Card: Kustomisasi Label & Nama Tingkatan Bagan Struktur */}
+                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-black/15 dark:border-white/10">
+                      <GitBranch size={16} className="text-[#DC2626] dark:text-[#FACC15]" />
+                      <span className="font-heading font-black text-xs uppercase text-slate-800 dark:text-slate-200">
+                        Judul &amp; Label Tingkatan Bagan Struktur
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Tingkat 1 (Pimpinan Puncak)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Dewan Pimpinan Pusat (DPP)"
+                          value={formData.orgTierTitles?.tier1 || ""}
+                          onChange={(e) => handleTierTitleChange("tier1", e.target.value)}
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Tingkat 2 Kiri (Penasihat)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Majelis Pertimbangan Organisasi (MPO)"
+                          value={formData.orgTierTitles?.tier2Left || ""}
+                          onChange={(e) => handleTierTitleChange("tier2Left", e.target.value)}
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Tingkat 2 Kanan (Wakil Ketua)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Wakil Ketua Umum & Komando Lapangan"
+                          value={formData.orgTierTitles?.tier2Right || ""}
+                          onChange={(e) => handleTierTitleChange("tier2Right", e.target.value)}
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Tingkat 3 (BPH &amp; Divisi)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Badan Pengurus Harian (BPH)"
+                          value={formData.orgTierTitles?.tier3 || ""}
+                          onChange={(e) => handleTierTitleChange("tier3", e.target.value)}
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Tingkat 4 (Satgas &amp; Wilayah)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Koordinator Daerah (Korda) & Komando Satgas"
+                          value={formData.orgTierTitles?.tier4 || ""}
+                          onChange={(e) => handleTierTitleChange("tier4", e.target.value)}
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex justify-between items-center">
                     <span className="font-heading font-black text-xs uppercase text-slate-800 dark:text-slate-200">
                       Total: {formData.org?.length || 0} Pengurus
@@ -3073,7 +3164,7 @@ export default function AdminModal({
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                           <div>
                             <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                              Level (1-5)
+                              Urutan Tampilan
                             </label>
                             <input
                               type="number"
@@ -3110,6 +3201,19 @@ export default function AdminModal({
 
                         <div>
                           <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                            Deskripsi / Tugas Jabatan (Teks di Bawah Nama)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Biarkan kosong untuk deskripsi otomatis atau ketik deskripsi khusus..."
+                            value={member.desc || ""}
+                            onChange={(e) => handleMemberChange(idx, "desc", e.target.value)}
+                            className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-heading font-bold text-slate-700 dark:text-slate-300 block mb-1">
                             Foto Profil
                           </label>
                           <div className="flex items-center gap-2.5">
@@ -3142,13 +3246,27 @@ export default function AdminModal({
                                 )
                               </span>
                             </label>
-                            <button
-                              type="button"
-                              onClick={() => handleAddSubMember(idx)}
-                              className="btn text-[10px] py-1 px-2.5 bg-[#FACC15] text-[#111827] border border-black shadow-[1px_1px_0px_#000] font-black cursor-pointer"
-                            >
-                              + Tambah Staf
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              {(Array.isArray(member.subMembers)
+                                ? member.subMembers.length
+                                : getSubMembers(member).length) > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleClearAllSubMembers(idx)}
+                                  className="btn text-[10px] py-1 px-2 bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-400 font-bold cursor-pointer hover:bg-red-200"
+                                  title="Hapus semua staf dari divisi ini sehingga tidak memiliki staf"
+                                >
+                                  Kosongkan Staf
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleAddSubMember(idx)}
+                                className="btn text-[10px] py-1 px-2.5 bg-[#FACC15] text-[#111827] border border-black shadow-[1px_1px_0px_#000] font-black cursor-pointer"
+                              >
+                                + Tambah Staf
+                              </button>
+                            </div>
                           </div>
 
                           <div className="space-y-2">

@@ -47,7 +47,7 @@ export default function Gallery({
   return (
     <section id="gallery" className="py-10 sm:py-14 w-full scroll-mt-24">
       {/* Title Bar & Quick Jump to Full Gallery */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-3 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569]">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-3 border-b border-black/20 dark:border-white/10">
         <div>
           <div className="inline-flex items-center gap-1.5 card-label text-xs sm:text-sm font-black text-slate-700 dark:text-slate-300">
             <FolderArchive size={14} className="text-[#DC2626]" />
@@ -62,7 +62,7 @@ export default function Gallery({
           <button
             type="button"
             onClick={handleOpenDedicatedPage}
-            className="btn w-full sm:w-auto text-xs py-2 px-4 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black font-heading font-black shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer transition-transform hover:-translate-y-0.5"
+            className="btn w-full sm:w-auto text-xs py-2.5 px-4 flex items-center justify-center gap-2 cursor-pointer transition-transform hover:-translate-y-0.5"
             title="Buka Halaman Mandiri Galeri Dokumentasi"
           >
             <Layers size={14} />
@@ -89,7 +89,7 @@ export default function Gallery({
           })}
         </div>
       ) : (
-        <div className="card-brutal p-8 text-center bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000]">
+        <div className="card-brutal p-8 text-center">
           <ImageIcon size={32} className="mx-auto text-slate-400 mb-2" />
           <h4 className="font-heading font-black text-sm text-slate-900 dark:text-slate-100 uppercase">
             Belum Ada Dokumentasi
@@ -98,13 +98,13 @@ export default function Gallery({
       )}
 
       {/* Prominent Callout Card to Visit Dedicated Gallery Page */}
-      <div className="mt-8 card-brutal p-6 sm:p-7 bg-[#FFFDF9] dark:bg-[#151822] border-[2.5px] border-black dark:border-[#475569] shadow-[5px_5px_0px_#000] flex flex-col md:flex-row items-center justify-between gap-5">
+      <div className="mt-8 card-brutal p-6 sm:p-7 flex flex-col md:flex-row items-center justify-between gap-5">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#FACC15] border-2 border-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_#000]">
+          <div className="w-12 h-12 rounded-xl bg-[#FACC15] border border-amber-400/50 flex items-center justify-center shrink-0 shadow-sm">
             <Sparkles size={22} className="text-[#DC2626]" />
           </div>
           <div>
-            <div className="badge-brutal text-[10px] bg-[#DC2626] text-white border border-black mb-1 font-black">
+            <div className="badge-brutal badge-red text-[10px] mb-1 font-black">
               HALAMAN KHUSUS ARSIP
             </div>
             <h4 className="font-heading font-black text-base sm:text-lg text-slate-950 dark:text-slate-100 uppercase">
@@ -120,7 +120,7 @@ export default function Gallery({
         <button
           type="button"
           onClick={handleOpenDedicatedPage}
-          className="btn py-3 px-5 sm:px-6 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-[2.5px] border-black font-heading font-black text-xs sm:text-sm shadow-[4px_4px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-2.5 cursor-pointer shrink-0 w-full md:w-auto justify-center group"
+          className="btn py-3 px-5 sm:px-6 flex items-center gap-2.5 cursor-pointer shrink-0 w-full md:w-auto justify-center group"
         >
           <span>Buka Galeri Dokumentasi Lengkap</span>
           <ArrowRight

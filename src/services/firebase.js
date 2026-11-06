@@ -57,6 +57,14 @@ export const defaultData = {
     { level: 5, role: "Korda Media LSM", name: "KRAI ANDORYU & RIZMAN", photo: "" }
   ],
 
+  orgTierTitles: {
+    tier1: "Dewan Pimpinan Pusat (DPP)",
+    tier2Left: "Majelis Pertimbangan Organisasi (MPO)",
+    tier2Right: "Wakil Ketua Umum & Komando Lapangan",
+    tier3: "Badan Pengurus Harian (BPH)",
+    tier4: "Koordinator Daerah (Korda) & Komando Satgas",
+  },
+
   gallery: [
     {
       title: "Aksi Berbagi Untuk Warga",
@@ -160,6 +168,7 @@ export function mergeWithDefaults(cloudData) {
     aboutPillars: cloudData.aboutPillars || defaultData.aboutPillars,
     visionMission: { ...defaultData.visionMission, ...(cloudData.visionMission || {}) },
     charterTitle: cloudData.charterTitle || defaultData.charterTitle,
+    orgTierTitles: { ...defaultData.orgTierTitles, ...(cloudData.orgTierTitles || {}) },
   };
 }
 
