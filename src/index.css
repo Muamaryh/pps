@@ -459,7 +459,30 @@ html.dark .border-\[2\.5px\] {
   border-width: 1px !important;
 }
 
-/* Animasi Kedatangan Logo PPS (Pop Spring Arrival) */
+/* Running Marquee Animation */
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: marquee-scroll 48s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+    transform: none;
+  }
+}
+
 @keyframes logoPopArrival {
   0% {
     opacity: 0;

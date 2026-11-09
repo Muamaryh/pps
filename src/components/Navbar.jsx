@@ -164,7 +164,7 @@ export default function Navbar({
   }
 
   return (
-    <header className="sticky top-3 sm:top-4 z-40 w-full max-w-7xl 2xl:max-w-[1560px] mx-auto px-3 sm:px-6">
+    <header className="sticky top-[40px] sm:top-[48px] z-30 w-full max-w-7xl 2xl:max-w-[1560px] mx-auto px-3 sm:px-6 transition-all">
       {/* Floating Capsule Bar - Responsive to Light & Dark Mode */}
       <nav className="rounded-full px-4 sm:px-6 py-2.5 flex items-center justify-between gap-2.5 sm:gap-4 bg-[#FAF8F3]/90 dark:bg-[#07080E]/90 backdrop-blur-xl border border-black/25 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_30px_rgba(0,0,0,0.7)] select-none transition-all">
         {/* Left: Brand Identity with Circular Logo & 2 Lines Slim Typography */}
@@ -182,11 +182,11 @@ export default function Navbar({
 
           {/* 2 Lines Brand Identity */}
           <div className="flex flex-col justify-center leading-none select-none">
-            <span className="font-heading text-[10.5px] sm:text-xs font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400 leading-none mb-0.5">
+            <span className="font-heading text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400 leading-none mb-0.5">
               LSM PAGUYUBAN
             </span>
             <span className="font-heading font-black text-xs sm:text-sm md:text-base tracking-tight uppercase text-[#DC2626] dark:text-[#FACC15] leading-tight">
-              SANDY SHORES
+              PIZZA SANDY SHORES
             </span>
           </div>
         </a>

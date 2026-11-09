@@ -2210,8 +2210,21 @@ export default function AdminModal({
     return true;
   });
 
-  const totalVoucherActiveCount = kasSubs.filter((item) => item.voucher.isActive).length;
-  const totalVoucherReadyCount = kasSubs.filter((item) => !item.voucher.isActive).length;
+  const isMemberVoucherActive = (m) => {
+    if (jasraDistributions && jasraDistributions.length > 0) {
+      const cid = (m.icNumber || m.citizenId || "").trim().toUpperCase();
+      const name = (m.fullName || "").trim().toUpperCase();
+      return jasraDistributions.some((d) =>
+        (d.memberId && d.memberId === m.id) ||
+        (d.citizenId && cid && !cid.includes("TIDAK") && d.citizenId.trim().toUpperCase() === cid) ||
+        (d.recipientName && name && d.recipientName.trim().toUpperCase() === name)
+      );
+    }
+    return getMemberVoucherSubscription(m).isActive;
+  };
+
+  const totalVoucherActiveCount = membersList.filter((m) => isMemberVoucherActive(m)).length;
+  const totalVoucherReadyCount = membersList.length - totalVoucherActiveCount;
 
   const filteredMembers = membersList.filter((m) => {
     // 1. Text Search Filter
@@ -2232,9 +2245,9 @@ export default function AdminModal({
     if (filterKas === "unpaid" && kasSub.isActive) return false;
 
     // 3. Filter Voucher Status
-    const voucherSub = getMemberVoucherSubscription(m);
-    if (filterVoucher === "active" && !voucherSub.isActive) return false;
-    if (filterVoucher === "ready" && voucherSub.isActive) return false;
+    const isVActive = isMemberVoucherActive(m);
+    if (filterVoucher === "active" && !isVActive) return false;
+    if (filterVoucher === "ready" && isVActive) return false;
 
     return true;
   });
@@ -2532,7 +2545,7 @@ export default function AdminModal({
 
                   {/* Sidebar Footer Status */}
                   <div className="p-3 border-t-2 border-black/10 dark:border-white/10 text-[10px] font-mono text-slate-500 flex items-center justify-between bg-black/5 dark:bg-white/5">
-                    <span>LSM Sandy Shores</span>
+                    <span>LSM PPS Sandy Shores</span>
                     <span className="font-bold text-[#DC2626] dark:text-[#FACC15]">Admin CMS</span>
                   </div>
                 </aside>
@@ -4378,41 +4391,50 @@ export default function AdminModal({
                               {/* Box 2: Voucher Tritmen & Pingsan (7 Hari) */}
                               {(() => {
                                 const voucherSub = getMemberVoucherSubscription(member);
+                                const dist = (jasraDistributions || []).find((d) =>
+                                  (d.memberId && d.memberId === member.id) ||
+                                  (d.citizenId && member.icNumber && d.citizenId.trim().toUpperCase() === member.icNumber.trim().toUpperCase() && !d.citizenId.includes("TIDAK")) ||
+                                  (d.recipientName && member.fullName && d.recipientName.trim().toUpperCase() === member.fullName.trim().toUpperCase())
+                                );
+                                const isVoucherActive = dist ? true : (jasraDistributions.length === 0 && voucherSub.isActive);
+                                const remMs = dist?.batchExpiresAt ? (dist.batchExpiresAt - Date.now()) : 0;
+                                const daysRem = remMs > 0 ? Math.ceil(remMs / 86400000) : voucherSub.daysRemaining;
+
                                 return (
                                   <div className={`p-2 rounded border-2 transition-all ${
-                                    voucherSub.isActive
+                                    isVoucherActive
                                       ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 text-amber-950 dark:text-amber-100"
                                       : "bg-white dark:bg-[#1F222C] border-black/20 dark:border-white/20 text-slate-800 dark:text-slate-200"
                                   }`}>
                                     <div className="flex items-center justify-between gap-1 mb-1">
                                       <div className="flex items-center gap-1.5 min-w-0">
                                         <span className={`w-2 h-2 rounded-full shrink-0 ${
-                                          voucherSub.isActive ? "bg-amber-500" : "bg-slate-400"
+                                          isVoucherActive ? "bg-amber-500" : "bg-slate-400"
                                         }`} />
                                         <span className="font-heading font-black text-[11px] uppercase truncate">
                                           VOUCHER JASRA (10T • 10P)
                                         </span>
                                       </div>
                                       <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded border shrink-0 ${
-                                        voucherSub.isActive
+                                        isVoucherActive
                                           ? "bg-[#FACC15] text-slate-950 border-amber-500"
                                           : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300"
                                       }`}>
-                                        {voucherSub.isActive ? `${voucherSub.daysRemaining} HARI LAGI` : "SIAP DIAMBIL"}
+                                        {isVoucherActive ? `${daysRem} HARI LAGI` : "SIAP DIAMBIL"}
                                       </span>
                                     </div>
 
                                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 dark:text-slate-400 mb-2">
-                                      <span>{voucherSub.isActive ? "Berlaku s/d:" : "Jatah Mingguan:"}</span>
+                                      <span>{isVoucherActive ? "Berlaku s/d:" : "Jatah Mingguan:"}</span>
                                       <strong className="text-slate-900 dark:text-slate-100">
-                                        {voucherSub.isActive ? voucherSub.expiresAtFormatted : "10 Tritmen • 10 Pingsan"}
+                                        {isVoucherActive ? (dist?.batchExpiresFormatted || voucherSub.expiresAtFormatted) : "10 Tritmen • 10 Pingsan"}
                                       </strong>
                                     </div>
 
                                     {/* Link & Status ke Panel Jasra */}
                                     <div className="flex items-center justify-between pt-1.5 border-t border-black/10 dark:border-white/10 text-[10px]">
                                       <span className="font-mono text-slate-500">
-                                        {voucherSub.isActive ? "Status: Kuota Terdistribusi" : "Status: Belum Menerima"}
+                                        {isVoucherActive ? "Status: Kuota Terdistribusi" : "Status: Belum Menerima"}
                                       </span>
                                       <button
                                         type="button"

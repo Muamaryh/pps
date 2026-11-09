@@ -25,6 +25,7 @@ import {
   getCurrentMonthLabel,
   getCurrentWeekLabel,
 } from "../services/memberService";
+import { subscribeJasraDistributionsCloud } from "../services/jasraService";
 
 export default function MembersDirectoryModal({
   isOpen,
@@ -33,6 +34,7 @@ export default function MembersDirectoryModal({
 }) {
   const [members, setMembers] = useState([]);
   const [externalJasraList, setExternalJasraList] = useState([]);
+  const [distributions, setDistributions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [previewKtp, setPreviewKtp] = useState(null); // { image, name, citizenId }
@@ -64,23 +66,113 @@ export default function MembersDirectoryModal({
       }
     );
 
+    const unsubDist = subscribeJasraDistributionsCloud(
+      (list) => {
+        setDistributions(Array.isArray(list) ? list : []);
+      },
+      (err) => {
+        console.warn("Gagal memuat distribusi Jasra:", err);
+      }
+    );
+
     return () => {
       if (typeof unsub === "function") unsub();
       if (typeof unsubExt === "function") unsubExt();
+      if (typeof unsubDist === "function") unsubDist();
     };
   }, [isOpen]);
 
-  // Hitung jumlah penerima manfaat voucher Jasra
+  // Lookup maps for fast, foolproof matching with Voucher Jasra distributions
+  const { distByMemberId, distByCid, distByName } = useMemo(() => {
+    const byMemberId = new Map();
+    const byCid = new Map();
+    const byName = new Map();
+    (distributions || []).forEach((d) => {
+      if (d.memberId) byMemberId.set(d.memberId, d);
+      const cid = (d.citizenId || "").trim().toUpperCase();
+      if (cid && !cid.includes("TIDAK")) byCid.set(cid, d);
+      const name = (d.recipientName || "").trim().toUpperCase();
+      if (name) byName.set(name, d);
+    });
+    return { distByMemberId: byMemberId, distByCid: byCid, distByName: byName };
+  }, [distributions]);
+
+  // Helper to check if a registered member has received Voucher Jasra in active distributions
+  const getMemberJasraDist = useMemo(() => {
+    return (m) => {
+      if (!m) return null;
+      if (m.id && distByMemberId.has(m.id)) return distByMemberId.get(m.id);
+      const ic = (m.icNumber || m.citizenId || "").trim().toUpperCase();
+      if (ic && !ic.includes("TIDAK") && distByCid.has(ic)) return distByCid.get(ic);
+      const name = (m.fullName || "").trim().toUpperCase();
+      if (name && distByName.has(name)) return distByName.get(name);
+      return null;
+    };
+  }, [distByMemberId, distByCid, distByName]);
+
+  // Hitung anggota paguyuban yang menerima manfaat voucher Jasra
   const memberJasraList = useMemo(() => {
     return members.filter((m) => {
-      const vSub = getMemberVoucherSubscription(m);
-      return vSub.isActive || m.voucherJasraReceived;
+      const dist = getMemberJasraDist(m);
+      if (dist) return true;
+      // Fallback backward compatibility jika dokumen distribusi cloud belum termuat
+      if (distributions.length === 0) {
+        const vSub = getMemberVoucherSubscription(m);
+        return vSub.isActive || m.voucherJasraReceived;
+      }
+      return false;
     });
-  }, [members]);
+  }, [members, distributions, getMemberJasraDist]);
+
+  // Daftar penerima Jasra luar anggota (disinkronkan dengan koleksi jasra_distributions)
+  const externalJasraItems = useMemo(() => {
+    if (distributions.length > 0) {
+      const extDists = distributions.filter((d) => {
+        if (d.recipientType === "MEMBER") return false;
+        // Cegah duplikasi jika penerima ini sudah terdaftar sebagai anggota resmi
+        const matchedMem = members.find((m) => {
+          const ic = (m.icNumber || m.citizenId || "").trim().toUpperCase();
+          const name = (m.fullName || "").trim().toUpperCase();
+          const dCid = (d.citizenId || "").trim().toUpperCase();
+          const dName = (d.recipientName || "").trim().toUpperCase();
+          return (dCid && !dCid.includes("TIDAK") && ic === dCid) || (dName && name === dName);
+        });
+        return !matchedMem;
+      });
+
+      const extMap = new Map();
+      externalJasraList.forEach((e) => {
+        const cid = (e.citizenId || "").trim().toUpperCase();
+        if (cid && !cid.includes("TIDAK")) extMap.set(cid, e);
+        const name = (e.fullName || "").trim().toUpperCase();
+        if (name) extMap.set(name, e);
+      });
+
+      return extDists.map((d) => {
+        const cid = (d.citizenId || "").trim().toUpperCase();
+        const name = (d.recipientName || "").trim().toUpperCase();
+        const matched = extMap.get(cid) || extMap.get(name);
+        return {
+          id: d.id,
+          fullName: d.recipientName,
+          citizenId: d.citizenId,
+          phone: d.phone || matched?.phone || "-",
+          ktpPhoto: d.ktpPhoto || matched?.ktpPhoto || "",
+          packageLabel: d.packageLabel || `${d.treatmentCount || 10} Tritmen • ${d.pingsanCount || 10} Pingsan`,
+          dateGiven: d.givenDateFormatted || matched?.dateGiven || "-",
+          notes: d.notes || matched?.notes || "",
+          status: "ACTIVE",
+        };
+      });
+    }
+    return externalJasraList;
+  }, [distributions, members, externalJasraList]);
 
   const memberJasraCount = memberJasraList.length;
-  const externalJasraCount = externalJasraList.length;
-  const totalJasraCount = memberJasraCount + externalJasraCount;
+  const externalJasraCount = externalJasraItems.length;
+  const totalJasraCount = distributions.length > 0
+    ? distributions.length
+    : (memberJasraCount + externalJasraCount);
 
   // Filter items based on search query & filter Jasra & scope
   const q = searchQuery.trim().toLowerCase();
@@ -113,7 +205,7 @@ export default function MembersDirectoryModal({
     }
 
     if (jasraScopeFilter === "ALL" || jasraScopeFilter === "EXTERNAL") {
-      const filteredExt = externalJasraList.filter((item) => {
+      const filteredExt = externalJasraItems.filter((item) => {
         if (!q) return true;
         const name = (item.fullName || "").toLowerCase();
         const cid = (item.citizenId || "").toLowerCase();
@@ -125,7 +217,7 @@ export default function MembersDirectoryModal({
     }
 
     return result;
-  }, [members, externalJasraList, filterJasraOnly, jasraScopeFilter, memberJasraList, q]);
+  }, [members, externalJasraItems, filterJasraOnly, jasraScopeFilter, memberJasraList, q]);
 
   if (!isOpen) return null;
 
@@ -158,7 +250,7 @@ export default function MembersDirectoryModal({
                   </span>
                 </div>
                 <h3 className="font-heading font-black text-sm sm:text-base md:text-lg text-slate-950 dark:text-slate-100 uppercase tracking-tight">
-                  Daftar Anggota Resmi Paguyuban Sandy Shores
+                  Daftar Anggota Resmi Paguyuban Pizza Sandy Shores
                 </h3>
               </div>
             </div>
@@ -174,20 +266,20 @@ export default function MembersDirectoryModal({
           </div>
 
           {/* Subheader Toolbar & Stats */}
-          <div className="p-3.5 sm:p-5 bg-amber-50/60 dark:bg-[#171922] border-b border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="p-3 sm:px-6 sm:py-3.5 bg-amber-50/50 dark:bg-[#151822] border-b border-black/10 dark:border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
             {/* Stats Badges & Jasra Counter */}
-            <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => setFilterJasraOnly(false)}
-                className={`px-3.5 py-2 rounded-xl border border-black/15 dark:border-white/10 shadow-sm flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide cursor-pointer active:scale-98 transition-all ${
+                className={`px-3 py-1.5 rounded-lg border text-xs font-heading font-bold uppercase tracking-wide flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-sm ${
                   !filterJasraOnly
-                    ? "bg-[#FACC15] text-[#111827] border-yellow-400"
-                    : "bg-white dark:bg-[#1F222C] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    ? "bg-[#FACC15] text-[#111827] border-amber-400 font-extrabold"
+                    : "bg-white dark:bg-[#1F222C] text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
                 title="Tampilkan seluruh anggota resmi terdaftar"
               >
-                <Users size={16} />
+                <Users size={14} />
                 <span>
                   {isLoading ? "Memuat..." : `${members.length} Anggota Terdaftar`}
                 </span>
@@ -196,22 +288,22 @@ export default function MembersDirectoryModal({
               <button
                 type="button"
                 onClick={() => setFilterJasraOnly((prev) => !prev)}
-                className={`px-3.5 py-2 rounded-xl border border-black/15 dark:border-white/10 shadow-sm flex items-center gap-2 font-heading font-black text-xs sm:text-sm uppercase tracking-wide cursor-pointer active:scale-98 transition-all ${
+                className={`px-3 py-1.5 rounded-lg border text-xs font-heading font-bold uppercase tracking-wide flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-sm ${
                   filterJasraOnly
-                    ? "bg-emerald-500 text-slate-950 ring-2 ring-emerald-300 dark:ring-emerald-700"
-                    : "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/80"
+                    ? "bg-emerald-500 text-slate-950 border-emerald-600 font-extrabold ring-1 ring-emerald-300 dark:ring-emerald-700"
+                    : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60"
                 }`}
                 title="Klik untuk menyaring anggota yang telah menerima manfaat voucher Jasra"
               >
                 <HeartHandshake
-                  size={16}
+                  size={14}
                   className={filterJasraOnly ? "text-slate-950" : "text-emerald-700 dark:text-emerald-400"}
                 />
                 <span>
                   {isLoading ? "..." : `${totalJasraCount} Menerima Manfaat Jasra`}
                 </span>
                 {filterJasraOnly && (
-                  <span className="text-[10px] bg-black text-white px-1.5 py-0.2 rounded font-mono font-black">
+                  <span className="text-[9px] bg-black text-white px-1.5 py-0.5 rounded font-mono font-bold leading-none">
                     AKTIF
                   </span>
                 )}
@@ -226,7 +318,7 @@ export default function MembersDirectoryModal({
                   onClose();
                   onOpenRegister();
                 }}
-                className="btn btn-red py-2 px-4 shadow-sm font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-bold uppercase tracking-wider shadow-sm transition-all active:scale-95 shrink-0 cursor-pointer"
                 title="Daftar Menjadi Anggota LSM PPS Baru"
               >
                 <UserPlus size={14} />
@@ -501,17 +593,38 @@ export default function MembersDirectoryModal({
                     <div>
                       {/* Top: Avatar & Name */}
                       <div className="flex items-center gap-3 pb-2.5 mb-2.5 border-b border-black/10 dark:border-white/10">
-                        <div className="w-12 h-12 rounded-full border-2 border-black dark:border-[#475569] overflow-hidden bg-slate-100 dark:bg-[#14161F] shrink-0 shadow-sm flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (member.profilePhoto) {
+                              setPreviewKtp({
+                                image: member.profilePhoto,
+                                name: `${member.fullName || "Anggota"} (Foto Profil)`,
+                                citizenId: member.icNumber || "",
+                              });
+                            }
+                          }}
+                          disabled={!member.profilePhoto}
+                          className={`w-12 h-12 rounded-full border-2 border-black dark:border-[#475569] overflow-hidden bg-slate-100 dark:bg-[#14161F] shrink-0 shadow-sm flex items-center justify-center relative group ${
+                            member.profilePhoto ? "cursor-pointer hover:ring-2 hover:ring-[#FACC15] transition-all" : "cursor-default"
+                          }`}
+                          title={member.profilePhoto ? "Klik untuk melihat foto profil penuh" : "Belum ada foto profil"}
+                        >
                           {member.profilePhoto ? (
-                            <img
-                              src={member.profilePhoto}
-                              alt={member.fullName}
-                              className="w-full h-full object-cover"
-                            />
+                            <>
+                              <img
+                                src={member.profilePhoto}
+                                alt={member.fullName}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              />
+                              <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <Eye size={15} />
+                              </span>
+                            </>
                           ) : (
                             <Users size={20} className="text-slate-400" />
                           )}
-                        </div>
+                        </button>
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-1">
@@ -586,24 +699,36 @@ export default function MembersDirectoryModal({
                               <span className="text-[10px] font-mono font-bold text-slate-500 uppercase">
                                 VOUCHER JASRA:
                               </span>
-                              {voucherSub.isActive ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded bg-[#FACC15]/25 dark:bg-[#FACC15]/15 text-amber-900 dark:text-[#FACC15] border border-amber-400">
-                                  ✓ 10 T • 10 P (SISA {voucherSub.daysRemaining}H)
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
-                                  SIAP DIAMBIL
-                                </span>
-                              )}
+                              {(() => {
+                                const dist = getMemberJasraDist(member);
+                                const isVoucherActive = dist
+                                  ? true
+                                  : (distributions.length === 0 && voucherSub.isActive);
+
+                                const remMs = dist?.batchExpiresAt ? (dist.batchExpiresAt - Date.now()) : 0;
+                                const daysRem = remMs > 0 ? Math.ceil(remMs / 86400000) : voucherSub.daysRemaining;
+                                const tCount = dist?.treatmentCount || 10;
+                                const pCount = dist?.pingsanCount || 10;
+
+                                return isVoucherActive ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black px-2 py-0.5 rounded bg-[#FACC15]/25 dark:bg-[#FACC15]/15 text-amber-900 dark:text-[#FACC15] border border-amber-400">
+                                    ✓ {tCount} T • {pCount} P (SISA {daysRem}H)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
+                                    SIAP DIAMBIL
+                                  </span>
+                                );
+                              })()}
                             </div>
                           </div>
                         );
                       })()}
                     </div>
 
-                    {/* Bottom Action: Foto Profil (Dokumen KTP khusus tersimpan di arsip Admin) */}
+                    {/* Bottom Action: Compact Foto Profil Button */}
                     {member.profilePhoto && (
-                      <div className="flex items-center justify-end pt-1 border-t border-black/5 dark:border-white/5">
+                      <div className="flex items-center justify-end pt-2 border-t border-black/5 dark:border-white/5">
                         <button
                           type="button"
                           onClick={() =>
@@ -613,8 +738,8 @@ export default function MembersDirectoryModal({
                               citizenId: member.icNumber || "",
                             })
                           }
-                          className="btn text-[11px] py-1 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold border border-black dark:border-slate-600 flex items-center gap-1.5 cursor-pointer active:translate-x-0.5"
-                          title="Lihat foto profil resolusi penuh"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-[#1E2230] hover:bg-[#FACC15] hover:text-slate-950 dark:hover:bg-[#FACC15] dark:hover:text-slate-950 border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer active:scale-95"
+                          title="Lihat foto profil ukuran penuh"
                         >
                           <Eye size={12} />
                           <span>Foto Profil</span>
@@ -636,7 +761,7 @@ export default function MembersDirectoryModal({
             <button
               type="button"
               onClick={onClose}
-              className="btn py-2 px-5 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-amber-400 font-heading font-black uppercase text-xs cursor-pointer ml-auto shadow-sm"
+              className="inline-flex items-center justify-center px-4 py-1.5 rounded-lg bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-amber-400 font-heading font-bold uppercase text-xs cursor-pointer ml-auto shadow-sm active:scale-95 transition-all"
             >
               Tutup Direktori
             </button>

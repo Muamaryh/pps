@@ -322,7 +322,7 @@ export default function MemberRegistrationModal({
                 PENDAFTARAN ANGGOTA • LSM PPS
               </span>
               <h3 className="font-heading font-black text-sm sm:text-base md:text-lg text-slate-950 dark:text-slate-100 uppercase tracking-tight">
-                Formulir Anggota Paguyuban Sandy Shores
+                Formulir Anggota Paguyuban Pizza Sandy Shores
               </h3>
             </div>
           </div>

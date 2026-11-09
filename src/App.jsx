@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import About from "./components/About";
 import ProgramsShowcase from "./components/ProgramsShowcase";
+import DonorsSection from "./components/DonorsSection";
 import OrgStructure from "./components/OrgStructure";
 import StructurePage from "./components/StructurePage";
 import GalleryPage from "./components/GalleryPage";
@@ -706,10 +707,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-[#FACC15] selection:text-[#111827]">
-      {/* Signature Yellow & Red Dual Top Strip */}
-      <div className="sticky top-0 z-50 w-full flex h-2 shrink-0 border-b border-black/10 dark:border-black/40">
-        <div className="flex-1 bg-[#FACC15]" />
-        <div className="w-24 sm:w-36 bg-[#DC2626]" />
+      {/* Sticky Header Area: Signature Yellow & Red Dual Top Strip + Notice Bar Orang Baik */}
+      <div className="sticky top-0 z-40 w-full bg-[#FAF7EE] dark:bg-[#07090E] shadow-sm dark:shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors">
+        {/* Signature Yellow & Red Dual Top Strip */}
+        <div className="w-full flex h-1 sm:h-1.5 shrink-0 border-b border-black/10 dark:border-black/40">
+          <div className="flex-1 bg-[#FACC15]" />
+          <div className="w-24 sm:w-36 bg-[#DC2626]" />
+        </div>
+
+        {/* Notice Bar Orang Baik (Lebar Mentok Kiri-Kanan Di Atas Headbar) */}
+        <DonorsSection onOpenTransparency={handleOpenTransparency} />
       </div>
 
       {/* Top Navbar */}

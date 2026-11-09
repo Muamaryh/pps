@@ -107,7 +107,7 @@ export const INITIAL_KAS_TRANSACTIONS = [
     notes: "Uang kas fisik LSM PPS yang dipegang Oita",
     recordedBy: "Pengurus LSM",
     date: "25 Okt 2026",
-    timestamp: 1729814400000,
+    timestamp: 1792904400000,
   },
   {
     id: "init-in-darren",
@@ -120,7 +120,7 @@ export const INITIAL_KAS_TRANSACTIONS = [
     notes: "Uang kas fisik LSM PPS yang dipegang Darren",
     recordedBy: "Pengurus LSM",
     date: "25 Okt 2026",
-    timestamp: 1729814400001,
+    timestamp: 1792904400001,
   },
   {
     id: "init-in-peresmian",
@@ -133,7 +133,7 @@ export const INITIAL_KAS_TRANSACTIONS = [
     notes: "Alokasi dana awal untuk kegiatan peresmian LSM",
     recordedBy: "Pengurus LSM",
     date: "20 Okt 2026",
-    timestamp: 1729425600000,
+    timestamp: 1792472400000,
   },
   {
     id: "init-out-peresmian",
@@ -146,7 +146,7 @@ export const INITIAL_KAS_TRANSACTIONS = [
     notes: "Pembagian uang $5.000 x 15 anggota yang hadir saat peresmian",
     recordedBy: "Pengurus LSM",
     date: "20 Okt 2026",
-    timestamp: 1729429200000,
+    timestamp: 1792472400001,
   },
 ];
 

@@ -49,6 +49,7 @@ const APP_ID = "portal-anggota-app";
 const JASRA_BATCHES_COL_PATH = ["artifacts", APP_ID, "public", "data", "jasra_batches"];
 const JASRA_DISTRIBUTIONS_COL_PATH = ["artifacts", APP_ID, "public", "data", "jasra_distributions"];
 const MEMBERS_COL_PATH = ["artifacts", APP_ID, "public", "data", "members"];
+const EXTERNAL_JASRA_COL_PATH = ["artifacts", APP_ID, "public", "data", "external_jasra"];
 
 const JASRA_BATCHES_STORAGE_KEY = "pps_jasra_batches_cache";
 const JASRA_DISTRIBUTIONS_STORAGE_KEY = "pps_jasra_distributions_cache";
@@ -554,25 +555,88 @@ export async function deleteJasraDistributionCloud(distribution, restoreStock = 
     }
   }
 
-  // If member, reset voucher status
-  if (distribution.recipientType === "MEMBER" && distribution.memberId) {
+  // If member, reset voucher status in members collection
+  if (distribution.recipientType === "MEMBER") {
     try {
-      const memberRef = doc(getJasraDb(), ...MEMBERS_COL_PATH, distribution.memberId);
-      await setDoc(
-        memberRef,
-        {
-          voucherJasraReceived: false,
-          voucherClaimedAt: null,
-          voucherExpiresAt: null,
-          voucherBatchId: null,
-          voucherJasraDate: null,
-          voucherJasraDetail: null,
-          lastUpdatedStatusAt: Date.now(),
-        },
-        { merge: true }
-      );
+      let targetMemberId = distribution.memberId || null;
+      if (!targetMemberId && (distribution.citizenId || distribution.recipientName)) {
+        const memSnap = await getDocs(collection(getJasraDb(), ...MEMBERS_COL_PATH));
+        const cleanCid = (distribution.citizenId || "").trim().toUpperCase();
+        const cleanName = (distribution.recipientName || "").trim().toUpperCase();
+        memSnap.forEach((d) => {
+          if (d.id !== "_meta") {
+            const data = d.data();
+            const mCid = (data.icNumber || data.citizenId || "").trim().toUpperCase();
+            const mName = (data.fullName || "").trim().toUpperCase();
+            if ((cleanCid && !cleanCid.includes("TIDAK") && mCid === cleanCid) || (cleanName && mName === cleanName)) {
+              targetMemberId = d.id;
+            }
+          }
+        });
+      }
+
+      if (targetMemberId) {
+        const memberRef = doc(getJasraDb(), ...MEMBERS_COL_PATH, targetMemberId);
+        await setDoc(
+          memberRef,
+          {
+            voucherJasraReceived: false,
+            voucherClaimedAt: null,
+            voucherExpiresAt: null,
+            voucherBatchId: null,
+            voucherJasraDate: null,
+            voucherJasraDetail: null,
+            lastUpdatedStatusAt: Date.now(),
+          },
+          { merge: true }
+        );
+      }
     } catch (err) {
       console.warn("Gagal reset voucher member:", err);
+    }
+  }
+
+  // If non-member (external), also delete corresponding record from external_jasra collection
+  if (distribution.recipientType !== "MEMBER") {
+    try {
+      const extRawId = distribution.id.startsWith("DIST_") ? distribution.id.substring(5) : distribution.id;
+      // 1. Try deleting directly by extracted ID
+      const directRef = doc(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH, extRawId);
+      await deleteDoc(directRef);
+
+      // 2. Also check if external doc has matching CID or fullName to ensure no orphan remains
+      const extSnap = await getDocs(collection(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH));
+      const cleanCid = (distribution.citizenId || "").trim().toUpperCase();
+      const cleanName = (distribution.recipientName || "").trim().toUpperCase();
+
+      for (const d of extSnap.docs) {
+        if (d.id === "_meta") continue;
+        const eData = d.data();
+        const eCid = (eData.citizenId || "").trim().toUpperCase();
+        const eName = (eData.fullName || "").trim().toUpperCase();
+        if (
+          d.id === extRawId ||
+          (cleanCid && !cleanCid.includes("TIDAK") && eCid === cleanCid) ||
+          (cleanName && eName === cleanName)
+        ) {
+          await deleteDoc(doc(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH, d.id));
+        }
+      }
+
+      // Update local storage cache
+      try {
+        const cached = JSON.parse(localStorage.getItem("pps_external_jasra_cache") || "[]");
+        const filtered = cached.filter(
+          (item) =>
+            item.id !== extRawId &&
+            item.id !== distribution.id &&
+            (!cleanCid || cleanCid.includes("TIDAK") || (item.citizenId || "").trim().toUpperCase() !== cleanCid) &&
+            (!cleanName || (item.fullName || "").trim().toUpperCase() !== cleanName)
+        );
+        localStorage.setItem("pps_external_jasra_cache", JSON.stringify(filtered));
+      } catch {}
+    } catch (err) {
+      console.warn("Gagal sinkron hapus dari external_jasra:", err);
     }
   }
 

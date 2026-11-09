@@ -48,6 +48,7 @@ function getMemberDb() {
 const APP_ID = "portal-anggota-app";
 const MEMBERS_COL_PATH = ["artifacts", APP_ID, "public", "data", "members"];
 const EXTERNAL_JASRA_COL_PATH = ["artifacts", APP_ID, "public", "data", "external_jasra"];
+const JASRA_DISTRIBUTIONS_COL_PATH = ["artifacts", APP_ID, "public", "data", "jasra_distributions"];
 const EXTERNAL_JASRA_STORAGE_KEY = "pps_external_jasra_cache";
 
 /**
@@ -164,6 +165,22 @@ export async function saveExternalJasraCloud(data) {
 export async function deleteExternalJasraCloud(id) {
   const docRef = doc(getMemberDb(), ...EXTERNAL_JASRA_COL_PATH, id);
   await deleteDoc(docRef);
+
+  // Also delete corresponding distribution in jasra_distributions if present
+  try {
+    const distDirectRef = doc(getMemberDb(), ...JASRA_DISTRIBUTIONS_COL_PATH, "DIST_" + id);
+    await deleteDoc(distDirectRef);
+
+    const distSnap = await getDocs(collection(getMemberDb(), ...JASRA_DISTRIBUTIONS_COL_PATH));
+    for (const d of distSnap.docs) {
+      if (d.id === "_meta") continue;
+      if (d.id === id || d.id === "DIST_" + id) {
+        await deleteDoc(doc(getMemberDb(), ...JASRA_DISTRIBUTIONS_COL_PATH, d.id));
+      }
+    }
+  } catch (distErr) {
+    console.warn("Notice: Gagal sync delete distribusi dari jasra_distributions:", distErr);
+  }
 
   try {
     const cached = JSON.parse(localStorage.getItem(EXTERNAL_JASRA_STORAGE_KEY) || "[]");
