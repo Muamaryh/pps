@@ -17,7 +17,6 @@ import {
   ExternalLink,
   ShieldCheck,
   Building2,
-  Clock,
   UserCheck,
   UserX,
   Calendar,
@@ -36,9 +35,15 @@ import {
   calculateRecipientRemaining,
   formatJasraDate,
   formatJasraShortDate,
-  DEFAULT_GOVERNMENT_BATCH,
+  isValidJasraBatch,
+  getActiveJasraBatch,
+  getBatchDistributions,
+  computeBatchMetrics,
+  buildJasraBatchSelectOptions,
   exportJasraDistributionsToExcel,
 } from "../services/jasraService";
+import BrutalistSelect from "./BrutalistSelect";
+import JasraBatchValidityBadge from "./JasraBatchValidityBadge";
 import {
   subscribeMembersCloud,
   subscribeExternalJasraCloud,
@@ -86,6 +91,7 @@ export default function TransparencyModal({
   const [bansosPrograms, setBansosPrograms] = useState([]);
 
   // Filters & Search
+  const [selectedBatchId, setSelectedBatchId] = useState("ACTIVE");
   const [jasraSearch, setJasraSearch] = useState("");
   const [jasraFilter, setJasraFilter] = useState("ALL"); // ALL | MEMBER | NON_MEMBER | ACTIVE | EXPIRED
   const [bansosSearch, setBansosSearch] = useState("");
@@ -144,86 +150,30 @@ export default function TransparencyModal({
     };
   }, [isOpen]);
 
-  // Active Government Batch
-  const activeBatch = useMemo(() => {
-    return batches.find((b) => b.status === "ACTIVE") || batches[0] || DEFAULT_GOVERNMENT_BATCH;
+  // Valid Batches & Viewed Batch (defaults strictly to Active Batch)
+  const validBatches = useMemo(() => {
+    return [...(batches || [])]
+      .filter(isValidJasraBatch)
+      .sort((a, b) => (b.receivedAt || 0) - (a.receivedAt || 0));
   }, [batches]);
 
+  const activeBatch = useMemo(() => getActiveJasraBatch(batches), [batches]);
+
+  const viewedBatch = useMemo(() => {
+    if (selectedBatchId === "ACTIVE") return activeBatch;
+    return validBatches.find((b) => b.id === selectedBatchId) || activeBatch;
+  }, [selectedBatchId, activeBatch, validBatches]);
+
+  const isViewingActiveBatch = Boolean(viewedBatch && activeBatch && viewedBatch.id === activeBatch.id);
+
   const batchRemaining = useMemo(() => {
-    return calculateBatchRemaining(activeBatch);
-  }, [activeBatch]);
+    return calculateBatchRemaining(viewedBatch);
+  }, [viewedBatch]);
 
-  // Unified Jasra Distributions List
+  // Unified Jasra Distributions List strictly scoped to viewedBatch
   const unifiedDistributions = useMemo(() => {
-    const list = [...(distributions || [])];
-    const existingMemberIds = new Set(list.map((d) => d.memberId).filter(Boolean));
-    const existingCids = new Set(list.map((d) => (d.citizenId || "").toUpperCase()).filter(Boolean));
-    const activeBatchExpiry = activeBatch?.expiresAt || 1794186000000;
-
-    (membersList || [])
-      .filter((m) => Boolean(m.voucherJasraReceived || m.voucherClaimedAt))
-      .forEach((m) => {
-        const cid = (m.icNumber || m.citizenId || "").toUpperCase();
-        if (!existingMemberIds.has(m.id) && (!cid || !existingCids.has(cid))) {
-          const givenAt = m.voucherClaimedAt || m.lastUpdatedStatusAt || 1793644800000;
-          list.push({
-            id: "DIST_" + m.id,
-            batchId: activeBatch?.id || "BATCH_PEMERINTAH_20261102",
-            batchName: activeBatch?.batchName || "Gelombang #1 - Alokasi Pemerintah San Andreas",
-            recipientType: "MEMBER",
-            recipientName: (m.fullName || "Anggota PPS").toUpperCase(),
-            citizenId: cid || "-",
-            phone: m.phone || "-",
-            memberId: m.id,
-            treatmentCount: 10,
-            pingsanCount: 10,
-            totalCount: 20,
-            packageLabel: "10 Treatment • 10 Pingsan",
-            givenAt: givenAt,
-            givenDateFormatted: m.voucherJasraDate || formatJasraShortDate(givenAt),
-            batchExpiresAt: activeBatchExpiry,
-            batchExpiresFormatted: formatJasraDate(activeBatchExpiry),
-            officerName: "Admin Paguyuban",
-            notes: "Database Anggota LSM PPS",
-            createdAt: givenAt,
-          });
-          existingMemberIds.add(m.id);
-          if (cid) existingCids.add(cid);
-        }
-      });
-
-    (externalJasraList || []).forEach((ext) => {
-      const cid = (ext.citizenId || "").toUpperCase();
-      if (!existingCids.has(cid)) {
-        const givenAt = ext.createdAt || ext.updatedAt || 1793644800000;
-        list.push({
-          id: "DIST_" + ext.id,
-          batchId: activeBatch?.id || "BATCH_PEMERINTAH_20261102",
-          batchName: activeBatch?.batchName || "Gelombang #1 - Alokasi Pemerintah San Andreas",
-          recipientType: "NON_MEMBER",
-          recipientName: (ext.fullName || "Warga Luar").toUpperCase(),
-          citizenId: cid || "-",
-          phone: ext.phone || "-",
-          memberId: null,
-          treatmentCount: 10,
-          pingsanCount: 10,
-          totalCount: 20,
-          packageLabel: "10 Treatment • 10 Pingsan",
-          givenAt: givenAt,
-          givenDateFormatted: ext.dateGiven || formatJasraShortDate(givenAt),
-          batchExpiresAt: activeBatchExpiry,
-          batchExpiresFormatted: formatJasraDate(activeBatchExpiry),
-          officerName: "Admin Paguyuban",
-          notes: "Database Jasra Luar Anggota",
-          createdAt: givenAt,
-        });
-        if (cid) existingCids.add(cid);
-      }
-    });
-
-    list.sort((a, b) => (b.givenAt || 0) - (a.givenAt || 0));
-    return list;
-  }, [distributions, membersList, externalJasraList, activeBatch]);
+    return getBatchDistributions(distributions, viewedBatch, membersList, externalJasraList);
+  }, [distributions, viewedBatch, membersList, externalJasraList]);
 
   // Filtered Jasra distributions
   const filteredJasraDistributions = useMemo(() => {
@@ -232,7 +182,7 @@ export default function TransparencyModal({
       if (jasraFilter === "MEMBER" && dist.recipientType !== "MEMBER") return false;
       if (jasraFilter === "NON_MEMBER" && dist.recipientType !== "NON_MEMBER") return false;
       if (jasraFilter === "ACTIVE" || jasraFilter === "EXPIRED") {
-        const rem = calculateRecipientRemaining(dist, activeBatch);
+        const rem = calculateRecipientRemaining(dist, viewedBatch);
         if (jasraFilter === "ACTIVE" && rem.isExpired) return false;
         if (jasraFilter === "EXPIRED" && !rem.isExpired) return false;
       }
@@ -248,7 +198,7 @@ export default function TransparencyModal({
 
       return true;
     });
-  }, [unifiedDistributions, jasraFilter, jasraSearch, activeBatch]);
+  }, [unifiedDistributions, jasraFilter, jasraSearch, viewedBatch]);
 
   // Filtered Bansos claims
   const filteredBansosClaims = useMemo(() => {
@@ -268,20 +218,16 @@ export default function TransparencyModal({
     });
   }, [bansosClaims, bansosFilter, bansosSearch]);
 
-  // Derived Metrics
-  const jasraDistributedCount = unifiedDistributions.length;
-  const jasraDistributedTreatment = unifiedDistributions.reduce(
-    (sum, d) => sum + (Number(d.treatmentCount) || 10),
-    0
-  );
-  const jasraDistributedPingsan = unifiedDistributions.reduce(
-    (sum, d) => sum + (Number(d.pingsanCount) || 10),
-    0
-  );
-  const jasraInitialTreatment = Number(activeBatch?.initialTreatment) || 500;
-  const jasraInitialPingsan = Number(activeBatch?.initialPingsan) || 500;
-  const jasraRemainingTreatment = Math.max(0, jasraInitialTreatment - jasraDistributedTreatment);
-  const jasraRemainingPingsan = Math.max(0, jasraInitialPingsan - jasraDistributedPingsan);
+  // Derived Metrics scoped to viewedBatch
+  const {
+    distributedCount: jasraDistributedCount,
+    distributedTreatment: jasraDistributedTreatment,
+    distributedPingsan: jasraDistributedPingsan,
+    initialTreatment: jasraInitialTreatment,
+    initialPingsan: jasraInitialPingsan,
+    remainingTreatment: jasraRemainingTreatment,
+    remainingPingsan: jasraRemainingPingsan,
+  } = useMemo(() => computeBatchMetrics(viewedBatch, unifiedDistributions), [viewedBatch, unifiedDistributions]);
 
   const bansosTotalCount = bansosClaims.length;
   const bansosClaimedCount = bansosClaims.filter((c) => c.claimed).length;
@@ -417,7 +363,7 @@ export default function TransparencyModal({
           {activeTab === "jasra" && (
             <div className="flex flex-col gap-5">
               {/* Highlight Gelombang Aktif dari Pemerintah */}
-              <div className="card-brutal p-4 sm:p-5 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="card-brutal relative z-20 p-4 sm:p-5 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-3">
                   <div className="w-12 h-12 rounded-lg bg-[#DC2626] border-2 border-black flex items-center justify-center text-[#FACC15] shadow-[2px_2px_0px_#000] shrink-0">
                     <HeartHandshake size={26} />
@@ -425,34 +371,36 @@ export default function TransparencyModal({
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
-                        {activeBatch?.batchName || "Gelombang Alokasi Jasra"}
+                        {viewedBatch?.batchName || "Gelombang Alokasi Jasra"}
                       </h3>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500 text-white border border-black">
-                        GELOMBANG AKTIF
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-black ${
+                        isViewingActiveBatch && !batchRemaining.isExpired
+                          ? "bg-emerald-500 text-white"
+                          : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                      }`}>
+                        {isViewingActiveBatch && !batchRemaining.isExpired ? "GELOMBANG AKTIF" : "ARSIP GELOMBANG"}
                       </span>
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                      Sumber: <strong className="text-slate-900 dark:text-slate-200">{activeBatch?.source || "Pemerintah Kota San Andreas"}</strong> &bull; Diterima: {activeBatch?.receivedDateFormatted || formatJasraDate(activeBatch?.receivedAt)}
+                      Sumber: <strong className="text-slate-900 dark:text-slate-200">{viewedBatch?.source || "Pemerintah Kota San Andreas"}</strong> &bull; Diterima: {viewedBatch?.receivedDateFormatted || formatJasraDate(viewedBatch?.receivedAt)}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-start lg:self-center">
-                  <div className={`p-2.5 rounded-lg border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2.5 ${
-                    batchRemaining.isExpired
-                      ? "bg-red-100 text-red-950 border-red-600"
-                      : "bg-[#FACC15] text-slate-950"
-                  }`}>
-                    <Clock size={18} className="text-[#DC2626] shrink-0" />
-                    <div className="text-right">
-                      <div className="text-[10px] font-heading font-black uppercase">
-                        Sisa Masa Berlaku Batch
-                      </div>
-                      <div className="text-sm font-mono font-black">
-                        {batchRemaining.isExpired ? "KEDALUWARSA" : `${batchRemaining.daysRemaining} HARI LAGI`}
-                      </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto shrink-0">
+                  {validBatches.length > 1 && (
+                    <div className="w-full sm:w-80">
+                      <BrutalistSelect
+                        value={selectedBatchId}
+                        onChange={setSelectedBatchId}
+                        options={buildJasraBatchSelectOptions(activeBatch, validBatches)}
+                        placeholder="Pilih Gelombang..."
+                        ariaLabel="Pilih gelombang Jasra"
+                      />
                     </div>
-                  </div>
+                  )}
+
+                  <JasraBatchValidityBadge batchRemaining={batchRemaining} />
                 </div>
               </div>
 
@@ -596,7 +544,7 @@ export default function TransparencyModal({
                         </tr>
                       ) : (
                         filteredJasraDistributions.map((dist, idx) => {
-                          const rem = calculateRecipientRemaining(dist, activeBatch);
+                          const rem = calculateRecipientRemaining(dist, viewedBatch);
                           const isMember = dist.recipientType === "MEMBER";
                           return (
                             <tr

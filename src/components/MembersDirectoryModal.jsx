@@ -25,7 +25,13 @@ import {
   getCurrentMonthLabel,
   getCurrentWeekLabel,
 } from "../services/memberService";
-import { subscribeJasraDistributionsCloud } from "../services/jasraService";
+import {
+  subscribeJasraDistributionsCloud,
+  subscribeJasraBatchesCloud,
+  getActiveJasraBatch,
+  getBatchDistributions,
+  calculateRecipientRemaining,
+} from "../services/jasraService";
 
 export default function MembersDirectoryModal({
   isOpen,
@@ -34,6 +40,7 @@ export default function MembersDirectoryModal({
 }) {
   const [members, setMembers] = useState([]);
   const [externalJasraList, setExternalJasraList] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [distributions, setDistributions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,6 +73,15 @@ export default function MembersDirectoryModal({
       }
     );
 
+    const unsubBatches = subscribeJasraBatchesCloud(
+      (list) => {
+        setBatches(Array.isArray(list) ? list : []);
+      },
+      (err) => {
+        console.warn("Gagal memuat batch Jasra:", err);
+      }
+    );
+
     const unsubDist = subscribeJasraDistributionsCloud(
       (list) => {
         setDistributions(Array.isArray(list) ? list : []);
@@ -78,16 +94,23 @@ export default function MembersDirectoryModal({
     return () => {
       if (typeof unsub === "function") unsub();
       if (typeof unsubExt === "function") unsubExt();
+      if (typeof unsubBatches === "function") unsubBatches();
       if (typeof unsubDist === "function") unsubDist();
     };
   }, [isOpen]);
 
-  // Lookup maps for fast, foolproof matching with Voucher Jasra distributions
+  const activeBatch = useMemo(() => getActiveJasraBatch(batches), [batches]);
+
+  const activeBatchDistributions = useMemo(() => {
+    return getBatchDistributions(distributions, activeBatch, members, externalJasraList);
+  }, [distributions, activeBatch, members, externalJasraList]);
+
+  // Lookup maps scoped strictly to the active Jasra batch
   const { distByMemberId, distByCid, distByName } = useMemo(() => {
     const byMemberId = new Map();
     const byCid = new Map();
     const byName = new Map();
-    (distributions || []).forEach((d) => {
+    activeBatchDistributions.forEach((d) => {
       if (d.memberId) byMemberId.set(d.memberId, d);
       const cid = (d.citizenId || "").trim().toUpperCase();
       if (cid && !cid.includes("TIDAK")) byCid.set(cid, d);
@@ -95,9 +118,9 @@ export default function MembersDirectoryModal({
       if (name) byName.set(name, d);
     });
     return { distByMemberId: byMemberId, distByCid: byCid, distByName: byName };
-  }, [distributions]);
+  }, [activeBatchDistributions]);
 
-  // Helper to check if a registered member has received Voucher Jasra in active distributions
+  // Helper to check if a registered member has received Voucher Jasra in active batch
   const getMemberJasraDist = useMemo(() => {
     return (m) => {
       if (!m) return null;
@@ -110,68 +133,62 @@ export default function MembersDirectoryModal({
     };
   }, [distByMemberId, distByCid, distByName]);
 
-  // Hitung anggota paguyuban yang menerima manfaat voucher Jasra
+  // Hitung anggota paguyuban yang menerima manfaat voucher Jasra di gelombang aktif
   const memberJasraList = useMemo(() => {
     return members.filter((m) => {
       const dist = getMemberJasraDist(m);
-      if (dist) return true;
-      // Fallback backward compatibility jika dokumen distribusi cloud belum termuat
-      if (distributions.length === 0) {
-        const vSub = getMemberVoucherSubscription(m);
-        return vSub.isActive || m.voucherJasraReceived;
+      if (dist) return !calculateRecipientRemaining(dist, activeBatch).isExpired;
+      if (activeBatchDistributions.length === 0) {
+        return getMemberVoucherSubscription(m, new Date(), activeBatch).isActive;
       }
       return false;
     });
-  }, [members, distributions, getMemberJasraDist]);
+  }, [members, activeBatchDistributions, getMemberJasraDist, activeBatch]);
 
-  // Daftar penerima Jasra luar anggota (disinkronkan dengan koleksi jasra_distributions)
+  // Daftar penerima Jasra luar anggota pada gelombang aktif
   const externalJasraItems = useMemo(() => {
-    if (distributions.length > 0) {
-      const extDists = distributions.filter((d) => {
-        if (d.recipientType === "MEMBER") return false;
-        // Cegah duplikasi jika penerima ini sudah terdaftar sebagai anggota resmi
-        const matchedMem = members.find((m) => {
-          const ic = (m.icNumber || m.citizenId || "").trim().toUpperCase();
-          const name = (m.fullName || "").trim().toUpperCase();
-          const dCid = (d.citizenId || "").trim().toUpperCase();
-          const dName = (d.recipientName || "").trim().toUpperCase();
-          return (dCid && !dCid.includes("TIDAK") && ic === dCid) || (dName && name === dName);
-        });
-        return !matchedMem;
+    const extDists = activeBatchDistributions.filter((d) => {
+      if (d.recipientType === "MEMBER") return false;
+      const matchedMem = members.find((m) => {
+        const ic = (m.icNumber || m.citizenId || "").trim().toUpperCase();
+        const name = (m.fullName || "").trim().toUpperCase();
+        const dCid = (d.citizenId || "").trim().toUpperCase();
+        const dName = (d.recipientName || "").trim().toUpperCase();
+        return (dCid && !dCid.includes("TIDAK") && ic === dCid) || (dName && name === dName);
       });
+      return !matchedMem;
+    });
 
-      const extMap = new Map();
-      externalJasraList.forEach((e) => {
-        const cid = (e.citizenId || "").trim().toUpperCase();
-        if (cid && !cid.includes("TIDAK")) extMap.set(cid, e);
-        const name = (e.fullName || "").trim().toUpperCase();
-        if (name) extMap.set(name, e);
-      });
+    const extMap = new Map();
+    externalJasraList.forEach((e) => {
+      const cid = (e.citizenId || "").trim().toUpperCase();
+      if (cid && !cid.includes("TIDAK")) extMap.set(cid, e);
+      const name = (e.fullName || "").trim().toUpperCase();
+      if (name) extMap.set(name, e);
+    });
 
-      return extDists.map((d) => {
-        const cid = (d.citizenId || "").trim().toUpperCase();
-        const name = (d.recipientName || "").trim().toUpperCase();
-        const matched = extMap.get(cid) || extMap.get(name);
-        return {
-          id: d.id,
-          fullName: d.recipientName,
-          citizenId: d.citizenId,
-          phone: d.phone || matched?.phone || "-",
-          ktpPhoto: d.ktpPhoto || matched?.ktpPhoto || "",
-          packageLabel: d.packageLabel || `${d.treatmentCount || 10} Tritmen • ${d.pingsanCount || 10} Pingsan`,
-          dateGiven: d.givenDateFormatted || matched?.dateGiven || "-",
-          notes: d.notes || matched?.notes || "",
-          status: "ACTIVE",
-        };
-      });
-    }
-    return externalJasraList;
-  }, [distributions, members, externalJasraList]);
+    return extDists.map((d) => {
+      const cid = (d.citizenId || "").trim().toUpperCase();
+      const name = (d.recipientName || "").trim().toUpperCase();
+      const matched = extMap.get(cid) || extMap.get(name);
+      return {
+        id: d.id,
+        fullName: d.recipientName,
+        citizenId: d.citizenId,
+        phone: d.phone || matched?.phone || "-",
+        ktpPhoto: d.ktpPhoto || matched?.ktpPhoto || "",
+        packageLabel: d.packageLabel || `${d.treatmentCount || 10} Tritmen • ${d.pingsanCount || 10} Pingsan`,
+        dateGiven: d.givenDateFormatted || matched?.dateGiven || "-",
+        notes: d.notes || matched?.notes || "",
+        status: "ACTIVE",
+      };
+    });
+  }, [activeBatchDistributions, members, externalJasraList]);
 
   const memberJasraCount = memberJasraList.length;
   const externalJasraCount = externalJasraItems.length;
-  const totalJasraCount = distributions.length > 0
-    ? distributions.length
+  const totalJasraCount = activeBatchDistributions.length > 0
+    ? activeBatchDistributions.length
     : (memberJasraCount + externalJasraCount);
 
   // Filter items based on search query & filter Jasra & scope
@@ -673,7 +690,7 @@ export default function MembersDirectoryModal({
                       {/* Status Kas & Voucher Jasra (Read-Only) */}
                       {(() => {
                         const kasSub = getMemberKasSubscription(member);
-                        const voucherSub = getMemberVoucherSubscription(member);
+                        const voucherSub = getMemberVoucherSubscription(member, new Date(), activeBatch);
                         return (
                           <div className="flex flex-col gap-1.5 p-2 rounded-xl bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
                             {/* Status Uang Kas ($4.000) */}
@@ -701,12 +718,12 @@ export default function MembersDirectoryModal({
                               </span>
                               {(() => {
                                 const dist = getMemberJasraDist(member);
+                                const distRem = dist ? calculateRecipientRemaining(dist, activeBatch) : null;
                                 const isVoucherActive = dist
-                                  ? true
-                                  : (distributions.length === 0 && voucherSub.isActive);
+                                  ? !distRem.isExpired
+                                  : (activeBatchDistributions.length === 0 && voucherSub.isActive);
 
-                                const remMs = dist?.batchExpiresAt ? (dist.batchExpiresAt - Date.now()) : 0;
-                                const daysRem = remMs > 0 ? Math.ceil(remMs / 86400000) : voucherSub.daysRemaining;
+                                const daysRem = dist && !distRem.isExpired ? distRem.daysRemaining : voucherSub.daysRemaining;
                                 const tCount = dist?.treatmentCount || 10;
                                 const pCount = dist?.pingsanCount || 10;
 

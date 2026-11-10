@@ -9,6 +9,7 @@ import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   deleteDoc,
@@ -63,7 +64,7 @@ export const DEFAULT_PINGSAN_PER_PERSON = 10;
  * Alokasi resmi: 500 Tritmen + 500 Pingsan
  */
 export const DEFAULT_GOVERNMENT_BATCH = {
-  id: "BATCH-20261102",
+  id: "BATCH_PEMERINTAH_20261102",
   batchName: "Batch Alokasi Jasra (02 – 09 Nov 2026)",
   source: "Pemerintah Kota San Andreas",
   receivedAt: 1793581200000, // Senin, 02 Nov 2026 08:00:00 WIB
@@ -74,16 +75,228 @@ export const DEFAULT_GOVERNMENT_BATCH = {
   initialTreatment: 500,
   initialPingsan: 500,
   totalVouchers: 1000,
-  remainingTreatment: 190,
-  remainingPingsan: 190,
-  distributedTreatment: 310,
-  distributedPingsan: 310,
-  distributedCount: 31,
-  status: "ACTIVE",
+  remainingTreatment: 0,
+  remainingPingsan: 0,
+  distributedTreatment: 500,
+  distributedPingsan: 500,
+  distributedCount: 50,
+  status: "COMPLETED",
   notes: "Alokasi resmi voucher kesehatan dari Pemerintah Kota San Andreas.",
   createdAt: 1793581200000,
   updatedAt: 1793581200000,
 };
+
+/**
+ * Cek apakah dokumen batch valid (punya timestamp penerimaan & kuota awal)
+ */
+export function isValidJasraBatch(batch) {
+  return Boolean(
+    batch &&
+      batch.id &&
+      batch.receivedAt &&
+      (Number(batch.initialTreatment) > 0 || Number(batch.initialPingsan) > 0)
+  );
+}
+
+/**
+ * Pilih Batch Jasra yang paling aktif saat ini (prioritas ACTIVE terbaru & belum expired)
+ */
+export function getActiveJasraBatch(batches = []) {
+  const valid = (batches || []).filter(isValidJasraBatch);
+  const pool = valid.length > 0 ? valid : (batches || []);
+  if (pool.length === 0) return DEFAULT_GOVERNMENT_BATCH;
+  const sorted = [...pool].sort((a, b) => (b.receivedAt || 0) - (a.receivedAt || 0));
+  const activeUnexpired = sorted.find(
+    (b) => b.status === "ACTIVE" && !calculateBatchRemaining(b).isExpired
+  );
+  if (activeUnexpired) return activeUnexpired;
+  return sorted.find((b) => b.status === "ACTIVE") || sorted[0];
+}
+
+/**
+ * Cari dokumen distribusi Jasra untuk seorang anggota pada daftar distribusi tertentu
+ */
+export function findMemberJasraDistribution(distributions = [], member) {
+  if (!member || !Array.isArray(distributions) || distributions.length === 0) return null;
+  const memberCid = (member.icNumber || member.citizenId || "").trim().toUpperCase();
+  const memberName = (member.fullName || "").trim().toUpperCase();
+  return (
+    distributions.find((d) => {
+      if (d.memberId && member.id && d.memberId === member.id) return true;
+      const dCid = (d.citizenId || "").trim().toUpperCase();
+      if (dCid && memberCid && !dCid.includes("TIDAK") && dCid === memberCid) return true;
+      const dName = (d.recipientName || "").trim().toUpperCase();
+      if (dName && memberName && dName === memberName) return true;
+      return false;
+    }) || null
+  );
+}
+
+/**
+ * Ambil daftar penerima manfaat yang terisolasi strictly pada targetBatch tertentu
+ */
+export function getBatchDistributions(
+  distributions = [],
+  targetBatch = null,
+  fallbackMembers = [],
+  fallbackExternal = []
+) {
+  if (!targetBatch || !targetBatch.id) {
+    return [...(distributions || [])].sort((a, b) => (b.givenAt || 0) - (a.givenAt || 0));
+  }
+
+  const list = (distributions || []).filter((d) => d.batchId === targetBatch.id);
+  const existingMemberIds = new Set(list.map((d) => d.memberId).filter(Boolean));
+  const existingCids = new Set(
+    list
+      .map((d) => (d.citizenId || "").trim().toUpperCase())
+      .filter((c) => c && c !== "-" && !c.includes("TIDAK"))
+  );
+
+  const isLegacyBatch1 = targetBatch.id === "BATCH_PEMERINTAH_20261102";
+  const batchExpiry = Number(targetBatch.expiresAt) || 0;
+
+  (fallbackMembers || []).forEach((m) => {
+    if (!m.voucherJasraReceived) return;
+    const belongsToTarget =
+      m.voucherBatchId === targetBatch.id || (isLegacyBatch1 && !m.voucherBatchId);
+    if (!belongsToTarget) return;
+
+    const cid = (m.icNumber || m.citizenId || "").trim().toUpperCase();
+    if (!existingMemberIds.has(m.id) && (!cid || cid === "-" || !existingCids.has(cid))) {
+      const givenAt = m.voucherClaimedAt || m.lastUpdatedStatusAt || targetBatch.receivedAt || Date.now();
+      list.push({
+        id: "DIST_" + m.id,
+        batchId: targetBatch.id,
+        batchName: targetBatch.batchName,
+        recipientType: "MEMBER",
+        recipientName: (m.fullName || "Anggota PPS").trim().toUpperCase(),
+        citizenId: cid || "-",
+        phone: m.phone || "-",
+        memberId: m.id,
+        treatmentCount: Number(m.voucherJasraDetail?.treatment ?? DEFAULT_TREATMENT_PER_PERSON),
+        pingsanCount: Number(m.voucherJasraDetail?.pingsan ?? DEFAULT_PINGSAN_PER_PERSON),
+        totalCount:
+          Number(m.voucherJasraDetail?.treatment ?? DEFAULT_TREATMENT_PER_PERSON) +
+          Number(m.voucherJasraDetail?.pingsan ?? DEFAULT_PINGSAN_PER_PERSON),
+        packageLabel: `${m.voucherJasraDetail?.treatment ?? DEFAULT_TREATMENT_PER_PERSON} Treatment • ${m.voucherJasraDetail?.pingsan ?? DEFAULT_PINGSAN_PER_PERSON} Pingsan`,
+        givenAt,
+        givenDateFormatted: m.voucherJasraDate || formatJasraShortDate(givenAt),
+        batchExpiresAt: batchExpiry,
+        batchExpiresFormatted: formatJasraDate(batchExpiry),
+        officerName: "Admin Paguyuban",
+        notes: "Database Anggota LSM PPS",
+        createdAt: givenAt,
+      });
+      existingMemberIds.add(m.id);
+      if (cid && cid !== "-") existingCids.add(cid);
+    }
+  });
+
+  (fallbackExternal || []).forEach((ext) => {
+    const belongsToTarget =
+      ext.batchId === targetBatch.id ||
+      (isLegacyBatch1 &&
+        !ext.batchId &&
+        (!batchExpiry || (Number(ext.createdAt) || 0) <= batchExpiry));
+    if (!belongsToTarget) return;
+
+    const cid = (ext.citizenId || "").trim().toUpperCase();
+    if (!cid || cid === "-" || !existingCids.has(cid)) {
+      const givenAt = ext.createdAt || ext.updatedAt || targetBatch.receivedAt || Date.now();
+      list.push({
+        id: "DIST_" + ext.id,
+        batchId: targetBatch.id,
+        batchName: targetBatch.batchName,
+        recipientType: "NON_MEMBER",
+        recipientName: (ext.fullName || "Warga Luar").trim().toUpperCase(),
+        citizenId: cid || "-",
+        phone: ext.phone || "-",
+        memberId: null,
+        treatmentCount: Number(ext.voucherDetail?.treatment ?? DEFAULT_TREATMENT_PER_PERSON),
+        pingsanCount: Number(ext.voucherDetail?.pingsan ?? DEFAULT_PINGSAN_PER_PERSON),
+        totalCount:
+          Number(ext.voucherDetail?.treatment ?? DEFAULT_TREATMENT_PER_PERSON) +
+          Number(ext.voucherDetail?.pingsan ?? DEFAULT_PINGSAN_PER_PERSON),
+        packageLabel: `${ext.voucherDetail?.treatment ?? DEFAULT_TREATMENT_PER_PERSON} Treatment • ${ext.voucherDetail?.pingsan ?? DEFAULT_PINGSAN_PER_PERSON} Pingsan`,
+        givenAt,
+        givenDateFormatted: ext.dateGiven || formatJasraShortDate(givenAt),
+        batchExpiresAt: batchExpiry,
+        batchExpiresFormatted: formatJasraDate(batchExpiry),
+        officerName: "Admin Paguyuban",
+        notes: "Database Jasra Luar Anggota",
+        createdAt: givenAt,
+      });
+      if (cid && cid !== "-") existingCids.add(cid);
+    }
+  });
+
+  list.sort((a, b) => (b.givenAt || 0) - (a.givenAt || 0));
+  return list;
+}
+
+/**
+ * Hitung stok terpakai & sisa kuota untuk batch tertentu
+ */
+export function computeBatchMetrics(batch = null, batchDistributions = []) {
+  const initialTreatment = Number(batch?.initialTreatment) || 500;
+  const initialPingsan = Number(batch?.initialPingsan) || 500;
+  const distributedCount = batchDistributions.length;
+  const distributedTreatment = batchDistributions.reduce(
+    (sum, d) => sum + (Number(d.treatmentCount) || DEFAULT_TREATMENT_PER_PERSON),
+    0
+  );
+  const distributedPingsan = batchDistributions.reduce(
+    (sum, d) => sum + (Number(d.pingsanCount) || DEFAULT_PINGSAN_PER_PERSON),
+    0
+  );
+  const remainingTreatment = Math.max(0, initialTreatment - distributedTreatment);
+  const remainingPingsan = Math.max(0, initialPingsan - distributedPingsan);
+
+  return {
+    initialTreatment,
+    initialPingsan,
+    distributedCount,
+    distributedTreatment,
+    distributedPingsan,
+    remainingTreatment,
+    remainingPingsan,
+  };
+}
+
+/**
+ * Susun opsi BrutalistSelect untuk memilih batch aktif atau arsip gelombang sebelumnya
+ */
+export function buildJasraBatchSelectOptions(activeBatch, validBatches = []) {
+  const options = [];
+  if (activeBatch) {
+    options.push({
+      value: "ACTIVE",
+      label: `Batch Aktif: ${activeBatch.batchName}`,
+      subtext: `${formatJasraShortDate(activeBatch.receivedAt)} - ${formatJasraShortDate(activeBatch.expiresAt)}`,
+    });
+  }
+  validBatches
+    .filter((b) => b.id !== activeBatch?.id)
+    .forEach((b) => {
+      options.push({
+        value: b.id,
+        label: `Arsip: ${b.batchName}`,
+        subtext: `${formatJasraShortDate(b.receivedAt)} - ${formatJasraShortDate(b.expiresAt)}`,
+      });
+    });
+  return options;
+}
+
+/**
+ * Format a Date as local YYYY-MM-DD (avoids UTC date shift between 00:00-06:59 WIB)
+ */
+export function getLocalIsoDate(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 /**
  * Helper to format date into readable Indonesian string
@@ -336,12 +549,39 @@ export async function saveJasraBatchCloud(batchData) {
     payload.createdAt = Date.now();
   }
 
+  // Jika batch baru langsung aktif, arsipkan batch aktif sebelumnya agar batch baru mulai bersih dari 0
+  if (isNew && payload.status === "ACTIVE") {
+    try {
+      const existingSnap = await getDocs(collection(getJasraDb(), ...JASRA_BATCHES_COL_PATH));
+      const archiveTasks = [];
+      existingSnap.forEach((d) => {
+        if (d.id !== "_meta" && d.id !== docId && d.data()?.status === "ACTIVE") {
+          archiveTasks.push(
+            setDoc(
+              doc(getJasraDb(), ...JASRA_BATCHES_COL_PATH, d.id),
+              { status: "COMPLETED", updatedAt: Date.now() },
+              { merge: true }
+            )
+          );
+        }
+      });
+      if (archiveTasks.length > 0) await Promise.all(archiveTasks);
+    } catch (err) {
+      console.warn("Notice: Gagal mengarsipkan batch aktif sebelumnya:", err);
+    }
+  }
+
   await setDoc(docRef, payload, { merge: true });
 
   // Update local cache
   try {
     const cached = JSON.parse(localStorage.getItem(JASRA_BATCHES_STORAGE_KEY) || "[]");
-    const updated = [payload, ...cached.filter((b) => b.id !== docId)];
+    const updatedCached = cached.map((b) =>
+      isNew && payload.status === "ACTIVE" && b.id !== docId && b.status === "ACTIVE"
+        ? { ...b, status: "COMPLETED" }
+        : b
+    );
+    const updated = [payload, ...updatedCached.filter((b) => b.id !== docId)];
     localStorage.setItem(JASRA_BATCHES_STORAGE_KEY, JSON.stringify(updated));
   } catch {}
 
@@ -532,8 +772,12 @@ export async function deleteJasraDistributionCloud(distribution, restoreStock = 
   if (restoreStock && distribution.batchId) {
     try {
       const batchRef = doc(getJasraDb(), ...JASRA_BATCHES_COL_PATH, distribution.batchId);
-      const batches = JSON.parse(localStorage.getItem(JASRA_BATCHES_STORAGE_KEY) || "[]");
-      const matchedBatch = batches.find((b) => b.id === distribution.batchId);
+      const batchSnap = await getDoc(batchRef);
+      let matchedBatch = batchSnap.exists() ? batchSnap.data() : null;
+      if (!matchedBatch) {
+        const batches = JSON.parse(localStorage.getItem(JASRA_BATCHES_STORAGE_KEY) || "[]");
+        matchedBatch = batches.find((b) => b.id === distribution.batchId);
+      }
       if (matchedBatch) {
         const treatmentCount = Number(distribution.treatmentCount) || 0;
         const pingsanCount = Number(distribution.pingsanCount) || 0;
@@ -555,10 +799,11 @@ export async function deleteJasraDistributionCloud(distribution, restoreStock = 
     }
   }
 
-  // If member, reset voucher status in members collection
+  // If member, reset voucher status in members collection only if it belongs to this batch
   if (distribution.recipientType === "MEMBER") {
     try {
       let targetMemberId = distribution.memberId || null;
+      let targetMemberData = null;
       if (!targetMemberId && (distribution.citizenId || distribution.recipientName)) {
         const memSnap = await getDocs(collection(getJasraDb(), ...MEMBERS_COL_PATH));
         const cleanCid = (distribution.citizenId || "").trim().toUpperCase();
@@ -570,12 +815,21 @@ export async function deleteJasraDistributionCloud(distribution, restoreStock = 
             const mName = (data.fullName || "").trim().toUpperCase();
             if ((cleanCid && !cleanCid.includes("TIDAK") && mCid === cleanCid) || (cleanName && mName === cleanName)) {
               targetMemberId = d.id;
+              targetMemberData = data;
             }
           }
         });
+      } else if (targetMemberId) {
+        const mSnap = await getDoc(doc(getJasraDb(), ...MEMBERS_COL_PATH, targetMemberId));
+        if (mSnap.exists()) targetMemberData = mSnap.data();
       }
 
-      if (targetMemberId) {
+      const belongsToSameBatch =
+        !targetMemberData?.voucherBatchId ||
+        !distribution.batchId ||
+        targetMemberData.voucherBatchId === distribution.batchId;
+
+      if (targetMemberId && belongsToSameBatch) {
         const memberRef = doc(getJasraDb(), ...MEMBERS_COL_PATH, targetMemberId);
         await setDoc(
           memberRef,
@@ -596,15 +850,20 @@ export async function deleteJasraDistributionCloud(distribution, restoreStock = 
     }
   }
 
-  // If non-member (external), also delete corresponding record from external_jasra collection
+  // If non-member (external), also delete matching record in the same batch from external_jasra collection
   if (distribution.recipientType !== "MEMBER") {
     try {
       const extRawId = distribution.id.startsWith("DIST_") ? distribution.id.substring(5) : distribution.id;
-      // 1. Try deleting directly by extracted ID
       const directRef = doc(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH, extRawId);
-      await deleteDoc(directRef);
+      const directSnap = await getDoc(directRef);
+      if (
+        directSnap.exists() &&
+        (!directSnap.data().batchId || directSnap.data().batchId === distribution.batchId)
+      ) {
+        await deleteDoc(directRef);
+      }
 
-      // 2. Also check if external doc has matching CID or fullName to ensure no orphan remains
+      // Check matching CID/fullName only within the same batch so newer/older batch docs stay intact
       const extSnap = await getDocs(collection(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH));
       const cleanCid = (distribution.citizenId || "").trim().toUpperCase();
       const cleanName = (distribution.recipientName || "").trim().toUpperCase();
@@ -612,6 +871,8 @@ export async function deleteJasraDistributionCloud(distribution, restoreStock = 
       for (const d of extSnap.docs) {
         if (d.id === "_meta") continue;
         const eData = d.data();
+        const sameBatch = !eData.batchId || !distribution.batchId || eData.batchId === distribution.batchId;
+        if (!sameBatch) continue;
         const eCid = (eData.citizenId || "").trim().toUpperCase();
         const eName = (eData.fullName || "").trim().toUpperCase();
         if (
@@ -626,13 +887,16 @@ export async function deleteJasraDistributionCloud(distribution, restoreStock = 
       // Update local storage cache
       try {
         const cached = JSON.parse(localStorage.getItem("pps_external_jasra_cache") || "[]");
-        const filtered = cached.filter(
-          (item) =>
+        const filtered = cached.filter((item) => {
+          const sameBatch = !item.batchId || !distribution.batchId || item.batchId === distribution.batchId;
+          if (!sameBatch) return true;
+          return (
             item.id !== extRawId &&
             item.id !== distribution.id &&
             (!cleanCid || cleanCid.includes("TIDAK") || (item.citizenId || "").trim().toUpperCase() !== cleanCid) &&
             (!cleanName || (item.fullName || "").trim().toUpperCase() !== cleanName)
-        );
+          );
+        });
         localStorage.setItem("pps_external_jasra_cache", JSON.stringify(filtered));
       } catch {}
     } catch (err) {
@@ -672,13 +936,14 @@ export function exportJasraDistributionsToExcel(distributions = [], batch = null
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Penyaluran Jasra");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalIsoDate();
   XLSX.writeFile(workbook, `Laporan_Penyaluran_Jasra_LSM_PPS_${today}.xlsx`);
   return true;
 }
 
 /**
  * Sinkronisasi Penerima Manfaat dari Database Anggota & Warga Luar ke Penyaluran Jasra
+ * Terisolasi per activeBatch agar tidak menarik data batch lama ke batch baru.
  */
 export async function syncJasraWithMembersCloud(membersList = [], externalJasraList = [], activeBatchInput = null) {
   const activeBatch = activeBatchInput || DEFAULT_GOVERNMENT_BATCH;
@@ -687,19 +952,24 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
   const existingMap = new Map();
   snap.forEach((d) => {
     const data = d.data();
+    if (data.batchId !== activeBatch.id) return;
     if (data.memberId) existingMap.set(`M_${data.memberId}`, d.id);
-    if (data.citizenId) existingMap.set(`C_${data.citizenId}`, d.id);
+    if (data.citizenId) existingMap.set(`C_${String(data.citizenId).toUpperCase()}`, d.id);
   });
 
-  const activeMembers = membersList.filter((m) => Boolean(m.voucherJasraReceived || m.voucherClaimedAt));
+  const isLegacyBatch1 = activeBatch.id === "BATCH_PEMERINTAH_20261102";
+  const activeMembers = membersList.filter((m) => {
+    if (!m.voucherJasraReceived) return false;
+    return m.voucherBatchId === activeBatch.id || (isLegacyBatch1 && !m.voucherBatchId);
+  });
   let syncedCount = 0;
 
   for (const m of activeMembers) {
     const key = `M_${m.id}`;
     const cidKey = m.icNumber ? `C_${m.icNumber.toUpperCase()}` : null;
     if (!existingMap.has(key) && (!cidKey || !existingMap.has(cidKey))) {
-      const distId = "DIST_" + m.id;
-      const givenAt = m.voucherClaimedAt || m.lastUpdatedStatusAt || 1793644800000;
+      const distId = isLegacyBatch1 ? "DIST_" + m.id : `DIST_${activeBatch.id}_${m.id}`;
+      const givenAt = m.voucherClaimedAt || m.lastUpdatedStatusAt || activeBatch.receivedAt || Date.now();
       const distDoc = {
         id: distId,
         batchId: activeBatch.id,
@@ -715,37 +985,35 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
         packageLabel: "10 Treatment • 10 Pingsan",
         givenAt: givenAt,
         givenDateFormatted: m.voucherJasraDate || formatJasraShortDate(givenAt),
-        batchExpiresAt: activeBatch.expiresAt || 1794186000000,
-        batchExpiresFormatted: formatJasraDate(activeBatch.expiresAt || 1794186000000),
+        batchExpiresAt: activeBatch.expiresAt,
+        batchExpiresFormatted: formatJasraDate(activeBatch.expiresAt),
         officerName: "Admin Paguyuban",
         notes: "Sinkronisasi otomatis dari Database Anggota LSM PPS",
         createdAt: givenAt,
       };
       await setDoc(doc(getJasraDb(), ...JASRA_DISTRIBUTIONS_COL_PATH, distId), distDoc, { merge: true });
       syncedCount++;
-
-      // Pastikan status voucherJasraReceived juga aktif di data member
-      try {
-        const memberRef = doc(getJasraDb(), ...MEMBERS_COL_PATH, m.id);
-        await setDoc(memberRef, { voucherJasraReceived: true }, { merge: true });
-      } catch (memErr) {
-        console.warn("Notice: Gagal set voucherJasraReceived di member:", memErr);
-      }
     }
   }
 
   for (const ext of externalJasraList) {
-    const key = `C_${ext.citizenId}`;
+    const belongsToActive =
+      ext.batchId === activeBatch.id ||
+      (isLegacyBatch1 && !ext.batchId && (!activeBatch.expiresAt || (ext.createdAt || 0) <= activeBatch.expiresAt));
+    if (!belongsToActive) continue;
+
+    const cidUpper = String(ext.citizenId || "").toUpperCase();
+    const key = `C_${cidUpper}`;
     if (!existingMap.has(key)) {
-      const distId = "DIST_" + ext.id;
-      const givenAt = ext.createdAt || ext.updatedAt || 1793644800000;
+      const distId = isLegacyBatch1 ? "DIST_" + ext.id : `DIST_${activeBatch.id}_${ext.id}`;
+      const givenAt = ext.createdAt || ext.updatedAt || activeBatch.receivedAt || Date.now();
       const distDoc = {
         id: distId,
         batchId: activeBatch.id,
         batchName: activeBatch.batchName,
         recipientType: "NON_MEMBER",
         recipientName: (ext.fullName || "Warga Luar").toUpperCase(),
-        citizenId: (ext.citizenId || "-").toUpperCase(),
+        citizenId: cidUpper || "-",
         phone: ext.phone || "-",
         memberId: null,
         treatmentCount: 10,
@@ -754,8 +1022,8 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
         packageLabel: "10 Treatment • 10 Pingsan",
         givenAt: givenAt,
         givenDateFormatted: ext.dateGiven || formatJasraShortDate(givenAt),
-        batchExpiresAt: activeBatch.expiresAt || 1794186000000,
-        batchExpiresFormatted: formatJasraDate(activeBatch.expiresAt || 1794186000000),
+        batchExpiresAt: activeBatch.expiresAt,
+        batchExpiresFormatted: formatJasraDate(activeBatch.expiresAt),
         officerName: "Admin Paguyuban",
         notes: "Sinkronisasi otomatis dari Penerima Jasra Luar Anggota",
         createdAt: givenAt,
@@ -765,7 +1033,7 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
     }
   }
 
-  // Recalculate and update batch stock totals
+  // Recalculate and update stock totals strictly for activeBatch
   const updatedSnap = await getDocs(colRef);
   let totalDistributedTreatment = 0;
   let totalDistributedPingsan = 0;
@@ -773,6 +1041,7 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
   updatedSnap.forEach((d) => {
     if (d.id !== "_meta") {
       const data = d.data();
+      if (data.batchId !== activeBatch.id) return;
       totalDistributedTreatment += Number(data.treatmentCount) || 10;
       totalDistributedPingsan += Number(data.pingsanCount) || 10;
       totalDistributedCount++;

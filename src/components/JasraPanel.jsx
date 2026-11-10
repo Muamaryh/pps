@@ -40,6 +40,12 @@ import {
   deleteJasraDistributionCloud,
   exportJasraDistributionsToExcel,
   syncJasraWithMembersCloud,
+  isValidJasraBatch,
+  getActiveJasraBatch,
+  getBatchDistributions,
+  computeBatchMetrics,
+  buildJasraBatchSelectOptions,
+  getLocalIsoDate,
   DEFAULT_VALIDITY_DAYS,
   DEFAULT_TREATMENT_PER_PERSON,
   DEFAULT_PINGSAN_PER_PERSON,
@@ -49,6 +55,8 @@ import { scanKtpImage } from "../utils/ktpOcr";
 import { saveExternalJasraCloud } from "../services/memberService";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistTimePicker from "./BrutalistTimePicker";
+import BrutalistSelect from "./BrutalistSelect";
+import JasraBatchValidityBadge from "./JasraBatchValidityBadge";
 
 export default function JasraPanel({
   batches = [],
@@ -60,113 +68,52 @@ export default function JasraPanel({
   onResetInitialDistributeType,
   onOpenTransparency,
 }) {
-  // Active batch: The latest batch with status ACTIVE or unexpired
-  const activeBatch = useMemo(() => {
-    return batches.find((b) => b.status === "ACTIVE") || batches[0] || DEFAULT_GOVERNMENT_BATCH;
+  // Daftar gelombang valid urut terbaru & Batch Aktif
+  const validBatches = useMemo(() => {
+    return [...(batches || [])]
+      .filter(isValidJasraBatch)
+      .sort((a, b) => (b.receivedAt || 0) - (a.receivedAt || 0));
   }, [batches]);
 
-  const batchRemaining = useMemo(() => {
-    return calculateBatchRemaining(activeBatch);
-  }, [activeBatch]);
+  const activeBatch = useMemo(() => getActiveJasraBatch(batches), [batches]);
+
+  const [selectedBatchId, setSelectedBatchId] = useState("ACTIVE");
+
+  const viewedBatch = useMemo(() => {
+    if (selectedBatchId === "ACTIVE") return activeBatch;
+    return validBatches.find((b) => b.id === selectedBatchId) || activeBatch;
+  }, [selectedBatchId, activeBatch, validBatches]);
+
+  const isViewingActiveBatch = Boolean(viewedBatch && activeBatch && viewedBatch.id === activeBatch.id);
+
+  const activeBatchRemaining = useMemo(() => calculateBatchRemaining(activeBatch), [activeBatch]);
+  const batchRemaining = useMemo(() => calculateBatchRemaining(viewedBatch), [viewedBatch]);
 
   // Modals state
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isDistributeModalOpen, setIsDistributeModalOpen] = useState(false);
-  const [isHistoryBatchOpen, setIsHistoryBatchOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Auto-sync & unified distributions list (combines Firestore distributions + members + external)
+  // Daftar penerima terisolasi pada gelombang yang sedang dilihat (tidak tercampur batch lama)
   const allDistributions = useMemo(() => {
-    const list = [...(distributions || [])];
-    const existingMemberIds = new Set(list.map((d) => d.memberId).filter(Boolean));
-    const existingCids = new Set(list.map((d) => (d.citizenId || "").toUpperCase()).filter(Boolean));
+    return getBatchDistributions(distributions, viewedBatch, membersList, externalJasraList);
+  }, [distributions, viewedBatch, membersList, externalJasraList]);
 
-    const activeBatchExpiry = activeBatch?.expiresAt || 1794186000000;
+  // Hitung metrik stok khusus gelombang yang dilihat & gelombang aktif
+  const {
+    initialTreatment: effectiveInitialTreatment,
+    initialPingsan: effectiveInitialPingsan,
+    distributedCount: effectiveDistributedCount,
+    distributedTreatment: effectiveDistributedTreatment,
+    distributedPingsan: effectiveDistributedPingsan,
+    remainingTreatment: effectiveRemainingTreatment,
+    remainingPingsan: effectiveRemainingPingsan,
+  } = useMemo(() => computeBatchMetrics(viewedBatch, allDistributions), [viewedBatch, allDistributions]);
 
-    // Pastikan anggota dengan status voucher aktif tetapi belum masuk dokumen distribusi tetap muncul & terhitung
-    (membersList || [])
-      .filter((m) => Boolean(m.voucherJasraReceived || m.voucherClaimedAt))
-      .forEach((m) => {
-        const cid = (m.icNumber || m.citizenId || "").toUpperCase();
-        if (!existingMemberIds.has(m.id) && (!cid || !existingCids.has(cid))) {
-          const givenAt = m.voucherClaimedAt || m.lastUpdatedStatusAt || 1793644800000;
-          list.push({
-            id: "DIST_" + m.id,
-            batchId: activeBatch?.id || "BATCH_PEMERINTAH_20261102",
-            batchName: activeBatch?.batchName || "Gelombang #1 - Alokasi Pemerintah San Andreas",
-            recipientType: "MEMBER",
-            recipientName: (m.fullName || "Anggota PPS").toUpperCase(),
-            citizenId: cid || "-",
-            phone: m.phone || "-",
-            memberId: m.id,
-            treatmentCount: 10,
-            pingsanCount: 10,
-            totalCount: 20,
-            packageLabel: "10 Treatment • 10 Pingsan",
-            givenAt: givenAt,
-            givenDateFormatted: m.voucherJasraDate || formatJasraShortDate(givenAt),
-            batchExpiresAt: activeBatchExpiry,
-            batchExpiresFormatted: formatJasraDate(activeBatchExpiry),
-            officerName: "Admin Paguyuban",
-            notes: "Database Anggota LSM PPS",
-            createdAt: givenAt,
-          });
-          existingMemberIds.add(m.id);
-          if (cid) existingCids.add(cid);
-        }
-      });
-
-    // Gabungkan warga luar anggota jika ada yang belum tercatat di koleksi distribusi
-    (externalJasraList || []).forEach((ext) => {
-      const cid = (ext.citizenId || "").toUpperCase();
-      if (!existingCids.has(cid)) {
-        const givenAt = ext.createdAt || ext.updatedAt || 1793644800000;
-        list.push({
-          id: "DIST_" + ext.id,
-          batchId: activeBatch?.id || "BATCH_PEMERINTAH_20261102",
-          batchName: activeBatch?.batchName || "Gelombang #1 - Alokasi Pemerintah San Andreas",
-          recipientType: "NON_MEMBER",
-          recipientName: (ext.fullName || "Warga Luar").toUpperCase(),
-          citizenId: cid || "-",
-          phone: ext.phone || "-",
-          memberId: null,
-          treatmentCount: 10,
-          pingsanCount: 10,
-          totalCount: 20,
-          packageLabel: "10 Treatment • 10 Pingsan",
-          givenAt: givenAt,
-          givenDateFormatted: ext.dateGiven || formatJasraShortDate(givenAt),
-          batchExpiresAt: activeBatchExpiry,
-          batchExpiresFormatted: formatJasraDate(activeBatchExpiry),
-          officerName: "Admin Paguyuban",
-          notes: "Database Jasra Luar Anggota",
-          createdAt: givenAt,
-        });
-        if (cid) existingCids.add(cid);
-      }
-    });
-
-    list.sort((a, b) => (b.givenAt || 0) - (a.givenAt || 0));
-    return list;
-  }, [distributions, membersList, externalJasraList, activeBatch]);
-
-  // Derived Real-time Stock Metrics
-  const effectiveDistributedCount = allDistributions.length > 0
-    ? allDistributions.length
-    : (activeBatch?.distributedCount || 0);
-
-  const effectiveDistributedTreatment = allDistributions.length > 0
-    ? allDistributions.reduce((sum, d) => sum + (Number(d.treatmentCount) || 10), 0)
-    : (activeBatch?.distributedTreatment || 0);
-
-  const effectiveDistributedPingsan = allDistributions.length > 0
-    ? allDistributions.reduce((sum, d) => sum + (Number(d.pingsanCount) || 10), 0)
-    : (activeBatch?.distributedPingsan || 0);
-
-  const effectiveInitialTreatment = Number(activeBatch?.initialTreatment) || 500;
-  const effectiveInitialPingsan = Number(activeBatch?.initialPingsan) || 500;
-  const effectiveRemainingTreatment = Math.max(0, effectiveInitialTreatment - effectiveDistributedTreatment);
-  const effectiveRemainingPingsan = Math.max(0, effectiveInitialPingsan - effectiveDistributedPingsan);
+  const activeBatchMetrics = useMemo(() => {
+    const activeDists = getBatchDistributions(distributions, activeBatch, membersList, externalJasraList);
+    return computeBatchMetrics(activeBatch, activeDists);
+  }, [distributions, activeBatch, membersList, externalJasraList]);
 
   // Filter & Search state for distributions
   const [filterType, setFilterType] = useState("ALL"); // ALL | MEMBER | NON_MEMBER | ACTIVE | EXPIRED
@@ -179,7 +126,7 @@ export default function JasraPanel({
     source: "Pemerintah Kota San Andreas / Dinas Kesehatan",
     initialTreatment: 500,
     initialPingsan: 500,
-    receivedAtDate: new Date().toISOString().slice(0, 10),
+    receivedAtDate: getLocalIsoDate(),
     receivedAtTime: "12:00",
     validityDays: 7,
     notes: "",
@@ -228,7 +175,7 @@ export default function JasraPanel({
   // Filtered distributions
   const filteredDistributions = useMemo(() => {
     return allDistributions.filter((dist) => {
-      const rem = calculateRecipientRemaining(dist, activeBatch);
+      const rem = calculateRecipientRemaining(dist, viewedBatch);
 
       if (filterType === "MEMBER" && dist.recipientType !== "MEMBER") return false;
       if (filterType === "NON_MEMBER" && dist.recipientType !== "NON_MEMBER") return false;
@@ -244,16 +191,16 @@ export default function JasraPanel({
         (dist.batchName || "").toLowerCase().includes(q)
       );
     });
-  }, [allDistributions, activeBatch, filterType, searchQuery]);
+  }, [allDistributions, viewedBatch, filterType, searchQuery]);
 
-  // Handler: Manual & Automatic Sync with Database Anggota
+  // Handler: Manual Sync khusus gelombang yang dipilih (tidak mencampur batch lama)
   async function handleSyncWithMembers(manual = true) {
     setIsSyncing(true);
     try {
-      const res = await syncJasraWithMembersCloud(membersList, externalJasraList, activeBatch);
+      const res = await syncJasraWithMembersCloud(membersList, externalJasraList, viewedBatch);
       if (manual && onShowToast) {
         onShowToast(
-          `Sinkronisasi selesai! ${res.totalDistributedCount} penerima tercatat (${res.totalDistributedTreatment + res.totalDistributedPingsan} voucher terdistribusi).`,
+          `Sinkronisasi selesai! ${res.totalDistributedCount} penerima tercatat pada gelombang ini (${res.totalDistributedTreatment + res.totalDistributedPingsan} voucher terdistribusi).`,
           "success"
         );
       }
@@ -267,38 +214,16 @@ export default function JasraPanel({
     }
   }
 
-  // Auto-sync jika terdapat penerima voucher di Database Anggota atau Luar yang belum tercatat di koleksi distribusi
-  useEffect(() => {
-    if (!membersList || membersList.length === 0) return;
-    const distMemberIds = new Set((distributions || []).map((d) => d.memberId).filter(Boolean));
-    const distCids = new Set((distributions || []).map((d) => (d.citizenId || "").toUpperCase()).filter(Boolean));
-
-    const hasUnsyncedMember = membersList.some((m) => {
-      if (!m.voucherJasraReceived && !m.voucherClaimedAt) return false;
-      const cid = (m.icNumber || m.citizenId || "").toUpperCase();
-      return !distMemberIds.has(m.id) && (!cid || !distCids.has(cid));
-    });
-
-    const hasUnsyncedExternal = (externalJasraList || []).some((ext) => {
-      const cid = (ext.citizenId || "").toUpperCase();
-      return cid && !distCids.has(cid);
-    });
-
-    if (hasUnsyncedMember || hasUnsyncedExternal) {
-      handleSyncWithMembers(false);
-    }
-  }, [distributions, membersList, externalJasraList]);
-
   // Handlers for Batch Creation
   function handleOpenNewBatchModal() {
     const now = new Date();
     setBatchFormData({
       id: "",
-      batchName: `Gelombang ${batches.length + 1} - ${now.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`,
+      batchName: `Gelombang ${validBatches.length + 1} - ${now.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`,
       source: "Pemerintah Kota San Andreas / Dinas Kesehatan",
       initialTreatment: 500,
       initialPingsan: 500,
-      receivedAtDate: now.toISOString().slice(0, 10),
+      receivedAtDate: getLocalIsoDate(now),
       receivedAtTime: now.toTimeString().slice(0, 5),
       validityDays: 7,
       notes: "",
@@ -310,7 +235,7 @@ export default function JasraPanel({
     e.preventDefault();
     try {
       let year, monthIdx, day;
-      const rawDate = batchFormData.receivedAtDate || new Date().toISOString().slice(0, 10);
+      const rawDate = batchFormData.receivedAtDate || getLocalIsoDate();
       if (rawDate.includes("-")) {
         const dateParts = rawDate.split("-");
         year = parseInt(dateParts[0], 10);
@@ -355,7 +280,8 @@ export default function JasraPanel({
       };
 
       await saveJasraBatchCloud(payload);
-      if (onShowToast) onShowToast("Gelombang Jasra dari pemerintah berhasil dicatat & masa berlaku 7 hari aktif!", "success");
+      setSelectedBatchId("ACTIVE");
+      if (onShowToast) onShowToast("Gelombang Jasra baru dicatat! Stok dimulai fresh dari 0 dengan masa berlaku 7 hari.", "success");
       setIsBatchModalOpen(false);
     } catch (err) {
       console.error("Gagal simpan batch Jasra:", err);
@@ -365,7 +291,7 @@ export default function JasraPanel({
 
   // Handlers for Distribution
   function handleOpenDistributeModal(type = "MEMBER") {
-    if (!activeBatch || batchRemaining.isExpired) {
+    if (!activeBatch || activeBatchRemaining.isExpired) {
       if (onShowToast) onShowToast("Tidak ada batch Jasra pemerintah yang aktif. Input batch baru terlebih dahulu!", "warning");
       return;
     }
@@ -509,12 +435,21 @@ export default function JasraPanel({
         givenAt: Date.now(),
       };
 
-      await distributeJasraCloud(payload, activeBatch);
+      const activeBatchForDist = {
+        ...activeBatch,
+        remainingTreatment: activeBatchMetrics.remainingTreatment,
+        remainingPingsan: activeBatchMetrics.remainingPingsan,
+        distributedTreatment: activeBatchMetrics.distributedTreatment,
+        distributedPingsan: activeBatchMetrics.distributedPingsan,
+        distributedCount: activeBatchMetrics.distributedCount,
+      };
+      await distributeJasraCloud(payload, activeBatchForDist);
 
       // Dual-sync to external_jasra if non-member
       if (distFormData.recipientType === "NON_MEMBER") {
         try {
           await saveExternalJasraCloud({
+            batchId: activeBatch.id,
             fullName: distFormData.recipientName.trim().toUpperCase(),
             citizenId: distFormData.citizenId.trim().toUpperCase(),
             phone: distFormData.phone.trim(),
@@ -534,7 +469,7 @@ export default function JasraPanel({
       }
 
       if (onShowToast) {
-        onShowToast(`Voucher Jasra berhasil diserahkan ke ${payload.recipientName}! Sisa masa berlaku: ${batchRemaining.daysRemaining} hari.`, "success");
+        onShowToast(`Voucher Jasra berhasil diserahkan ke ${payload.recipientName}! Sisa masa berlaku: ${activeBatchRemaining.daysRemaining} hari.`, "success");
       }
       setIsDistributeModalOpen(false);
     } catch (err) {
@@ -557,11 +492,11 @@ export default function JasraPanel({
   }
 
   function handleExportExcel() {
-    if (distributions.length === 0) {
-      if (onShowToast) onShowToast("Belum ada data penyaluran voucher untuk diunduh.", "warning");
+    if (allDistributions.length === 0) {
+      if (onShowToast) onShowToast("Belum ada data penyaluran voucher pada gelombang ini untuk diunduh.", "warning");
       return;
     }
-    exportJasraDistributionsToExcel(distributions, activeBatch);
+    exportJasraDistributionsToExcel(allDistributions, viewedBatch);
     if (onShowToast) onShowToast("Laporan penyaluran voucher Jasra berhasil diunduh!", "success");
   }
 
@@ -594,7 +529,7 @@ export default function JasraPanel({
             onClick={() => handleSyncWithMembers(true)}
             disabled={isSyncing}
             className="btn py-2 px-3 bg-white dark:bg-[#1E2230] text-slate-800 dark:text-slate-200 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 transition-all"
-            title="Sinkronisasikan data penerima dari Database Anggota dan Penerima Jasra Luar"
+            title="Sinkronisasikan data penerima gelombang ini dengan Database Anggota"
           >
             <RotateCcw size={14} className={isSyncing ? "animate-spin text-[#DC2626]" : "text-[#DC2626]"} />
             <span>{isSyncing ? "Menyinkronkan..." : "Sinkronkan Data"}</span>
@@ -613,9 +548,9 @@ export default function JasraPanel({
           <button
             type="button"
             onClick={handleOpenDistributeModal}
-            disabled={!activeBatch || batchRemaining.isExpired}
+            disabled={!activeBatch || activeBatchRemaining.isExpired}
             className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
-            title="Catat penyerahan voucher ke anggota atau warga luar"
+            title="Catat penyerahan voucher ke anggota atau warga luar pada batch aktif"
           >
             <Gift size={16} className="text-[#DC2626] shrink-0" />
             <span>Serahkan Voucher</span>
@@ -637,49 +572,53 @@ export default function JasraPanel({
         </div>
       </div>
 
-      {/* 2. Active Government Batch Highlight Banner */}
-      {activeBatch ? (
-        <div className="card-brutal p-5 bg-[#FFFDF9] dark:bg-[#161822] border-[2.5px] border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col gap-4">
+      {/* 2. Viewed Government Batch Highlight Banner */}
+      {viewedBatch ? (
+        <div className="card-brutal relative z-20 p-5 bg-[#FFFDF9] dark:bg-[#161822] border-[2.5px] border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col gap-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-3 border-b-2 border-black/10 dark:border-white/10">
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-500">
-                  BATCH AKTIF
-                </span>
+                {isViewingActiveBatch && !batchRemaining.isExpired ? (
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-500">
+                    BATCH AKTIF
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-400">
+                    ARSIP BATCH
+                  </span>
+                )}
                 <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                  Periode 7 Hari
+                  Periode {viewedBatch.validityDays || 7} Hari
                 </span>
               </div>
               <h4 className="font-heading font-black text-base sm:text-lg text-slate-900 dark:text-slate-100 uppercase tracking-tight">
-                {activeBatch.batchName}
+                {viewedBatch.batchName}
               </h4>
               <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5 mt-0.5 font-medium">
                 <Building2 size={13} className="text-[#DC2626]" />
-                <span>{activeBatch.source || "Pemerintah Kota San Andreas"}</span>
+                <span>{viewedBatch.source || "Pemerintah Kota San Andreas"}</span>
                 <span>•</span>
                 <Calendar size={13} className="text-[#FACC15]" />
-                <span>Diterima: {formatJasraDate(activeBatch.receivedAt)}</span>
+                <span>Diterima: {formatJasraDate(viewedBatch.receivedAt)}</span>
               </p>
             </div>
 
-            {/* Countdown Badge & Expiration Indicator */}
-            <div className={`p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-3 shrink-0 ${
-              batchRemaining.isExpired
-                ? "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                : "bg-[#FACC15] text-slate-950"
-            }`}>
-              <Clock size={22} className={batchRemaining.isExpired ? "text-slate-500" : "text-[#DC2626]"} />
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider block leading-tight text-slate-800">
-                  {batchRemaining.isExpired ? "Status Batch" : "Masa Berlaku"}
-                </span>
-                <strong className="font-heading font-black text-base block leading-tight">
-                  {batchRemaining.isExpired ? "Kedaluwarsa" : `Sisa ${batchRemaining.daysRemaining} Hari`}
-                </strong>
-                <span className="text-[10px] font-mono block opacity-85 leading-tight">
-                  s/d {formatJasraShortDate(batchRemaining.expiresAt)}
-                </span>
-              </div>
+            {/* Batch Switcher & Countdown Badge */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto shrink-0">
+              {validBatches.length > 1 && (
+                <div className="w-full sm:w-80">
+                  <BrutalistSelect
+                    value={selectedBatchId}
+                    onChange={setSelectedBatchId}
+                    options={buildJasraBatchSelectOptions(activeBatch, validBatches)}
+                    placeholder="Pilih Gelombang..."
+                    ariaLabel="Pilih gelombang batch Jasra"
+                  />
+                </div>
+              )}
+
+              {/* Countdown Badge & Expiration Indicator */}
+              <JasraBatchValidityBadge batchRemaining={batchRemaining} />
             </div>
           </div>
 
@@ -687,7 +626,9 @@ export default function JasraPanel({
           <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-center gap-2">
             <Info size={15} className="text-amber-600 shrink-0" />
             <div className="leading-normal text-[11px] sm:text-xs">
-              Masa berlaku batch dihitung 7 hari sejak diterima (sampai {formatJasraShortDate(batchRemaining.expiresAt)}). Penerima yang dicatat hari ini otomatis mendapatkan sisa masa berlaku {batchRemaining.daysRemaining} hari.
+              {isViewingActiveBatch
+                ? `Masa berlaku batch ini dihitung ${viewedBatch.validityDays || 7} hari sejak diterima (sampai ${formatJasraShortDate(batchRemaining.expiresAt)}). Stok & daftar penerima dimulai bersih dari 0 khusus gelombang ini.`
+                : `Anda sedang melihat arsip ${viewedBatch.batchName}. Kembali pilih "Batch Aktif" pada dropdown di atas untuk mencatat penyaluran gelombang terbaru.`}
             </div>
           </div>
 
@@ -821,7 +762,7 @@ export default function JasraPanel({
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { id: "ALL", label: `Semua (${distributions.length})` },
+              { id: "ALL", label: `Semua (${allDistributions.length})` },
               { id: "MEMBER", label: "Anggota PPS" },
               { id: "NON_MEMBER", label: "Luar Anggota" },
               { id: "ACTIVE", label: "Voucher Aktif" },
@@ -861,7 +802,7 @@ export default function JasraPanel({
             <tbody className="divide-y divide-black/10 dark:divide-white/10 font-medium">
               {filteredDistributions.length > 0 ? (
                 filteredDistributions.map((dist, idx) => {
-                  const rem = calculateRecipientRemaining(dist, activeBatch);
+                  const rem = calculateRecipientRemaining(dist, viewedBatch);
                   const isMember = dist.recipientType === "MEMBER";
 
                   return (
@@ -1143,7 +1084,7 @@ export default function JasraPanel({
                   </div>
                   <div className="text-right">
                     <span className="badge-brutal text-[10px] bg-[#FACC15] text-black border border-black font-black">
-                      Sisa Masa Berlaku: {batchRemaining.daysRemaining} Hari
+                      Sisa Masa Berlaku: {activeBatchRemaining.daysRemaining} Hari
                     </span>
                   </div>
                 </div>
@@ -1505,13 +1446,13 @@ export default function JasraPanel({
                     <input
                       type="number"
                       min="0"
-                      max={activeBatch?.remainingTreatment || 500}
+                      max={activeBatchMetrics.remainingTreatment || 500}
                       required
                       value={distFormData.treatmentCount}
                       onChange={(e) => setDistFormData({ ...distFormData, treatmentCount: e.target.value })}
                       className="input-field w-full text-sm font-mono font-black py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
                     />
-                    <span className="text-[10px] text-slate-500">Tersedia: {activeBatch?.remainingTreatment || 0}</span>
+                    <span className="text-[10px] text-slate-500">Tersedia: {activeBatchMetrics.remainingTreatment}</span>
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-[#FACC15] uppercase mb-1">
@@ -1520,20 +1461,20 @@ export default function JasraPanel({
                     <input
                       type="number"
                       min="0"
-                      max={activeBatch?.remainingPingsan || 500}
+                      max={activeBatchMetrics.remainingPingsan || 500}
                       required
                       value={distFormData.pingsanCount}
                       onChange={(e) => setDistFormData({ ...distFormData, pingsanCount: e.target.value })}
                       className="input-field w-full text-sm font-mono font-black py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
                     />
-                    <span className="text-[10px] text-slate-500">Tersedia: {activeBatch?.remainingPingsan || 0}</span>
+                    <span className="text-[10px] text-slate-500">Tersedia: {activeBatchMetrics.remainingPingsan}</span>
                   </div>
                 </div>
               </div>
 
               {/* Dynamic Remaining Warning */}
               <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500 text-xs text-emerald-900 dark:text-emerald-200">
-                <strong>Masa Berlaku:</strong> Penerima voucher akan aktif dengan <strong>sisa masa berlaku {batchRemaining.daysRemaining} hari</strong> (berakhir pada {formatJasraShortDate(batchRemaining.expiresAt)} sesuai jadwal batch pemerintah).
+                <strong>Masa Berlaku:</strong> Penerima voucher akan aktif dengan <strong>sisa masa berlaku {activeBatchRemaining.daysRemaining} hari</strong> (berakhir pada {formatJasraShortDate(activeBatchRemaining.expiresAt)} sesuai jadwal batch pemerintah).
               </div>
 
               <div className="pt-3 border-t-2 border-black/10 flex items-center justify-end gap-2">

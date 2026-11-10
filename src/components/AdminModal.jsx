@@ -71,6 +71,10 @@ import {
   loadJasraDistributionsCloud,
   subscribeJasraDistributionsCloud,
   distributeJasraCloud,
+  getActiveJasraBatch,
+  getBatchDistributions,
+  findMemberJasraDistribution,
+  calculateRecipientRemaining,
 } from "../services/jasraService";
 import {
   loadKasLedgerCloud,
@@ -440,9 +444,7 @@ export default function AdminModal({
   async function handleClaimVoucher(member, days = VOUCHER_SUBSCRIPTION_DAYS) {
     try {
       // Prioritaskan pemotongan dari Batch Pemerintah yang sedang Aktif
-      const activeBatch = jasraBatches.find(
-        (b) => b.status === "ACTIVE" && (b.remainingTreatment > 0 || b.remainingPingsan > 0)
-      ) || jasraBatches[0];
+      const activeBatch = getActiveJasraBatch(jasraBatches);
 
       if (activeBatch && activeBatch.expiresAt > Date.now()) {
         await distributeJasraCloud(
@@ -466,8 +468,8 @@ export default function AdminModal({
           "success"
         );
       } else {
-        const res = await claimMemberVoucherSubscriptionCloud(member, days);
-        const sub = getMemberVoucherSubscription(res);
+        const res = await claimMemberVoucherSubscriptionCloud(member, days, activeBatch);
+        const sub = getMemberVoucherSubscription(res, new Date(), activeBatch);
         onShowToast(
           `Voucher 10 Tritmen & 10 Pingsan untuk ${member.fullName || "Anggota"} aktif 7 hari (s/d ${sub.expiresAtFormatted}).`,
           "success"
@@ -2110,11 +2112,14 @@ export default function AdminModal({
   const currentMonthLabel = getCurrentMonthLabel();
   const currentWeekLabel = getCurrentWeekLabel();
 
+  const activeJasraBatch = getActiveJasraBatch(jasraBatches);
+  const activeBatchJasraDists = getBatchDistributions(jasraDistributions, activeJasraBatch);
+
   // Subscription-based stats aggregation (must be initialized before tabGroups)
   const kasSubs = membersList.map((m) => ({
     member: m,
     kas: getMemberKasSubscription(m),
-    voucher: getMemberVoucherSubscription(m),
+    voucher: getMemberVoucherSubscription(m, new Date(), activeJasraBatch),
   }));
   const totalKasActiveCount = kasSubs.filter((item) => item.kas.isActive).length;
   const totalKasExpiringCount = kasSubs.filter((item) => item.kas.isExpiringSoon).length;
@@ -2213,16 +2218,12 @@ export default function AdminModal({
   });
 
   const isMemberVoucherActive = (m) => {
-    if (jasraDistributions && jasraDistributions.length > 0) {
-      const cid = (m.icNumber || m.citizenId || "").trim().toUpperCase();
-      const name = (m.fullName || "").trim().toUpperCase();
-      return jasraDistributions.some((d) =>
-        (d.memberId && d.memberId === m.id) ||
-        (d.citizenId && cid && !cid.includes("TIDAK") && d.citizenId.trim().toUpperCase() === cid) ||
-        (d.recipientName && name && d.recipientName.trim().toUpperCase() === name)
-      );
+    if (activeBatchJasraDists.length > 0) {
+      const dist = findMemberJasraDistribution(activeBatchJasraDists, m);
+      if (dist) return !calculateRecipientRemaining(dist, activeJasraBatch).isExpired;
+      return false;
     }
-    return getMemberVoucherSubscription(m).isActive;
+    return getMemberVoucherSubscription(m, new Date(), activeJasraBatch).isActive;
   };
 
   const totalVoucherActiveCount = membersList.filter((m) => isMemberVoucherActive(m)).length;
@@ -4392,15 +4393,13 @@ export default function AdminModal({
 
                               {/* Box 2: Voucher Tritmen & Pingsan (7 Hari) */}
                               {(() => {
-                                const voucherSub = getMemberVoucherSubscription(member);
-                                const dist = (jasraDistributions || []).find((d) =>
-                                  (d.memberId && d.memberId === member.id) ||
-                                  (d.citizenId && member.icNumber && d.citizenId.trim().toUpperCase() === member.icNumber.trim().toUpperCase() && !d.citizenId.includes("TIDAK")) ||
-                                  (d.recipientName && member.fullName && d.recipientName.trim().toUpperCase() === member.fullName.trim().toUpperCase())
-                                );
-                                const isVoucherActive = dist ? true : (jasraDistributions.length === 0 && voucherSub.isActive);
-                                const remMs = dist?.batchExpiresAt ? (dist.batchExpiresAt - Date.now()) : 0;
-                                const daysRem = remMs > 0 ? Math.ceil(remMs / 86400000) : voucherSub.daysRemaining;
+                                const voucherSub = getMemberVoucherSubscription(member, new Date(), activeJasraBatch);
+                                const dist = findMemberJasraDistribution(activeBatchJasraDists, member);
+                                const distRem = dist ? calculateRecipientRemaining(dist, activeJasraBatch) : null;
+                                const isVoucherActive = dist
+                                  ? !distRem.isExpired
+                                  : (activeBatchJasraDists.length === 0 && voucherSub.isActive);
+                                const daysRem = dist && !distRem.isExpired ? distRem.daysRemaining : voucherSub.daysRemaining;
 
                                 return (
                                   <div className={`p-2 rounded border-2 transition-all ${

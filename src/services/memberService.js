@@ -490,9 +490,9 @@ export function getMemberKasSubscription(member, now = new Date()) {
 
 /**
  * Cek dan hitung status Kuota/Langganan Voucher Tritmen & Pingsan Anggota (7 Hari)
- * Mendukung backward compatibility dengan data lama
+ * Jika activeBatch diberikan, status voucher terikat pada gelombang aktif tersebut.
  */
-export function getMemberVoucherSubscription(member, now = new Date()) {
+export function getMemberVoucherSubscription(member, now = new Date(), activeBatch = null) {
   const nowMs = typeof now === "number" ? now : now.getTime();
   if (!member) {
     return {
@@ -521,17 +521,27 @@ export function getMemberVoucherSubscription(member, now = new Date()) {
     }
   }
 
-  // Batas kedaluwarsa Batch Alokasi Pemerintah San Andreas (Senin 02 Nov -> Senin 09 Nov 2026 08:00 WIB)
-  const ACTIVE_GOV_BATCH_EXPIRY = 1794186000000;
+  // Batas kedaluwarsa khusus Batch 1 legacy (Senin 02 Nov - Senin 09 Nov 2026 08:00 WIB)
+  const LEGACY_BATCH_1_EXPIRY = 1794186000000;
+  const isLegacyBatch1Claim =
+    !member.voucherBatchId || member.voucherBatchId === "BATCH_PEMERINTAH_20261102";
 
-  // Jika anggota memiliki status voucher aktif, sinkronkan masa berlakunya dengan Batch Pemerintah
-  if (member.voucherJasraReceived) {
-    if (!expiresAt || expiresAt > ACTIVE_GOV_BATCH_EXPIRY || !member.voucherBatchId) {
-      expiresAt = ACTIVE_GOV_BATCH_EXPIRY;
+  if (member.voucherJasraReceived && isLegacyBatch1Claim) {
+    if (!expiresAt || expiresAt > LEGACY_BATCH_1_EXPIRY) {
+      expiresAt = LEGACY_BATCH_1_EXPIRY;
     }
   }
 
-  if (!expiresAt || !member.voucherJasraReceived) {
+  // Jika memeriksa terhadap activeBatch terbaru, klaim dari batch sebelumnya otomatis siap ambil ulang
+  const claimedInOtherBatch = Boolean(
+    activeBatch?.id &&
+      ((member.voucherBatchId && member.voucherBatchId !== activeBatch.id) ||
+        (!member.voucherBatchId &&
+          activeBatch.receivedAt &&
+          (!claimedAt || claimedAt < Number(activeBatch.receivedAt))))
+  );
+
+  if (!expiresAt || !member.voucherJasraReceived || claimedInOtherBatch) {
     const wasClaimedBefore = Boolean(expiresAt || member.voucherJasraDate);
     return {
       isActive: false,
@@ -700,18 +710,22 @@ export async function cancelMemberKasSubscriptionCloud(memberId) {
 }
 
 /**
- * Klaim / Aktifkan Voucher Mingguan Anggota (Sinkron dengan Batas Batch Pemerintah)
+ * Klaim / Aktifkan Voucher Mingguan Anggota (Sinkron dengan Batas Batch Pemerintah aktif)
  */
-export async function claimMemberVoucherSubscriptionCloud(member, durationDays = VOUCHER_SUBSCRIPTION_DAYS) {
+export async function claimMemberVoucherSubscriptionCloud(
+  member,
+  durationDays = VOUCHER_SUBSCRIPTION_DAYS,
+  activeBatch = null
+) {
   const now = Date.now();
-  const ACTIVE_GOV_BATCH_EXPIRY = 1794186000000; // Senin, 09 Nov 2026 08:00 WIB
-  const newExpiresAt = ACTIVE_GOV_BATCH_EXPIRY > now ? ACTIVE_GOV_BATCH_EXPIRY : now + durationDays * 86400000;
+  const batchExpiry = activeBatch?.expiresAt ? Number(activeBatch.expiresAt) : 0;
+  const newExpiresAt = batchExpiry > now ? batchExpiry : now + durationDays * 86400000;
 
   const payload = {
     voucherJasraReceived: true,
     voucherClaimedAt: now,
     voucherExpiresAt: newExpiresAt,
-    voucherBatchId: "BATCH_PEMERINTAH_20261102",
+    voucherBatchId: activeBatch?.id || null,
     voucherJasraDate: formatDateId(now),
     voucherPeriodLabel: `${formatDateId(now)} - ${formatDateId(newExpiresAt)}`,
     voucherJasraDetail: { treatment: 10, pingsan: 10 },
