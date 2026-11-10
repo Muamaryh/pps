@@ -5,7 +5,7 @@
 // ==========================================================================
 
 import React, { useState, useEffect } from "react";
-import { X, DollarSign, Calendar, SlidersHorizontal, Check } from "lucide-react";
+import { X, DollarSign, Calendar, SlidersHorizontal, History } from "lucide-react";
 import {
   STANDARD_KAS_MONTHLY,
   MONTHLY_PRESETS,
@@ -19,6 +19,42 @@ import {
   getMemberKasSubscription,
 } from "../services/memberService";
 
+const SHORT_ID_MONTHS = {
+  jan: "01", feb: "02", mar: "03", apr: "04", mei: "05", may: "05",
+  jun: "06", jul: "07", ags: "08", agu: "08", aug: "08", sep: "09",
+  okt: "10", oct: "10", nov: "11", des: "12", dec: "12",
+};
+
+function toLocalIsoDate(ts = Date.now()) {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function resolveMemberJoinIsoDate(member) {
+  if (!member) return "";
+  const reg = String(member.regDate || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(reg)) return reg;
+  const match = reg.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (match) {
+    const mon = SHORT_ID_MONTHS[match[2].toLowerCase()];
+    if (mon) {
+      return `${match[3]}-${mon}-${match[1].padStart(2, "0")}`;
+    }
+  }
+  if (member.createdAt) return toLocalIsoDate(member.createdAt);
+  return "";
+}
+
+function parseIsoDateNoon(isoStr) {
+  const m = String(isoStr || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0).getTime();
+}
+
 export default function KasPaymentModal({
   isOpen,
   onClose,
@@ -26,13 +62,9 @@ export default function KasPaymentModal({
   onSuccess,
   onShowToast,
 }) {
-  if (!isOpen || !member) return null;
-
-  const currentSub = getMemberKasSubscription(member);
-
   // Cek apakah anggota sebelumnya punya komitmen donatur khusus
   const hasPreviousCustomRate = Boolean(
-    member.kasCustomMonthlyRate && member.kasCustomMonthlyRate !== STANDARD_KAS_MONTHLY
+    member?.kasCustomMonthlyRate && member.kasCustomMonthlyRate !== STANDARD_KAS_MONTHLY
   );
 
   const [selectedPresetMonths, setSelectedPresetMonths] = useState(
@@ -47,11 +79,13 @@ export default function KasPaymentModal({
   );
   const [wallet, setWallet] = useState("Oita"); // "Oita" | "Darren"
   const [notes, setNotes] = useState("");
+  const [skipLedgerIncome, setSkipLedgerIncome] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Reset state saat modal dibuka untuk member
   useEffect(() => {
-    if (member) {
+    if (isOpen && member) {
       const hasCustom = Boolean(
         member.kasCustomMonthlyRate && member.kasCustomMonthlyRate !== STANDARD_KAS_MONTHLY
       );
@@ -67,8 +101,15 @@ export default function KasPaymentModal({
         setAllocationMode("CONVERT_DURATION");
       }
       setNotes("");
+      setSkipLedgerIncome(false);
+      setCustomStartDate("");
     }
-  }, [member]);
+  }, [member, isOpen]);
+
+  if (!isOpen || !member) return null;
+
+  const currentSub = getMemberKasSubscription(member);
+  const memberJoinIso = resolveMemberJoinIsoDate(member);
 
   // Hitung nominal dan durasi aktif
   let activeAmount = 4000;
@@ -94,7 +135,10 @@ export default function KasPaymentModal({
 
   // Hitung tanggal jatuh tempo baru
   const now = Date.now();
-  const baseTime = currentSub.isActive && currentSub.expiresAt && currentSub.expiresAt > now
+  const customStartMs = skipLedgerIncome && customStartDate ? parseIsoDateNoon(customStartDate) : null;
+  const baseTime = customStartMs
+    ? customStartMs
+    : currentSub.isActive && currentSub.expiresAt && currentSub.expiresAt > now
     ? currentSub.expiresAt
     : now;
   const projectedExpiresAt = baseTime + durationDays * 86400000;
@@ -113,32 +157,37 @@ export default function KasPaymentModal({
         amount: activeAmount,
         customMonthlyRate: isCustomMode && allocationMode === "CUSTOM_MONTHLY" ? activeAmount : null,
         allocationMode: isCustomMode ? allocationMode : "STANDARD_PRESET",
+        customStartDate: skipLedgerIncome && customStartDate ? customStartDate : null,
       });
 
-      // 2. Catat transaksi pemasukan ke Buku Kas (Ledger)
-      const txTitle = isCustomMode
-        ? allocationMode === "CUSTOM_MONTHLY"
-          ? `Iuran Kas Donatur (1 Bln) - ${member.fullName || "Anggota"}`
-          : `Iuran Kas (${durationLabel}) - ${member.fullName || "Anggota"}`
-        : `Iuran Kas (${selectedPresetMonths} Bulan) - ${member.fullName || "Anggota"}`;
+      // 2. Catat transaksi pemasukan ke Buku Kas (Ledger) kecuali mode sinkronisasi data lama
+      if (!skipLedgerIncome) {
+        const txTitle = isCustomMode
+          ? allocationMode === "CUSTOM_MONTHLY"
+            ? `Iuran Kas Donatur (1 Bln) - ${member.fullName || "Anggota"}`
+            : `Iuran Kas (${durationLabel}) - ${member.fullName || "Anggota"}`
+          : `Iuran Kas (${selectedPresetMonths} Bulan) - ${member.fullName || "Anggota"}`;
 
-      await recordKasIncomeCloud({
-        amount: activeAmount,
-        title: txTitle,
-        category: isCustomMode && allocationMode === "CUSTOM_MONTHLY" ? "Iuran Kas Donatur" : "Iuran Kas Anggota",
-        wallet,
-        memberId: member.id,
-        memberName: member.fullName || "",
-        memberCid: member.icNumber || member.citizenId || "",
-        allocationMode: isCustomMode ? allocationMode : "STANDARD_PRESET",
-        durationDays,
-        notes: notes.trim(),
-        recordedBy: "Admin",
-      });
+        await recordKasIncomeCloud({
+          amount: activeAmount,
+          title: txTitle,
+          category: isCustomMode && allocationMode === "CUSTOM_MONTHLY" ? "Iuran Kas Donatur" : "Iuran Kas Anggota",
+          wallet,
+          memberId: member.id,
+          memberName: member.fullName || "",
+          memberCid: member.icNumber || member.citizenId || "",
+          allocationMode: isCustomMode ? allocationMode : "STANDARD_PRESET",
+          durationDays,
+          notes: notes.trim(),
+          recordedBy: "Admin",
+        });
+      }
 
       if (onShowToast) {
         onShowToast(
-          `Pembayaran kas ${formatCurrency(activeAmount)} untuk ${member.fullName || "Anggota"} berhasil dicatat (+${durationDays} hari).`,
+          skipLedgerIncome
+            ? `Status kas ${formatCurrency(activeAmount)} untuk ${member.fullName || "Anggota"} disinkronkan (+${durationDays} hari, tanpa menambah Keuangan).`
+            : `Pembayaran kas ${formatCurrency(activeAmount)} untuk ${member.fullName || "Anggota"} berhasil dicatat (+${durationDays} hari).`,
           "success"
         );
       }
@@ -334,6 +383,63 @@ export default function KasPaymentModal({
             </div>
           )}
 
+          {/* Opsi Sinkronisasi Data Lama (Tanpa Tambah Pemasukan Keuangan) */}
+          <div className={`p-3 rounded-xl border-2 transition-colors ${
+            skipLedgerIncome
+              ? "bg-amber-50 dark:bg-amber-950/30 border-amber-500/70"
+              : "bg-slate-50 dark:bg-[#14161F] border-black/15 dark:border-white/15"
+          }`}>
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={skipLedgerIncome}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setSkipLedgerIncome(checked);
+                  if (checked && !customStartDate) {
+                    setCustomStartDate(memberJoinIso || toLocalIsoDate());
+                  }
+                }}
+                className="mt-0.5 accent-amber-600 w-4 h-4 shrink-0 cursor-pointer"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100 text-xs">
+                  <History size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Data Lama / Sudah Masuk Saldo Awal (Tanpa Masuk Keuangan)</span>
+                </div>
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug">
+                  Centang jika uang sudah dibayar sebelumnya dan sudah termasuk di saldo kas fisik, agar tidak menambah saldo pemasukan Keuangan.
+                </p>
+              </div>
+            </label>
+
+            {skipLedgerIncome && (
+              <div className="mt-2.5 pt-2.5 border-t border-amber-500/30 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <label className="font-bold text-[11px] text-amber-900 dark:text-amber-200 flex items-center gap-1">
+                    <Calendar size={12} />
+                    <span>Tanggal Mulai Hitung Periode:</span>
+                  </label>
+                  {memberJoinIso && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomStartDate(memberJoinIso)}
+                      className="px-2 py-0.5 rounded bg-amber-200/80 hover:bg-amber-300 dark:bg-amber-900/60 dark:hover:bg-amber-800/70 text-amber-950 dark:text-amber-100 text-[10px] font-mono font-bold border border-amber-500/50 cursor-pointer transition-colors"
+                    >
+                      Pakai Tgl Gabung ({formatKasDate(parseIsoDateNoon(memberJoinIso))})
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="input-field font-mono text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Rincian Hasil Perhitungan */}
           <div className="p-3 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/40 text-emerald-900 dark:text-emerald-200 flex flex-col gap-1">
             <div className="flex items-center justify-between font-mono text-[11px]">
@@ -346,73 +452,83 @@ export default function KasPaymentModal({
             </div>
             <div className="flex items-center justify-between font-mono text-[11px] pt-1 border-t border-emerald-300 dark:border-emerald-800/40">
               <span>Masuk ke Buku Kas:</span>
-              <strong className="font-bold text-emerald-700 dark:text-emerald-300">
-                +{formatCurrency(activeAmount)}
-              </strong>
+              {skipLedgerIncome ? (
+                <strong className="font-bold text-amber-700 dark:text-amber-300">
+                  $0 (Tidak tambah Keuangan)
+                </strong>
+              ) : (
+                <strong className="font-bold text-emerald-700 dark:text-emerald-300">
+                  +{formatCurrency(activeAmount)}
+                </strong>
+              )}
             </div>
           </div>
 
-          {/* Pilihan Penerima Kas Bendahara */}
-          <div>
-            <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-              Disetorkan ke Bendahara Siapa? <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setWallet("Oita")}
-                className={`p-2.5 rounded-xl border-2 text-left cursor-pointer transition-all ${
-                  wallet === "Oita"
-                    ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] shadow-[2px_2px_0px_#000]"
-                    : "bg-white dark:bg-[#1E212B] border-black/20 dark:border-white/20 hover:border-black"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-heading font-black text-xs text-slate-900 dark:text-slate-100 uppercase">
-                    Kas Oita
-                  </span>
-                  <span className={`w-2.5 h-2.5 rounded-full ${wallet === "Oita" ? "bg-emerald-500 ring-2 ring-emerald-300" : "bg-slate-300"}`} />
-                </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                  Bendahara LSM PPS
-                </span>
-              </button>
+          {!skipLedgerIncome && (
+            <>
+              {/* Pilihan Penerima Kas Bendahara */}
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                  Disetorkan ke Bendahara Siapa? <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWallet("Oita")}
+                    className={`p-2.5 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                      wallet === "Oita"
+                        ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] shadow-[2px_2px_0px_#000]"
+                        : "bg-white dark:bg-[#1E212B] border-black/20 dark:border-white/20 hover:border-black"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading font-black text-xs text-slate-900 dark:text-slate-100 uppercase">
+                        Kas Oita
+                      </span>
+                      <span className={`w-2.5 h-2.5 rounded-full ${wallet === "Oita" ? "bg-emerald-500 ring-2 ring-emerald-300" : "bg-slate-300"}`} />
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                      Bendahara LSM PPS
+                    </span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setWallet("Darren")}
-                className={`p-2.5 rounded-xl border-2 text-left cursor-pointer transition-all ${
-                  wallet === "Darren"
-                    ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] shadow-[2px_2px_0px_#000]"
-                    : "bg-white dark:bg-[#1E212B] border-black/20 dark:border-white/20 hover:border-black"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-heading font-black text-xs text-slate-900 dark:text-slate-100 uppercase">
-                    Kas Darren
-                  </span>
-                  <span className={`w-2.5 h-2.5 rounded-full ${wallet === "Darren" ? "bg-emerald-500 ring-2 ring-emerald-300" : "bg-slate-300"}`} />
+                  <button
+                    type="button"
+                    onClick={() => setWallet("Darren")}
+                    className={`p-2.5 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                      wallet === "Darren"
+                        ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] shadow-[2px_2px_0px_#000]"
+                        : "bg-white dark:bg-[#1E212B] border-black/20 dark:border-white/20 hover:border-black"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading font-black text-xs text-slate-900 dark:text-slate-100 uppercase">
+                        Kas Darren
+                      </span>
+                      <span className={`w-2.5 h-2.5 rounded-full ${wallet === "Darren" ? "bg-emerald-500 ring-2 ring-emerald-300" : "bg-slate-300"}`} />
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                      Bendahara LSM PPS
+                    </span>
+                  </button>
                 </div>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                  Bendahara LSM PPS
-                </span>
-              </button>
-            </div>
-          </div>
+              </div>
 
-          {/* Catatan / Keterangan */}
-          <div>
-            <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-              Catatan Transaksi (Opsional)
-            </label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Contoh: Titipan kas tunai di stand pizza Sandy Shores"
-              className="input-field text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
-            />
-          </div>
+              {/* Catatan / Keterangan */}
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Catatan Transaksi (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Contoh: Titipan kas tunai di stand pizza Sandy Shores"
+                  className="input-field text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
+                />
+              </div>
+            </>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t-2 border-black/10 dark:border-white/10">
@@ -430,7 +546,13 @@ export default function KasPaymentModal({
               className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-1.5"
             >
               <DollarSign size={15} />
-              <span>{isSubmitting ? "Menyimpan..." : "Simpan Pembayaran Kas"}</span>
+              <span>
+                {isSubmitting
+                  ? "Menyimpan..."
+                  : skipLedgerIncome
+                  ? "Simpan Status Kas (Tanpa Keuangan)"
+                  : "Simpan Pembayaran Kas"}
+              </span>
             </button>
           </div>
         </form>

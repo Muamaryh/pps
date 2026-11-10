@@ -225,6 +225,7 @@ export function getTodayIndonesianDateString() {
 // Helper: Format Dollar ringkas ($)
 export function formatCurrency(amount) {
   const num = Number(amount) || 0;
+  if (num < 0) return `-$${Math.abs(num).toLocaleString("id-ID")}`;
   return `$${num.toLocaleString("id-ID")}`;
 }
 
@@ -449,8 +450,7 @@ export function getKasSummary(transactions = [], fallbackActiveKasRupiah = 0) {
     const isExpense = typeUpper === "EXPENSE";
 
     // Pos kas bendahara: cek wallet property atau fallback ke responsible/title
-    const walletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
-    const isDarren = tx.wallet === "Darren" || walletText.includes("darren");
+    const isDarren = isDarrenKasTx(tx);
 
     if (isIncome) {
       totalIncome += amt;
@@ -489,6 +489,56 @@ export function getKasSummary(transactions = [], fallbackActiveKasRupiah = 0) {
     incomeCount: txList.filter((t) => (t.type || "").toUpperCase() === "INCOME").length,
     expenseCount: txList.filter((t) => (t.type || "").toUpperCase() === "EXPENSE").length,
   };
+}
+
+/**
+ * Deteksi apakah transaksi masuk ke pos Kas Darren (default: Kas Oita)
+ */
+export function isDarrenKasTx(tx) {
+  const walletText = (tx?.wallet || tx?.responsible || tx?.title || "").toLowerCase();
+  return tx?.wallet === "Darren" || walletText.includes("darren");
+}
+
+/**
+ * Hitung saldo berjalan (running balance) secara kronologis untuk tiap transaksi
+ */
+export function computeKasRunningBalances(transactions = []) {
+  const txList = transactions.length > 0 ? transactions : INITIAL_KAS_TRANSACTIONS;
+  // Reverse dahulu sebelum sort ascending agar urutan tie-breaker konsisten dengan tampilan terbaru-di-atas
+  const chronological = [...txList]
+    .reverse()
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+  let net = 0;
+  let oita = 0;
+  let darren = 0;
+  const balanceMap = {};
+
+  for (const tx of chronological) {
+    const amt = Number(tx.amount) || 0;
+    const typeUpper = (tx.type || "").toUpperCase();
+    const delta = typeUpper === "INCOME" ? amt : typeUpper === "EXPENSE" ? -amt : 0;
+    const isDarren = isDarrenKasTx(tx);
+
+    const netBefore = net;
+    net += delta;
+    const walletBefore = isDarren ? darren : oita;
+    if (isDarren) {
+      darren += delta;
+    } else {
+      oita += delta;
+    }
+
+    balanceMap[tx.id] = {
+      delta,
+      netBefore,
+      netAfter: net,
+      walletBefore,
+      walletAfter: isDarren ? darren : oita,
+    };
+  }
+
+  return balanceMap;
 }
 
 /**

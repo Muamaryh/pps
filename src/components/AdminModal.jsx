@@ -76,6 +76,7 @@ import {
   loadKasLedgerCloud,
   subscribeKasLedger,
   getKasSummary,
+  computeKasRunningBalances,
   formatRupiah,
   formatCurrency,
   formatKasDate,
@@ -2120,6 +2121,7 @@ export default function AdminModal({
   const totalKasExpiredCount = kasSubs.filter((item) => item.kas.isExpired).length;
   const totalKasRupiah = totalKasActiveCount * 4000;
   const kasSummary = getKasSummary(kasTransactions, totalKasRupiah);
+  const kasRunningBalances = computeKasRunningBalances(kasTransactions);
 
   const tabGroups = [
     {
@@ -5020,13 +5022,20 @@ export default function AdminModal({
                             <th className="py-2.5 px-3">Keterangan / Terkait</th>
                             <th className="py-2.5 px-3">Penanggung Jawab</th>
                             <th className="py-2.5 px-3 text-right">Nominal ($)</th>
+                            <th className="py-2.5 px-3 text-right whitespace-nowrap">
+                              {kasFilterType === "OITA"
+                                ? "Saldo Oita ($)"
+                                : kasFilterType === "DARREN"
+                                ? "Saldo Darren ($)"
+                                : "Saldo Bersih ($)"}
+                            </th>
                             <th className="py-2.5 px-3 text-center">Aksi</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-black/10 dark:divide-white/10 font-mono text-xs">
                           {filteredKasTransactions.length === 0 ? (
                             <tr>
-                              <td colSpan={7} className="py-8 text-center text-slate-500">
+                              <td colSpan={8} className="py-8 text-center text-slate-500">
                                 Tidak ada transaksi yang sesuai dengan filter.
                               </td>
                             </tr>
@@ -5035,6 +5044,11 @@ export default function AdminModal({
                               const isIncome = (tx.type || "").toUpperCase() === "INCOME";
                               const txWalletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
                               const isDarren = tx.wallet === "Darren" || txWalletText.includes("darren");
+                              const balInfo = kasRunningBalances[tx.id];
+                              const isWalletView = kasFilterType === "OITA" || kasFilterType === "DARREN";
+                              const balBefore = balInfo ? (isWalletView ? balInfo.walletBefore : balInfo.netBefore) : 0;
+                              const balAfter = balInfo ? (isWalletView ? balInfo.walletAfter : balInfo.netAfter) : 0;
+                              const absAmt = Math.abs(Number(tx.amount) || 0);
 
                               return (
                                 <tr
@@ -5100,6 +5114,23 @@ export default function AdminModal({
                                       {isIncome ? "+" : "-"}
                                       {formatCurrency(tx.amount)}
                                     </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 whitespace-nowrap text-right">
+                                    <div className="font-mono font-black text-slate-900 dark:text-slate-100">
+                                      {formatCurrency(balAfter)}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                                      {formatCurrency(balBefore)}{" "}
+                                      <span
+                                        className={
+                                          isIncome
+                                            ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                                            : "text-rose-600 dark:text-rose-400 font-bold"
+                                        }
+                                      >
+                                        {isIncome ? "+" : "-"} {formatCurrency(absAmt)}
+                                      </span>
+                                    </div>
                                   </td>
                                   <td className="py-2.5 px-3 text-center whitespace-nowrap">
                                     <button

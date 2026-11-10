@@ -617,9 +617,33 @@ export async function updateMemberKasAndVoucherCloud(id, updateData) {
 }
 
 /**
+ * Parse tanggal mulai custom (timestamp atau YYYY-MM-DD) ke epoch ms siang hari lokal
+ */
+function parseKasStartTimestamp(val) {
+  if (!val) return null;
+  if (typeof val === "number" && !isNaN(val)) return val;
+  if (typeof val === "string") {
+    const isoMatch = val.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      return new Date(
+        Number(isoMatch[1]),
+        Number(isoMatch[2]) - 1,
+        Number(isoMatch[3]),
+        12,
+        0,
+        0
+      ).getTime();
+    }
+    const parsed = new Date(val).getTime();
+    if (!isNaN(parsed)) return parsed;
+  }
+  return null;
+}
+
+/**
  * Berlangganan / Perpanjang Kas Anggota (+30 Hari atau Custom Durasi Hasil Konversi Nominal)
  * Jika anggota masih aktif, durasi ditambahkan dari tanggal kadaluarsa saat ini
- * Jika sudah expired / belum aktif, aktif dari hari ini
+ * Jika sudah expired / belum aktif, aktif dari hari ini (atau customStartDate jika disinkronkan dari data lama)
  */
 export async function renewMemberKasSubscriptionCloud(
   member,
@@ -627,11 +651,18 @@ export async function renewMemberKasSubscriptionCloud(
   options = {}
 ) {
   const now = Date.now();
+  const customStartMs = parseKasStartTimestamp(options.customStartDate);
   const currentSub = getMemberKasSubscription(member);
   const daysNum = Math.max(1, Number(additionalDays) || KAS_SUBSCRIPTION_DAYS);
+
+  let effectiveStart = now;
   let newExpiresAt = now + daysNum * 86400000;
 
-  if (currentSub.isActive && currentSub.expiresAt && currentSub.expiresAt > now) {
+  if (customStartMs) {
+    effectiveStart = customStartMs;
+    newExpiresAt = customStartMs + daysNum * 86400000;
+  } else if (currentSub.isActive && currentSub.expiresAt && currentSub.expiresAt > now) {
+    effectiveStart = currentSub.startedAt || now;
     newExpiresAt = currentSub.expiresAt + daysNum * 86400000;
   }
 
@@ -641,10 +672,10 @@ export async function renewMemberKasSubscriptionCloud(
 
   const payload = {
     kasPaid: true,
-    kasSubscribedAt: currentSub.startedAt || now,
+    kasSubscribedAt: effectiveStart,
     kasExpiresAt: newExpiresAt,
-    kasPaidDate: formatDateId(now),
-    kasPeriodLabel: `${formatDateId(now)} - ${formatDateId(newExpiresAt)}`,
+    kasPaidDate: formatDateId(effectiveStart),
+    kasPeriodLabel: `${formatDateId(effectiveStart)} - ${formatDateId(newExpiresAt)}`,
     kasAmount: amountPaid,
     kasCustomMonthlyRate: customMonthlyRate,
     kasAllocationMode: allocationMode,
