@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
 import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
@@ -2161,6 +2162,7 @@ export default function AdminModal({
       icon: Ticket,
       badgeCount: (eventsList.length > 0 || bansosClaims.length > 0) ? (eventsList.length + bansosClaims.length) : null,
       tabs: [
+        { id: "doorprize_db", label: "Undian Senam ($15k)", icon: Sparkles },
         { id: "event_db", label: `Kelola Event (${eventsList.length})`, icon: Ticket },
         { id: "bansos_db", label: `Bansos Warga (${bansosClaims.length})`, icon: Gift },
       ],
@@ -6502,6 +6504,10 @@ export default function AdminModal({
                     </button>
                   </div>
                 </div>
+              )}
+
+              {activeTab === "doorprize_db" && (
+                <DoorprizeAdminPanel onShowToast={onShowToast} />
               )}
 
                 </div>

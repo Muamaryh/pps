@@ -23,10 +23,18 @@ import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
-import { Users, Camera, ArrowRight } from "lucide-react";
+import { Users, Camera, ArrowRight, Ticket, Sparkles } from "lucide-react";
 import { subscribeMembersCloud } from "./services/memberService";
 import { subscribeEventsCloud, DEFAULT_EVENT } from "./services/eventService";
 import { subscribeBansosProgramsCloud, DEFAULT_BANSOS_PROGRAM } from "./services/bansosService";
+import DoorprizeModal from "./components/DoorprizeModal";
+import {
+  subscribeDoorprizeConfigCloud,
+  subscribeDoorprizeTicketsCloud,
+  DEFAULT_DOORPRIZE_CONFIG,
+  getSavedMyTicket,
+  formatTicketNumber,
+} from "./services/doorprizeService";
 
 export default function App() {
   const [memberCount, setMemberCount] = useState(0);
@@ -752,6 +760,75 @@ export default function App() {
     }
   }
 
+  // Doorprize Undian Senam Sehat State & Live Cloud Sync
+  const [doorprizeConfig, setDoorprizeConfig] = useState(DEFAULT_DOORPRIZE_CONFIG);
+  const [doorprizeTickets, setDoorprizeTickets] = useState([]);
+  const [doorprizeModalOpen, setDoorprizeModalOpen] = useState(() => {
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return (
+      path.includes("/doorprize") ||
+      path.includes("/undian") ||
+      path.includes("/senam") ||
+      hash.includes("doorprize") ||
+      hash.includes("undian") ||
+      hash.includes("senam")
+    );
+  });
+  const [hasAutoOpenedDoorprize, setHasAutoOpenedDoorprize] = useState(false);
+
+  useEffect(() => {
+    const unsubCfg = subscribeDoorprizeConfigCloud((cfg) => {
+      setDoorprizeConfig(cfg);
+      if (
+        cfg.status === "OPEN" &&
+        cfg.autoPopupOnVisit !== false &&
+        !hasAutoOpenedDoorprize
+      ) {
+        const path = window.location.pathname.toLowerCase();
+        const hash = window.location.hash.toLowerCase();
+        const isOtherDirectModal =
+          path.includes("/admin") ||
+          hash.includes("admin") ||
+          path.includes("/transparansi") ||
+          hash.includes("transparansi") ||
+          path.includes("/anggota") ||
+          hash.includes("anggota");
+        if (!isOtherDirectModal) {
+          setDoorprizeModalOpen(true);
+          setHasAutoOpenedDoorprize(true);
+        }
+      }
+    });
+    const unsubTickets = subscribeDoorprizeTicketsCloud((list) => {
+      setDoorprizeTickets(list);
+    });
+    return () => {
+      unsubCfg();
+      unsubTickets();
+    };
+  }, [hasAutoOpenedDoorprize]);
+
+  function handleOpenDoorprizeModal() {
+    setDoorprizeModalOpen(true);
+  }
+
+  function handleCloseDoorprizeModal() {
+    setDoorprizeModalOpen(false);
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    if (
+      path.includes("/doorprize") ||
+      path.includes("/undian") ||
+      path.includes("/senam") ||
+      hash.includes("doorprize") ||
+      hash.includes("undian") ||
+      hash.includes("senam")
+    ) {
+      window.history.pushState(null, "", "/");
+    }
+  }
+
   // Dedicated Structure Page navigation handlers
   function handleNavigateToStructure() {
     setCurrentPage("structure");
@@ -1110,6 +1187,60 @@ export default function App() {
         onShowToast={showToast}
         initialTab={transparencyInitialTab}
       />
+
+      {/* Modal Undian Doorprize Senam Sehat Bersama LSM PPS */}
+      <DoorprizeModal
+        isOpen={doorprizeModalOpen}
+        onClose={handleCloseDoorprizeModal}
+        config={doorprizeConfig}
+        tickets={doorprizeTickets}
+        onShowToast={showToast}
+      />
+
+      {/* Floating Tombol Cepat Ambil / Cek Nomor Doorprize Senam Sehat */}
+      {(doorprizeConfig?.status === "OPEN" ||
+        (Array.isArray(doorprizeConfig?.winners) &&
+          doorprizeConfig.winners.length > 0)) &&
+        !doorprizeModalOpen && (
+          <div className="fixed bottom-4 left-4 z-[85] pointer-events-auto">
+            {(() => {
+              const savedMyTicket = getSavedMyTicket(doorprizeConfig?.roundId);
+              const myLiveTicket = savedMyTicket
+                ? doorprizeTickets.find((t) => t.id === savedMyTicket.id) ||
+                  savedMyTicket
+                : null;
+              return (
+                <button
+                  type="button"
+                  onClick={handleOpenDoorprizeModal}
+                  className="group flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border-[2.5px] border-black bg-gradient-to-r from-[#DC2626] to-[#B91C1C] text-white shadow-[4px_4px_0px_#000] hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-[#FACC15] text-black border-2 border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                    <Ticket size={16} className="text-[#DC2626]" />
+                  </div>
+                  <div className="text-left">
+                    <span className="flex items-center gap-1 font-mono font-black text-[9px] uppercase tracking-wider text-[#FACC15]">
+                      <Sparkles size={10} />
+                      <span>
+                        {myLiveTicket
+                          ? `NOMOR ANDA: #${
+                              myLiveTicket.numberFormatted ||
+                              formatTicketNumber(myLiveTicket.ticketNumber)
+                            }`
+                          : "DOORPRIZE 5 PEMENANG @ $15K"}
+                      </span>
+                    </span>
+                    <strong className="font-heading font-black text-xs uppercase block leading-tight">
+                      {myLiveTicket
+                        ? "Cek Undian Senam Sehat"
+                        : "Ambil Nomor Doorprize Senam"}
+                    </strong>
+                  </div>
+                </button>
+              );
+            })()}
+          </div>
+        )}
 
       {/* Toast Notification Container (Positioned on the bottom-left so it never blocks floating actions) */}
       <div className="fixed bottom-5 left-5 z-[200] flex flex-col gap-2.5 max-w-sm pointer-events-auto">
