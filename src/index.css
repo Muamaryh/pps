@@ -387,6 +387,16 @@ html.dark {
   height: 8px;
 }
 
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 ::-webkit-scrollbar-track {
   background: rgba(250, 204, 21, 0.28);
   border-left: 1px solid rgba(202, 138, 4, 0.35);

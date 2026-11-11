@@ -43,14 +43,8 @@ export default function DoorprizeModal({
   const subtitle =
     activeConfig.subtitle ||
     "Program Undian Doorprize Resmi LSM Paguyuban Pizza Sandy Shores";
-  const prizePerWinner =
-    !activeConfig.prizePerWinner || activeConfig.prizePerWinner === "$15.000"
-      ? "$10.000"
-      : activeConfig.prizePerWinner;
-  const maxWinners =
-    !activeConfig.maxWinners || Number(activeConfig.maxWinners) === 5
-      ? 10
-      : Number(activeConfig.maxWinners);
+  const prizePerWinner = activeConfig.prizePerWinner || "$10.000";
+  const maxWinners = Math.max(1, Number(activeConfig.maxWinners) || 10);
   const isOpenStatus = activeConfig.status === "OPEN";
   const winners = useMemo(
     () => (Array.isArray(activeConfig.winners) ? activeConfig.winners : []),

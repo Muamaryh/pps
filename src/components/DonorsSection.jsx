@@ -1,15 +1,42 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
-  Users,
   ChevronRight,
   X,
   Info,
+  Calendar,
+  Heart,
 } from "lucide-react";
 import {
   subscribeKasLedger,
   loadKasLedgerCloud,
   formatKasDate,
+  parseDateInputToTimestamp,
+  formatCurrency,
 } from "../services/kasService.js";
+
+const INDO_MONTH_NAMES = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
+
+function getYearMonthFromDate(d) {
+  const year = d.getFullYear();
+  const mIdx = d.getMonth();
+  const monthKey = `${year}-${String(mIdx + 1).padStart(2, "0")}`;
+  const monthLabel = `${INDO_MONTH_NAMES[mIdx]} ${year}`;
+  return { monthKey, monthLabel };
+}
 
 const FALLBACK_DONORS = [
   {
@@ -19,6 +46,9 @@ const FALLBACK_DONORS = [
     contributionType: "Fasilitas & Sarana Warga",
     amount: 80000,
     date: "9 Nov 2026",
+    timestamp: 1794182400000,
+    monthKey: "2026-11",
+    monthLabel: "November 2026",
     notes: "Bantuan sukarela untuk sarana dan fasilitas warga Sandy Shores.",
   },
   {
@@ -28,6 +58,9 @@ const FALLBACK_DONORS = [
     contributionType: "Kegiatan Sosial Warga",
     amount: 50000,
     date: "9 Nov 2026",
+    timestamp: 1794182400000,
+    monthKey: "2026-11",
+    monthLabel: "November 2026",
     notes: "Bantuan sukarela untuk kegiatan sosial dan bakti paguyuban.",
   },
   {
@@ -37,9 +70,30 @@ const FALLBACK_DONORS = [
     contributionType: "Kas & Operasional Paguyuban",
     amount: 11111,
     date: "9 Nov 2026",
+    timestamp: 1794182400000,
+    monthKey: "2026-11",
+    monthLabel: "November 2026",
     notes: "Bantuan sukarela untuk kas dan operasional paguyuban.",
   },
 ];
+
+function extractDonorMonthInfo(tx) {
+  let ts = tx.timestamp;
+  if (!ts && tx.date) {
+    ts = parseDateInputToTimestamp(tx.date);
+  }
+  if (!ts && tx.createdAt) {
+    ts = typeof tx.createdAt === "number" ? tx.createdAt : Date.parse(tx.createdAt);
+  }
+  const d = ts ? new Date(ts) : new Date();
+  const valid = isNaN(d.getTime()) ? new Date() : d;
+  const { monthKey, monthLabel } = getYearMonthFromDate(valid);
+  return {
+    timestamp: valid.getTime(),
+    monthKey,
+    monthLabel,
+  };
+}
 
 function parseDonorFromKasTx(tx) {
   let name = (tx.memberName || "").trim();
@@ -60,8 +114,11 @@ function parseDonorFromKasTx(tx) {
     contributionType = contributionType.slice(0, 38) + "...";
   }
 
-  // Format tanggal selalu lengkap dengan tanggal, bulan, dan tahun (contoh: 9 Nov 2026)
-  const dateStr = (tx.timestamp ? formatKasDate(tx.timestamp) : null) || tx.date || "9 Nov 2026";
+  const { timestamp, monthKey, monthLabel } = extractDonorMonthInfo(tx);
+  const dateStr =
+    (tx.timestamp ? formatKasDate(tx.timestamp) : null) ||
+    tx.date ||
+    formatKasDate(timestamp);
 
   return {
     id: tx.id,
@@ -70,6 +127,9 @@ function parseDonorFromKasTx(tx) {
     contributionType,
     amount: Number(tx.amount) || 0,
     date: dateStr,
+    timestamp,
+    monthKey,
+    monthLabel,
     notes: tx.notes || tx.title || "Dukungan sukarela untuk paguyuban.",
   };
 }
@@ -78,6 +138,13 @@ export default function DonorsSection() {
   const [modalOpen, setModalOpen] = useState(false);
   const [donors, setDonors] = useState(FALLBACK_DONORS);
 
+  // Informasi bulan berjalan saat ini
+  const [currentMonthInfo] = useState(() => getYearMonthFromDate(new Date()));
+
+  const [selectedMonthKey, setSelectedMonthKey] = useState(
+    () => currentMonthInfo.monthKey
+  );
+
   useEffect(() => {
     // Muat & langganan langsung dari buku kas keuangan (Kategori: Donasi Sukarela & Warga)
     function processKasList(list) {
@@ -85,7 +152,9 @@ export default function DonorsSection() {
       const donorTxs = list.filter((tx) => {
         const cat = (tx.category || "").toLowerCase();
         const type = (tx.type || "").toUpperCase();
-        return type === "INCOME" && (cat.includes("sukarela") || cat.includes("donasi"));
+        return (
+          type === "INCOME" && (cat.includes("sukarela") || cat.includes("donasi"))
+        );
       });
 
       if (donorTxs.length > 0) {
@@ -100,12 +169,64 @@ export default function DonorsSection() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!modalOpen) return;
+    function handleKeyDown(e) {
+      if (e.key === "Escape") setModalOpen(false);
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [modalOpen]);
+
+  // Filter donatur khusus untuk running text di bulan berjalan (reset otomatis tiap ganti bulan)
+  const currentMonthDonors = useMemo(() => {
+    return donors.filter((d) => d.monthKey === currentMonthInfo.monthKey);
+  }, [donors, currentMonthInfo.monthKey]);
+
+  // Daftar bulan yang tersedia di arsip donasi
+  const availableMonths = useMemo(() => {
+    const map = new Map();
+    // Pastikan bulan berjalan selalu tersedia
+    map.set(currentMonthInfo.monthKey, currentMonthInfo.monthLabel);
+
+    donors.forEach((d) => {
+      if (d.monthKey && d.monthLabel) {
+        map.set(d.monthKey, d.monthLabel);
+      }
+    });
+
+    const sortedKeys = Array.from(map.keys()).sort((a, b) => b.localeCompare(a));
+    return sortedKeys.map((key) => ({
+      key,
+      label: map.get(key),
+      isCurrent: key === currentMonthInfo.monthKey,
+    }));
+  }, [donors, currentMonthInfo]);
+
+  // Donatur yang ditampilkan di tabel modal sesuai pilihan bulan
+  const filteredModalDonors = useMemo(() => {
+    if (selectedMonthKey === "ALL") {
+      return donors;
+    }
+    return donors.filter((d) => d.monthKey === selectedMonthKey);
+  }, [donors, selectedMonthKey]);
+
+  const totalPeriodAmount = useMemo(() => {
+    return filteredModalDonors.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  }, [filteredModalDonors]);
+
+  const selectedMonthLabel = useMemo(() => {
+    if (selectedMonthKey === "ALL") return "Semua Riwayat Donasi";
+    const found = availableMonths.find((m) => m.key === selectedMonthKey);
+    return found ? found.label : selectedMonthKey;
+  }, [selectedMonthKey, availableMonths]);
+
   if (!donors || donors.length === 0) return null;
 
   return (
     <>
       {/* =========================================================================
-          TOP NOTICE BAR (RESPONSIF TEMA TERANG & GELAP, RAPIH & PRESISI)
+          TOP NOTICE BAR (RUNNING TEXT OTOMATIS RESET TIAP BULAN)
           ========================================================================= */}
       <div
         id="notice-orang-baik"
@@ -119,8 +240,11 @@ export default function DonorsSection() {
 
         {/* Marquee Track Container */}
         <div
-          onClick={() => setModalOpen(true)}
-          title="Klik untuk melihat detail donatur"
+          onClick={() => {
+            setSelectedMonthKey(currentMonthInfo.monthKey);
+            setModalOpen(true);
+          }}
+          title="Klik untuk melihat tabel & arsip donasi bulanan"
           className="relative flex-1 overflow-hidden py-0.5 cursor-pointer"
         >
           {/* Edge Fades: Halus untuk Terang & Gelap */}
@@ -129,64 +253,114 @@ export default function DonorsSection() {
 
           {/* Running Track */}
           <div className="animate-marquee flex items-center">
-            {/* Set 1 */}
-            <div className="flex items-center gap-3 shrink-0 pr-3">
-              {donors.map((d) => (
-                <div
-                  key={`nb1-${d.id}`}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 shrink-0"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="font-heading font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight text-xs">
-                    {d.name}
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30">
-                    {d.category || "Donasi Sukarela & Warga"}
-                  </span>
-                  <span className="text-slate-700 dark:text-slate-300 text-[11px] font-medium">
-                    {d.contributionType}
-                  </span>
+            {currentMonthDonors.length > 0 ? (
+              <>
+                {/* Set 1 */}
+                <div className="flex items-center gap-3 shrink-0 pr-3">
+                  {currentMonthDonors.map((d) => (
+                    <div
+                      key={`nb1-${d.id}`}
+                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 shrink-0"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="font-heading font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight text-xs">
+                        {d.name}
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30">
+                        {d.category || "Donasi Sukarela & Warga"}
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300 text-[11px] font-medium">
+                        {d.contributionType}
+                      </span>
+                    </div>
+                  ))}
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300 text-[11px] font-medium shrink-0">
+                    <span>
+                      Terima kasih atas segala kepedulian bagi Paguyuban Pizza Sandy Shores ({currentMonthInfo.monthLabel})
+                    </span>
+                  </div>
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
                 </div>
-              ))}
-              <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300 text-[11px] font-medium shrink-0">
-                <span>Terima kasih atas segala kepedulian bagi Paguyuban Pizza Sandy Shores</span>
-              </div>
-              <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
-            </div>
 
-            {/* Set 2 (seamless clone) */}
-            <div className="flex items-center gap-3 shrink-0 pr-3" aria-hidden="true">
-              {donors.map((d) => (
-                <div
-                  key={`nb2-${d.id}`}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 shrink-0"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="font-heading font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight text-xs">
-                    {d.name}
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30">
-                    {d.category || "Donasi Sukarela & Warga"}
-                  </span>
-                  <span className="text-slate-700 dark:text-slate-300 text-[11px] font-medium">
-                    {d.contributionType}
-                  </span>
+                {/* Set 2 (seamless clone) */}
+                <div className="flex items-center gap-3 shrink-0 pr-3" aria-hidden="true">
+                  {currentMonthDonors.map((d) => (
+                    <div
+                      key={`nb2-${d.id}`}
+                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 shrink-0"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="font-heading font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight text-xs">
+                        {d.name}
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30">
+                        {d.category || "Donasi Sukarela & Warga"}
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300 text-[11px] font-medium">
+                        {d.contributionType}
+                      </span>
+                    </div>
+                  ))}
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300 text-[11px] font-medium shrink-0">
+                    <span>
+                      Terima kasih atas segala kepedulian bagi Paguyuban Pizza Sandy Shores ({currentMonthInfo.monthLabel})
+                    </span>
+                  </div>
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
                 </div>
-              ))}
-              <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300 text-[11px] font-medium shrink-0">
-                <span>Terima kasih atas segala kepedulian bagi Paguyuban Pizza Sandy Shores</span>
-              </div>
-              <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
-            </div>
+              </>
+            ) : (
+              <>
+                {/* Fallback running text jika bulan baru belum ada donasi tercatat */}
+                <div className="flex items-center gap-3 shrink-0 pr-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-950 dark:text-amber-200 text-xs font-medium shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                    <span>
+                      Periode {currentMonthInfo.monthLabel}: Belum ada donasi baru tercatat bulan ini
+                    </span>
+                  </div>
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300 text-xs font-medium shrink-0">
+                    <span>Jadilah Orang Baik pertama di bulan {currentMonthInfo.monthLabel}!</span>
+                  </div>
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
+                  <span className="text-[11px] text-slate-500">
+                    Klik "Detail" untuk membuka tabel arsip donasi bulan-bulan sebelumnya
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0 pr-4" aria-hidden="true">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-950 dark:text-amber-200 text-xs font-medium shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                    <span>
+                      Periode {currentMonthInfo.monthLabel}: Belum ada donasi baru tercatat bulan ini
+                    </span>
+                  </div>
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300 text-xs font-medium shrink-0">
+                    <span>Jadilah Orang Baik pertama di bulan {currentMonthInfo.monthLabel}!</span>
+                  </div>
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
+                  <span className="text-[11px] text-slate-500">
+                    Klik "Detail" untuk membuka tabel arsip donasi bulan-bulan sebelumnya
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-700 mx-1 text-xs">✦</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Action Button */}
         <button
           type="button"
-          onClick={() => setModalOpen(true)}
+          onClick={() => {
+            setSelectedMonthKey(currentMonthInfo.monthKey);
+            setModalOpen(true);
+          }}
           className="shrink-0 px-2 py-0.5 mr-0.5 rounded bg-white hover:bg-slate-100 text-slate-900 border border-black/20 shadow-[1px_1px_0px_#000] dark:bg-white/10 dark:hover:bg-white/20 dark:text-white dark:border-white/15 dark:shadow-none text-[9px] font-heading font-bold uppercase tracking-wider flex items-center gap-0.5 cursor-pointer transition-all active:scale-95 z-20"
         >
           <span>Detail</span>
@@ -195,87 +369,199 @@ export default function DonorsSection() {
       </div>
 
       {/* =========================================================================
-          MODAL DETAIL (BERSIH, TANPA TOMBOL PORTAL TRANSPARANSI)
+          MODAL DETAIL & TABEL ARSIP DONASI BULANAN (PORTAL KE BODY AGAR BEBAS DARI STACKING CONTEXT HEADER)
           ========================================================================= */}
-      {modalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm"
-          onClick={() => setModalOpen(false)}
-        >
+      {modalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-[#12141D] text-slate-900 dark:text-slate-100 rounded-xl border-2 border-black dark:border-white/20 shadow-xl p-5 sm:p-6 relative select-text"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm overflow-y-auto animate-fadeIn"
+            onClick={() => setModalOpen(false)}
           >
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4 mb-5 pb-3 border-b border-black/10 dark:border-white/10">
-              <div>
-                <h3 className="font-heading font-bold text-lg sm:text-xl text-slate-950 dark:text-slate-100 uppercase tracking-tight">
-                  Daftar Orang Baik
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  Donasi sukarela & warga untuk Paguyuban Pizza Sandy Shores.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer shrink-0 transition-colors"
-                aria-label="Tutup"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* List / Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-5">
-              {donors.map((donor) => (
-                <div
-                  key={donor.id}
-                  className="p-4 rounded-lg bg-[#FAF8F5] dark:bg-[#181B26] border border-black/15 dark:border-white/10 flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-black/10 dark:border-white/10">
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-heading font-bold uppercase tracking-wide border border-emerald-300 dark:border-emerald-800">
-                        ORANG BAIK
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono font-medium">
-                        {donor.date}
-                      </span>
-                    </div>
-
-                    <h4 className="font-heading font-bold text-sm sm:text-base text-slate-950 dark:text-slate-100 uppercase mb-0.5">
-                      {donor.name}
-                    </h4>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mb-2.5 font-medium">
-                      {donor.category || "Donasi Sukarela & Warga"}
-                    </div>
-
-                    <div className="text-[11px] text-slate-700 dark:text-slate-300 mb-2">
-                      <span className="text-slate-500 block text-[10px] font-bold uppercase">Bentuk Dukungan:</span>
-                      {donor.contributionType}
-                    </div>
-
-                    {donor.notes && (
-                      <p className="text-xs text-slate-600 dark:text-slate-400 italic">
-                        "{donor.notes}"
-                      </p>
-                    )}
+            <div
+              className="relative w-full max-w-4xl max-h-[90vh] bg-[#FFFDF9] dark:bg-[#12141D] text-slate-900 dark:text-slate-100 rounded-2xl border-2 border-black dark:border-white/20 shadow-2xl my-auto overflow-hidden flex flex-col select-text"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Top Header Banner (Selaras dengan BansosModal & DoorprizeModal) */}
+              <div className="bg-[#FACC15] text-[#111827] border-b-2 border-black px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-black text-[#FACC15] flex items-center justify-center font-black border border-black/20 shadow-sm shrink-0">
+                    <Heart size={20} className="fill-current text-[#DC2626]" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-black/70 block">
+                      TRANSPARANSI DONASI WARGA
+                    </span>
+                    <h3 className="font-heading font-black text-base sm:text-lg leading-tight uppercase truncate">
+                      Daftar Orang Baik & Arsip Donasi
+                    </h3>
                   </div>
                 </div>
-              ))}
+
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  aria-label="Tutup"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer active:scale-95 transition-all shrink-0"
+                  title="Tutup (Esc)"
+                >
+                  <X size={18} className="stroke-[3]" />
+                </button>
+              </div>
+
+              {/* Modal Scrollable Body (Scrollbar berada rapi di dalam kartu tanpa menembus sudut rounded) */}
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+                {/* Filter Tabs Periode Bulan */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Calendar size={13} className="text-[#DC2626]" />
+                  <span>Pilih Periode Donasi:</span>
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  {availableMonths.length} Periode Tersedia
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                {availableMonths.map((m) => {
+                  const isActive = selectedMonthKey === m.key;
+                  return (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => setSelectedMonthKey(m.key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-heading uppercase whitespace-nowrap transition-all cursor-pointer border-2 border-black flex items-center gap-1.5 ${
+                        isActive
+                          ? "bg-[#FACC15] text-black font-black shadow-[2px_2px_0px_#000]"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700"
+                      }`}
+                    >
+                      {m.isCurrent && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      )}
+                      <span>{m.label}</span>
+                      {m.isCurrent && (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-black/10 text-slate-900 font-mono font-bold">
+                          Bulan Ini
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedMonthKey("ALL")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-heading uppercase whitespace-nowrap transition-all cursor-pointer border-2 border-black ${
+                    selectedMonthKey === "ALL"
+                      ? "bg-[#FACC15] text-black font-black shadow-[2px_2px_0px_#000]"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  Semua Riwayat
+                </button>
+              </div>
             </div>
 
-            {/* Bottom info: Ucapan Terima Kasih & Akuntabilitas (Tanpa Tombol Transparansi) */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 dark:bg-amber-400/5 border border-amber-500/25 dark:border-amber-400/15 text-center text-xs">
-              <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-sans">
-                Terima kasih yang sebesar-besarnya atas segala bentuk kepedulian dan kebaikan yang telah diberikan. Seluruh dukungan dicatat secara amanah dan dialokasikan sepenuhnya untuk kemaslahatan warga serta kegiatan Paguyuban Pizza Sandy Shores.
-              </p>
+            {/* Quick Stats Banner Periode Terpilih */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border-2 border-black bg-amber-50/70 dark:bg-[#191D28] shadow-[2px_2px_0px_#000]">
+              <div>
+                <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
+                  PERIODE AKTIF
+                </span>
+                <strong className="font-heading font-black text-sm text-slate-900 dark:text-white uppercase">
+                  {selectedMonthLabel}
+                </strong>
+              </div>
+              <div>
+                <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
+                  TOTAL ORANG BAIK
+                </span>
+                <strong className="font-heading font-black text-sm text-emerald-600 dark:text-emerald-400">
+                  {filteredModalDonors.length} Donatur
+                </strong>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
+                  TOTAL TERKUMPUL
+                </span>
+                <strong className="font-heading font-black text-sm text-[#DC2626] dark:text-[#FACC15]">
+                  {formatCurrency(totalPeriodAmount)}
+                </strong>
+              </div>
+            </div>
+
+            {/* Tabel Arsip Donasi */}
+            {filteredModalDonors.length === 0 ? (
+              <div className="py-12 text-center rounded-xl border-2 border-dashed border-black/20 text-slate-500 dark:text-slate-400 font-mono text-xs space-y-1">
+                <p className="font-bold">Belum ada donasi tercatat untuk periode {selectedMonthLabel}.</p>
+                <p className="text-[11px]">Jadilah Orang Baik pertama yang tercatat di buku kas Sandy Shores!</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border-2 border-black shadow-[3px_3px_0px_#000]">
+                <table className="w-full text-left text-xs border-collapse bg-white dark:bg-[#161922]">
+                  <thead>
+                    <tr className="bg-[#FACC15] text-[#111827] border-b-2 border-black font-heading font-black uppercase text-[10px] sm:text-[11px] tracking-wider">
+                      <th className="py-2.5 px-3 whitespace-nowrap">Tanggal</th>
+                      <th className="py-2.5 px-3">Nama Donatur</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Nominal</th>
+                      <th className="py-2.5 px-3">Bentuk Dukungan / Catatan</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">Kategori</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/15 font-sans">
+                    {filteredModalDonors.map((donor) => (
+                      <tr
+                        key={donor.id}
+                        className="hover:bg-amber-50/50 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                          {donor.date}
+                        </td>
+                        <td className="py-2.5 px-3 font-heading font-black text-slate-900 dark:text-white uppercase whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span>{donor.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                          {donor.amount > 0 ? formatCurrency(donor.amount) : "Sukarela"}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                          <div className="font-medium text-xs text-slate-900 dark:text-slate-100">
+                            {donor.contributionType}
+                          </div>
+                          {donor.notes && donor.notes !== donor.contributionType && (
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 italic mt-0.5 line-clamp-1">
+                              "{donor.notes}"
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <span className="inline-block px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/30">
+                            {donor.category}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+              {/* Bottom info: Ucapan Terima Kasih & Akuntabilitas */}
+              <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 dark:bg-amber-400/5 border border-amber-500/25 dark:border-amber-400/15 text-center text-xs">
+                <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-sans">
+                  Terima kasih yang sebesar-besarnya atas segala bentuk kepedulian dan kebaikan yang telah diberikan. Seluruh dukungan dicatat secara amanah dan dialokasikan sepenuhnya untuk kemaslahatan warga serta kegiatan Paguyuban Pizza Sandy Shores.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

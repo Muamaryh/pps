@@ -60,11 +60,16 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
   useEffect(() => {
     const unsubCfg = subscribeDoorprizeConfigCloud((cfg) => {
       setConfig(cfg);
-      setDraftConfig({
-        title: cfg.title || "Undian Senam Sehat Bersama LSM PPS",
-        prizePerWinner: cfg.prizePerWinner || "$10.000",
-        maxWinners: Number(cfg.maxWinners) || 10,
-        ticketPrefix: cfg.ticketPrefix || "SNM",
+      setIsEditingConfig((isEditing) => {
+        if (!isEditing) {
+          setDraftConfig({
+            title: cfg.title || "Undian Senam Sehat Bersama LSM PPS",
+            prizePerWinner: cfg.prizePerWinner || "$10.000",
+            maxWinners: Number(cfg.maxWinners) || 10,
+            ticketPrefix: cfg.ticketPrefix || "SNM",
+          });
+        }
+        return isEditing;
       });
     });
     const unsubTickets = subscribeDoorprizeTicketsCloud((list) => {
@@ -445,7 +450,20 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
 
             <button
               type="button"
-              onClick={() => setIsEditingConfig((v) => !v)}
+              onClick={() => {
+                setIsEditingConfig((v) => {
+                  const next = !v;
+                  if (next && activeConfig) {
+                    setDraftConfig({
+                      title: activeConfig.title || "Undian Senam Sehat Bersama LSM PPS",
+                      prizePerWinner: activeConfig.prizePerWinner || "$10.000",
+                      maxWinners: Number(activeConfig.maxWinners) || 10,
+                      ticketPrefix: activeConfig.ticketPrefix || "SNM",
+                    });
+                  }
+                  return next;
+                });
+              }}
               className="py-2 px-3 rounded-lg bg-white hover:bg-slate-100 text-slate-950 border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Settings size={14} className="text-[#DC2626]" />

@@ -103,25 +103,26 @@ export function formatTicketNumber(num) {
 
 function normalizeLoadedConfig(raw) {
   const data = raw || {};
-  const isLegacyFifteenK =
-    !data.schemaVersion ||
-    data.schemaVersion < 3 ||
+  const isOldInitialTemplate =
     data.prizePerWinner === "$15.000" ||
-    data.prizePerWinner === "15k" ||
-    Number(data.maxWinners) === 5;
+    data.prizePerWinner === "15k";
 
   const merged = {
     ...DEFAULT_DOORPRIZE_CONFIG,
     ...data,
-    prizePerWinner: isLegacyFifteenK
+    prizePerWinner: isOldInitialTemplate
       ? "$10.000"
-      : data.prizePerWinner || DEFAULT_DOORPRIZE_CONFIG.prizePerWinner,
-    maxWinners: isLegacyFifteenK
+      : (data.prizePerWinner !== undefined && data.prizePerWinner !== null && String(data.prizePerWinner).trim() !== ""
+          ? String(data.prizePerWinner).trim()
+          : DEFAULT_DOORPRIZE_CONFIG.prizePerWinner),
+    maxWinners: isOldInitialTemplate && Number(data.maxWinners) === 5
       ? 10
-      : Number(data.maxWinners) || DEFAULT_DOORPRIZE_CONFIG.maxWinners,
+      : (Number(data.maxWinners) > 0
+          ? Number(data.maxWinners)
+          : DEFAULT_DOORPRIZE_CONFIG.maxWinners),
     schemaVersion: 3,
     rules:
-      !isLegacyFifteenK && Array.isArray(data.rules) && data.rules.length > 0
+      Array.isArray(data.rules) && data.rules.length > 0
         ? data.rules
         : DEFAULT_DOORPRIZE_CONFIG.rules,
     winners: Array.isArray(data.winners) ? data.winners : [],
@@ -129,7 +130,7 @@ function normalizeLoadedConfig(raw) {
       ? data.disqualifiedHistory
       : [],
   };
-  return { merged, needsCloudMigration: isLegacyFifteenK };
+  return { merged, needsCloudMigration: isOldInitialTemplate };
 }
 
 function getLocalConfig() {
@@ -272,7 +273,7 @@ export async function saveDoorprizeConfigCloud(partialConfig) {
     ...current,
     ...partialConfig,
     id: "current",
-    schemaVersion: 2,
+    schemaVersion: 3,
     updatedAt: new Date().toISOString(),
   };
   saveLocalConfig(updated);

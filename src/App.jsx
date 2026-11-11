@@ -1229,13 +1229,9 @@ export default function App() {
                               formatTicketNumber(myLiveTicket.ticketNumber)
                             }`
                           : `DOORPRIZE ${
-                              !doorprizeConfig?.maxWinners || Number(doorprizeConfig.maxWinners) === 5
-                                ? 10
-                                : doorprizeConfig.maxWinners
+                              doorprizeConfig?.maxWinners || 10
                             } PEMENANG @ ${
-                              !doorprizeConfig?.prizePerWinner || doorprizeConfig.prizePerWinner === "$15.000"
-                                ? "$10.000"
-                                : doorprizeConfig.prizePerWinner
+                              doorprizeConfig?.prizePerWinner || "$10.000"
                             }`}
                       </span>
                     </span>
