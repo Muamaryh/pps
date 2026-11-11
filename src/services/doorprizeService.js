@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import {
   getFirestore,
   collection,
@@ -8,25 +8,37 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
+  runTransaction,
 } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_MEMBERS_API_KEY,
+const doorprizeFirebaseConfig = {
+  apiKey: "AIzaSyDB7TFVRDRvgMI4q_XtwnxSqOhCKZ2xAe8",
   authDomain: "pendaftaran-paps.firebaseapp.com",
   projectId: "pendaftaran-paps",
   storageBucket: "pendaftaran-paps.firebasestorage.app",
-  messagingSenderId: "1059369107960",
-  appId: "1:1059369107960:web:59cc2c0d39ddfdbe6a1fd8",
+  messagingSenderId: "263750919370",
+  appId: "1:263750919370:web:ed32312897807281498033",
+  measurementId: "G-RBTWG5K8W1",
 };
 
-const APP_NAME = "paps-members";
-const app = getApps().some((a) => a.name === APP_NAME)
-  ? getApp(APP_NAME)
-  : initializeApp(firebaseConfig, APP_NAME);
+let _doorprizeApp = null;
+let _doorprizeDb = null;
 
-const db = getFirestore(app);
-const auth = getAuth(app);
+function getDoorprizeApp() {
+  if (!_doorprizeApp) {
+    _doorprizeApp =
+      getApps().find((a) => a.name === "paps-members") ||
+      initializeApp(doorprizeFirebaseConfig, "paps-members");
+  }
+  return _doorprizeApp;
+}
+
+function getDoorprizeDb() {
+  if (!_doorprizeDb) {
+    _doorprizeDb = getFirestore(getDoorprizeApp());
+  }
+  return _doorprizeDb;
+}
 
 const APP_ID = "portal-anggota-app";
 const CONFIG_COLLECTION_PATH = [
@@ -44,43 +56,32 @@ const TICKETS_COLLECTION_PATH = [
   "doorprize_tickets",
 ];
 
-const LOCAL_CONFIG_KEY = "pps_doorprize_config_v1";
-const LOCAL_TICKETS_KEY = "pps_doorprize_tickets_v1";
-const LOCAL_MY_TICKET_KEY = "pps_doorprize_my_ticket_v1";
+const LOCAL_CONFIG_KEY = "pps_doorprize_config_v2";
+const LOCAL_TICKETS_KEY = "pps_doorprize_tickets_v2";
+const LOCAL_MY_TICKET_KEY = "pps_doorprize_my_ticket_v2";
 
 export const DEFAULT_DOORPRIZE_CONFIG = {
   id: "current",
   title: "Undian Senam Sehat Bersama LSM PPS",
-  subtitle: "Ambil Nomor Doorprize Resmi Peserta Senam Sehat",
-  prizePerWinner: "$15.000",
-  maxWinners: 5,
+  subtitle: "Program Undian Doorprize Resmi LSM Paguyuban Pizza Sandy Shores",
+  prizePerWinner: "$10.000",
+  maxWinners: 10,
   status: "OPEN",
   autoPopupOnVisit: true,
   ticketPrefix: "SNM",
   roundId: "SENAM_SEHAT_2026",
+  lastTicketNumber: 0,
+  schemaVersion: 3,
   rules: [
-    "Nama IC wajib diisi sesuai persis dengan nama yang tertera di KTP IC.",
-    "Saat pengundian berlangsung, panitia akan memverifikasi kesesuaian Nama IC dengan KTP IC.",
-    "Jika Nama IC berbeda dengan nama di KTP IC, nomor dianggap TIDAK SAH dan langsung DIKOCOK ULANG.",
-    "Tersedia kuota 5 Pemenang beruntung yang masing-masing mendapatkan hadiah $15.000 ($15k).",
+    "Nama Lengkap IC dan Citizen ID (CID) wajib diisi sesuai persis dengan yang tertera di KTP IC.",
+    "Tidak ada batas maksimal peserta. Semua peserta senam dapat mengambil 1 Nomor Doorprize (1 CID = 1 Nomor).",
+    "Apabila saat verifikasi pemenang Nama IC atau Citizen ID berbeda dengan KTP IC, maka nomor dinyatakan TIDAK SAH dan langsung DIKOCOK ULANG.",
+    "Tersedia kuota 10 Pemenang beruntung yang masing-masing mendapatkan hadiah Uang Tunai $10.000 USD ($10k).",
   ],
   winners: [],
   disqualifiedHistory: [],
   updatedAt: new Date().toISOString(),
 };
-
-let authReadyPromise = null;
-async function ensureAuth() {
-  if (auth.currentUser) return auth.currentUser;
-  if (!authReadyPromise) {
-    authReadyPromise = signInAnonymously(auth).catch((err) => {
-      console.warn("Doorprize Auth fallback:", err);
-      authReadyPromise = null;
-      return null;
-    });
-  }
-  return authReadyPromise;
-}
 
 export function normalizeIcName(name) {
   return String(name || "")
@@ -88,9 +89,47 @@ export function normalizeIcName(name) {
     .trim();
 }
 
+export function normalizeCitizenId(cid) {
+  return String(cid || "")
+    .replace(/\s+/g, "")
+    .trim()
+    .toUpperCase();
+}
+
 export function formatTicketNumber(num) {
   const n = Math.max(1, Number(num) || 1);
   return String(n).padStart(3, "0");
+}
+
+function normalizeLoadedConfig(raw) {
+  const data = raw || {};
+  const isLegacyFifteenK =
+    !data.schemaVersion ||
+    data.schemaVersion < 3 ||
+    data.prizePerWinner === "$15.000" ||
+    data.prizePerWinner === "15k" ||
+    Number(data.maxWinners) === 5;
+
+  const merged = {
+    ...DEFAULT_DOORPRIZE_CONFIG,
+    ...data,
+    prizePerWinner: isLegacyFifteenK
+      ? "$10.000"
+      : data.prizePerWinner || DEFAULT_DOORPRIZE_CONFIG.prizePerWinner,
+    maxWinners: isLegacyFifteenK
+      ? 10
+      : Number(data.maxWinners) || DEFAULT_DOORPRIZE_CONFIG.maxWinners,
+    schemaVersion: 3,
+    rules:
+      !isLegacyFifteenK && Array.isArray(data.rules) && data.rules.length > 0
+        ? data.rules
+        : DEFAULT_DOORPRIZE_CONFIG.rules,
+    winners: Array.isArray(data.winners) ? data.winners : [],
+    disqualifiedHistory: Array.isArray(data.disqualifiedHistory)
+      ? data.disqualifiedHistory
+      : [],
+  };
+  return { merged, needsCloudMigration: isLegacyFifteenK };
 }
 
 function getLocalConfig() {
@@ -98,18 +137,7 @@ function getLocalConfig() {
     const raw = localStorage.getItem(LOCAL_CONFIG_KEY);
     if (!raw) return { ...DEFAULT_DOORPRIZE_CONFIG };
     const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_DOORPRIZE_CONFIG,
-      ...parsed,
-      rules:
-        Array.isArray(parsed.rules) && parsed.rules.length > 0
-          ? parsed.rules
-          : DEFAULT_DOORPRIZE_CONFIG.rules,
-      winners: Array.isArray(parsed.winners) ? parsed.winners : [],
-      disqualifiedHistory: Array.isArray(parsed.disqualifiedHistory)
-        ? parsed.disqualifiedHistory
-        : [],
-    };
+    return normalizeLoadedConfig(parsed).merged;
   } catch {
     return { ...DEFAULT_DOORPRIZE_CONFIG };
   }
@@ -171,7 +199,7 @@ export function saveMyTicketLocal(ticket) {
 
 export async function loadDoorprizeConfigCloud() {
   try {
-    await ensureAuth();
+    const db = getDoorprizeDb();
     const docRef = doc(db, ...CONFIG_COLLECTION_PATH, "current");
     const snap = await getDoc(docRef);
     if (!snap.exists()) {
@@ -180,19 +208,14 @@ export async function loadDoorprizeConfigCloud() {
       saveLocalConfig(initial);
       return initial;
     }
-    const data = snap.data() || {};
-    const merged = {
-      ...DEFAULT_DOORPRIZE_CONFIG,
-      ...data,
-      rules:
-        Array.isArray(data.rules) && data.rules.length > 0
-          ? data.rules
-          : DEFAULT_DOORPRIZE_CONFIG.rules,
-      winners: Array.isArray(data.winners) ? data.winners : [],
-      disqualifiedHistory: Array.isArray(data.disqualifiedHistory)
-        ? data.disqualifiedHistory
-        : [],
-    };
+    const { merged, needsCloudMigration } = normalizeLoadedConfig(snap.data());
+    if (needsCloudMigration) {
+      try {
+        await setDoc(docRef, merged);
+      } catch {
+        // ignore write error
+      }
+    }
     saveLocalConfig(merged);
     return merged;
   } catch (err) {
@@ -202,15 +225,12 @@ export async function loadDoorprizeConfigCloud() {
 }
 
 export function subscribeDoorprizeConfigCloud(onUpdate) {
-  let unsubscribe = null;
-  let cancelled = false;
-
   onUpdate(getLocalConfig());
 
-  ensureAuth().then(() => {
-    if (cancelled) return;
+  try {
+    const db = getDoorprizeDb();
     const docRef = doc(db, ...CONFIG_COLLECTION_PATH, "current");
-    unsubscribe = onSnapshot(
+    const unsubscribe = onSnapshot(
       docRef,
       async (snap) => {
         if (!snap.exists()) {
@@ -224,19 +244,14 @@ export function subscribeDoorprizeConfigCloud(onUpdate) {
           onUpdate(initial);
           return;
         }
-        const data = snap.data() || {};
-        const merged = {
-          ...DEFAULT_DOORPRIZE_CONFIG,
-          ...data,
-          rules:
-            Array.isArray(data.rules) && data.rules.length > 0
-              ? data.rules
-              : DEFAULT_DOORPRIZE_CONFIG.rules,
-          winners: Array.isArray(data.winners) ? data.winners : [],
-          disqualifiedHistory: Array.isArray(data.disqualifiedHistory)
-            ? data.disqualifiedHistory
-            : [],
-        };
+        const { merged, needsCloudMigration } = normalizeLoadedConfig(snap.data());
+        if (needsCloudMigration) {
+          try {
+            await setDoc(docRef, merged);
+          } catch {
+            // ignore migration write error
+          }
+        }
         saveLocalConfig(merged);
         onUpdate(merged);
       },
@@ -244,12 +259,11 @@ export function subscribeDoorprizeConfigCloud(onUpdate) {
         console.warn("Doorprize config listener warning:", err);
       }
     );
-  });
-
-  return () => {
-    cancelled = true;
-    if (unsubscribe) unsubscribe();
-  };
+    return () => unsubscribe();
+  } catch (err) {
+    console.warn("Doorprize subscribe config error:", err);
+    return () => {};
+  }
 }
 
 export async function saveDoorprizeConfigCloud(partialConfig) {
@@ -258,10 +272,11 @@ export async function saveDoorprizeConfigCloud(partialConfig) {
     ...current,
     ...partialConfig,
     id: "current",
+    schemaVersion: 2,
     updatedAt: new Date().toISOString(),
   };
   saveLocalConfig(updated);
-  await ensureAuth();
+  const db = getDoorprizeDb();
   const docRef = doc(db, ...CONFIG_COLLECTION_PATH, "current");
   await setDoc(docRef, updated);
   return updated;
@@ -269,7 +284,7 @@ export async function saveDoorprizeConfigCloud(partialConfig) {
 
 export async function loadDoorprizeTicketsCloud() {
   try {
-    await ensureAuth();
+    const db = getDoorprizeDb();
     const colRef = collection(db, ...TICKETS_COLLECTION_PATH);
     const snap = await getDocs(colRef);
     const list = snap.docs.map((d) => ({
@@ -286,15 +301,12 @@ export async function loadDoorprizeTicketsCloud() {
 }
 
 export function subscribeDoorprizeTicketsCloud(onUpdate) {
-  let unsubscribe = null;
-  let cancelled = false;
-
   onUpdate(getLocalTickets());
 
-  ensureAuth().then(() => {
-    if (cancelled) return;
+  try {
+    const db = getDoorprizeDb();
     const colRef = collection(db, ...TICKETS_COLLECTION_PATH);
-    unsubscribe = onSnapshot(
+    const unsubscribe = onSnapshot(
       colRef,
       (snap) => {
         const list = snap.docs.map((d) => ({
@@ -309,22 +321,28 @@ export function subscribeDoorprizeTicketsCloud(onUpdate) {
         console.warn("Doorprize tickets listener warning:", err);
       }
     );
-  });
-
-  return () => {
-    cancelled = true;
-    if (unsubscribe) unsubscribe();
-  };
+    return () => unsubscribe();
+  } catch (err) {
+    console.warn("Doorprize subscribe tickets error:", err);
+    return () => {};
+  }
 }
 
 /**
- * Klaim nomor doorprize berdasarkan Nama IC (wajib sesuai KTP IC).
- * Mencegah duplikasi nama IC yang sama pada putaran event yang aktif.
+ * Klaim nomor doorprize berdasarkan Nama Lengkap IC & Citizen ID (wajib sesuai KTP IC).
+ * Tidak ada batas maksimal peserta; menggunakan transaksi Firestore agar nomor urut
+ * tidak pernah bentrok meskipun banyak warga mengambil nomor bersamaan.
  */
-export async function claimDoorprizeTicketCloud({ icName }) {
-  const cleanName = normalizeIcName(icName);
+export async function claimDoorprizeTicketCloud({ icName, citizenId }) {
+  const cleanName = normalizeIcName(icName).toUpperCase();
+  const cleanCid = normalizeCitizenId(citizenId);
+
   if (!cleanName || cleanName.length < 2) {
-    throw new Error("Nama IC wajib diisi sesuai nama lengkap di KTP IC.");
+    throw new Error("Nama Lengkap IC wajib diisi sesuai yang tertera di KTP IC.");
+  }
+
+  if (!cleanCid || cleanCid.length < 2) {
+    throw new Error("Citizen ID (CID) wajib diisi sesuai yang tertera di KTP IC.");
   }
 
   const [config, existingTickets] = await Promise.all([
@@ -336,10 +354,14 @@ export async function claimDoorprizeTicketCloud({ icName }) {
     throw new Error("Pengambilan nomor doorprize saat ini sedang ditutup oleh panitia.");
   }
 
-  const normalizedKey = cleanName.toLowerCase();
-  const existingMatch = existingTickets.find(
-    (t) => normalizeIcName(t.icName).toLowerCase() === normalizedKey
-  );
+  const normalizedNameKey = cleanName.toLowerCase();
+  const normalizedCidKey = cleanCid.toLowerCase();
+
+  const existingMatch = existingTickets.find((t) => {
+    const tName = normalizeIcName(t.icName).toLowerCase();
+    const tCid = normalizeCitizenId(t.citizenId).toLowerCase();
+    return (tCid && tCid === normalizedCidKey) || tName === normalizedNameKey;
+  });
 
   if (existingMatch) {
     saveMyTicketLocal(existingMatch);
@@ -349,42 +371,81 @@ export async function claimDoorprizeTicketCloud({ icName }) {
     };
   }
 
-  const maxNumber = existingTickets.reduce(
+  const maxExistingNumber = existingTickets.reduce(
     (max, item) => Math.max(max, Number(item.ticketNumber) || 0),
     0
   );
-  const nextNumber = maxNumber + 1;
-  const numberFormatted = formatTicketNumber(nextNumber);
-  const prefix = (config.ticketPrefix || "SNM").toUpperCase();
-  const ticketCode = `${prefix}-${numberFormatted}`;
-  const ticketId = `DP_${Date.now()}_${numberFormatted}`;
 
-  const newTicket = {
-    id: ticketId,
-    ticketNumber: nextNumber,
-    numberFormatted,
-    ticketCode,
-    icName: cleanName,
-    roundId: config.roundId || "SENAM_SEHAT_2026",
-    status: "ACTIVE",
-    verifiedKtp: false,
-    createdAt: new Date().toISOString(),
-  };
+  const db = getDoorprizeDb();
+  const roundId = config.roundId || "SENAM_SEHAT_2026";
+  const safeCidSlug = cleanCid.replace(/[^A-Z0-9_-]/g, "") || `${Date.now()}`;
+  const ticketId = `DP_${roundId}_${safeCidSlug}`;
+  const configRef = doc(db, ...CONFIG_COLLECTION_PATH, "current");
+  const ticketRef = doc(db, ...TICKETS_COLLECTION_PATH, ticketId);
 
-  await ensureAuth();
-  const docRef = doc(db, ...TICKETS_COLLECTION_PATH, ticketId);
-  await setDoc(docRef, newTicket);
+  const txResult = await runTransaction(db, async (tx) => {
+    const [cfgSnap, existingSnap] = await Promise.all([
+      tx.get(configRef),
+      tx.get(ticketRef),
+    ]);
 
-  const updatedLocal = [...existingTickets, newTicket].sort(
+    if (existingSnap.exists()) {
+      return {
+        alreadyClaimed: true,
+        ticket: { id: existingSnap.id, ...existingSnap.data() },
+      };
+    }
+
+    const cfgData = cfgSnap.exists() ? cfgSnap.data() || {} : config;
+    const prevLast = Number(cfgData.lastTicketNumber) || 0;
+    const nextNumber = Math.max(prevLast, maxExistingNumber) + 1;
+    const numberFormatted = formatTicketNumber(nextNumber);
+    const prefix = (cfgData.ticketPrefix || config.ticketPrefix || "SNM").toUpperCase();
+    const ticketCode = `${prefix}-${numberFormatted}`;
+
+    const newTicket = {
+      id: ticketId,
+      ticketNumber: nextNumber,
+      numberFormatted,
+      ticketCode,
+      icName: cleanName,
+      citizenId: cleanCid,
+      roundId,
+      status: "ACTIVE",
+      verifiedKtp: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    tx.set(
+      configRef,
+      {
+        ...DEFAULT_DOORPRIZE_CONFIG,
+        ...normalizeLoadedConfig(cfgData).merged,
+        lastTicketNumber: nextNumber,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    tx.set(ticketRef, newTicket);
+
+    return {
+      alreadyClaimed: false,
+      ticket: newTicket,
+    };
+  });
+
+  if (txResult.alreadyClaimed) {
+    saveMyTicketLocal(txResult.ticket);
+    return txResult;
+  }
+
+  const updatedLocal = [...existingTickets, txResult.ticket].sort(
     (a, b) => (Number(a.ticketNumber) || 0) - (Number(b.ticketNumber) || 0)
   );
   saveLocalTickets(updatedLocal);
-  saveMyTicketLocal(newTicket);
+  saveMyTicketLocal(txResult.ticket);
 
-  return {
-    alreadyClaimed: false,
-    ticket: newTicket,
-  };
+  return txResult;
 }
 
 /**
@@ -398,7 +459,7 @@ export async function drawDoorprizeWinnerCloud(drawCount = 1) {
   ]);
 
   const currentWinners = Array.isArray(config.winners) ? [...config.winners] : [];
-  const maxWinners = Math.max(1, Number(config.maxWinners) || 5);
+  const maxWinners = Math.max(1, Number(config.maxWinners) || 10);
   const remainingSlots = maxWinners - currentWinners.length;
 
   if (remainingSlots <= 0) {
@@ -425,7 +486,7 @@ export async function drawDoorprizeWinnerCloud(drawCount = 1) {
   const poolCopy = [...eligiblePool];
   const newlyDrawn = [];
 
-  await ensureAuth();
+  const db = getDoorprizeDb();
 
   for (let i = 0; i < countToDraw; i++) {
     const randIndex = Math.floor(Math.random() * poolCopy.length);
@@ -438,7 +499,8 @@ export async function drawDoorprizeWinnerCloud(drawCount = 1) {
       numberFormatted: chosen.numberFormatted || formatTicketNumber(chosen.ticketNumber),
       ticketCode: chosen.ticketCode,
       icName: chosen.icName,
-      prize: config.prizePerWinner || "$15.000",
+      citizenId: chosen.citizenId || "-",
+      prize: config.prizePerWinner || "$10.000",
       drawnAt: nowIso,
       verifiedKtp: false,
     };
@@ -475,7 +537,7 @@ export async function verifyDoorprizeWinnerKtpCloud(ticketId) {
       : w
   );
 
-  await ensureAuth();
+  const db = getDoorprizeDb();
   const ticketRef = doc(db, ...TICKETS_COLLECTION_PATH, ticketId);
   await setDoc(
     ticketRef,
@@ -487,12 +549,12 @@ export async function verifyDoorprizeWinnerKtpCloud(ticketId) {
 }
 
 /**
- * Gugurkan pemenang karena Nama IC berbeda dengan KTP IC (TIDAK SAH)
+ * Gugurkan pemenang karena Nama IC / Citizen ID berbeda dengan KTP IC (TIDAK SAH)
  * dan opsional langsung kocok ulang penggantinya.
  */
 export async function disqualifyAndRerollWinnerCloud(
   ticketId,
-  { reason = "Nama IC tidak sesuai dengan KTP IC", autoReroll = true } = {}
+  { reason = "Nama IC / Citizen ID tidak sesuai dengan KTP IC", autoReroll = true } = {}
 ) {
   const [config, tickets] = await Promise.all([
     loadDoorprizeConfigCloud(),
@@ -519,7 +581,7 @@ export async function disqualifyAndRerollWinnerCloud(
     ...(Array.isArray(config.disqualifiedHistory) ? config.disqualifiedHistory : []),
   ];
 
-  await ensureAuth();
+  const db = getDoorprizeDb();
   const badTicketRef = doc(db, ...TICKETS_COLLECTION_PATH, ticketId);
   await setDoc(
     badTicketRef,
@@ -555,7 +617,8 @@ export async function disqualifyAndRerollWinnerCloud(
         numberFormatted: chosen.numberFormatted || formatTicketNumber(chosen.ticketNumber),
         ticketCode: chosen.ticketCode,
         icName: chosen.icName,
-        prize: config.prizePerWinner || "$15.000",
+        citizenId: chosen.citizenId || "-",
+        prize: config.prizePerWinner || "$10.000",
         drawnAt: nowIso,
         verifiedKtp: false,
         replacedTicketCode: targetWinner.ticketCode,
@@ -585,7 +648,7 @@ export async function disqualifyAndRerollWinnerCloud(
 }
 
 export async function deleteDoorprizeTicketCloud(ticketId) {
-  await ensureAuth();
+  const db = getDoorprizeDb();
   const docRef = doc(db, ...TICKETS_COLLECTION_PATH, ticketId);
   await deleteDoc(docRef);
 
@@ -597,7 +660,7 @@ export async function deleteDoorprizeTicketCloud(ticketId) {
 }
 
 export async function resetDoorprizeSessionCloud() {
-  await ensureAuth();
+  const db = getDoorprizeDb();
   const tickets = await loadDoorprizeTicketsCloud();
   await Promise.all(
     tickets.map((t) => deleteDoc(doc(db, ...TICKETS_COLLECTION_PATH, t.id)))
@@ -608,6 +671,7 @@ export async function resetDoorprizeSessionCloud() {
   const newRoundId = `SENAM_SEHAT_${Date.now()}`;
   return saveDoorprizeConfigCloud({
     roundId: newRoundId,
+    lastTicketNumber: 0,
     winners: [],
     disqualifiedHistory: [],
   });

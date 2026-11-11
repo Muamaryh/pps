@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Trophy,
   Ticket,
-  Sparkles,
   CheckCircle2,
   XCircle,
   RefreshCw,
@@ -17,6 +16,7 @@ import {
   Settings,
   Save,
   ExternalLink,
+  Dices,
 } from "lucide-react";
 import {
   subscribeDoorprizeConfigCloud,
@@ -40,11 +40,12 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
   const [isEditingConfig, setIsEditingConfig] = useState(false);
   const [draftConfig, setDraftConfig] = useState({
     title: "Undian Senam Sehat Bersama LSM PPS",
-    prizePerWinner: "$15.000",
-    maxWinners: 5,
+    prizePerWinner: "$10.000",
+    maxWinners: 10,
     ticketPrefix: "SNM",
   });
   const [manualIcName, setManualIcName] = useState("");
+  const [manualCitizenId, setManualCitizenId] = useState("");
   const [isAddingManual, setIsAddingManual] = useState(false);
 
   useEffect(() => {
@@ -52,8 +53,8 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
       setConfig(cfg);
       setDraftConfig({
         title: cfg.title || "Undian Senam Sehat Bersama LSM PPS",
-        prizePerWinner: cfg.prizePerWinner || "$15.000",
-        maxWinners: Number(cfg.maxWinners) || 5,
+        prizePerWinner: cfg.prizePerWinner || "$10.000",
+        maxWinners: Number(cfg.maxWinners) || 10,
         ticketPrefix: cfg.ticketPrefix || "SNM",
       });
     });
@@ -68,8 +69,8 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
 
   const activeConfig = config || {
     title: "Undian Senam Sehat Bersama LSM PPS",
-    prizePerWinner: "$15.000",
-    maxWinners: 5,
+    prizePerWinner: "$10.000",
+    maxWinners: 10,
     status: "OPEN",
     autoPopupOnVisit: true,
     winners: [],
@@ -80,7 +81,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
   const disqualifiedList = Array.isArray(activeConfig.disqualifiedHistory)
     ? activeConfig.disqualifiedHistory
     : [];
-  const maxWinners = Math.max(1, Number(activeConfig.maxWinners) || 5);
+  const maxWinners = Math.max(1, Number(activeConfig.maxWinners) || 10);
   const remainingSlots = Math.max(0, maxWinners - winners.length);
 
   const winnerIds = new Set(winners.map((w) => w.ticketId));
@@ -127,8 +128,8 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
     try {
       await saveDoorprizeConfigCloud({
         title: draftConfig.title.trim() || "Undian Senam Sehat Bersama LSM PPS",
-        prizePerWinner: draftConfig.prizePerWinner.trim() || "$15.000",
-        maxWinners: Math.max(1, Number(draftConfig.maxWinners) || 5),
+        prizePerWinner: draftConfig.prizePerWinner.trim() || "$10.000",
+        maxWinners: Math.max(1, Number(draftConfig.maxWinners) || 10),
         ticketPrefix: (draftConfig.ticketPrefix || "SNM").trim().toUpperCase(),
       });
       setIsEditingConfig(false);
@@ -182,7 +183,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
       }
       onShowToast?.(
         res.newlyDrawn.length === 1
-          ? `Pemenang terpilih: #${firstNew.numberFormatted} - ${firstNew.icName}! Silakan cek KTP IC.`
+          ? `Pemenang terpilih: #${firstNew.numberFormatted} • ${firstNew.icName} (${firstNew.citizenId || "-"})! Silakan cek KTP IC.`
           : `Berhasil mengocok ${res.newlyDrawn.length} pemenang doorprize!`,
         "success"
       );
@@ -207,7 +208,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
 
   async function handleDisqualifyAndReroll(winner) {
     const confirmed = window.confirm(
-      `Gugurkan Nomor #${winner.numberFormatted} (${winner.icName}) karena Nama IC berbeda dengan KTP IC, lalu langsung KOCOK ULANG penggantinya?`
+      `Gugurkan Nomor #${winner.numberFormatted} (${winner.icName} • CID: ${winner.citizenId || "-"}) karena data berbeda dengan KTP IC, lalu langsung KOCOK ULANG penggantinya?`
     );
     if (!confirmed) return;
 
@@ -215,7 +216,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
     try {
       await runRollingAnimation(1200);
       const res = await disqualifyAndRerollWinnerCloud(winner.ticketId, {
-        reason: "Nama IC tidak sesuai dengan KTP IC",
+        reason: "Nama IC / Citizen ID tidak sesuai dengan KTP IC",
         autoReroll: true,
       });
       if (res.replacementWinner) {
@@ -240,16 +241,24 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
 
   async function handleAddManualParticipant(e) {
     e.preventDefault();
-    const trimmed = manualIcName.replace(/\s+/g, " ").trim();
-    if (!trimmed || trimmed.length < 2) return;
+    const trimmedName = manualIcName.replace(/\s+/g, " ").trim().toUpperCase();
+    const trimmedCid = manualCitizenId.replace(/\s+/g, "").trim().toUpperCase();
+    if (!trimmedName || !trimmedCid) {
+      onShowToast?.("Masukkan Nama Lengkap IC dan Citizen ID terlebih dahulu.", "error");
+      return;
+    }
     setIsAddingManual(true);
     try {
-      const res = await claimDoorprizeTicketCloud({ icName: trimmed });
+      const res = await claimDoorprizeTicketCloud({
+        icName: trimmedName,
+        citizenId: trimmedCid,
+      });
       setManualIcName("");
+      setManualCitizenId("");
       onShowToast?.(
         res.alreadyClaimed
-          ? `Nama IC "${res.ticket.icName}" sudah terdaftar di Nomor #${res.ticket.numberFormatted}`
-          : `Peserta "${res.ticket.icName}" berhasil ditambahkan ke Nomor #${res.ticket.numberFormatted}`,
+          ? `Data "${res.ticket.icName}" (${res.ticket.citizenId}) sudah terdaftar di Nomor #${res.ticket.numberFormatted}`
+          : `Peserta "${res.ticket.icName}" (${res.ticket.citizenId}) ditambahkan ke Nomor #${res.ticket.numberFormatted}`,
         "success"
       );
     } catch (err) {
@@ -261,7 +270,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
 
   async function handleDeleteTicket(ticket) {
     const ok = window.confirm(
-      `Hapus Nomor #${ticket.numberFormatted || formatTicketNumber(ticket.ticketNumber)} atas nama "${ticket.icName}"?`
+      `Hapus Nomor #${ticket.numberFormatted || formatTicketNumber(ticket.ticketNumber)} atas nama "${ticket.icName}" (${ticket.citizenId || "-"})?`
     );
     if (!ok) return;
     try {
@@ -290,7 +299,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
     const lines = [
       `🏆 **DAFTAR PEMENANG ${activeConfig.title.toUpperCase()}** 🏆`,
       `🎁 Hadiah: **${maxWinners} Pemenang @ ${activeConfig.prizePerWinner}**`,
-      `📋 Aturan: Nama IC wajib sesuai KTP IC (Berbeda = Tidak Sah & Dikocok Ulang)`,
+      `📋 Aturan: Nama IC & Citizen ID wajib sesuai KTP IC (Berbeda = Tidak Sah & Dikocok Ulang)`,
       "",
     ];
     if (winners.length === 0) {
@@ -301,9 +310,9 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
           ? "✅ SAH (Sesuai KTP IC)"
           : "⏳ Menunggu Cek KTP IC";
         lines.push(
-          `${idx + 1}. **#${w.numberFormatted}** (${w.ticketCode}) • **${w.icName}** • ${
-            w.prize || activeConfig.prizePerWinner
-          } [${statusStr}]`
+          `${idx + 1}. **#${w.numberFormatted}** (${w.ticketCode}) • **${w.icName}** (CID: \`${
+            w.citizenId || "-"
+          }\`) • ${w.prize || activeConfig.prizePerWinner} [${statusStr}]`
         );
       });
     }
@@ -311,7 +320,9 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
       lines.push("");
       lines.push("❌ **Nomor Gugur / Tidak Sah (Beda KTP IC - Dikocok Ulang):**");
       disqualifiedList.forEach((d) => {
-        lines.push(`- ~#${d.numberFormatted} ${d.icName}~ (Tidak Sesuai KTP IC)`);
+        lines.push(
+          `- ~#${d.numberFormatted} ${d.icName} (${d.citizenId || "-"})~ (Tidak Sesuai KTP IC)`
+        );
       });
     }
     navigator.clipboard?.writeText(lines.join("\n"));
@@ -324,34 +335,57 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
     onShowToast?.("Link langsung Pop-up Doorprize berhasil disalin!", "success");
   }
 
+  function handleCopyAllParticipants() {
+    if (tickets.length === 0) {
+      onShowToast?.("Belum ada peserta yang mengambil nomor.", "info");
+      return;
+    }
+    const header = `DAFTAR PESERTA ${activeConfig.title.toUpperCase()} (${tickets.length} Peserta)\nNomor Undian | Nama Lengkap IC | Citizen ID (CID) | Status`;
+    const rows = tickets.map((t) => {
+      const num = `#${t.numberFormatted || formatTicketNumber(t.ticketNumber)}`;
+      const isWin = winnerIds.has(t.id);
+      const isDisq = t.status === "DISQUALIFIED" || disqualifiedIds.has(t.id);
+      const status = isWin ? "PEMENANG" : isDisq ? "TIDAK SAH (BEDA KTP)" : "AKTIF";
+      return `${num} | ${t.icName} | ${t.citizenId || "-"} | ${status}`;
+    });
+    navigator.clipboard?.writeText([header, ...rows].join("\n"));
+    onShowToast?.(
+      `Daftar ${tickets.length} peserta (Nomor Undian, Nama, CID) berhasil disalin!`,
+      "success"
+    );
+  }
+
   const filteredTickets = tickets.filter((t) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     const name = String(t.icName || "").toLowerCase();
+    const cid = String(t.citizenId || "").toLowerCase();
     const code = String(t.ticketCode || "").toLowerCase();
     const num = String(
       t.numberFormatted || formatTicketNumber(t.ticketNumber)
     ).toLowerCase();
-    return name.includes(q) || code.includes(q) || num.includes(q);
+    return (
+      name.includes(q) || cid.includes(q) || code.includes(q) || num.includes(q)
+    );
   });
 
   return (
     <div className="space-y-5">
       {/* Header Banner & Status Controls */}
-      <div className="rounded-xl border-2 border-black bg-gradient-to-r from-[#DC2626] via-[#B91C1C] to-[#991B1B] text-white p-4 sm:p-5 shadow-[4px_4px_0px_#000]">
+      <div className="rounded-xl border-2 border-black bg-[#FACC15] text-[#111827] p-4 sm:p-5 shadow-[4px_4px_0px_#000]">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FACC15] text-black border-2 border-black font-mono font-black text-[10px] uppercase">
-              <Sparkles size={11} className="text-[#DC2626]" />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-black text-[#FACC15] border border-black font-mono font-black text-[10px] uppercase">
+              <Dices size={12} />
               <span>PANEL UNDIAN & DOORPRIZE WARGA</span>
             </div>
             <h3 className="font-heading font-black text-lg sm:text-xl uppercase tracking-tight">
               {activeConfig.title}
             </h3>
-            <p className="text-xs text-amber-100 font-medium">
+            <p className="text-xs text-slate-800 font-medium">
               Kuota Hadiah: <strong>{maxWinners} Pemenang</strong> masing-masing{" "}
-              <strong>{activeConfig.prizePerWinner}</strong> • Wajib Nama IC sesuai
-              KTP IC (Beda KTP = Tidak Sah & Dikocok Ulang)
+              <strong>{activeConfig.prizePerWinner}</strong> • Wajib Nama IC &
+              Citizen ID sesuai KTP IC (Beda KTP = Tidak Sah & Dikocok Ulang)
             </p>
           </div>
 
@@ -359,10 +393,10 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             <button
               type="button"
               onClick={handleToggleStatus}
-              className={`btn py-2 px-3.5 rounded-lg border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] cursor-pointer flex items-center gap-1.5 ${
+              className={`py-2 px-3.5 rounded-lg border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeConfig.status === "OPEN"
-                  ? "bg-emerald-500 hover:bg-emerald-600 text-white"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-200"
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "bg-[#DC2626] hover:bg-red-700 text-white"
               }`}
             >
               <Ticket size={14} />
@@ -374,10 +408,10 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             <button
               type="button"
               onClick={handleToggleAutoPopup}
-              className={`btn py-2 px-3.5 rounded-lg border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] cursor-pointer ${
+              className={`py-2 px-3.5 rounded-lg border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer ${
                 activeConfig.autoPopupOnVisit !== false
-                  ? "bg-[#FACC15] text-black"
-                  : "bg-white/20 text-white"
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-200"
               }`}
             >
               Pop-up Masuk Web:{" "}
@@ -387,7 +421,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             <button
               type="button"
               onClick={() => setIsEditingConfig((v) => !v)}
-              className="btn py-2 px-3 rounded-lg bg-white text-black border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer"
+              className="py-2 px-3 rounded-lg bg-white hover:bg-slate-100 text-slate-950 border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Settings size={14} className="text-[#DC2626]" />
               <span>Pengaturan</span>
@@ -397,7 +431,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               <button
                 type="button"
                 onClick={onOpenVisitorModal}
-                className="btn py-2 px-3 rounded-lg bg-black text-[#FACC15] border-2 border-white/40 font-heading font-black text-xs shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer"
+                className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-black text-[#FACC15] border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <ExternalLink size={14} />
                 <span>Lihat Pop-up Warga</span>
@@ -407,36 +441,36 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
         </div>
 
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 pt-3.5 border-t border-white/20">
-          <div className="bg-black/30 rounded-lg p-2.5 border border-white/20">
-            <span className="block text-[10px] font-mono uppercase text-amber-200">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 pt-3.5 border-t border-black/20">
+          <div className="bg-white rounded-lg p-2.5 border-2 border-black shadow-[2px_2px_0px_#000]">
+            <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
               TOTAL AMBIL NOMOR
             </span>
-            <strong className="font-heading font-black text-lg text-white">
+            <strong className="font-heading font-black text-lg text-slate-900">
               {tickets.length} Peserta
             </strong>
           </div>
-          <div className="bg-black/30 rounded-lg p-2.5 border border-white/20">
-            <span className="block text-[10px] font-mono uppercase text-emerald-200">
+          <div className="bg-white rounded-lg p-2.5 border-2 border-black shadow-[2px_2px_0px_#000]">
+            <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
               SIAP DIKOCOK (AKTIF)
             </span>
-            <strong className="font-heading font-black text-lg text-emerald-300">
+            <strong className="font-heading font-black text-lg text-emerald-700">
               {eligibleTickets.length} Nomor
             </strong>
           </div>
-          <div className="bg-black/30 rounded-lg p-2.5 border border-white/20">
-            <span className="block text-[10px] font-mono uppercase text-amber-200">
+          <div className="bg-white rounded-lg p-2.5 border-2 border-black shadow-[2px_2px_0px_#000]">
+            <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
               PEMENANG TERPILIH
             </span>
-            <strong className="font-heading font-black text-lg text-[#FACC15]">
+            <strong className="font-heading font-black text-lg text-[#DC2626]">
               {winners.length} / {maxWinners}
             </strong>
           </div>
-          <div className="bg-black/30 rounded-lg p-2.5 border border-white/20">
-            <span className="block text-[10px] font-mono uppercase text-red-200">
+          <div className="bg-white rounded-lg p-2.5 border-2 border-black shadow-[2px_2px_0px_#000]">
+            <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
               GUGUR (BEDA KTP IC)
             </span>
-            <strong className="font-heading font-black text-lg text-red-300">
+            <strong className="font-heading font-black text-lg text-red-600">
               {disqualifiedList.length} Nomor
             </strong>
           </div>
@@ -504,7 +538,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                 onChange={(e) =>
                   setDraftConfig({
                     ...draftConfig,
-                    maxWinners: Number(e.target.value) || 5,
+                    maxWinners: Number(e.target.value) || 10,
                   })
                 }
                 className="input-field w-full text-xs font-bold"
@@ -516,13 +550,13 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             <button
               type="button"
               onClick={() => setIsEditingConfig(false)}
-              className="btn py-1.5 px-3 bg-white dark:bg-slate-800 border-2 border-black text-xs font-bold rounded-lg"
+              className="py-1.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-900 dark:text-slate-100 border-2 border-black text-xs font-bold rounded-lg shadow-[2px_2px_0px_#000] cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="btn py-1.5 px-4 bg-[#059669] text-white border-2 border-black text-xs font-heading font-black rounded-lg shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer"
+              className="py-1.5 px-4 bg-[#059669] hover:bg-[#047857] text-white border-2 border-black text-xs font-heading font-black rounded-lg shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Save size={13} />
               <span>Simpan Pengaturan</span>
@@ -571,7 +605,9 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                 : "#---"}
             </div>
             <div className="font-heading font-bold text-sm text-emerald-400 truncate">
-              {rollingTicket ? rollingTicket.icName : "Klik tombol kocok di bawah"}
+              {rollingTicket
+                ? `${rollingTicket.icName} (${rollingTicket.citizenId || "-"})`
+                : "Klik tombol kocok di bawah"}
             </div>
           </div>
 
@@ -581,7 +617,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               type="button"
               disabled={isSpinning || eligibleTickets.length === 0 || remainingSlots <= 0}
               onClick={() => handleDrawWinner(1)}
-              className="btn w-full py-3 px-4 bg-[#FACC15] hover:bg-yellow-400 text-black border-2 border-black rounded-xl font-heading font-black text-xs sm:text-sm uppercase shadow-[3px_3px_0px_#000] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 px-4 bg-[#FACC15] hover:bg-yellow-400 text-black border-2 border-black rounded-xl font-heading font-black text-xs sm:text-sm uppercase shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isSpinning ? (
                 <>
@@ -603,9 +639,9 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                 type="button"
                 disabled={isSpinning}
                 onClick={() => handleDrawWinner(remainingSlots)}
-                className="btn w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-[#FACC15] border-2 border-black rounded-xl font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-[#FACC15] border-2 border-black rounded-xl font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <Sparkles size={14} />
+                <Dices size={14} />
                 <span>
                   Kocok Sekaligus {Math.min(remainingSlots, eligibleTickets.length)} Slot
                   Tersisa
@@ -615,7 +651,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
           </div>
         </div>
 
-        {/* Right Column: 5 Winners Verification & Re-roll List */}
+        {/* Right Column: 10 Winners Verification & Re-roll List */}
         <div className="lg:col-span-7 rounded-xl border-2 border-black bg-white dark:bg-[#181B24] p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2.5">
             <div>
@@ -626,7 +662,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                 </span>
               </h4>
               <p className="text-[11px] text-slate-500">
-                Cocokkan Nama IC dengan KTP IC. Jika berbeda, klik{" "}
+                Cocokkan Nama IC & Citizen ID dengan KTP IC. Jika berbeda, klik{" "}
                 <strong>Beda KTP / Kocok Ulang</strong>!
               </p>
             </div>
@@ -635,7 +671,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               <button
                 type="button"
                 onClick={handleCopyWinnersReport}
-                className="btn py-1.5 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 text-slate-800 dark:text-slate-200 border-2 border-black rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer"
+                className="py-1.5 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 text-slate-800 dark:text-slate-200 border-2 border-black rounded-lg font-heading font-black text-[11px] shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer"
               >
                 <Copy size={12} />
                 <span>Salin Pemenang</span>
@@ -643,7 +679,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               <button
                 type="button"
                 onClick={handleResetAll}
-                className="btn py-1.5 px-2.5 bg-red-100 hover:bg-red-200 text-red-800 border-2 border-black rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer"
+                className="py-1.5 px-2.5 bg-red-100 hover:bg-red-200 text-red-800 border-2 border-black rounded-lg font-heading font-black text-[11px] shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer"
                 title="Reset semua peserta & pemenang untuk memulai event baru"
               >
                 <RotateCcw size={12} />
@@ -679,6 +715,9 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                         <strong className="font-heading font-black text-sm text-slate-900 dark:text-white truncate">
                           {w.icName}
                         </strong>
+                        <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300">
+                          [CID: {w.citizenId || "-"}]
+                        </span>
                         <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
                           ({w.prize || activeConfig.prizePerWinner})
                         </span>
@@ -701,8 +740,8 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                       <button
                         type="button"
                         onClick={() => handleVerifyWinner(w)}
-                        className="btn py-1 px-2.5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-black rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer shadow-[1.5px_1.5px_0px_#000]"
-                        title="Tandai Nama IC sudah sesuai dengan KTP IC"
+                        className="py-1 px-2.5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-black rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all"
+                        title="Tandai Nama IC & Citizen ID sudah sesuai dengan KTP IC"
                       >
                         <CheckCircle2 size={12} />
                         <span>Sah (Sesuai KTP)</span>
@@ -713,8 +752,8 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                       type="button"
                       disabled={isSpinning}
                       onClick={() => handleDisqualifyAndReroll(w)}
-                      className="btn py-1 px-2.5 bg-[#DC2626] hover:bg-red-700 text-white border-2 border-black rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer shadow-[1.5px_1.5px_0px_#000]"
-                      title="Gugurkan karena nama berbeda dengan KTP IC dan langsung kocok ulang"
+                      className="py-1 px-2.5 bg-[#DC2626] hover:bg-red-700 text-white border-2 border-black rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all"
+                      title="Gugurkan karena nama/CID berbeda dengan KTP IC dan langsung kocok ulang"
                     >
                       <XCircle size={12} />
                       <span>Beda KTP / Kocok Ulang</span>
@@ -739,7 +778,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                     key={d.ticketId || idx}
                     className="px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300 border border-red-500/40 font-mono text-[10px] line-through"
                   >
-                    #{d.numberFormatted} {d.icName}
+                    #{d.numberFormatted} {d.icName} ({d.citizenId || "-"})
                   </span>
                 ))}
               </div>
@@ -748,29 +787,57 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
         </div>
       </div>
 
-      {/* Participant List & Manual Entry */}
+      {/* Participant List & Manual Entry (Semua Peserta Tanpa Batas: Nama - Citizen ID - Nomor Undian) */}
       <div className="rounded-xl border-2 border-black bg-white dark:bg-[#181B24] p-4 shadow-[3px_3px_0px_#000] space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Users size={16} className="text-[#DC2626]" />
-            <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-white">
-              Daftar Peserta Pengambil Nomor ({tickets.length})
-            </h4>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Users size={16} className="text-[#DC2626]" />
+              <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-white">
+                Daftar Peserta Pengambil Nomor ({tickets.length})
+              </h4>
+              <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-600/40 font-mono font-bold text-[10px] uppercase">
+                Tanpa Batas Peserta (Unlimited)
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Setiap peserta yang mengambil nomor otomatis masuk di tabel ini (Nama IC, Citizen ID, & Nomor Undian).
+            </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <form onSubmit={handleAddManualParticipant} className="flex items-center gap-1.5">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleCopyAllParticipants}
+              className="py-1.5 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 text-slate-800 dark:text-slate-200 border-2 border-black rounded-lg font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
+              title="Salin seluruh daftar Nama - Citizen ID - Nomor Undian"
+            >
+              <Copy size={12} />
+              <span>Salin Semua Peserta</span>
+            </button>
+
+            <form
+              onSubmit={handleAddManualParticipant}
+              className="flex items-center gap-1.5 flex-wrap"
+            >
               <input
                 type="text"
                 value={manualIcName}
-                onChange={(e) => setManualIcName(e.target.value)}
-                placeholder="Tambah Nama IC manual..."
-                className="input-field text-xs py-1.5 px-2.5 w-44 sm:w-52"
+                onChange={(e) => setManualIcName(e.target.value.toUpperCase())}
+                placeholder="Nama Lengkap IC..."
+                className="input-field text-xs py-1.5 px-2.5 w-36 sm:w-40 uppercase"
+              />
+              <input
+                type="text"
+                value={manualCitizenId}
+                onChange={(e) => setManualCitizenId(e.target.value.toUpperCase())}
+                placeholder="Citizen ID..."
+                className="input-field text-xs py-1.5 px-2.5 w-24 sm:w-28 font-mono uppercase"
               />
               <button
                 type="submit"
                 disabled={isAddingManual}
-                className="btn py-1.5 px-3 bg-[#FACC15] text-black border-2 border-black rounded-lg font-heading font-black text-xs flex items-center gap-1 cursor-pointer shrink-0"
+                className="py-1.5 px-3 bg-[#FACC15] hover:bg-yellow-400 text-black border-2 border-black rounded-lg font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer shrink-0"
               >
                 <Plus size={13} />
                 <span>Tambah</span>
@@ -786,8 +853,8 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari nomor atau Nama IC..."
-                className="input-field text-xs py-1.5 pl-8 pr-3 w-full sm:w-52"
+                placeholder="Cari nomor, Nama IC, atau CID..."
+                className="input-field text-xs py-1.5 pl-8 pr-3 w-full sm:w-48"
               />
             </div>
           </div>
@@ -798,57 +865,92 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             Belum ada peserta yang mengambil nomor doorprize.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-[340px] overflow-y-auto pr-1">
-            {filteredTickets.map((t) => {
-              const isWin = winnerIds.has(t.id);
-              const isDisq =
-                t.status === "DISQUALIFIED" || disqualifiedIds.has(t.id);
-              return (
-                <div
-                  key={t.id}
-                  className={`p-2.5 rounded-xl border-2 border-black flex items-center justify-between gap-2 ${
-                    isWin
-                      ? "bg-emerald-50 dark:bg-emerald-950/40"
-                      : isDisq
-                      ? "bg-red-50 dark:bg-red-950/30 opacity-75"
-                      : "bg-slate-50 dark:bg-slate-800/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="px-2 py-1 rounded-lg bg-black text-[#FACC15] font-mono font-black text-xs shrink-0">
-                      #{t.numberFormatted || formatTicketNumber(t.ticketNumber)}
-                    </span>
-                    <div className="min-w-0">
-                      <strong
-                        className={`font-heading font-black text-xs block truncate ${
-                          isDisq
-                            ? "line-through text-red-700 dark:text-red-400"
-                            : "text-slate-900 dark:text-white"
-                        }`}
+          <div className="border-2 border-black rounded-xl overflow-hidden">
+            <div className="max-h-[380px] overflow-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-900 text-[#FACC15] sticky top-0 z-10 font-heading uppercase text-[11px]">
+                  <tr>
+                    <th className="py-2.5 px-3 border-b-2 border-black">Nomor Undian</th>
+                    <th className="py-2.5 px-3 border-b-2 border-black">Nama Lengkap IC</th>
+                    <th className="py-2.5 px-3 border-b-2 border-black">Citizen ID (CID)</th>
+                    <th className="py-2.5 px-3 border-b-2 border-black">Status</th>
+                    <th className="py-2.5 px-3 border-b-2 border-black text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/15 dark:divide-white/10">
+                  {filteredTickets.map((t) => {
+                    const isWin = winnerIds.has(t.id);
+                    const winObj = winners.find((w) => w.ticketId === t.id);
+                    const isDisq =
+                      t.status === "DISQUALIFIED" || disqualifiedIds.has(t.id);
+                    const numFormatted =
+                      t.numberFormatted || formatTicketNumber(t.ticketNumber);
+                    return (
+                      <tr
+                        key={t.id}
+                        className={
+                          isWin
+                            ? "bg-emerald-50/90 dark:bg-emerald-950/35"
+                            : isDisq
+                            ? "bg-red-50/80 dark:bg-red-950/30 opacity-75"
+                            : "bg-white dark:bg-[#181B24] hover:bg-amber-50/50 dark:hover:bg-slate-800/40"
+                        }
                       >
-                        {t.icName}
-                      </strong>
-                      <span className="text-[10px] font-mono text-slate-500 block">
-                        {isWin
-                          ? "🏆 PEMENANG"
-                          : isDisq
-                          ? "❌ BEDA KTP IC"
-                          : t.ticketCode}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteTicket(t)}
-                    className="w-7 h-7 rounded-lg border border-black/30 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center shrink-0 cursor-pointer transition-colors"
-                    title="Hapus peserta"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              );
-            })}
+                        <td className="py-2 px-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded bg-black text-[#FACC15] font-mono font-black text-xs">
+                              #{numFormatted}
+                            </span>
+                            <span className="font-mono text-[10px] text-slate-500">
+                              {t.ticketCode}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 font-heading font-black">
+                          <span
+                            className={
+                              isDisq
+                                ? "line-through text-red-700 dark:text-red-400"
+                                : "text-slate-900 dark:text-white"
+                            }
+                          >
+                            {t.icName}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 font-mono font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                          {t.citizenId || "-"}
+                        </td>
+                        <td className="py-2 px-3 whitespace-nowrap">
+                          {isWin ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-black bg-emerald-600 text-white font-mono font-black text-[10px]">
+                              {winObj?.verifiedKtp ? "✓ SAH PEMENANG" : "🏆 PEMENANG"}
+                            </span>
+                          ) : isDisq ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-black bg-red-600 text-white font-mono font-black text-[10px]">
+                              ❌ BEDA KTP IC
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-black bg-[#FACC15] text-black font-mono font-black text-[10px]">
+                              TERDAFTAR
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-center whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTicket(t)}
+                            className="inline-flex w-7 h-7 rounded-lg border border-black/30 hover:bg-red-500 hover:text-white text-slate-500 items-center justify-center cursor-pointer transition-colors"
+                            title="Hapus peserta"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

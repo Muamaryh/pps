@@ -23,7 +23,7 @@ import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
-import { Users, Camera, ArrowRight, Ticket, Sparkles } from "lucide-react";
+import { Users, Camera, ArrowRight, Ticket, Dices } from "lucide-react";
 import { subscribeMembersCloud } from "./services/memberService";
 import { subscribeEventsCloud, DEFAULT_EVENT } from "./services/eventService";
 import { subscribeBansosProgramsCloud, DEFAULT_BANSOS_PROGRAM } from "./services/bansosService";
@@ -1168,6 +1168,7 @@ export default function App() {
         isCloudLoading={loading}
         eventsList={eventsList}
         bansosPrograms={bansosPrograms}
+        doorprizeTickets={doorprizeTickets}
         onDataSaved={(newData) => setData(newData)}
         onShowToast={showToast}
         onOpenTransparency={handleOpenTransparency}
@@ -1220,14 +1221,22 @@ export default function App() {
                   </div>
                   <div className="text-left">
                     <span className="flex items-center gap-1 font-mono font-black text-[9px] uppercase tracking-wider text-[#FACC15]">
-                      <Sparkles size={10} />
+                      <Dices size={10} />
                       <span>
                         {myLiveTicket
                           ? `NOMOR ANDA: #${
                               myLiveTicket.numberFormatted ||
                               formatTicketNumber(myLiveTicket.ticketNumber)
                             }`
-                          : "DOORPRIZE 5 PEMENANG @ $15K"}
+                          : `DOORPRIZE ${
+                              !doorprizeConfig?.maxWinners || Number(doorprizeConfig.maxWinners) === 5
+                                ? 10
+                                : doorprizeConfig.maxWinners
+                            } PEMENANG @ ${
+                              !doorprizeConfig?.prizePerWinner || doorprizeConfig.prizePerWinner === "$15.000"
+                                ? "$10.000"
+                                : doorprizeConfig.prizePerWinner
+                            }`}
                       </span>
                     </span>
                     <strong className="font-heading font-black text-xs uppercase block leading-tight">

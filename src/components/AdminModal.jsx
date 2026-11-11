@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -102,6 +102,7 @@ export default function AdminModal({
   isCloudLoading = false,
   eventsList: externalEventsList = [],
   bansosPrograms: externalBansosPrograms = [],
+  doorprizeTickets = [],
   onOpenTransparency,
 }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -2129,6 +2130,11 @@ export default function AdminModal({
   const kasSummary = getKasSummary(kasTransactions, totalKasRupiah);
   const kasRunningBalances = computeKasRunningBalances(kasTransactions);
 
+  function parseTabLabel(label) {
+    const match = String(label || "").match(/^(.*?)\s*\(([^)]+)\)$/);
+    return match ? { cleanTitle: match[1], countText: match[2] } : { cleanTitle: label, countText: null };
+  }
+
   const tabGroups = [
     {
       group: "Umum & Konten",
@@ -2160,9 +2166,11 @@ export default function AdminModal({
       group: "Event & Bansos",
       shortLabel: "Event",
       icon: Ticket,
-      badgeCount: (eventsList.length > 0 || bansosClaims.length > 0) ? (eventsList.length + bansosClaims.length) : null,
+      badgeCount: (doorprizeTickets.length + eventsList.length + bansosClaims.length) > 0
+        ? (doorprizeTickets.length + eventsList.length + bansosClaims.length)
+        : null,
       tabs: [
-        { id: "doorprize_db", label: "Undian Senam ($15k)", icon: Sparkles },
+        { id: "doorprize_db", label: `Undian Senam (${doorprizeTickets.length})`, icon: Dices },
         { id: "event_db", label: `Kelola Event (${eventsList.length})`, icon: Ticket },
         { id: "bansos_db", label: `Bansos Warga (${bansosClaims.length})`, icon: Gift },
       ],
@@ -2508,10 +2516,7 @@ export default function AdminModal({
                             {group.tabs.map((tab) => {
                               const Icon = tab.icon;
                               const isActive = activeTab === tab.id;
-                              const hasCount = tab.label.includes("(");
-                              const countMatch = hasCount ? tab.label.match(/\(([^)]+)\)/) : null;
-                              const countText = countMatch ? countMatch[1] : null;
-                              const cleanTitle = tab.label.split(" (")[0];
+                              const { cleanTitle, countText } = parseTabLabel(tab.label);
 
                               return (
                                 <button
@@ -2600,10 +2605,7 @@ export default function AdminModal({
                       {activeGroup.tabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
-                        const hasCount = tab.label.includes("(");
-                        const countMatch = hasCount ? tab.label.match(/\(([^)]+)\)/) : null;
-                        const countText = countMatch ? countMatch[1] : null;
-                        const cleanTitle = tab.label.split(" (")[0];
+                        const { cleanTitle, countText } = parseTabLabel(tab.label);
 
                         return (
                           <button
@@ -7647,10 +7649,7 @@ export default function AdminModal({
                       {group.tabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
-                        const hasCount = tab.label.includes("(");
-                        const countMatch = hasCount ? tab.label.match(/\(([^)]+)\)/) : null;
-                        const countText = countMatch ? countMatch[1] : null;
-                        const cleanTitle = tab.label.split(" (")[0];
+                        const { cleanTitle, countText } = parseTabLabel(tab.label);
 
                         return (
                           <button
