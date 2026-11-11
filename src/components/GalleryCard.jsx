@@ -67,13 +67,13 @@ export default function GalleryCard({ item, onOpenLightbox }) {
   }
 
   return (
-    <div className="card-brutal overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300">
+    <div className="card-brutal bg-white dark:bg-[#121622] border border-black/20 dark:border-white/20 overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300">
       {/* Image Viewport (Auto Slideshow + Multi-Photo Indicator) */}
       <div
         onClick={handleCardClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className={`h-56 sm:h-60 w-full relative bg-[#07080E] border-b border-black/15 dark:border-white/10 overflow-hidden flex items-center justify-center select-none ${
+        className={`h-56 sm:h-60 w-full relative bg-[#F7F5EE] dark:bg-[#0D1019] border-b border-black/15 dark:border-white/15 overflow-hidden flex items-center justify-center select-none ${
           photos.length > 0 ? "cursor-pointer" : ""
         }`}
       >
@@ -175,7 +175,7 @@ export default function GalleryCard({ item, onOpenLightbox }) {
             </div>
           </>
         ) : (
-          <div className="text-slate-400 dark:text-slate-500 font-heading font-bold text-xs flex items-center gap-2">
+          <div className="text-slate-600 dark:text-slate-400 font-heading font-bold text-xs flex items-center gap-2">
             <ImageIcon size={20} />
             <span>Foto Belum Diunggah</span>
           </div>
@@ -183,18 +183,18 @@ export default function GalleryCard({ item, onOpenLightbox }) {
       </div>
 
       {/* Content Area */}
-      <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between gap-4 bg-[var(--card-bg)]">
+      <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between gap-4 bg-white dark:bg-[#121622]">
         <div>
           <h3
             onClick={handleCardClick}
-            className="font-heading font-black text-base sm:text-lg text-slate-900 dark:text-slate-100 leading-snug mb-2 cursor-pointer group-hover:text-[#DC2626] dark:group-hover:text-[#FACC15] transition-colors"
+            className="font-heading font-black text-base sm:text-lg text-slate-900 dark:text-white leading-snug mb-2 cursor-pointer group-hover:text-[#B91C1C] dark:group-hover:text-[#FACC15] transition-colors"
           >
             {item.title}
           </h3>
 
           {/* Description with whitespace-pre-line so line breaks are preserved */}
           <div
-            className={`text-xs sm:text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed font-normal whitespace-pre-line ${
+            className={`text-xs sm:text-[13px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal whitespace-pre-line ${
               !expanded && isLong ? "line-clamp-3" : ""
             }`}
           >
@@ -206,7 +206,7 @@ export default function GalleryCard({ item, onOpenLightbox }) {
             <button
               type="button"
               onClick={() => setExpanded(!expanded)}
-              className="mt-2 text-xs font-heading font-bold text-[#DC2626] dark:text-[#FACC15] hover:underline inline-flex items-center gap-1 cursor-pointer"
+              className="mt-2 text-xs font-heading font-bold text-[#B91C1C] dark:text-[#FACC15] hover:underline inline-flex items-center gap-1 cursor-pointer"
             >
               <span>{expanded ? "Tampilkan Lebih Sedikit" : "Lihat Selengkapnya"}</span>
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -215,7 +215,7 @@ export default function GalleryCard({ item, onOpenLightbox }) {
         </div>
 
         {/* Footer: Waktu & Lokasi + Tombol Lihat Foto */}
-        <div className="pt-4 border-t border-black/15 dark:border-white/10 flex items-center justify-between gap-3 text-xs">
+        <div className="pt-4 border-t border-black/15 dark:border-white/15 flex items-center justify-between gap-3 text-xs">
           <div className="flex flex-col gap-1 min-w-0 flex-1">
             {/* Waktu (Logo Kalender) */}
             <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-800 dark:text-slate-200 font-bold truncate" title={displayDate}>
@@ -224,8 +224,8 @@ export default function GalleryCard({ item, onOpenLightbox }) {
             </div>
 
             {/* Tempat (Logo MapPin) */}
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate" title={displayLocation}>
-              <MapPin size={13} className="text-[#EAB308] dark:text-[#FACC15] shrink-0" />
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 font-medium truncate" title={displayLocation}>
+              <MapPin size={13} className="text-[#92400E] dark:text-[#FACC15] shrink-0" />
               <span className="truncate">{displayLocation}</span>
             </div>
           </div>

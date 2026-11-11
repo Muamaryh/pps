@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { flushSync } from "react-dom";
 import { loadCloudData, defaultData, mergeWithDefaults, sanitizeSandyShores } from "./services/firebase";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
@@ -80,8 +81,116 @@ export default function App() {
     localStorage.setItem("pps_active_theme", theme);
   }, [theme]);
 
-  function handleToggleTheme() {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  function handleToggleTheme(e) {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    const root = document.documentElement;
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (
+      typeof document === "undefined" ||
+      typeof document.startViewTransition !== "function" ||
+      prefersReducedMotion
+    ) {
+      setTheme(nextTheme);
+      return;
+    }
+
+    // Origin point: center of the theme button in top-right (or top-right fallback)
+    let x = window.innerWidth - 48;
+    let y = 56;
+    const btnEl =
+      e &&
+      e.currentTarget &&
+      typeof e.currentTarget.getBoundingClientRect === "function"
+        ? e.currentTarget
+        : null;
+
+    if (btnEl) {
+      const rect = btnEl.getBoundingClientRect();
+      x = rect.left + rect.width / 2;
+      y = rect.top + rect.height / 2;
+    } else if (e && typeof e.clientX === "number" && e.clientX > 0) {
+      x = e.clientX;
+      y = e.clientY;
+    }
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    // Set CSS custom properties for the feathered radial mask wave (Soft Feathered Eclipse)
+    root.style.setProperty("--eclipse-x", `${x}px`);
+    root.style.setProperty("--eclipse-y", `${y}px`);
+    root.style.setProperty("--eclipse-max-r", `${endRadius + 200}px`);
+    root.classList.add("theme-transitioning", "theme-eclipse-active");
+
+    // Soft glowing solar/twilight corona aura that expands with the feathered edge
+    const corona = document.createElement("div");
+    const isToDark = nextTheme === "dark";
+    corona.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:40px;height:40px;border-radius:9999px;transform:translate(-50%,-50%) scale(0);border:28px solid ${
+      isToDark ? "rgba(250,204,21,0.22)" : "rgba(250,204,21,0.35)"
+    };box-shadow:0 0 60px 24px ${
+      isToDark ? "rgba(99,102,241,0.25)" : "rgba(250,204,21,0.4)"
+    },inset 0 0 40px 12px rgba(250,204,21,0.25);pointer-events:none;z-index:2147483647;`;
+    document.body.appendChild(corona);
+
+    const transition = document.startViewTransition(() => {
+      flushSync(() => {
+        setTheme(nextTheme);
+      });
+      if (nextTheme === "dark") {
+        root.classList.add("dark");
+        root.classList.remove("light");
+      } else {
+        root.classList.add("light");
+        root.classList.remove("dark");
+      }
+      localStorage.setItem("pps_active_theme", nextTheme);
+    });
+
+    transition.ready
+      .then(() => {
+        const scaleTarget = (endRadius * 2.15) / 40;
+        corona.animate(
+          [
+            { transform: "translate(-50%, -50%) scale(0.2)", opacity: 0.95 },
+            {
+              transform: `translate(-50%, -50%) scale(${scaleTarget})`,
+              opacity: 0,
+            },
+          ],
+          {
+            duration: 760,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+            fill: "forwards",
+          }
+        );
+
+        if (btnEl) {
+          btnEl.animate(
+            [
+              { transform: "rotate(-160deg) scale(0.75)" },
+              { transform: "rotate(12deg) scale(1.12)", offset: 0.7 },
+              { transform: "rotate(0deg) scale(1)" },
+            ],
+            {
+              duration: 560,
+              easing: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }
+          );
+        }
+      })
+      .catch(() => {});
+
+    transition.finished.finally(() => {
+      corona.remove();
+      root.classList.remove("theme-transitioning", "theme-eclipse-active");
+    });
   }
 
   // Load Firestore Cloud Data on Mount
@@ -802,7 +911,7 @@ export default function App() {
                 {/* Card 1: Bagan Kepengurusan */}
                 <div
                   onClick={handleNavigateToStructure}
-                  className="card-brutal p-6 sm:p-8 border border-black/25 dark:border-white/10 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.7)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
+                  className="card-brutal bg-white dark:bg-[#121622] p-6 sm:p-8 border border-black/20 dark:border-white/20 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.75)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
                   title="Buka Halaman Struktur & Susunan Pengurus LSM PPS"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-red-600/5 via-transparent to-amber-500/5 dark:from-red-600/10 dark:to-transparent opacity-80 pointer-events-none" />
@@ -823,7 +932,7 @@ export default function App() {
                     </p>
                   </div>
 
-                  <div className="pt-6 mt-5 border-t border-black/15 dark:border-white/10 flex items-center justify-between relative z-10">
+                  <div className="pt-6 mt-5 border-t border-black/15 dark:border-white/15 flex items-center justify-between relative z-10">
                     <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
                       // STRUKTUR ORGANISASI //
                     </span>
@@ -844,7 +953,7 @@ export default function App() {
                 {/* Card 2: Dokumentasi Kegiatan */}
                 <div
                   onClick={handleNavigateToGallery}
-                  className="card-brutal p-6 sm:p-8 border border-black/25 dark:border-white/10 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.7)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
+                  className="card-brutal bg-white dark:bg-[#121622] p-6 sm:p-8 border border-black/20 dark:border-white/20 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.75)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
                   title="Buka Halaman Dokumentasi Kegiatan LSM PPS"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-red-600/5 dark:from-amber-500/10 dark:to-transparent opacity-80 pointer-events-none" />
@@ -865,7 +974,7 @@ export default function App() {
                     </p>
                   </div>
 
-                  <div className="pt-6 mt-5 border-t border-black/15 dark:border-white/10 flex items-center justify-between relative z-10">
+                  <div className="pt-6 mt-5 border-t border-black/15 dark:border-white/15 flex items-center justify-between relative z-10">
                     <span className="text-xs font-mono font-bold text-slate-500 dark:text-slate-400">
                       // GALERI &amp; WARTA KEGIATAN //
                     </span>

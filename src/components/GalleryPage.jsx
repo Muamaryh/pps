@@ -15,6 +15,7 @@ import {
   Store,
   FileText,
   Newspaper,
+  MapPin,
 } from "lucide-react";
 import GalleryCard, { parseDateScore, getPhotos } from "./GalleryCard";
 
@@ -64,39 +65,39 @@ export default function GalleryPage({
     return "Terbaru";
   }, [displayGallery]);
 
-  // Newspaper photo clippings from all gallery events for hero background
+  // Full-height diagonal slash photo panels for hero background (sleek 8-strip layout, prioritizing real activity photos)
   const newspaperClippings = useMemo(() => {
-    const list = [];
-    const tilts = [
-      "-rotate-2",
-      "rotate-3",
-      "-rotate-3",
-      "rotate-2",
-      "-rotate-4",
-      "rotate-3",
-      "-rotate-2",
-      "rotate-4",
-      "-rotate-3",
-      "rotate-2",
-      "-rotate-4",
-      "rotate-3",
-    ];
+    const primary = [];
+    const secondary = [];
+    const fallbackDocs = [];
 
-    displayGallery.forEach((item, idx) => {
+    displayGallery.forEach((item) => {
       const photos = getPhotos(item);
-      if (photos.length > 0) {
-        list.push({
-          photo: photos[0],
-          title: item.title || "Warta Kegiatan",
-          date: item.date || "Arsip",
-          location: item.location || "Sandy Shores",
-          tilt: tilts[idx % tilts.length],
-          edition: `EDISI #${idx + 1 < 10 ? "0" + (idx + 1) : idx + 1}`,
-          zIndex: idx === 0 ? "z-30" : "z-10",
+      if (photos.length === 0) return;
+
+      const textToCheck = `${item.title || ""} ${item.category || ""} ${item.desc || ""}`;
+      const isDoc = /surat|izin|operasional|dokumen|sertifikat|sk\b/i.test(
+        textToCheck,
+      );
+      const target = isDoc ? fallbackDocs : primary;
+
+      target.push({
+        photo: photos[0],
+        title: item.title || "Warta Kegiatan",
+      });
+
+      // Collect additional photos from multi-photo events so we can form 8 sleek strips
+      if (!isDoc && photos.length > 1) {
+        photos.slice(1, 3).forEach((extraPhoto) => {
+          secondary.push({
+            photo: extraPhoto,
+            title: item.title || "Warta Kegiatan",
+          });
         });
       }
     });
-    return list;
+
+    return [...primary, ...secondary, ...fallbackDocs].slice(0, 8);
   }, [displayGallery]);
 
   // Category counts
@@ -185,7 +186,7 @@ export default function GalleryPage({
             <span>Beranda</span>
           </button>
           <ChevronRight size={13} className="text-slate-400 shrink-0" />
-          <span className="text-slate-900 dark:text-slate-300 font-black">
+          <span className="text-slate-900 dark:text-slate-100 font-black">
             Arsip Dokumentasi Kegiatan
           </span>
         </div>
@@ -200,112 +201,100 @@ export default function GalleryPage({
         </button>
       </div>
 
-      {/* 2. Page Hero Banner (Editorial Newspaper Press Archive Theme) */}
-      <div className="p-6 sm:p-8 md:p-10 mb-8 bg-[#090A10] border border-black/10 dark:border-white/15 shadow-md dark:shadow-[0_15px_45px_rgba(0,0,0,0.8)] rounded-2xl relative overflow-hidden min-h-[310px] flex items-center">
-        {/* Newspaper Archive Background Layer / Lineup of Real Activity Photos */}
-        <div className="absolute right-0 top-0 bottom-0 w-full md:w-[60%] lg:w-[64%] xl:w-[67%] flex items-center justify-end pr-2 sm:pr-6 pointer-events-none md:pointer-events-auto overflow-hidden select-none">
-          {/* Subtle Newspaper Headline Watermark */}
-          <div className="absolute top-2 right-4 text-[65px] sm:text-[85px] font-serif font-black text-white/[0.03] uppercase tracking-widest pointer-events-none select-none">
-            THE GAZETTE
+      {/* 2. Page Hero Banner (Adaptif Light & Dark Mode - Editorial Press Theme) */}
+      <div className="p-6 sm:p-8 md:p-10 mb-8 bg-white dark:bg-[#121622] border border-black/20 dark:border-white/20 shadow-[0_8px_30px_rgba(15,23,42,0.08)] dark:shadow-[0_15px_45px_rgba(0,0,0,0.85)] rounded-2xl relative overflow-hidden min-h-[320px] flex items-center transition-colors">
+        {/* Full-Height Diagonal Slash Newspaper Photo Panels (Sleek 8-Strip Seamless Collage with Smooth Left Fade Mask) */}
+        <div className="group/collage absolute -top-2 -bottom-2 right-0 w-full md:w-[68%] lg:w-[72%] xl:w-[75%] opacity-15 md:opacity-100 [mask-image:linear-gradient(108deg,transparent_4%,rgba(0,0,0,0.12)_16%,rgba(0,0,0,0.55)_28%,black_42%)] pointer-events-none md:pointer-events-auto overflow-hidden select-none">
+          {/* Continuous Newspaper Masthead Watermark Across Top of Collage */}
+          <div className="absolute inset-x-0 top-0 pt-3.5 pb-6 px-8 bg-gradient-to-b from-black/55 via-black/20 to-transparent z-20 pointer-events-none flex flex-col items-end pr-6 opacity-75 group-hover/collage:opacity-40 transition-opacity duration-300">
+            <div className="border-t-2 border-b border-white/35 h-1 w-3/4 mb-1" />
+            <span className="font-serif font-black text-xs sm:text-sm tracking-[0.32em] uppercase text-white/45 drop-shadow-sm leading-none">
+              SANDY SHORES DAILY GAZETTE
+            </span>
+            <div className="border-t border-white/25 w-2/3 mt-1" />
           </div>
 
-          {/* Double Newspaper Rule Line */}
-          <div className="absolute inset-x-0 top-1/2 -translate-y-2 border-t border-b border-white/10 h-1.5 -rotate-1 pointer-events-none z-0" />
-
-          {/* Overlapping Newspaper Photo Clippings Lineup */}
-          <div className="flex items-center -space-x-8 sm:-space-x-9 md:-space-x-10 lg:-space-x-11 relative z-10 py-4 overflow-x-visible">
+          {/* Diagonal Parallelogram Strip Container - fits all strips inside without clipping rightmost strips */}
+          <div className="flex h-full ml-8 lg:ml-12 -mr-12">
             {newspaperClippings.map((clip, idx) => (
               <div
                 key={idx}
-                className={`transition-all duration-300 opacity-40 sm:opacity-50 hover:opacity-100 hover:scale-115 hover:z-40 hover:rotate-0 filter brightness-85 hover:brightness-100 contrast-125 cursor-default ${clip.tilt} ${clip.zIndex} group/newsclip shrink-0 select-none`}
-                title={`${clip.title} - ${clip.date}`}
+                className="group/slash relative flex-1 h-full -skew-x-[18deg] overflow-hidden bg-[#DDD5C4] dark:bg-[#161922] border-l-[3.5px] border-[#11131A] dark:border-[#05060A] first:border-l-0 cursor-default transition-opacity duration-300 group-hover/collage:opacity-75 hover:!opacity-100 after:content-[''] after:absolute after:inset-y-0 after:left-0 after:w-[1.5px] after:bg-gradient-to-b after:from-white/75 after:via-white/35 after:to-white/65 dark:after:from-white/45 dark:after:via-white/20 dark:after:to-white/40 hover:after:w-[2px] hover:after:from-[#FACC15] hover:after:via-[#FACC15] hover:after:to-amber-500 after:z-30 after:transition-all after:pointer-events-none"
+                title={clip.title}
               >
-                {/* Newsprint Tape / Sticky Tab at top */}
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-3 bg-neutral-200/50 dark:bg-neutral-300/40 backdrop-blur border border-white/50 rotate-1 z-30 shadow-sm" />
+                {/* Upright Counter-Skewed Container: fixed -left-28 -right-28 guarantees 100% corner coverage on sleek narrow strips */}
+                <div className="absolute inset-y-0 -left-28 -right-28 skew-x-[18deg] overflow-hidden">
+                  {/* Activity Photo: Redup bergaya cetakan koran saat diam, warna asli penuh saat di-hover */}
+                  <img
+                    src={clip.photo}
+                    alt={clip.title}
+                    className="w-full h-full object-cover object-center grayscale contrast-125 sepia-[28%] brightness-[0.68] dark:brightness-[0.55] group-hover/slash:grayscale-0 group-hover/slash:sepia-0 group-hover/slash:contrast-105 group-hover/slash:brightness-105 transition-all duration-300"
+                  />
 
-                {/* Newspaper Clipping Frame */}
-                <div className="w-26 sm:w-28 md:w-30 p-1.5 pb-2.5 rounded bg-[#13151E] border-2 border-white/20 shadow-[4px_4px_0px_#000000] flex flex-col items-center relative">
-                  {/* Top Newsprint Masthead Micro-bar */}
-                  <div className="w-full pb-1 mb-1 border-b border-white/15 flex items-center justify-between text-[7px] font-mono font-bold uppercase tracking-wider text-slate-400">
-                    <span className="text-[#FACC15]">{clip.edition}</span>
-                    <span className="truncate max-w-[65px]">{clip.date}</span>
+                  {/* Newspaper Print Texture & Halftone Overlay (fades out on hover to reveal original color) */}
+                  <div className="absolute inset-0 pointer-events-none transition-opacity duration-300 opacity-100 group-hover/slash:opacity-0">
+                    {/* Warm Newsprint Paper Tint & Ink Depth */}
+                    <div className="absolute inset-0 bg-[#E6DEC8]/25 dark:bg-black/35 mix-blend-multiply" />
+
+                    {/* Halftone Newsprint Dot Matrix Pattern */}
+                    <div className="absolute inset-0 bg-[radial-gradient(#111827_0.85px,transparent_0.85px)] [background-size:3.5px_3.5px] opacity-[0.16] dark:opacity-[0.24]" />
                   </div>
 
-                  {/* Photo area */}
-                  <div className="w-full h-22 sm:h-26 rounded bg-[#07080C] overflow-hidden relative border border-white/10 flex items-center justify-center">
-                    <img
-                      src={clip.photo}
-                      alt={clip.title}
-                      className="w-full h-full object-cover object-center grayscale contrast-125 group-hover/newsclip:grayscale-0 transition-all duration-300"
-                    />
-                    {/* Newspaper Press Tag */}
-                    <span className="absolute bottom-1 right-1 bg-black/80 text-white font-mono text-[7px] font-bold px-1 py-0.2 rounded border border-white/20 tracking-wider uppercase">
-                      WARTA PPS
-                    </span>
-                  </div>
-
-                  {/* Newspaper Headline Caption */}
-                  <div className="w-full mt-1.5 px-0.5 text-center">
-                    <div className="font-heading font-black text-[8.5px] sm:text-[9.5px] text-white truncate leading-tight">
-                      {clip.title}
-                    </div>
-                    <div className="text-[7px] sm:text-[7.5px] font-mono text-[#FACC15] truncate tracking-wider mt-0.5">
-                      📍 {clip.location}
-                    </div>
-                  </div>
+                  {/* Subtle Top/Bottom Cinematic Framing & Hover Warm Rim Glow */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/25 group-hover/slash:from-[#FACC15]/15 group-hover/slash:via-transparent group-hover/slash:to-transparent transition-all duration-300 pointer-events-none" />
                 </div>
+
+                {/* Inner Diagonal Bevel Depth along the Slash Seam */}
+                <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/40 to-transparent pointer-events-none z-20" />
               </div>
             ))}
           </div>
-
-          {/* Deep Dark Gradient Fade on Left so Text is 100% Crisp */}
-          <div className="absolute inset-y-0 left-0 w-48 sm:w-64 md:w-80 bg-gradient-to-r from-[#090A10] via-[#090A10]/95 to-transparent pointer-events-none z-20" />
         </div>
 
         {/* Foreground Content Area (100% Readable, Ample Breathing Room) */}
         <div className="relative z-30 max-w-md sm:max-w-lg lg:max-w-xl w-full">
           {/* Newspaper Editorial Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded-full bg-[#FACC15] text-[#07080E] border border-yellow-400/80 shadow-md text-[11px] font-mono font-black uppercase">
+          <div className="inline-flex items-center gap-2 px-3 py-1 mb-3 rounded-full bg-[#FACC15] text-[#111827] border border-[#CA8A04] dark:border-yellow-400/80 shadow-sm text-[11px] font-mono font-black uppercase">
             <Newspaper size={13} />
             <span>WARTA PERS &amp; REKAM JEJAK DOKUMENTASI PPS</span>
           </div>
 
-          <h1 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl uppercase tracking-tight text-white leading-tight mb-2 drop-shadow-md">
+          <h1 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl uppercase tracking-tight text-slate-950 dark:text-white leading-tight mb-2 dark:drop-shadow-md">
             Dokumentasi &amp; Rekam Jejak Kegiatan
           </h1>
 
-          <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed mb-5 max-w-sm sm:max-w-md">
+          <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed mb-5 max-w-sm sm:max-w-md">
             Arsip lengkap dokumentasi visual aksi sosial kemasyarakatan, kegiatan advokasi,
             pemberdayaan UMKM lokal, serta dinamika koordinasi dan silaturahmi pengurus bersama warga
             Sandy Shores &amp; sekitarnya.
           </p>
 
-          {/* Quick Stat Chips (Desain Editorial Koran Gelap Bergaris) */}
+          {/* Quick Stat Chips */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
-            <div className="p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 shadow-sm hover:border-[#FACC15]/40 transition-colors">
-              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase">
+            <div className="p-3 rounded-xl bg-[#F7F5EE]/95 dark:bg-[#191F30]/90 backdrop-blur-md border border-black/20 dark:border-white/20 shadow-sm hover:border-[#CA8A04] dark:hover:border-[#FACC15]/50 transition-colors">
+              <div className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-400 uppercase">
                 Total Kegiatan
               </div>
-              <div className="font-heading font-black text-lg sm:text-xl text-[#FACC15]">
+              <div className="font-heading font-black text-lg sm:text-xl text-[#B91C1C] dark:text-[#FACC15]">
                 {gallery.length} Kegiatan
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 shadow-sm hover:border-white/30 transition-colors">
-              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase">
+            <div className="p-3 rounded-xl bg-[#F7F5EE]/95 dark:bg-[#191F30]/90 backdrop-blur-md border border-black/20 dark:border-white/20 shadow-sm hover:border-[#CA8A04] dark:hover:border-[#FACC15]/50 transition-colors">
+              <div className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-400 uppercase">
                 Total Foto Dokumentasi
               </div>
-              <div className="font-heading font-black text-lg sm:text-xl text-slate-200">
+              <div className="font-heading font-black text-lg sm:text-xl text-slate-900 dark:text-slate-100">
                 {totalPhotosCount} Foto
               </div>
             </div>
 
-            <div className="col-span-2 sm:col-span-1 p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/15 shadow-sm hover:border-[#FACC15]/40 transition-colors">
-              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase">
+            <div className="col-span-2 sm:col-span-1 p-3 rounded-xl bg-[#F7F5EE]/95 dark:bg-[#191F30]/90 backdrop-blur-md border border-black/20 dark:border-white/20 shadow-sm hover:border-[#CA8A04] dark:hover:border-[#FACC15]/50 transition-colors">
+              <div className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-400 uppercase">
                 Kegiatan Terakhir
               </div>
               <div
-                className="font-heading font-black text-xs sm:text-sm text-[#FACC15] truncate mt-0.5"
+                className="font-heading font-black text-xs sm:text-sm text-[#92400E] dark:text-[#FACC15] truncate mt-0.5"
                 title={latestDate}
               >
                 {latestDate}
@@ -316,11 +305,11 @@ export default function GalleryPage({
       </div>
 
       {/* 3. Search & Filter Bar */}
-      <div className="card-brutal p-4 sm:p-5 mb-8 border border-black/15 dark:border-white/10 shadow-sm dark:shadow-md">
+      <div className="card-brutal bg-white dark:bg-[#121622] p-4 sm:p-5 mb-8 border border-black/20 dark:border-white/20 shadow-sm dark:shadow-[0_10px_30px_rgba(0,0,0,0.7)]">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           {/* Search Box */}
           <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 dark:text-slate-400">
               <Search size={16} />
             </div>
             <input
@@ -331,13 +320,13 @@ export default function GalleryPage({
                 setVisibleCount(9);
               }}
               placeholder="Cari nama kegiatan, tanggal, lokasi, atau topik..."
-              className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm rounded-xl border border-black/15 dark:border-white/15 bg-white dark:bg-[#141724] text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FACC15] shadow-inner"
+              className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm rounded-xl border border-black/20 dark:border-white/20 bg-[#F7F5EE] dark:bg-[#191F30] text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#FACC15] shadow-inner"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
                 title="Hapus pencarian"
               >
                 <X size={15} />
@@ -354,8 +343,8 @@ export default function GalleryPage({
         </div>
 
         {/* Category Pills */}
-        <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-black/15 dark:border-white/10">
-          <div className="text-xs font-black text-slate-600 dark:text-slate-400 flex items-center gap-1.5 mr-1">
+        <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-black/15 dark:border-white/15">
+          <div className="text-xs font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mr-1">
             <Filter size={13} className="text-[#DC2626]" />
             <span>Kategori:</span>
           </div>
@@ -375,16 +364,16 @@ export default function GalleryPage({
                   setSelectedCategory(cat.id);
                   setVisibleCount(9);
                 }}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-heading font-black border transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-heading font-black border transition-all cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DC2626] dark:focus-visible:ring-[#FACC15] ${
                   isActive
-                    ? "bg-[#FACC15] text-[#07080E] border-yellow-400 shadow-sm font-black -translate-y-0.5"
-                    : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/10 hover:border-black/30 dark:hover:border-white/20"
+                    ? "bg-[#FACC15] text-[#111827] border-[#CA8A04] shadow-sm font-black -translate-y-0.5"
+                    : "bg-[#F7F5EE] dark:bg-[#191F30] text-slate-800 dark:text-slate-200 border-black/20 dark:border-white/20 hover:border-black/40 dark:hover:border-[#FACC15]/50"
                 }`}
               >
                 <span>{cat.label}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
-                    isActive ? "bg-black/15 text-slate-900" : "bg-black/5 dark:bg-white/10"
+                    isActive ? "bg-black/15 text-slate-900" : "bg-black/10 dark:bg-white/15"
                   }`}
                 >
                   {cat.count}
@@ -401,7 +390,7 @@ export default function GalleryPage({
                 setSearchQuery("");
                 setVisibleCount(9);
               }}
-              className="text-xs font-black text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer ml-auto flex items-center gap-1"
+              className="text-xs font-black text-[#B91C1C] dark:text-[#FACC15] hover:underline cursor-pointer ml-auto flex items-center gap-1"
             >
               <X size={12} />
               <span>Reset Filter</span>
@@ -428,12 +417,12 @@ export default function GalleryPage({
         </div>
       ) : (
         /* Empty State */
-        <div className="card-brutal p-10 sm:p-14 text-center max-w-xl mx-auto my-6">
-          <ImageIcon size={44} className="mx-auto text-slate-400 mb-3" />
-          <h3 className="font-heading font-black text-lg text-slate-900 dark:text-slate-200 uppercase">
+        <div className="card-brutal bg-white dark:bg-[#121622] border border-black/20 dark:border-white/20 p-10 sm:p-14 text-center max-w-xl mx-auto my-6">
+          <ImageIcon size={44} className="mx-auto text-slate-500 dark:text-slate-400 mb-3" />
+          <h3 className="font-heading font-black text-lg text-slate-900 dark:text-white uppercase">
             Dokumentasi Tidak Ditemukan
           </h3>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 max-w-md mx-auto">
+          <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 mt-2 max-w-md mx-auto">
             Tidak ada arsip dokumentasi yang cocok dengan kata kunci atau filter kategori saat ini.
           </p>
           <button
@@ -452,7 +441,7 @@ export default function GalleryPage({
 
       {/* 5. Pagination / Load More */}
       {filteredGallery.length > 9 && (
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-3 pt-8 border-t border-black/15 dark:border-white/10">
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-3 pt-8 border-t border-black/15 dark:border-white/15">
           {filteredGallery.length > visibleCount && (
             <button
               type="button"
@@ -483,7 +472,7 @@ export default function GalleryPage({
                 setVisibleCount(9);
                 window.scrollTo({ top: 250, behavior: "smooth" });
               }}
-              className="text-xs font-heading font-black text-[#DC2626] dark:text-[#FACC15] hover:underline px-3 py-2 cursor-pointer"
+              className="text-xs font-heading font-black text-[#B91C1C] dark:text-[#FACC15] hover:underline px-3 py-2 cursor-pointer"
             >
               Ciutkan Kembali (Tampilkan 9 Saja)
             </button>
@@ -492,7 +481,7 @@ export default function GalleryPage({
       )}
 
       {/* 6. Bottom Banner / CTA */}
-      <div className="mt-14 card-brutal p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div className="mt-14 card-brutal bg-white dark:bg-[#121622] border border-black/20 dark:border-white/20 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
         <div className="flex flex-col gap-1.5 text-center sm:text-left">
           <div className="badge-brutal badge-red self-center sm:self-start text-[10px] font-black">
             KOLABORASI &amp; AUDIENSI

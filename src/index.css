@@ -507,3 +507,57 @@ html.dark .border-\[2\.5px\] {
 .animate-logo-arrival {
   animation: logoPopArrival 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
+
+/* Circular Theme Spread View Transition (Top-Right to Full Screen) */
+@property --eclipse-r {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+@keyframes eclipseWaveSpread {
+  from {
+    --eclipse-r: 0px;
+  }
+  to {
+    --eclipse-r: var(--eclipse-max-r, 2400px);
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+html.theme-eclipse-active::view-transition-new(root) {
+  -webkit-mask-image: radial-gradient(
+    circle at var(--eclipse-x, 95vw) var(--eclipse-y, 56px),
+    #000 calc(var(--eclipse-r) - 180px),
+    rgba(0, 0, 0, 0.6) calc(var(--eclipse-r) - 85px),
+    rgba(0, 0, 0, 0.2) calc(var(--eclipse-r) - 30px),
+    transparent var(--eclipse-r)
+  );
+  mask-image: radial-gradient(
+    circle at var(--eclipse-x, 95vw) var(--eclipse-y, 56px),
+    #000 calc(var(--eclipse-r) - 180px),
+    rgba(0, 0, 0, 0.6) calc(var(--eclipse-r) - 85px),
+    rgba(0, 0, 0, 0.2) calc(var(--eclipse-r) - 30px),
+    transparent var(--eclipse-r)
+  );
+  animation: eclipseWaveSpread 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: none !important;
+}
