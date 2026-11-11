@@ -30,6 +30,7 @@ import {
   resetDoorprizeSessionCloud,
   formatTicketNumber,
 } from "../services/doorprizeService";
+import BrutalistConfirmModal from "./BrutalistConfirmModal";
 
 export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal }) {
   const [config, setConfig] = useState(null);
@@ -47,6 +48,14 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
   const [manualIcName, setManualIcName] = useState("");
   const [manualCitizenId, setManualCitizenId] = useState("");
   const [isAddingManual, setIsAddingManual] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    confirmText: "Ya, Lanjutkan",
+    variant: "danger",
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     const unsubCfg = subscribeDoorprizeConfigCloud((cfg) => {
@@ -206,37 +215,41 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
     }
   }
 
-  async function handleDisqualifyAndReroll(winner) {
-    const confirmed = window.confirm(
-      `Gugurkan Nomor #${winner.numberFormatted} (${winner.icName} • CID: ${winner.citizenId || "-"}) karena data berbeda dengan KTP IC, lalu langsung KOCOK ULANG penggantinya?`
-    );
-    if (!confirmed) return;
-
-    setIsSpinning(true);
-    try {
-      await runRollingAnimation(1200);
-      const res = await disqualifyAndRerollWinnerCloud(winner.ticketId, {
-        reason: "Nama IC / Citizen ID tidak sesuai dengan KTP IC",
-        autoReroll: true,
-      });
-      if (res.replacementWinner) {
-        setRollingTicket(res.replacementWinner);
-        onShowToast?.(
-          `#${winner.numberFormatted} (${winner.icName}) TIDAK SAH! Pengganti terpilih: #${res.replacementWinner.numberFormatted} (${res.replacementWinner.icName})`,
-          "success"
-        );
-      } else {
-        setRollingTicket(null);
-        onShowToast?.(
-          `#${winner.numberFormatted} (${winner.icName}) dinyatakan TIDAK SAH (Tidak ada peserta tersisa untuk dikocok ulang).`,
-          "info"
-        );
-      }
-    } catch (err) {
-      onShowToast?.("Gagal mengocok ulang: " + err.message, "error");
-    } finally {
-      setIsSpinning(false);
-    }
+  function handleDisqualifyAndReroll(winner) {
+    setConfirmModal({
+      isOpen: true,
+      title: "Gugurkan & Kocok Ulang?",
+      message: `Gugurkan Nomor #${winner.numberFormatted} (${winner.icName} • CID: ${winner.citizenId || "-"}) karena Nama IC / Citizen ID berbeda dengan KTP IC, lalu langsung KOCOK ULANG penggantinya?`,
+      confirmText: "Ya, Gugurkan & Kocok Ulang",
+      variant: "danger",
+      onConfirm: async () => {
+        setIsSpinning(true);
+        try {
+          await runRollingAnimation(1200);
+          const res = await disqualifyAndRerollWinnerCloud(winner.ticketId, {
+            reason: "Nama IC / Citizen ID tidak sesuai dengan KTP IC",
+            autoReroll: true,
+          });
+          if (res.replacementWinner) {
+            setRollingTicket(res.replacementWinner);
+            onShowToast?.(
+              `#${winner.numberFormatted} (${winner.icName}) TIDAK SAH! Pengganti terpilih: #${res.replacementWinner.numberFormatted} (${res.replacementWinner.icName})`,
+              "success"
+            );
+          } else {
+            setRollingTicket(null);
+            onShowToast?.(
+              `#${winner.numberFormatted} (${winner.icName}) dinyatakan TIDAK SAH (Tidak ada peserta tersisa untuk dikocok ulang).`,
+              "info"
+            );
+          }
+        } catch (err) {
+          onShowToast?.("Gagal mengocok ulang: " + err.message, "error");
+        } finally {
+          setIsSpinning(false);
+        }
+      },
+    });
   }
 
   async function handleAddManualParticipant(e) {
@@ -268,31 +281,43 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
     }
   }
 
-  async function handleDeleteTicket(ticket) {
-    const ok = window.confirm(
-      `Hapus Nomor #${ticket.numberFormatted || formatTicketNumber(ticket.ticketNumber)} atas nama "${ticket.icName}" (${ticket.citizenId || "-"})?`
-    );
-    if (!ok) return;
-    try {
-      await deleteDoorprizeTicketCloud(ticket.id);
-      onShowToast?.(`Nomor #${ticket.numberFormatted} dihapus.`, "info");
-    } catch (err) {
-      onShowToast?.("Gagal menghapus nomor: " + err.message, "error");
-    }
+  function handleDeleteTicket(ticket) {
+    const numStr = ticket.numberFormatted || formatTicketNumber(ticket.ticketNumber);
+    setConfirmModal({
+      isOpen: true,
+      title: `Hapus Nomor #${numStr}?`,
+      message: `Hapus Nomor #${numStr} atas nama "${ticket.icName}" (CID: ${ticket.citizenId || "-"}) dari daftar peserta doorprize?`,
+      confirmText: "Ya, Hapus Nomor",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteDoorprizeTicketCloud(ticket.id);
+          onShowToast?.(`Nomor #${numStr} dihapus.`, "info");
+        } catch (err) {
+          onShowToast?.("Gagal menghapus nomor: " + err.message, "error");
+        }
+      },
+    });
   }
 
-  async function handleResetAll() {
-    const ok = window.confirm(
-      "RESET SEMUA NOMOR & PEMENANG? Seluruh daftar nomor peserta dan riwayat pemenang saat ini akan dikosongkan untuk memulai sesi undian baru."
-    );
-    if (!ok) return;
-    try {
-      await resetDoorprizeSessionCloud();
-      setRollingTicket(null);
-      onShowToast?.("Sesi doorprize berhasil direset ke 0 peserta!", "success");
-    } catch (err) {
-      onShowToast?.("Gagal mereset sesi: " + err.message, "error");
-    }
+  function handleResetAll() {
+    setConfirmModal({
+      isOpen: true,
+      title: "Reset Semua Nomor & Pemenang?",
+      message:
+        "Seluruh daftar nomor peserta dan riwayat pemenang saat ini akan dikosongkan ke 0 untuk memulai sesi undian baru. Tindakan ini tidak dapat dibatalkan.",
+      confirmText: "Ya, Reset Sesi",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await resetDoorprizeSessionCloud();
+          setRollingTicket(null);
+          onShowToast?.("Sesi doorprize berhasil direset ke 0 peserta!", "success");
+        } catch (err) {
+          onShowToast?.("Gagal mereset sesi: " + err.message, "error");
+        }
+      },
+    });
   }
 
   function handleCopyWinnersReport() {
@@ -954,6 +979,17 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
           </div>
         )}
       </div>
+
+      <BrutalistConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText="Batal"
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

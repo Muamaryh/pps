@@ -81,11 +81,11 @@ export default function BrutalistConfirmModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-5 pb-5 pt-1 flex items-center justify-end gap-3 border-t border-black/10 dark:border-white/10 bg-slate-50/50 dark:bg-[#1A1D26]">
+        <div className="px-5 pb-5 pt-3 flex items-center justify-end gap-3 border-t border-black/10 dark:border-white/10 bg-slate-50/50 dark:bg-[#1A1D26]">
           <button
             type="button"
             onClick={onClose}
-            className="btn py-2 px-4 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] font-heading font-black text-xs uppercase cursor-pointer"
+            className="py-2 px-4 rounded-xl bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 font-heading font-black text-xs uppercase cursor-pointer transition-all"
           >
             {cancelText}
           </button>
@@ -96,7 +96,7 @@ export default function BrutalistConfirmModal({
               onConfirm();
               onClose();
             }}
-            className={`btn py-2 px-4 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:translate-x-[2px] active:translate-y-[2px] transition-all ${
+            className={`py-2 px-4 rounded-xl border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 cursor-pointer hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:translate-x-[2px] active:translate-y-[2px] transition-all ${
               confirmBtnStyles[variant] || confirmBtnStyles.danger
             }`}
           >
