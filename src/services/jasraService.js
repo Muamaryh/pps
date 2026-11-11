@@ -152,6 +152,11 @@ export function getBatchDistributions(
       .map((d) => (d.citizenId || "").trim().toUpperCase())
       .filter((c) => c && c !== "-" && !c.includes("TIDAK"))
   );
+  const existingNames = new Set(
+    list
+      .map((d) => (d.recipientName || "").trim().toUpperCase())
+      .filter(Boolean)
+  );
 
   const isLegacyBatch1 = targetBatch.id === "BATCH_PEMERINTAH_20261102";
   const batchExpiry = Number(targetBatch.expiresAt) || 0;
@@ -163,14 +168,21 @@ export function getBatchDistributions(
     if (!belongsToTarget) return;
 
     const cid = (m.icNumber || m.citizenId || "").trim().toUpperCase();
-    if (!existingMemberIds.has(m.id) && (!cid || cid === "-" || !existingCids.has(cid))) {
+    const name = (m.fullName || "").trim().toUpperCase();
+    const hasValidCid = Boolean(cid && cid !== "-" && !cid.includes("TIDAK"));
+    const isAlreadyInList =
+      existingMemberIds.has(m.id) ||
+      (hasValidCid && existingCids.has(cid)) ||
+      (name && existingNames.has(name));
+
+    if (!isAlreadyInList) {
       const givenAt = m.voucherClaimedAt || m.lastUpdatedStatusAt || targetBatch.receivedAt || Date.now();
       list.push({
         id: "DIST_" + m.id,
         batchId: targetBatch.id,
         batchName: targetBatch.batchName,
         recipientType: "MEMBER",
-        recipientName: (m.fullName || "Anggota PPS").trim().toUpperCase(),
+        recipientName: name || "ANGGOTA PPS",
         citizenId: cid || "-",
         phone: m.phone || "-",
         memberId: m.id,
@@ -189,7 +201,8 @@ export function getBatchDistributions(
         createdAt: givenAt,
       });
       existingMemberIds.add(m.id);
-      if (cid && cid !== "-") existingCids.add(cid);
+      if (hasValidCid) existingCids.add(cid);
+      if (name) existingNames.add(name);
     }
   });
 
@@ -202,14 +215,20 @@ export function getBatchDistributions(
     if (!belongsToTarget) return;
 
     const cid = (ext.citizenId || "").trim().toUpperCase();
-    if (!cid || cid === "-" || !existingCids.has(cid)) {
+    const name = (ext.fullName || "").trim().toUpperCase();
+    const hasValidCid = Boolean(cid && cid !== "-" && !cid.includes("TIDAK"));
+    const isAlreadyInList =
+      (hasValidCid && existingCids.has(cid)) ||
+      (name && existingNames.has(name));
+
+    if (!isAlreadyInList) {
       const givenAt = ext.createdAt || ext.updatedAt || targetBatch.receivedAt || Date.now();
       list.push({
         id: "DIST_" + ext.id,
         batchId: targetBatch.id,
         batchName: targetBatch.batchName,
         recipientType: "NON_MEMBER",
-        recipientName: (ext.fullName || "Warga Luar").trim().toUpperCase(),
+        recipientName: name || "WARGA LUAR",
         citizenId: cid || "-",
         phone: ext.phone || "-",
         memberId: null,
@@ -227,7 +246,8 @@ export function getBatchDistributions(
         notes: "Database Jasra Luar Anggota",
         createdAt: givenAt,
       });
-      if (cid && cid !== "-") existingCids.add(cid);
+      if (hasValidCid) existingCids.add(cid);
+      if (name) existingNames.add(name);
     }
   });
 
@@ -954,7 +974,8 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
     const data = d.data();
     if (data.batchId !== activeBatch.id) return;
     if (data.memberId) existingMap.set(`M_${data.memberId}`, d.id);
-    if (data.citizenId) existingMap.set(`C_${String(data.citizenId).toUpperCase()}`, d.id);
+    if (data.citizenId) existingMap.set(`C_${String(data.citizenId).trim().toUpperCase()}`, d.id);
+    if (data.recipientName) existingMap.set(`N_${String(data.recipientName).trim().toUpperCase()}`, d.id);
   });
 
   const isLegacyBatch1 = activeBatch.id === "BATCH_PEMERINTAH_20261102";
@@ -966,8 +987,11 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
 
   for (const m of activeMembers) {
     const key = `M_${m.id}`;
-    const cidKey = m.icNumber ? `C_${m.icNumber.toUpperCase()}` : null;
-    if (!existingMap.has(key) && (!cidKey || !existingMap.has(cidKey))) {
+    const cidUpper = String(m.icNumber || m.citizenId || "").trim().toUpperCase();
+    const nameUpper = String(m.fullName || "").trim().toUpperCase();
+    const cidKey = cidUpper && cidUpper !== "-" && !cidUpper.includes("TIDAK") ? `C_${cidUpper}` : null;
+    const nameKey = nameUpper ? `N_${nameUpper}` : null;
+    if (!existingMap.has(key) && (!cidKey || !existingMap.has(cidKey)) && (!nameKey || !existingMap.has(nameKey))) {
       const distId = isLegacyBatch1 ? "DIST_" + m.id : `DIST_${activeBatch.id}_${m.id}`;
       const givenAt = m.voucherClaimedAt || m.lastUpdatedStatusAt || activeBatch.receivedAt || Date.now();
       const distDoc = {
@@ -975,8 +999,8 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
         batchId: activeBatch.id,
         batchName: activeBatch.batchName,
         recipientType: "MEMBER",
-        recipientName: (m.fullName || "Anggota PPS").toUpperCase(),
-        citizenId: (m.icNumber || m.citizenId || "-").toUpperCase(),
+        recipientName: nameUpper || "ANGGOTA PPS",
+        citizenId: cidUpper || "-",
         phone: m.phone || "-",
         memberId: m.id,
         treatmentCount: 10,
@@ -1002,9 +1026,11 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
       (isLegacyBatch1 && !ext.batchId && (!activeBatch.expiresAt || (ext.createdAt || 0) <= activeBatch.expiresAt));
     if (!belongsToActive) continue;
 
-    const cidUpper = String(ext.citizenId || "").toUpperCase();
-    const key = `C_${cidUpper}`;
-    if (!existingMap.has(key)) {
+    const cidUpper = String(ext.citizenId || "").trim().toUpperCase();
+    const nameUpper = String(ext.fullName || "").trim().toUpperCase();
+    const cidKey = cidUpper && cidUpper !== "-" && !cidUpper.includes("TIDAK") ? `C_${cidUpper}` : null;
+    const nameKey = nameUpper ? `N_${nameUpper}` : null;
+    if ((!cidKey || !existingMap.has(cidKey)) && (!nameKey || !existingMap.has(nameKey))) {
       const distId = isLegacyBatch1 ? "DIST_" + ext.id : `DIST_${activeBatch.id}_${ext.id}`;
       const givenAt = ext.createdAt || ext.updatedAt || activeBatch.receivedAt || Date.now();
       const distDoc = {
