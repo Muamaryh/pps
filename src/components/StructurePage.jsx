@@ -593,7 +593,7 @@ export default function StructurePage({
       </div>
 
       {/* 2. Hero Banner Most Wanted & Syndicate Dossier (Adaptif Light & Dark Mode, Selaras Dokumentasi) */}
-      <div className="p-6 sm:p-8 md:p-10 mb-8 bg-white dark:bg-[#121622] border border-black/20 dark:border-white/20 shadow-[0_8px_30px_rgba(15,23,42,0.08)] dark:shadow-[0_15px_45px_rgba(0,0,0,0.85)] rounded-2xl relative overflow-hidden min-h-[320px] flex items-center transition-colors">
+      <div className="p-6 sm:p-8 md:p-10 mb-8 bg-white dark:bg-[#121622] border border-black/20 dark:border-white/20 shadow-[0_8px_30px_rgba(15,23,42,0.08)] dark:shadow-[0_15px_45px_rgba(0,0,0,0.85)] rounded-2xl relative isolate overflow-hidden min-h-[320px] flex items-center transition-colors">
         {/* Full-Height Diagonal Slash Newspaper Photo Panels (Sleek Seamless Roster Collage with Smooth Left Fade Mask) */}
         <div className="group/collage absolute -top-2 -bottom-2 right-0 w-full md:w-[68%] lg:w-[72%] xl:w-[75%] opacity-15 md:opacity-100 [mask-image:linear-gradient(108deg,transparent_4%,rgba(0,0,0,0.12)_16%,rgba(0,0,0,0.55)_28%,black_42%)] pointer-events-none md:pointer-events-auto overflow-hidden select-none">
           {/* Continuous Newspaper Masthead Watermark Across Top of Collage */}

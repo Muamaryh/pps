@@ -164,7 +164,7 @@ export default function Navbar({
   }
 
   return (
-    <header className="sticky top-[40px] sm:top-[48px] z-30 w-full max-w-7xl 2xl:max-w-[1560px] mx-auto px-3 sm:px-6 transition-all">
+    <header className="sticky top-[40px] sm:top-[48px] z-40 w-full max-w-7xl 2xl:max-w-[1560px] mx-auto px-3 sm:px-6 transition-all">
       {/* Floating Capsule Bar - Responsive to Light & Dark Mode */}
       <nav className="rounded-full px-4 sm:px-6 py-2.5 flex items-center justify-between gap-2.5 sm:gap-4 bg-[#FAF8F3]/90 dark:bg-[#07080E]/90 backdrop-blur-xl border border-black/25 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_30px_rgba(0,0,0,0.7)] select-none transition-all">
         {/* Left: Brand Identity with Circular Logo & 2 Lines Slim Typography */}

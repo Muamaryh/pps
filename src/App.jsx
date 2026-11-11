@@ -844,7 +844,7 @@ export default function App() {
       />
 
       {/* Main Content (Wide edge-to-edge max-w-[98%] 2xl:max-w-[1600px]) */}
-      <main className="flex-1 w-full max-w-[98%] 2xl:max-w-[1600px] mx-auto px-2 sm:px-4 md:px-6 py-4 sm:py-6">
+      <main className="relative z-10 isolate flex-1 w-full max-w-[98%] 2xl:max-w-[1600px] mx-auto px-2 sm:px-4 md:px-6 py-4 sm:py-6">
         {loading ? (
           <PizzaLoader />
         ) : currentPage === "gallery" ? (
