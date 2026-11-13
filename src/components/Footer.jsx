@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Shield,
   ArrowUp,
@@ -9,7 +9,9 @@ import {
   FileText,
   Compass,
   ShieldCheck,
+  Eye,
 } from "lucide-react";
+import { subscribeVisitorStatsCloud } from "../services/visitorService";
 
 export default function Footer({
   brand,
@@ -24,6 +26,17 @@ export default function Footer({
   onNavigateToGallery,
   onNavigateToHome,
 }) {
+  const [visitorStats, setVisitorStats] = useState({ totalVisitors: 1 });
+
+  useEffect(() => {
+    const unsub = subscribeVisitorStatsCloud((stats) => {
+      if (stats && stats.totalVisitors) {
+        setVisitorStats(stats);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -231,7 +244,19 @@ export default function Footer({
             . Seluruh aset, naskah manifesto, dan sistem pendaftaran dilindungi.
           </p>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2.5">
+            {/* Live Visitor Counter Badge (Sleek Modern Pill) */}
+            <div
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-white/5 border border-black/20 dark:border-white/10 text-[10.5px] font-heading font-black text-slate-800 dark:text-slate-200 shadow-sm"
+              title="Total kunjungan warga ke Portal Resmi LSM PPS"
+            >
+              <Eye size={12} className="text-[#DC2626] dark:text-[#FACC15]" />
+              <span className="text-slate-600 dark:text-slate-400 font-bold">PENGUNJUNG:</span>
+              <span className="font-mono text-xs text-[#DC2626] dark:text-[#FACC15]">
+                {Number(visitorStats.totalVisitors || 1).toLocaleString("id-ID")}
+              </span>
+            </div>
+
             <div className="badge-brutal badge-yellow text-[10px] py-1 px-3 flex items-center gap-1.5 font-bold">
               <Shield size={12} className="text-[#DC2626]" />
               <span>Portal Terverifikasi PPS</span>

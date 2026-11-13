@@ -35,6 +35,7 @@ import {
   getSavedMyTicket,
   formatTicketNumber,
 } from "./services/doorprizeService";
+import { recordVisitorHitCloud } from "./services/visitorService";
 
 export default function App() {
   const [memberCount, setMemberCount] = useState(0);
@@ -626,6 +627,9 @@ export default function App() {
         });
       }
     }
+
+    // Record visitor hit atomically (1x per browser session)
+    recordVisitorHitCloud();
 
     checkRoutes();
     window.addEventListener("popstate", checkRoutes);
