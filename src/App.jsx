@@ -398,6 +398,14 @@ export default function App() {
     return "jasra";
   });
 
+  // Modal Salurkan Donasi Warga (/donasi or #donasi)
+  const [donationModalOpen, setDonationModalOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const path = window.location.pathname.toLowerCase().replace(/\/+$/, "");
+    const hash = window.location.hash.toLowerCase().replace(/\/+$/, "");
+    return path === "/donasi" || path.endsWith("/donasi") || hash === "#/donasi" || hash === "#donasi";
+  });
+
   // Dedicated Page Routing (default 'home', can be 'gallery' for #/dokumentasi or 'structure' for #/struktur)
   const [currentPage, setCurrentPage] = useState(() => {
     if (typeof window === "undefined") return "home";
@@ -607,6 +615,20 @@ export default function App() {
       } else {
         setTransparencyModalOpen(false);
       }
+
+      // 8. Check Donation Route (/donasi, /donate, #donasi)
+      if (
+        path === "/donasi" ||
+        path.endsWith("/donasi") ||
+        path === "/donate" ||
+        path.endsWith("/donate") ||
+        hash === "#/donasi" ||
+        hash === "#donasi"
+      ) {
+        setDonationModalOpen(true);
+      } else {
+        setDonationModalOpen(false);
+      }
     }
 
     function handleKeyDown(e) {
@@ -680,6 +702,23 @@ export default function App() {
       window.location.hash.includes("transparansi") ||
       window.location.hash.includes("laporan")
     ) {
+      window.history.pushState(null, "", "/");
+    }
+  }
+
+  function handleOpenDonation() {
+    setDonationModalOpen(true);
+    if (!window.location.pathname.includes("/donasi")) {
+      window.history.pushState(null, "", "/donasi");
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("pps:open-donasi"));
+    }
+  }
+
+  function handleCloseDonation() {
+    setDonationModalOpen(false);
+    if (window.location.pathname.includes("/donasi") || window.location.hash.includes("donasi")) {
       window.history.pushState(null, "", "/");
     }
   }
@@ -906,7 +945,11 @@ export default function App() {
         </div>
 
         {/* Notice Bar Orang Baik (Lebar Mentok Kiri-Kanan Di Atas Headbar) */}
-        <DonorsSection onOpenTransparency={handleOpenTransparency} />
+        <DonorsSection
+          onOpenTransparency={handleOpenTransparency}
+          isOpen={donationModalOpen}
+          onClose={handleCloseDonation}
+        />
       </div>
 
       {/* Top Navbar */}
@@ -1078,12 +1121,13 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Action Buttons: Anggota LSM PPS & Daftar Layanan */}
+      {/* Floating Action Buttons: Anggota LSM PPS, Daftar Layanan & Donasi Warga */}
       <FloatingActions
         memberCount={memberCount}
         onOpenRegister={handleOpenRegister}
         onOpenServicePortal={handleOpenServicePortal}
         onOpenMembersDirectory={handleOpenMembersDirectory}
+        onOpenDonation={handleOpenDonation}
       />
 
       {/* Footer */}

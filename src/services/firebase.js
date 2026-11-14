@@ -255,11 +255,30 @@ export async function loadCloudData() {
     let rawData = docSnap.exists() ? docSnap.data() : { ...defaultData };
     let data = sanitizeDiscordLinks(mergeWithDefaults(sanitizeSandyShores(rawData)));
 
-    // 1. Load Org members from separate doc if available
+    // 1. Load Org members from chunks or separate doc if available (HD Uncapped Capacity)
     try {
-      const orgSnap = await getDoc(doc(db, "pps_website", "org"));
-      if (orgSnap.exists() && Array.isArray(orgSnap.data()?.items)) {
-        data.org = orgSnap.data().items;
+      const orgMetaSnap = await getDoc(doc(db, "pps_website", "org_meta"));
+      if (orgMetaSnap.exists()) {
+        const { chunkCount } = orgMetaSnap.data();
+        const promises = [];
+        for (let i = 0; i < (chunkCount || 1); i++) {
+          promises.push(getDoc(doc(db, "pps_website", "org_" + i)));
+        }
+        const chunkSnaps = await Promise.all(promises);
+        let loadedOrg = [];
+        chunkSnaps.forEach((s) => {
+          if (s.exists() && Array.isArray(s.data()?.items)) {
+            loadedOrg = loadedOrg.concat(s.data().items);
+          }
+        });
+        if (loadedOrg.length > 0) {
+          data.org = loadedOrg;
+        }
+      } else {
+        const orgSnap = await getDoc(doc(db, "pps_website", "org"));
+        if (orgSnap.exists() && Array.isArray(orgSnap.data()?.items)) {
+          data.org = orgSnap.data().items;
+        }
       }
     } catch (e) {
       console.warn("Notice loading org collection:", e);
@@ -331,11 +350,49 @@ export async function saveCloudData(newData) {
     const timestamp = new Date().toISOString();
     const tasks = [];
 
-    // 1. Save Org to pps_website/org (Dedicated 1MB limit for members)
+    // 1. Save Org with automatic chunking (Uncapped capacity, supports unlimited HD crystal-clear photos!)
     const orgItems = newData.org || [];
+    const orgChunks = chunkArray(orgItems, 350000);
+
+    // Clean up any leftover org chunks from previous saves
+    try {
+      const orgMetaSnap = await getDoc(doc(db, "pps_website", "org_meta"));
+      if (orgMetaSnap.exists()) {
+        const prevCount = orgMetaSnap.data()?.chunkCount || 0;
+        for (let i = orgChunks.length; i < prevCount; i++) {
+          tasks.push(deleteDoc(doc(db, "pps_website", "org_" + i)));
+        }
+      }
+    } catch (cleanErr) {
+      console.warn("Notice checking old org chunks:", cleanErr);
+    }
+
+    if (orgChunks.length > 1) {
+      tasks.push(
+        setDoc(doc(db, "pps_website", "org_meta"), {
+          chunkCount: orgChunks.length,
+          totalItems: orgItems.length,
+          updatedAt: timestamp,
+        })
+      );
+      orgChunks.forEach((chunk, i) => {
+        tasks.push(
+          setDoc(doc(db, "pps_website", "org_" + i), {
+            items: chunk,
+            updatedAt: timestamp,
+          })
+        );
+      });
+    } else {
+      try {
+        tasks.push(deleteDoc(doc(db, "pps_website", "org_meta")));
+      } catch {}
+    }
+
+    // Always keep primary doc for backward compatibility
     tasks.push(
       setDoc(doc(db, "pps_website", "org"), {
-        items: orgItems,
+        items: orgChunks[0] || orgItems,
         updatedAt: timestamp,
       })
     );

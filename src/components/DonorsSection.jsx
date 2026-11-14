@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   ChevronRight,
@@ -137,8 +137,16 @@ function parseDonorFromKasTx(tx) {
   };
 }
 
-export default function DonorsSection() {
-  const [modalOpen, setModalOpen] = useState(false);
+export default function DonorsSection({ isOpen: externalIsOpen, onClose: externalOnClose }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const modalOpen = externalIsOpen !== undefined ? externalIsOpen : internalOpen;
+  const setModalOpen = useCallback(
+    (val) => {
+      setInternalOpen(val);
+      if (!val && externalOnClose) externalOnClose();
+    },
+    [externalOnClose]
+  );
   const [donors, setDonors] = useState(FALLBACK_DONORS);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
@@ -156,6 +164,16 @@ export default function DonorsSection() {
   const [selectedMonthKey, setSelectedMonthKey] = useState(
     () => currentMonthInfo.monthKey
   );
+
+  // Dukungan trigger pembukaan modal dari tombol donasi eksternal (FloatingActions, dll)
+  useEffect(() => {
+    function handleOpenEvent() {
+      setSelectedMonthKey(currentMonthInfo.monthKey);
+      setInternalOpen(true);
+    }
+    window.addEventListener("pps:open-donasi", handleOpenEvent);
+    return () => window.removeEventListener("pps:open-donasi", handleOpenEvent);
+  }, [currentMonthInfo.monthKey]);
 
   useEffect(() => {
     // Muat & langganan langsung dari buku kas keuangan (Kategori: Donasi Sukarela & Warga)
@@ -188,7 +206,7 @@ export default function DonorsSection() {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [modalOpen]);
+  }, [modalOpen, setModalOpen]);
 
   // Filter donatur khusus untuk running text di bulan berjalan (reset otomatis tiap ganti bulan)
   const currentMonthDonors = useMemo(() => {

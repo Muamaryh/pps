@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { UserPlus, Users, Store, X, ChevronUp, ArrowUp } from "lucide-react";
+import { Users, Store, Heart, X, ChevronUp, ArrowUp } from "lucide-react";
 
 export default function FloatingActions({
   onOpenRegister,
   onOpenServicePortal,
   onOpenMembersDirectory,
+  onOpenDonation,
   memberCount = 58,
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -129,6 +130,31 @@ export default function FloatingActions({
             </div>
             <span className="text-[10px] font-mono bg-black/25 text-white px-1.5 py-0.5 rounded-md font-bold">
               PORTAL
+            </span>
+          </button>
+
+          {/* 3. Donasi Warga */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              if (onOpenDonation) {
+                onOpenDonation();
+              } else if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("pps:open-donasi"));
+              }
+            }}
+            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
+            title="Salurkan Donasi Warga & Lihat Rekapitulasi Orang Baik"
+          >
+            <div className="w-7 h-7 rounded-lg bg-white/20 text-[#FACC15] flex items-center justify-center shrink-0 shadow-sm">
+              <Heart size={15} className="fill-current text-[#FACC15]" />
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="leading-tight">Donasi Warga</span>
+            </div>
+            <span className="text-[10px] font-mono bg-black/25 text-white px-1.5 py-0.5 rounded-md font-bold">
+              SOSIAL
             </span>
           </button>
         </div>

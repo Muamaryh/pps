@@ -1250,7 +1250,7 @@ export default function AdminModal({
       if (field === "profilePhoto") {
         onShowToast("Foto profil baru siap disimpan!", "info");
       }
-    }, 720, 0.65);
+    }, 1200, 0.88);
 
     // Jika yang diunggah adalah Dokumen KTP, jalankan pemindaian OCR (Gemini Vision AI Anti-Typo) yang sama
     if (field === "icPhoto") {
@@ -1985,8 +1985,8 @@ export default function AdminModal({
     }
   }
 
-  // Image Compressor via Canvas
-  function compressImage(file, callback, maxSize = 720, quality = 0.55) {
+  // Smart HD Image Compressor via Canvas (Max ~1MB ceiling, crystal clear non-burik resolution)
+  function compressImage(file, callback, maxSize = 1200, quality = 0.88) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
@@ -1995,15 +1995,31 @@ export default function AdminModal({
         let width = img.width;
         let height = img.height;
         if (width > height) {
-          if (width > maxSize) { height *= maxSize / width; width = maxSize; }
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          }
         } else {
-          if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
         }
         canvas.width = Math.round(width);
         canvas.height = Math.round(height);
         const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const compressed = canvas.toDataURL("image/jpeg", quality);
+
+        let outputQuality = quality;
+        let compressed = canvas.toDataURL("image/jpeg", outputQuality);
+
+        // Safety guard: if output base64 somehow exceeds 1MB (~1.33M characters), adjust quality gracefully
+        if (compressed.length > 1300000 && outputQuality > 0.75) {
+          compressed = canvas.toDataURL("image/jpeg", 0.78);
+        }
+
         callback(compressed);
       };
       img.src = e.target.result;
@@ -2130,7 +2146,7 @@ export default function AdminModal({
         photo: base64,
       }));
       onShowToast("Foto kepala divisi siap disimpan!", "info");
-    }, 400, 0.65);
+    }, 1200, 0.88);
   }
 
   function handleAddDivisionSubMember() {
@@ -2230,7 +2246,7 @@ export default function AdminModal({
     compressImage(file, (base64) => {
       handleMemberChange(index, "photo", base64);
       onShowToast("Foto profil berhasil diunggah!", "success");
-    }, 320, 0.65);
+    }, 1200, 0.88);
   }
 
   function handleSubMemberPhoto(memberIndex, subIndex, file) {
@@ -2248,7 +2264,7 @@ export default function AdminModal({
         return { ...prev, org: newOrg };
       });
       onShowToast("Foto staf divisi berhasil diunggah!", "success");
-    }, 280, 0.65);
+    }, 960, 0.88);
   }
 
   function handleAddSubMember(memberIndex) {

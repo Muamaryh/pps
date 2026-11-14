@@ -4,7 +4,6 @@ import {
   Users,
   Crown,
   Shield,
-  ShieldAlert,
   Zap,
   Briefcase,
   Compass,
@@ -95,8 +94,8 @@ export default function StructurePage({
   onOpenLightbox,
   onNavigateHome,
 }) {
-  // Set of member names whose team drawer is open (default: empty, all closed)
-  const [expandedTeams, setExpandedTeams] = useState(new Set());
+  // Set of member names whose team drawer has been manually collapsed (default: empty -> all teams with members are automatically open)
+  const [collapsedTeams, setCollapsedTeams] = useState(new Set());
 
   // Active Tier Titles with authentic Indonesian LSM fallback
   const activeTierTitles = useMemo(() => ({
@@ -126,11 +125,12 @@ export default function StructurePage({
     });
     prevRectsRef.current = rects;
 
-    // 2. Toggle expanded state
-    setExpandedTeams((prev) => {
-      const next = new Set();
-      // If already open, close it; otherwise open only this one to keep layout elegant
-      if (!prev.has(memberName)) {
+    // 2. Toggle collapsed state for this specific member
+    setCollapsedTeams((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberName)) {
+        next.delete(memberName);
+      } else {
         next.add(memberName);
       }
       return next;
@@ -172,7 +172,7 @@ export default function StructurePage({
     });
 
     prevRectsRef.current.clear();
-  }, [expandedTeams]);
+  }, [collapsedTeams]);
 
   // Total people count (leaders + subordinate staff)
   const totalPeopleCount = useMemo(() => {
@@ -296,7 +296,7 @@ export default function StructurePage({
 
     const subMembers = getSubMembers(member);
     const hasSubMembers = subMembers.length > 0;
-    const isExpanded = expandedTeams.has(member.name);
+    const isExpanded = hasSubMembers && !collapsedTeams.has(member.name);
     const isKetua = tierType === "ketua";
     const roleDesc =
       member.desc?.trim() || getAutoRoleDesc(member.role, isKetua);
@@ -456,7 +456,11 @@ export default function StructurePage({
                         : "bg-[#FACC15] text-[#111827] border-[#1A1A1A]"
                       : "bg-[#F7F5EE] hover:bg-[#FACC15] text-slate-900 hover:text-[#111827] border-[#1A1A1A]/30 hover:border-black dark:bg-[#1B2133] dark:hover:bg-[#FACC15] dark:text-slate-100 dark:hover:text-[#111827] dark:border-white/25 dark:hover:border-black"
                   }`}
-                  title={`Lihat anggota tim di bawah ${member.role}`}
+                  title={
+                    isExpanded
+                      ? `Tutup daftar anggota tim ${member.role}`
+                      : `Lihat anggota tim ${member.role}`
+                  }
                 >
                   <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
                     <Users
