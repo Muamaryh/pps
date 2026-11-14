@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, Upload, Loader2, Layers } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -35,6 +35,8 @@ import {
   deleteDismissedMemberPermanentlyCloud,
   exportDismissedMembersToExcel,
   formatDismissedDateTime,
+  cleanupDuplicateMembersCloud,
+  updateMemberProfileCloud,
 } from "../services/memberService";
 import { scanKtpImage, getGeminiApiKey, setGeminiApiKey } from "../utils/ktpOcr";
 import {
@@ -352,6 +354,31 @@ export default function AdminModal({
     reason: "",
     dismissedBy: "Pengurus LSM PPS",
     isSubmitting: false,
+  });
+
+  // Edit Member Profile Modal State (Ganti Identitas / Foto / KTP / No HP)
+  const [editMemberModal, setEditMemberModal] = useState({
+    isOpen: false,
+    member: null,
+    fullName: "",
+    icNumber: "",
+    phone: "",
+    profilePhoto: "",
+    icPhoto: "",
+    isSubmitting: false,
+  });
+  const [isScanningEditKtp, setIsScanningEditKtp] = useState(false);
+  const [editKtpOcrResult, setEditKtpOcrResult] = useState(null);
+
+  // Modal Tambah Divisi / Jabatan Baru
+  const [addDivisionModal, setAddDivisionModal] = useState({
+    isOpen: false,
+    level: 4,
+    role: "",
+    name: "",
+    desc: "",
+    photo: "",
+    subMembers: [],
   });
 
   const [memberTabSubView, setMemberTabSubView] = useState("members"); // 'members' | 'external_jasra'
@@ -1176,6 +1203,156 @@ export default function AdminModal({
     }
   }
 
+  // Handler: Periksa & Bersihkan Data Duplikat di Database
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+  async function handleAuditAndCleanDuplicates() {
+    setIsCleaningDuplicates(true);
+    try {
+      const result = await cleanupDuplicateMembersCloud();
+      if (result.deletedCount > 0) {
+        onShowToast(`Berhasil merapikan database! ${result.deletedCount} data anggota duplikat telah dihapus.`, "success");
+      } else {
+        onShowToast("Database bersih! Tidak ada data anggota duplikat yang ditemukan.", "info");
+      }
+    } catch (err) {
+      console.error("Clean duplicates err:", err);
+      onShowToast("Gagal memeriksa data duplikat di database.", "error");
+    } finally {
+      setIsCleaningDuplicates(false);
+    }
+  }
+
+  // Handlers for Edit Member Profile
+  function handleOpenEditMemberModal(member) {
+    if (!member) return;
+    setIsScanningEditKtp(false);
+    setEditKtpOcrResult(null);
+    setEditMemberModal({
+      isOpen: true,
+      member,
+      fullName: member.fullName || "",
+      icNumber: member.icNumber || "",
+      phone: member.phone || "",
+      profilePhoto: member.profilePhoto || "",
+      icPhoto: member.icPhoto || "",
+      isSubmitting: false,
+    });
+  }
+
+  function handleEditMemberPhotoUpload(file, field) {
+    if (!file) return;
+
+    compressImage(file, (compressedBase64) => {
+      setEditMemberModal((prev) => ({
+        ...prev,
+        [field]: compressedBase64,
+      }));
+      if (field === "profilePhoto") {
+        onShowToast("Foto profil baru siap disimpan!", "info");
+      }
+    }, 720, 0.65);
+
+    // Jika yang diunggah adalah Dokumen KTP, jalankan pemindaian OCR (Gemini Vision AI Anti-Typo) yang sama
+    if (field === "icPhoto") {
+      setIsScanningEditKtp(true);
+      setEditKtpOcrResult(null);
+      onShowToast("Sedang memindai KTP dengan AI Vision OCR...", "info");
+
+      scanKtpImage(file)
+        .then((res) => {
+          const fields = res?.fields || res || {};
+          const detectedName = (
+            fields.fullName ||
+            [fields.firstName, fields.lastName].filter(Boolean).join(" ").trim() ||
+            fields.name ||
+            ""
+          ).toUpperCase();
+
+          const detectedCid = (
+            fields.citizenId ||
+            (fields.citizenIdCandidates && fields.citizenIdCandidates[0]) ||
+            ""
+          ).toUpperCase();
+
+          if (detectedName || detectedCid) {
+            setEditMemberModal((prev) => ({
+              ...prev,
+              fullName: detectedName || prev.fullName,
+              icNumber: detectedCid || prev.icNumber,
+            }));
+            setEditKtpOcrResult({ name: detectedName, cid: detectedCid });
+            onShowToast(
+              `KTP berhasil dipindai AI OCR! ${detectedName ? `Nama: ${detectedName}` : ""} ${detectedCid ? `• CID: ${detectedCid}` : ""}`,
+              "success"
+            );
+          } else {
+            onShowToast("Foto KTP berhasil diunggah. Silakan sesuaikan Nama & No KTP manual jika perlu.", "info");
+          }
+        })
+        .catch((err) => {
+          console.warn("Scan KTP edit modal notice:", err);
+          onShowToast("Foto KTP diunggah. Anda tetap dapat menyesuaikan Nama & No KTP secara manual.", "info");
+        })
+        .finally(() => {
+          setIsScanningEditKtp(false);
+        });
+    }
+  }
+
+  async function handleSaveEditMember(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!editMemberModal.member) return;
+
+    const cleanName = (editMemberModal.fullName || "").trim().toUpperCase();
+    const cleanCid = (editMemberModal.icNumber || "").trim().toUpperCase();
+    const cleanPhone = (editMemberModal.phone || "").trim();
+
+    if (!cleanName) {
+      onShowToast("Nama Lengkap IC wajib diisi!", "error");
+      return;
+    }
+    if (!cleanCid) {
+      onShowToast("Citizen ID (No KTP IC) wajib diisi!", "error");
+      return;
+    }
+
+    setEditMemberModal((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      const payload = {
+        fullName: cleanName,
+        icNumber: cleanCid,
+        phone: cleanPhone,
+        profilePhoto: editMemberModal.profilePhoto,
+        icPhoto: editMemberModal.icPhoto,
+      };
+
+      await updateMemberProfileCloud(editMemberModal.member.id, payload);
+
+      setMembersList((prev) =>
+        prev.map((m) =>
+          m.id === editMemberModal.member.id ? { ...m, ...payload } : m
+        )
+      );
+
+      onShowToast(`Data anggota "${cleanName}" berhasil diperbarui!`, "success");
+      setEditMemberModal({
+        isOpen: false,
+        member: null,
+        fullName: "",
+        icNumber: "",
+        phone: "",
+        profilePhoto: "",
+        icPhoto: "",
+        isSubmitting: false,
+      });
+    } catch (err) {
+      console.error("Gagal update profil anggota:", err);
+      onShowToast("Gagal memperbarui data: " + (err.message || "Terjadi kesalahan"), "error");
+    } finally {
+      setEditMemberModal((prev) => ({ ...prev, isSubmitting: false }));
+    }
+  }
+
   // Handlers for Dismissed Members (Keluarkan Anggota & Arsip Riwayat)
   function handleOpenDismissModal(member) {
     if (!member) return;
@@ -1871,13 +2048,164 @@ export default function AdminModal({
     }));
   }
 
-  // Member Management
+  // Member & Division Management
+  const DIVISION_PRESETS = [
+    {
+      label: "Keamanan & Satgas",
+      role: "Divisi Keamanan & Satgas Wilayah",
+      level: 5,
+      desc: "Pengamanan teritorial, ketertiban lapak usaha, dan perlindungan warga Sandy Shores.",
+    },
+    {
+      label: "Penggerak Lapangan",
+      role: "Koordinator Penggerak Lapangan",
+      level: 5,
+      desc: "Mobilisasi warga, koordinasi pergerakan massa aksi sosial, dan pendampingan lapangan.",
+    },
+    {
+      label: "Humas & Hubungan Warga",
+      role: "Divisi Humas & Hubungan Warga",
+      level: 4,
+      desc: "Komunikasi publik, sosialisasi program kerja, dan penerimaan aspirasi warga.",
+    },
+    {
+      label: "Logistik & Aset",
+      role: "Divisi Logistik & Inventaris Komunitas",
+      level: 4,
+      desc: "Pengelolaan aset paguyuban, distribusi tenda UMKM, dan perlengkapan kegiatan warga.",
+    },
+    {
+      label: "Hukum & Advokasi",
+      role: "Divisi Hukum, Advokasi & Kebijakan",
+      level: 4,
+      desc: "Bantuan advokasi warga dan perizinan operasional bersama pemerintah kota.",
+    },
+    {
+      label: "Medis & Tanggap Darurat",
+      role: "Divisi Medis & Tanggap Darurat",
+      level: 4,
+      desc: "Pertolongan pertama medis warga, koordinasi voucher Jasra, dan bantuan darurat.",
+    },
+    {
+      label: "Acara & Olahraga",
+      role: "Divisi Acara, Olahraga & Kreatif",
+      level: 4,
+      desc: "Penyelenggaraan event turnamen, senam sehat, dan kegiatan kebersamaan warga.",
+    },
+    {
+      label: "Pemberdayaan UMKM",
+      role: "Divisi Pemberdayaan Ekonomi & UMKM",
+      level: 4,
+      desc: "Pembinaan stand usaha mandiri, perizinan lapak dagang, dan pameran produk warga.",
+    },
+  ];
+
+  function handleOpenAddDivisionModal() {
+    setAddDivisionModal({
+      isOpen: true,
+      level: 4,
+      role: "",
+      name: "",
+      desc: "",
+      photo: "",
+      subMembers: [],
+    });
+  }
+
+  function handleSelectDivisionPreset(preset) {
+    if (!preset) return;
+    setAddDivisionModal((prev) => ({
+      ...prev,
+      role: preset.role,
+      level: preset.level,
+      desc: preset.desc,
+    }));
+  }
+
+  function handleAddDivisionPhoto(file) {
+    if (!file) return;
+    compressImage(file, (base64) => {
+      setAddDivisionModal((prev) => ({
+        ...prev,
+        photo: base64,
+      }));
+      onShowToast("Foto kepala divisi siap disimpan!", "info");
+    }, 400, 0.65);
+  }
+
+  function handleAddDivisionSubMember() {
+    setAddDivisionModal((prev) => ({
+      ...prev,
+      subMembers: [
+        ...(prev.subMembers || []),
+        { name: "", role: `Staf ${prev.role || "Divisi"}`, photo: "" },
+      ],
+    }));
+  }
+
+  function handleRemoveDivisionSubMember(sIdx) {
+    setAddDivisionModal((prev) => {
+      const next = [...(prev.subMembers || [])];
+      next.splice(sIdx, 1);
+      return { ...prev, subMembers: next };
+    });
+  }
+
+  function handleDivisionSubMemberChange(sIdx, field, val) {
+    setAddDivisionModal((prev) => {
+      const next = [...(prev.subMembers || [])];
+      next[sIdx] = { ...next[sIdx], [field]: val };
+      return { ...prev, subMembers: next };
+    });
+  }
+
+  function handleSaveAddDivision(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!addDivisionModal.role.trim()) {
+      onShowToast("Nama divisi atau jabatan wajib diisi!", "error");
+      return;
+    }
+    if (!addDivisionModal.name.trim()) {
+      onShowToast("Nama kepala / koordinator divisi wajib diisi!", "error");
+      return;
+    }
+
+    const newDivision = {
+      level: Number(addDivisionModal.level) || 4,
+      role: addDivisionModal.role.trim(),
+      name: addDivisionModal.name.trim().toUpperCase(),
+      desc: addDivisionModal.desc.trim(),
+      photo: addDivisionModal.photo || "",
+      subMembers: (addDivisionModal.subMembers || []).filter((s) => s.name && s.name.trim()),
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      org: [...(prev.org || []), newDivision],
+    }));
+
+    onShowToast(
+      `Divisi "${newDivision.role}" berhasil ditambahkan! Jangan lupa klik "Simpan Perubahan" di pojok kanan atas.`,
+      "success"
+    );
+
+    setAddDivisionModal({
+      isOpen: false,
+      level: 4,
+      role: "",
+      name: "",
+      desc: "",
+      photo: "",
+      subMembers: [],
+    });
+  }
+
   function handleAddMember() {
     setFormData((prev) => ({
       ...prev,
-      org: [...prev.org, { level: 3, role: "Jabatan Baru", name: "Nama Anggota", photo: "" }]
+      org: [...prev.org, { level: 4, role: "Divisi Baru", name: "Nama Pejabat", photo: "" }]
     }));
-    onShowToast("Baris anggota baru ditambahkan", "info");
+    onShowToast("Baris divisi baru ditambahkan", "info");
   }
 
   function handleRemoveMember(index) {
@@ -3244,7 +3572,7 @@ export default function AdminModal({
                         </label>
                         <input
                           type="text"
-                          placeholder="Wakil Ketua Umum & Komando Lapangan"
+                          placeholder="Wakil Ketua Umum"
                           value={formData.orgTierTitles?.tier2Right || ""}
                           onChange={(e) => handleTierTitleChange("tier2Right", e.target.value)}
                           className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
@@ -3277,18 +3605,37 @@ export default function AdminModal({
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <span className="font-heading font-black text-xs uppercase text-slate-800 dark:text-slate-200">
-                      Total: {formData.org?.length || 0} Pengurus
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleAddMember}
-                      className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 shadow-xs"
-                    >
-                      <Plus size={14} className="text-[#DC2626]" />
-                      <span>Tambah Anggota</span>
-                    </button>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5">
+                    <div>
+                      <span className="font-heading font-black text-xs uppercase text-slate-800 dark:text-slate-200 block">
+                        Daftar Pengurus &amp; Divisi ({formData.org?.length || 0} Posisi)
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-mono block">
+                        Kelola struktur pimpinan, kepala divisi, dan staf tim
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleOpenAddDivisionModal}
+                        className="btn text-xs py-1.5 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-[#111827] font-black border border-black/20 shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                        title="Tambah divisi baru dengan panduan template & jabatan"
+                      >
+                        <Plus size={14} className="text-[#DC2626]" />
+                        <span>Tambah Divisi</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleAddMember}
+                        className="btn text-xs py-1.5 px-2.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border border-black/15 dark:border-white/10 shadow-xs flex items-center gap-1 cursor-pointer"
+                        title="Tambah baris jabatan manual kosong"
+                      >
+                        <Plus size={13} />
+                        <span>Baris Manual</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-3">
@@ -3297,10 +3644,23 @@ export default function AdminModal({
                         key={idx}
                         className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2.5"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="card-label text-[11px] text-slate-700 dark:text-slate-300">
-                            Anggota #{idx + 1}
-                          </span>
+                        <div className="flex items-center justify-between gap-2 flex-wrap pb-1 border-b border-black/10 dark:border-white/10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="card-label text-[11px] font-black text-slate-900 dark:text-slate-100 truncate">
+                              #{idx + 1} {member.role || "Jabatan Belum Diisi"}
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 font-bold shrink-0">
+                              {Number(member.level) === 1
+                                ? "Tingkat 1 (Pimpinan)"
+                                : Number(member.level) === 2
+                                ? "Tingkat 2 (Penasihat)"
+                                : Number(member.level) === 3
+                                ? "Tingkat 3 (Wakil)"
+                                : Number(member.level) === 4
+                                ? "Tingkat 4 (BPH / Divisi)"
+                                : "Tingkat 5 (Satgas / Korda)"}
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleRemoveMember(idx)}
@@ -4179,6 +4539,17 @@ export default function AdminModal({
                         <Archive size={15} />
                         <span>{isExportingZip ? "Membuat ZIP..." : "Backup ZIP (+ Foto)"}</span>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={handleAuditAndCleanDuplicates}
+                        disabled={isCleaningDuplicates || membersList.length === 0}
+                        className="btn py-2 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-heading font-black border border-amber-600/70 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        title="Audit database dan hapus data anggota duplikat secara otomatis"
+                      >
+                        <ShieldAlert size={15} className="text-slate-950" />
+                        <span>{isCleaningDuplicates ? "Memeriksa..." : "Bersihkan Duplikat"}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -4670,8 +5041,18 @@ export default function AdminModal({
                                 )}
                               </div>
 
-                              {/* Right: Tombol Keluarkan & Hapus */}
+                              {/* Right: Tombol Edit, Keluarkan & Hapus */}
                               <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditMemberModal(member)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-sans font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
+                                  title="Edit data identitas & dokumen anggota (nama IC, no HP, foto profil, KTP)"
+                                >
+                                  <Edit2 size={11} className="text-amber-700 dark:text-amber-400 shrink-0" />
+                                  <span>Edit</span>
+                                </button>
+
                                 <button
                                   type="button"
                                   onClick={() => handleOpenDismissModal(member)}
@@ -8269,6 +8650,503 @@ export default function AdminModal({
                 >
                   <UserMinus size={14} />
                   <span>{dismissModal.isSubmitting ? "Memproses..." : "Konfirmasi Keluarkan Anggota"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dialog: Edit Profil & Dokumen Anggota */}
+      {editMemberModal.isOpen && editMemberModal.member && (
+        <div
+          onClick={() => {
+            if (!editMemberModal.isSubmitting) {
+              setEditMemberModal((prev) => ({ ...prev, isOpen: false, member: null }));
+            }
+          }}
+          className="fixed inset-0 z-[130] bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="p-4 sm:p-6 bg-white dark:bg-[#1E212B] border border-black/20 dark:border-white/15 max-w-xl w-full rounded-2xl overflow-hidden flex flex-col gap-4 shadow-2xl max-h-[92vh] overflow-y-auto select-text"
+          >
+            {/* Header Modal */}
+            <div className="flex items-center justify-between w-full pb-3 border-b border-black/15 dark:border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950 border border-amber-500/80 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0 shadow-xs">
+                  <Edit2 size={18} />
+                </div>
+                <div>
+                  <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                    Edit Identitas Anggota
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    Perbarui nama IC, Citizen ID, no HP, atau perbaiki foto profil & KTP
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={editMemberModal.isSubmitting}
+                onClick={() => setEditMemberModal((prev) => ({ ...prev, isOpen: false, member: null }))}
+                className="w-8 h-8 rounded-lg border border-black/15 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Tutup (Esc)"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Form Edit */}
+            <form onSubmit={handleSaveEditMember} className="flex flex-col gap-4">
+              {/* Nama IC & No KTP */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Nama Lengkap IC <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editMemberModal.fullName}
+                    onChange={(e) => setEditMemberModal((prev) => ({ ...prev, fullName: e.target.value.toUpperCase() }))}
+                    placeholder="Contoh: LEENO HAN"
+                    className="input-field w-full px-3 py-2 text-xs font-bold uppercase bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">Sesuai nama KTP IC terbaru</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Citizen ID (No KTP) <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editMemberModal.icNumber}
+                    onChange={(e) => setEditMemberModal((prev) => ({ ...prev, icNumber: e.target.value.toUpperCase().replace(/\s+/g, "") }))}
+                    placeholder="Contoh: E8P9Y93R"
+                    className="input-field w-full px-3 py-2 text-xs font-mono font-bold uppercase bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">ID unik warga di Los Santos</span>
+                </div>
+              </div>
+
+              {/* No Telepon / WA */}
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                  Nomor Telepon / WA (IC)
+                </label>
+                <div className="relative">
+                  <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={editMemberModal.phone}
+                    onChange={(e) => setEditMemberModal((prev) => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Contoh: 88919658"
+                    className="input-field w-full pl-9 pr-3 py-2 text-xs font-mono bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Upload Foto Profil & KTP */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-black/10 dark:border-white/10">
+                {/* Foto Profil */}
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#15171F] border border-black/15 dark:border-white/10 flex flex-col gap-2">
+                  <span className="text-[11px] font-heading font-black uppercase text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Camera size={13} className="text-amber-600" />
+                    <span>Foto Profil Karakter</span>
+                  </span>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-full border border-black/20 dark:border-white/15 overflow-hidden shrink-0 bg-amber-100 flex items-center justify-center">
+                      {editMemberModal.profilePhoto ? (
+                        <img
+                          src={editMemberModal.profilePhoto}
+                          alt="Profil"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="font-heading font-black text-sm text-[#DC2626]">
+                          {(editMemberModal.fullName || "P").charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                      <label className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border border-black/20 shadow-xs cursor-pointer active:scale-95 transition-all text-center">
+                        <Upload size={13} />
+                        <span>Ganti Foto Profil</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleEditMemberPhotoUpload(e.target.files[0], "profilePhoto");
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {editMemberModal.profilePhoto !== editMemberModal.member?.profilePhoto && (
+                        <button
+                          type="button"
+                          onClick={() => setEditMemberModal((prev) => ({ ...prev, profilePhoto: prev.member?.profilePhoto || "" }))}
+                          className="text-[10px] font-mono text-rose-600 hover:underline text-left cursor-pointer"
+                        >
+                          Batalkan perubahan foto
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Foto KTP IC */}
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#15171F] border border-black/15 dark:border-white/10 flex flex-col gap-2">
+                  <span className="text-[11px] font-heading font-black uppercase text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <FileText size={13} className="text-[#DC2626]" />
+                    <span>Dokumen KTP IC</span>
+                  </span>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-lg border border-black/20 dark:border-white/15 overflow-hidden shrink-0 bg-slate-200 dark:bg-slate-800 flex items-center justify-center">
+                      {editMemberModal.icPhoto ? (
+                        <img
+                          src={editMemberModal.icPhoto}
+                          alt="KTP"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[9px] font-mono text-slate-400 italic">Tanpa KTP</span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                      <label className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/15 dark:border-white/10 shadow-xs cursor-pointer active:scale-95 transition-all text-center">
+                        <Upload size={13} />
+                        <span>Ganti Foto KTP</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleEditMemberPhotoUpload(e.target.files[0], "icPhoto");
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {isScanningEditKtp && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-1 rounded border border-amber-300 dark:border-amber-800 animate-pulse">
+                          <Loader2 size={12} className="animate-spin text-amber-600 shrink-0" />
+                          <span>Memindai KTP (AI OCR)...</span>
+                        </div>
+                      )}
+
+                      {editKtpOcrResult && !isScanningEditKtp && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded border border-emerald-300 dark:border-emerald-800">
+                          <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                          <span className="truncate">Auto-Fill OCR: {editKtpOcrResult.name || "-"} ({editKtpOcrResult.cid || "-"})</span>
+                        </div>
+                      )}
+
+                      {editMemberModal.icPhoto !== editMemberModal.member?.icPhoto && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditMemberModal((prev) => ({ ...prev, icPhoto: prev.member?.icPhoto || "" }));
+                            setEditKtpOcrResult(null);
+                          }}
+                          className="text-[10px] font-mono text-rose-600 hover:underline text-left cursor-pointer"
+                        >
+                          Batalkan perubahan KTP
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Note Keamanan Data */}
+              <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800/50 text-[11px] text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
+                <CheckCircle2 size={15} className="text-emerald-600 shrink-0 mt-0.5" />
+                <div className="leading-snug">
+                  <strong>Riwayat Tetap Aman:</strong> Tanggal awal pendaftaran, status langganan iuran kas 30 hari, dan riwayat voucher Jasra tetap dipertahankan utuh di database.
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                <button
+                  type="button"
+                  disabled={editMemberModal.isSubmitting}
+                  onClick={() => setEditMemberModal((prev) => ({ ...prev, isOpen: false, member: null }))}
+                  className="btn py-2 px-3.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-heading font-black border border-black/15 dark:border-white/10 rounded-lg cursor-pointer"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={editMemberModal.isSubmitting || !editMemberModal.fullName.trim() || !editMemberModal.icNumber.trim()}
+                  className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-black/20 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded-lg"
+                >
+                  <Save size={14} />
+                  <span>{editMemberModal.isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dialog: Tambah Divisi / Jabatan Baru */}
+      {addDivisionModal.isOpen && (
+        <div
+          onClick={() => setAddDivisionModal((prev) => ({ ...prev, isOpen: false }))}
+          className="fixed inset-0 z-[130] bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="p-4 sm:p-6 bg-white dark:bg-[#1E212B] border border-black/20 dark:border-white/15 max-w-xl w-full rounded-2xl overflow-hidden flex flex-col gap-4 shadow-2xl max-h-[92vh] overflow-y-auto select-text"
+          >
+            {/* Header Modal */}
+            <div className="flex items-center justify-between w-full pb-3 border-b border-black/15 dark:border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-[#FACC15] text-[#111827] border border-yellow-500/80 flex items-center justify-center shrink-0 shadow-xs">
+                  <Layers size={18} className="text-[#111827]" />
+                </div>
+                <div>
+                  <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                    Tambah Divisi / Jabatan Baru
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    Tambahkan divisi kepengurusan baru ke bagan struktur organisasi LSM PPS
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddDivisionModal((prev) => ({ ...prev, isOpen: false }))}
+                className="w-8 h-8 rounded-lg border border-black/15 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Tutup (Esc)"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Quick Template Chips */}
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#15171F] border border-black/10 dark:border-white/10 flex flex-col gap-2">
+              <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-400 tracking-wider">
+                PILIHAN TEMPLATE DIVISI CEPAT (KLIK UNTUK MENGISI OTOMATIS):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {DIVISION_PRESETS.map((preset, pIdx) => {
+                  const isSelected = addDivisionModal.role === preset.role;
+                  return (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => handleSelectDivisionPreset(preset)}
+                      className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer border ${
+                        isSelected
+                          ? "bg-[#FACC15] text-slate-950 border-black font-black shadow-xs"
+                          : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-black"
+                      }`}
+                    >
+                      + {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Form Input Divisi */}
+            <form onSubmit={handleSaveAddDivision} className="flex flex-col gap-4">
+              {/* Nama Divisi & Tingkat Struktur */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Nama Divisi / Jabatan <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Divisi Keamanan & Satgas"
+                    value={addDivisionModal.role}
+                    onChange={(e) => setAddDivisionModal((prev) => ({ ...prev, role: e.target.value }))}
+                    className="input-field w-full px-3 py-2 text-xs font-bold bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">Nama jabatan resmi yang tampil di bagan</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Tingkat Bagan Struktur <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    value={addDivisionModal.level}
+                    onChange={(e) => setAddDivisionModal((prev) => ({ ...prev, level: Number(e.target.value) || 4 }))}
+                    className="input-field w-full px-3 py-2 text-xs font-bold bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs cursor-pointer"
+                  >
+                    <option value={4}>Tingkat 4: Badan Pengurus Harian (BPH) / Kepala Divisi</option>
+                    <option value={5}>Tingkat 5: Koordinator Wilayah & Komando Satgas</option>
+                    <option value={3}>Tingkat 3: Wakil Ketua Umum & Komando Lapangan</option>
+                    <option value={2}>Tingkat 2: Majelis Pertimbangan Organisasi (MPO)</option>
+                    <option value={1}>Tingkat 1: Dewan Pimpinan Pusat (DPP)</option>
+                  </select>
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">Menentukan posisi hirarki di diagram alur</span>
+                </div>
+              </div>
+
+              {/* Nama Kepala Divisi & Foto */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Nama Kepala / Koordinator Divisi <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: BENTO"
+                    value={addDivisionModal.name}
+                    onChange={(e) => setAddDivisionModal((prev) => ({ ...prev, name: e.target.value.toUpperCase() }))}
+                    className="input-field w-full px-3 py-2 text-xs font-bold uppercase bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">Nama karakter pejabat in-game</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Foto Profil Kepala Divisi
+                  </label>
+                  <div className="flex items-center gap-2.5">
+                    <label className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border border-black/20 shadow-xs cursor-pointer active:scale-95 transition-all text-center">
+                      <Upload size={13} />
+                      <span>Unggah Foto</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleAddDivisionPhoto(e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </label>
+
+                    {addDivisionModal.photo ? (
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={addDivisionModal.photo}
+                          alt="Foto"
+                          className="w-8 h-8 rounded-lg object-cover border border-black/20 dark:border-white/15"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAddDivisionModal((prev) => ({ ...prev, photo: "" }))}
+                          className="text-[10px] font-mono text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Belum ada foto</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Deskripsi Tugas Divisi */}
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                  Deskripsi / Tugas Divisi (Teks di Bawah Nama)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Ketik tugas dan fungsi pokok divisi ini atau gunakan otomatis dari template..."
+                  value={addDivisionModal.desc}
+                  onChange={(e) => setAddDivisionModal((prev) => ({ ...prev, desc: e.target.value }))}
+                  className="input-field w-full p-2.5 text-xs bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
+                />
+              </div>
+
+              {/* Staf Divisi Awal (Opsional) */}
+              <div className="pt-2 border-t border-black/10 dark:border-white/10">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-heading font-black uppercase text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Users size={13} className="text-[#DC2626]" />
+                    <span>Anggota / Staf Divisi ({addDivisionModal.subMembers?.length || 0})</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAddDivisionSubMember}
+                    className="btn text-[10px] py-1 px-2.5 bg-[#FACC15] text-[#111827] border border-black/20 font-black cursor-pointer shadow-xs"
+                  >
+                    + Tambah Staf
+                  </button>
+                </div>
+
+                {addDivisionModal.subMembers?.length > 0 ? (
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {addDivisionModal.subMembers.map((sub, sIdx) => (
+                      <div
+                        key={sIdx}
+                        className="p-2 rounded-lg bg-slate-50 dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 flex items-center gap-2"
+                      >
+                        <span className="text-[10px] font-mono font-bold text-slate-400">#{sIdx + 1}</span>
+                        <input
+                          type="text"
+                          placeholder="Nama Staf"
+                          value={sub.name || ""}
+                          onChange={(e) => handleDivisionSubMemberChange(sIdx, "name", e.target.value)}
+                          className="input-field text-xs py-1 px-2 flex-1 bg-white dark:bg-[#20232E] border border-black/15 dark:border-white/10 rounded"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Jabatan Staf"
+                          value={sub.role || ""}
+                          onChange={(e) => handleDivisionSubMemberChange(sIdx, "role", e.target.value)}
+                          className="input-field text-xs py-1 px-2 flex-1 bg-white dark:bg-[#20232E] border border-black/15 dark:border-white/10 rounded"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDivisionSubMember(sIdx)}
+                          className="w-6 h-6 rounded flex items-center justify-center text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer"
+                          title="Hapus Staf"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] font-mono text-slate-500 italic">
+                    Belum ada staf awal. Anda dapat menambahkannya nanti kapan saja.
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setAddDivisionModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="btn py-2 px-3.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-heading font-black border border-black/15 dark:border-white/10 rounded-lg cursor-pointer"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={!addDivisionModal.role.trim() || !addDivisionModal.name.trim()}
+                  className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-black/20 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded-lg"
+                >
+                  <Plus size={14} className="text-[#DC2626]" />
+                  <span>Tambahkan Divisi</span>
                 </button>
               </div>
             </form>

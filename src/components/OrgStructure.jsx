@@ -53,7 +53,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
         };
       case 3:
         return {
-          title: "Wakil Ketua Umum Penggerak",
+          title: "Wakil Ketua Umum",
           icon: Zap,
           badgeStyle: "bg-[#DC2626] text-white dark:bg-[#FACC15] dark:text-[#111827]",
           iconColor: "text-[#FACC15] dark:text-[#DC2626]",
@@ -106,7 +106,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
           {[
             { id: "all", label: "Semua Anggota" },
             { id: "leadership", label: "Pimpinan & Penasihat" },
-            { id: "executives", label: "Penggerak & BPH" },
+            { id: "executives", label: "Waketum & BPH" },
             { id: "coordinators", label: "Korda Wilayah" },
           ].map((tab) => {
             const isActive = filterLevel === tab.id;

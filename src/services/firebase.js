@@ -46,8 +46,8 @@ export const defaultData = {
   org: [
     { level: 1, role: "Ketua Umum", name: "EVAN S KENNEDY", photo: "" },
     { level: 2, role: "Penasihat", name: "MR.B", photo: "" },
-    { level: 3, role: "Wakil Ketua Umum Penggerak", name: "MANG KUMIS", photo: "" },
-    { level: 3, role: "Wakil Ketua Umum Penggerak", name: "DE BRACUK", photo: "" },
+    { level: 3, role: "Wakil Ketua Umum", name: "MANG KUMIS", photo: "" },
+    { level: 5, role: "Koordinator Penggerak Lapangan", name: "DE BRACUK", photo: "" },
     { level: 4, role: "Sekjen", name: "Kevin", photo: "" },
     { level: 4, role: "Bendahara 1", name: "DARREN", photo: "" },
     { level: 4, role: "Bendahara 2", name: "OITA", photo: "" },
@@ -61,7 +61,7 @@ export const defaultData = {
   orgTierTitles: {
     tier1: "Dewan Pimpinan Pusat (DPP)",
     tier2Left: "Majelis Pertimbangan Organisasi (MPO)",
-    tier2Right: "Wakil Ketua Umum & Komando Lapangan",
+    tier2Right: "Wakil Ketua Umum",
     tier3: "Badan Pengurus Harian (BPH)",
     tier4: "Koordinator Daerah (Korda) & Komando Satgas",
   },
@@ -69,7 +69,7 @@ export const defaultData = {
   gallery: [
     {
       title: "Aksi Berbagi Untuk Warga",
-      desc: "Makan, berbagi, dan peduli untuk sesama. Kegiatan sosial LSM Pizza Sandy Shores — hadir untuk masyarakat.",
+      desc: "Makan, berbagi, dan peduli untuk sesama. Kegiatan sosial LSM Pizza Sandy Shores • hadir untuk masyarakat.",
       date: "Kamis, 15 Oktober 2026",
       location: "SS Area",
       photo: ""

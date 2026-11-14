@@ -20,13 +20,20 @@ import { getSubMembers } from "../services/orgService";
 const ROLE_DESCRIPTIONS = {
   "Ketua Umum": "Pemimpin Tertinggi & Penanggung Jawab Umum Lembaga",
   "Penasihat": "Pengarah Kebijakan, Dewan Pembina & Sesepuh Organisasi",
-  "Wakil Ketua Umum Penggerak": "Koordinator Operasional & Mobilisasi Massa Lapangan",
-  "Wakil Ketua Umum": "Koordinator Operasional & Mobilisasi Massa Lapangan",
+  "Wakil Ketua Umum": "Pendamping Pimpinan Puncak & Pengawas Seluruh Divisi Operasional",
   "Sekjen": "Tata Kelola Administrasi, Kesekretariatan & Arsip Resmi",
   "Bendahara": "Tata Kelola Keuangan, Anggaran Kas & Audit Transparansi",
   "Humas": "Komunikasi Publik, Advokasi Warga & Hubungan Antar-Lembaga",
   "Logistik": "Pengelolaan Inventaris, Aset Operasional & Distribusi Stand UMKM",
   "Logistik - Sekjen": "Pengelolaan Inventaris, Aset Operasional & Distribusi Stand UMKM",
+  "Advokasi": "Bantuan Advokasi Warga, Mediasi & Dialog Kebijakan Publik",
+  "Divisi Advokasi": "Bantuan Advokasi Warga, Mediasi & Dialog Kebijakan Publik",
+  "Hukum & Advokasi": "Bantuan Advokasi Warga, Mediasi & Dialog Kebijakan Publik",
+  "Divisi Hukum, Advokasi & Kebijakan": "Bantuan Advokasi Warga, Mediasi & Dialog Kebijakan Publik",
+  "Koordinator Penggerak Lapangan": "Mobilisasi Komunitas, Penggerak Massa & Aksi Solidaritas Lapangan",
+  "Korda Penggerak Lapangan": "Mobilisasi Komunitas, Penggerak Massa & Aksi Solidaritas Lapangan",
+  "Satgas Penggerak": "Mobilisasi Komunitas, Penggerak Massa & Aksi Solidaritas Lapangan",
+  "Penggerak Lapangan": "Mobilisasi Komunitas, Penggerak Massa & Aksi Solidaritas Lapangan",
   "Korda Keamanan": "Komando Satgas Pengamanan Wilayah & Ketertiban Lapak",
   "Korda Media LSM": "Publikasi Media Informasi, Penyiaran & Dokumentasi Visual",
   "Korda Media": "Publikasi Media Informasi, Penyiaran & Dokumentasi Visual",
@@ -43,6 +50,12 @@ function getAutoRoleDesc(role = "", isKetua = false) {
   if (ROLE_DESCRIPTIONS[cleanRole]) return ROLE_DESCRIPTIONS[cleanRole];
 
   const r = cleanRole.toLowerCase();
+  if (r.includes("advokasi") || r.includes("hukum")) {
+    return "Bantuan Advokasi Warga, Mediasi & Dialog Kebijakan Publik";
+  }
+  if (r.includes("penggerak")) {
+    return "Mobilisasi Komunitas, Penggerak Massa & Aksi Solidaritas Lapangan";
+  }
   if (r.includes("logistik")) {
     return "Pengelolaan Inventaris, Aset Operasional & Distribusi Stand UMKM";
   }
@@ -64,8 +77,8 @@ function getAutoRoleDesc(role = "", isKetua = false) {
   if (r.includes("sekjen") || r.includes("sekretaris")) {
     return "Tata Kelola Administrasi, Kesekretariatan & Arsip Resmi";
   }
-  if (r.includes("wakil") || r.includes("penggerak")) {
-    return "Koordinator Operasional & Mobilisasi Massa Lapangan";
+  if (r.includes("wakil")) {
+    return "Pendamping Pimpinan Puncak & Pengawas Seluruh Divisi Operasional";
   }
   if (r.includes("penasihat") || r.includes("pembina") || r.includes("sesepuh")) {
     return "Pengarah Kebijakan, Dewan Pembina & Sesepuh Organisasi";
@@ -89,7 +102,7 @@ export default function StructurePage({
   const activeTierTitles = useMemo(() => ({
     tier1: tierTitles?.tier1?.trim() || "Dewan Pimpinan Pusat (DPP)",
     tier2Left: tierTitles?.tier2Left?.trim() || "Majelis Pertimbangan Organisasi (MPO)",
-    tier2Right: tierTitles?.tier2Right?.trim() || "Wakil Ketua Umum & Komando Lapangan",
+    tier2Right: tierTitles?.tier2Right?.trim() || "Wakil Ketua Umum",
     tier3: tierTitles?.tier3?.trim() || "Badan Pengurus Harian (BPH)",
     tier4: tierTitles?.tier4?.trim() || "Koordinator Daerah (Korda) & Komando Satgas",
   }), [tierTitles]);
@@ -192,7 +205,7 @@ export default function StructurePage({
         penasihat.push(member);
       }
       // 3. Wakil Ketua Umum (Tier 3)
-      else if (role.includes("wakil") || lvl === 3) {
+      else if (role.includes("wakil") || (lvl === 3 && !role.includes("penggerak"))) {
         wakil.push(member);
       }
       // 4. Badan Pengurus Harian (BPH) & Satgas / Korda
@@ -203,7 +216,11 @@ export default function StructurePage({
           role.includes("bendahara") ||
           role.includes("keuangan") ||
           role.includes("humas") ||
-          role.includes("logistik");
+          role.includes("logistik") ||
+          role.includes("advokasi") ||
+          role.includes("hukum") ||
+          role.includes("medis") ||
+          role.includes("umkm");
 
         const isSatgasRole =
           role.includes("korda") ||
@@ -212,7 +229,8 @@ export default function StructurePage({
           role.includes("media") ||
           role.includes("lapangan") ||
           role.includes("wilayah") ||
-          role.includes("pesisir");
+          role.includes("pesisir") ||
+          role.includes("penggerak");
 
         if (isBphRole) {
           bphMembers.push(member);
@@ -230,7 +248,7 @@ export default function StructurePage({
       }
     });
 
-    // Urutan resmi BPH: 1. Sekjen -> 2. Bendahara 1 -> 3. Bendahara 2 -> 4. Humas -> 5. Logistik
+    // Urutan resmi BPH: 1. Sekjen -> 2. Bendahara 1 -> 3. Bendahara 2 -> 4. Humas -> 5. Advokasi -> 6. Logistik
     const bphOrderRank = (m) => {
       const r = (m.role || "").toLowerCase();
       if (r.includes("sekjen") || r.includes("sekretaris")) return 1;
@@ -238,15 +256,17 @@ export default function StructurePage({
       if (r.includes("bendahara 2")) return 2.1;
       if (r.includes("bendahara") || r.includes("keuangan")) return 2.2;
       if (r.includes("humas") || r.includes("relasi")) return 3;
+      if (r.includes("advokasi") || r.includes("hukum")) return 3.5;
       if (r.includes("logistik") || r.includes("inventaris")) return 4;
       return 5;
     };
     bphMembers.sort((a, b) => bphOrderRank(a) - bphOrderRank(b));
 
-    // Urutan Satgas / Korda: 1. Keamanan -> 2. Media -> 3. Wilayah / Lapangan
+    // Urutan Satgas / Korda: 1. Keamanan -> 2. Penggerak -> 3. Media -> 4. Wilayah / Lapangan
     const satgasOrderRank = (m) => {
       const r = (m.role || "").toLowerCase();
       if (r.includes("keamanan") || r.includes("satgas")) return 1;
+      if (r.includes("penggerak")) return 1.5;
       if (r.includes("media") || r.includes("publikasi") || r.includes("dokumentasi")) return 2;
       if (r.includes("lapangan") || r.includes("wilayah") || r.includes("korda") || r.includes("pesisir")) return 3;
       return 4;

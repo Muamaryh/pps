@@ -232,7 +232,53 @@ export function exportExternalJasraToExcel(list = []) {
 }
 
 /**
- * Fetch all members from cloud database
+ * Deduplicate members list by Citizen ID (icNumber) or Full Name.
+ * If multiple documents exist with the same cleaned CID or name,
+ * keeps the one with the earliest createdAt or most complete data,
+ * preventing UI duplication across all components.
+ */
+export function deduplicateMembersList(list = []) {
+  if (!Array.isArray(list) || list.length <= 1) return list || [];
+
+  const seenCids = new Map();
+  const seenNames = new Map();
+  const deduplicated = [];
+
+  for (const m of list) {
+    if (!m) continue;
+    const cleanCid = String(m.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const cleanName = String(m.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
+
+    let isDuplicate = false;
+
+    // 1. Check by Citizen ID first (primary unique key)
+    if (cleanCid && cleanCid.length >= 3) {
+      if (seenCids.has(cleanCid)) {
+        isDuplicate = true;
+      } else {
+        seenCids.set(cleanCid, m);
+      }
+    }
+
+    // 2. Check by Full Name if not already flagged as duplicate
+    if (!isDuplicate && cleanName && cleanName.length >= 3) {
+      if (seenNames.has(cleanName)) {
+        isDuplicate = true;
+      } else {
+        seenNames.set(cleanName, m);
+      }
+    }
+
+    if (!isDuplicate) {
+      deduplicated.push(m);
+    }
+  }
+
+  return deduplicated;
+}
+
+/**
+ * Fetch all members from cloud database (deduplicated)
  */
 export async function loadMembersCloud() {
   try {
@@ -240,10 +286,12 @@ export async function loadMembersCloud() {
     const snap = await getDocs(colRef);
     const list = [];
     snap.forEach((d) => {
-      list.push({ id: d.id, ...d.data() });
+      if (d.id !== "_meta") {
+        list.push({ id: d.id, ...d.data() });
+      }
     });
     list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    return list;
+    return deduplicateMembersList(list);
   } catch (err) {
     console.error("Error loading members:", err);
     return [];
@@ -251,7 +299,7 @@ export async function loadMembersCloud() {
 }
 
 /**
- * Real-time listener for member database
+ * Real-time listener for member database (deduplicated)
  */
 export function subscribeMembersCloud(onUpdate, onError) {
   const colRef = collection(getMemberDb(), ...MEMBERS_COL_PATH);
@@ -260,10 +308,12 @@ export function subscribeMembersCloud(onUpdate, onError) {
     (snap) => {
       const list = [];
       snap.forEach((d) => {
-        list.push({ id: d.id, ...d.data() });
+        if (d.id !== "_meta") {
+          list.push({ id: d.id, ...d.data() });
+        }
       });
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      onUpdate(list);
+      onUpdate(deduplicateMembersList(list));
     },
     (err) => {
       console.warn("Firestore member sync notice:", err);
@@ -274,13 +324,15 @@ export function subscribeMembersCloud(onUpdate, onError) {
 
 /**
  * Submit new member registration to cloud with duplicate prevention
- * Rejects registration if citizen ID or full name is already registered.
+ * Rejects registration if citizen ID, phone, or full name is already registered,
+ * or if citizen was previously dismissed.
  */
 export async function submitMemberCloud(data) {
   if (!data) throw new Error("Data pendaftaran tidak boleh kosong.");
 
   const cleanCid = String(data.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   const cleanName = String(data.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
+  const cleanPhone = String(data.phone || "").trim().replace(/[^0-9]/g, "");
 
   if (!cleanCid) {
     throw new Error("Citizen ID (No KTP IC) wajib diisi.");
@@ -289,22 +341,56 @@ export async function submitMemberCloud(data) {
     throw new Error("Nama Lengkap IC wajib diisi.");
   }
 
-  // 1. Check existing members to prevent duplicate registrations
-  const existingMembers = await loadMembersCloud();
-  const matchedMember = existingMembers.find((m) => {
+  // 1. Check dismissed members first (cannot re-register if dismissed)
+  try {
+    const dismissedCol = collection(getMemberDb(), ...DISMISSED_MEMBERS_COL_PATH);
+    const dismissedSnap = await getDocs(dismissedCol);
+    for (const d of dismissedSnap.docs) {
+      if (d.id === "_meta") continue;
+      const item = d.data();
+      const disCid = String(item.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+      const disName = String(item.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
+      if ((cleanCid && disCid === cleanCid) || (cleanName && disName === cleanName)) {
+        const err = new Error(
+          `Pendaftaran Ditolak: Warga ini tercatat dalam Riwayat Anggota Dikeluarkan (${item.dismissedAtFormatted || item.regDate || "-"}). Silakan hubungi pengurus LSM PPS untuk proses pemulihan keanggotaan.`
+        );
+        err.code = "ALREADY_DISMISSED";
+        err.dismissedItem = item;
+        throw err;
+      }
+    }
+  } catch (checkErr) {
+    if (checkErr.code === "ALREADY_DISMISSED") throw checkErr;
+    console.warn("Notice checking dismissed members:", checkErr);
+  }
+
+  // 2. Check existing members directly from raw cloud collection to prevent race conditions
+  const colRef = collection(getMemberDb(), ...MEMBERS_COL_PATH);
+  const snap = await getDocs(colRef);
+  let matchedMember = null;
+  let matchReason = "";
+
+  snap.forEach((d) => {
+    if (d.id === "_meta" || matchedMember) return;
+    const m = d.data();
     const existingCid = String(m.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
     const existingName = String(m.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
-    return (cleanCid && existingCid === cleanCid) || (cleanName && existingName === cleanName);
+    const existingPhone = String(m.phone || "").trim().replace(/[^0-9]/g, "");
+
+    if (cleanCid && existingCid === cleanCid) {
+      matchedMember = { id: d.id, ...m };
+      matchReason = `Citizen ID (${cleanCid}) sudah terdaftar atas nama "${m.fullName || "Warga"}"`;
+    } else if (cleanName && existingName === cleanName) {
+      matchedMember = { id: d.id, ...m };
+      matchReason = `Nama warga "${cleanName}" sudah terdaftar sebagai Anggota Resmi (CID: ${m.icNumber || "-"})`;
+    } else if (cleanPhone && cleanPhone.length >= 6 && existingPhone && existingPhone === cleanPhone) {
+      matchedMember = { id: d.id, ...m };
+      matchReason = `Nomor telepon/WA (${cleanPhone}) sudah digunakan oleh anggota "${m.fullName || "Warga"}"`;
+    }
   });
 
   if (matchedMember) {
-    const existingCid = String(matchedMember.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
-    const isCidMatch = cleanCid && existingCid === cleanCid;
-    const reason = isCidMatch
-      ? `Citizen ID (${cleanCid}) sudah pernah terdaftar sebagai Anggota Resmi atas nama "${matchedMember.fullName || "Warga"}"`
-      : `Nama warga "${cleanName}" sudah pernah terdaftar sebagai Anggota Resmi (CID: ${matchedMember.icNumber || "-"})`;
-
-    const err = new Error(`Pendaftaran Ditolak: ${reason}. Setiap warga hanya diperbolehkan mendaftar 1 kali.`);
+    const err = new Error(`Pendaftaran Ditolak: ${matchReason}. Setiap warga hanya diperbolehkan mendaftar 1 kali.`);
     err.code = "ALREADY_REGISTERED";
     err.existingMember = matchedMember;
     throw err;
@@ -331,6 +417,60 @@ export async function submitMemberCloud(data) {
   const docRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, newDocId);
   await setDoc(docRef, payload);
   return { id: newDocId, ...payload };
+}
+
+/**
+ * Detect duplicates across raw Firestore member documents
+ */
+export async function findDuplicateMembersInDb() {
+  try {
+    const colRef = collection(getMemberDb(), ...MEMBERS_COL_PATH);
+    const snap = await getDocs(colRef);
+    const rawList = [];
+    snap.forEach((d) => {
+      if (d.id !== "_meta") rawList.push({ id: d.id, ...d.data() });
+    });
+
+    const groupsByCid = new Map();
+    for (const m of rawList) {
+      const cleanCid = String(m.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+      if (!cleanCid) continue;
+      if (!groupsByCid.has(cleanCid)) groupsByCid.set(cleanCid, []);
+      groupsByCid.get(cleanCid).push(m);
+    }
+
+    const duplicates = [];
+    for (const [cid, members] of groupsByCid.entries()) {
+      if (members.length > 1) {
+        duplicates.push({ cid, members });
+      }
+    }
+    return duplicates;
+  } catch (err) {
+    console.error("Gagal memeriksa duplikat di database:", err);
+    return [];
+  }
+}
+
+/**
+ * Clean up redundant duplicate member documents in Firestore
+ * Keeps the oldest/primary record and removes the redundant duplicates.
+ */
+export async function cleanupDuplicateMembersCloud() {
+  const duplicates = await findDuplicateMembersInDb();
+  let deletedCount = 0;
+
+  for (const group of duplicates) {
+    // Sort by createdAt ascending (keep oldest original record)
+    const sorted = [...group.members].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    for (let i = 1; i < sorted.length; i++) {
+      const docToDelete = sorted[i];
+      await deleteDoc(doc(getMemberDb(), ...MEMBERS_COL_PATH, docToDelete.id));
+      deletedCount++;
+    }
+  }
+
+  return { duplicatesFound: duplicates.length, deletedCount };
 }
 
 /**
@@ -820,6 +960,26 @@ export function isMemberKasPaidCurrentMonth(member, targetMonthKey = getCurrentM
 export function isMemberVoucherReceivedCurrentWeek(member, targetWeekKey = getCurrentWeekKey()) {
   const sub = getMemberVoucherSubscription(member);
   return sub.isActive;
+}
+
+/**
+ * Update member identity details (Nama IC, No KTP/CID, No HP, Foto Profil, Foto KTP)
+ * Preserves original registration date, kas status, and Jasra voucher history.
+ */
+export async function updateMemberProfileCloud(id, details = {}) {
+  if (!id) throw new Error("ID anggota tidak valid.");
+  try {
+    const docRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, id);
+    const payload = {
+      ...details,
+      updatedAt: Date.now(),
+    };
+    await setDoc(docRef, payload, { merge: true });
+    return { id, ...payload };
+  } catch (err) {
+    console.error("Gagal memperbarui data identitas anggota:", err);
+    throw err;
+  }
 }
 
 /**

@@ -61,15 +61,18 @@ export default function MemberRegistrationModal({
     };
   }, [isOpen]);
 
-  // Compute duplicate member if CID or Name matches
+  // Compute duplicate member if CID, Name, or Phone matches
   const cleanCurrentCid = (formData.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   const cleanCurrentName = (formData.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
+  const cleanCurrentPhone = (formData.phone || "").trim().replace(/[^0-9]/g, "");
 
   const duplicateMember = existingMembers.find((m) => {
     const existingCid = String(m.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
     const existingName = String(m.fullName || "").trim().toUpperCase().replace(/\s+/g, " ");
-    if (cleanCurrentCid && cleanCurrentCid.length >= 4 && existingCid === cleanCurrentCid) return true;
+    const existingPhone = String(m.phone || "").trim().replace(/[^0-9]/g, "");
+    if (cleanCurrentCid && cleanCurrentCid.length >= 3 && existingCid === cleanCurrentCid) return true;
     if (cleanCurrentName && cleanCurrentName.length >= 3 && existingName === cleanCurrentName) return true;
+    if (cleanCurrentPhone && cleanCurrentPhone.length >= 6 && existingPhone && existingPhone === cleanCurrentPhone) return true;
     return false;
   });
 
@@ -210,6 +213,7 @@ export default function MemberRegistrationModal({
   // Handle Submit Form
   async function handleSubmit(e) {
     e.preventDefault();
+    if (isSubmitting) return;
 
     if (!formData.fullName.trim()) {
       if (onShowToast) onShowToast("Nama Lengkap IC wajib diisi sesuai KTP!", "error");
@@ -239,8 +243,11 @@ export default function MemberRegistrationModal({
     // Direct client check rejection if already registered
     if (duplicateMember) {
       const isCid = cleanCurrentCid && String(duplicateMember.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "") === cleanCurrentCid;
+      const isPhone = cleanCurrentPhone && cleanCurrentPhone.length >= 6 && String(duplicateMember.phone || "").trim().replace(/[^0-9]/g, "") === cleanCurrentPhone;
       const message = isCid
         ? `Citizen ID (${cleanCurrentCid}) sudah terdaftar atas nama "${duplicateMember.fullName}".`
+        : isPhone
+        ? `Nomor telepon/WA (${cleanCurrentPhone}) sudah terdaftar atas nama "${duplicateMember.fullName}".`
         : `Nama warga "${cleanCurrentName}" sudah terdaftar sebagai anggota resmi.`;
 
       setRejectedData({
@@ -267,10 +274,10 @@ export default function MemberRegistrationModal({
       }
     } catch (err) {
       console.error("Submit member error:", err);
-      if (err.code === "ALREADY_REGISTERED" || err.existingMember) {
+      if (err.code === "ALREADY_REGISTERED" || err.code === "ALREADY_DISMISSED" || err.existingMember) {
         setRejectedData({
           message: err.message,
-          existingMember: err.existingMember,
+          existingMember: err.existingMember || err.dismissedItem,
           inputName: formData.fullName,
           inputCid: formData.icNumber,
         });
