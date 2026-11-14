@@ -6,6 +6,9 @@ import {
   Info,
   Calendar,
   Heart,
+  Phone,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   subscribeKasLedger,
@@ -137,6 +140,15 @@ function parseDonorFromKasTx(tx) {
 export default function DonorsSection() {
   const [modalOpen, setModalOpen] = useState(false);
   const [donors, setDonors] = useState(FALLBACK_DONORS);
+  const [copiedPhone, setCopiedPhone] = useState(false);
+
+  function handleCopyDonationPhone() {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText("66204074");
+      setCopiedPhone(true);
+      setTimeout(() => setCopiedPhone(false), 2200);
+    }
+  }
 
   // Informasi bulan berjalan saat ini
   const [currentMonthInfo] = useState(() => getYearMonthFromDate(new Date()));
@@ -381,13 +393,13 @@ export default function DonorsSection() {
             onClick={() => setModalOpen(false)}
           >
             <div
-              className="relative w-full max-w-4xl max-h-[90vh] bg-[#FFFDF9] dark:bg-[#12141D] text-slate-900 dark:text-slate-100 rounded-2xl border-2 border-black dark:border-white/20 shadow-2xl my-auto overflow-hidden flex flex-col select-text"
+              className="relative w-full max-w-4xl max-h-[90vh] bg-[#FFFDF9] dark:bg-[#12141D] text-slate-900 dark:text-slate-100 rounded-2xl border border-black/15 dark:border-white/10 shadow-2xl my-auto overflow-hidden flex flex-col select-text"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top Header Banner (Selaras dengan BansosModal & DoorprizeModal) */}
-              <div className="bg-[#FACC15] text-[#111827] border-b-2 border-black px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 shrink-0">
+              <div className="bg-[#FACC15] text-[#111827] border-b border-black/15 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-3 shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-black text-[#FACC15] flex items-center justify-center font-black border border-black/20 shadow-sm shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-white text-[#DC2626] flex items-center justify-center font-black border border-black/15 shadow-xs shrink-0">
                     <Heart size={20} className="fill-current text-[#DC2626]" />
                   </div>
                   <div className="min-w-0">
@@ -404,15 +416,78 @@ export default function DonorsSection() {
                   type="button"
                   onClick={() => setModalOpen(false)}
                   aria-label="Tutup"
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer active:scale-95 transition-all shrink-0"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/80 shadow-xs cursor-pointer active:scale-95 transition-all shrink-0"
                   title="Tutup (Esc)"
                 >
                   <X size={18} className="stroke-[3]" />
                 </button>
               </div>
 
-              {/* Modal Scrollable Body (Scrollbar berada rapi di dalam kartu tanpa menembus sudut rounded) */}
+              {/* Modal Scrollable Body */}
               <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+                {/* Banner Kotak Informasi Donasi In-Game (Transfer IC) */}
+                <div className="p-4 sm:p-5 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent dark:from-amber-400/10 dark:via-amber-400/5 border border-amber-500/35 dark:border-amber-400/25 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-[#FACC15] text-[#111827] flex items-center justify-center font-black border border-yellow-500/70 shadow-xs shrink-0 mt-0.5">
+                      <Phone size={20} className="text-[#DC2626]" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-[#FACC15] text-slate-950 uppercase tracking-wider shadow-xs">
+                          IME Roleplay
+                        </span>
+                      </div>
+                      <h4 className="font-heading font-black text-sm sm:text-base text-slate-900 dark:text-slate-100 uppercase tracking-tight">
+                        Salurkan Donasi & Dukungan Warga
+                      </h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 font-sans mt-1 leading-relaxed max-w-xl">
+                        Bagi warga Sandy Shores maupun masyarakat luas yang ingin berpartisipasi mendukung kegiatan sosial, sarana prasarana, dan operasional paguyuban, Anda dapat menyalurkan donasi secara langsung melalui cash atau transfer.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Rekening / Kontak Box */}
+                  <div className="w-full md:w-auto shrink-0 flex flex-col sm:flex-row md:flex-col items-stretch sm:items-center md:items-end justify-between gap-2.5 p-3 rounded-xl bg-white dark:bg-[#161922] border border-black/15 dark:border-white/10 shadow-xs">
+                    <div className="text-left md:text-right">
+                      <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider block">
+                        NOMOR TELEPON / REKENING IC
+                      </span>
+                      <strong className="text-xl sm:text-2xl font-mono font-black text-[#DC2626] dark:text-[#FACC15] tracking-wider block mt-0.5">
+                        66204074
+                      </strong>
+                      <span className="text-[11px] text-slate-700 dark:text-slate-300 font-sans font-bold block">
+                        a.n. Kwaza Waza
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-mono block">
+                        Pengurus LSM Paguyuban Pizza Sandy Shores
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyDonationPhone}
+                      className={`px-3.5 py-2 rounded-lg text-xs font-heading font-black border transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap active:translate-y-0.5 w-full sm:w-auto ${
+                        copiedPhone
+                          ? "bg-emerald-600 text-white border-emerald-500"
+                          : "bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border-yellow-500/80"
+                      }`}
+                      title="Salin nomor telepon IC donasi ke clipboard"
+                    >
+                      {copiedPhone ? (
+                        <>
+                          <Check size={14} className="text-white" />
+                          <span>Nomor Berhasil Disalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} className="text-[#DC2626]" />
+                          <span>Salin No HP (66204074)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
                 {/* Filter Tabs Periode Bulan */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -433,10 +508,10 @@ export default function DonorsSection() {
                       key={m.key}
                       type="button"
                       onClick={() => setSelectedMonthKey(m.key)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-heading uppercase whitespace-nowrap transition-all cursor-pointer border-2 border-black flex items-center gap-1.5 ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-heading uppercase whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1.5 ${
                         isActive
-                          ? "bg-[#FACC15] text-black font-black shadow-[2px_2px_0px_#000]"
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700"
+                          ? "bg-[#FACC15] text-black font-black border-yellow-500/80 shadow-xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 border-black/15 dark:border-white/10"
                       }`}
                     >
                       {m.isCurrent && (
@@ -455,10 +530,10 @@ export default function DonorsSection() {
                 <button
                   type="button"
                   onClick={() => setSelectedMonthKey("ALL")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-heading uppercase whitespace-nowrap transition-all cursor-pointer border-2 border-black ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-heading uppercase whitespace-nowrap transition-all cursor-pointer border ${
                     selectedMonthKey === "ALL"
-                      ? "bg-[#FACC15] text-black font-black shadow-[2px_2px_0px_#000]"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700"
+                      ? "bg-[#FACC15] text-black font-black border-yellow-500/80 shadow-xs"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 border-black/15 dark:border-white/10"
                   }`}
                 >
                   Semua Riwayat
@@ -467,7 +542,7 @@ export default function DonorsSection() {
             </div>
 
             {/* Quick Stats Banner Periode Terpilih */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border-2 border-black bg-amber-50/70 dark:bg-[#191D28] shadow-[2px_2px_0px_#000]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 rounded-xl border border-black/15 dark:border-white/10 bg-amber-50/70 dark:bg-[#191D28] shadow-xs">
               <div>
                 <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
                   PERIODE AKTIF
@@ -501,10 +576,10 @@ export default function DonorsSection() {
                 <p className="text-[11px]">Jadilah Orang Baik pertama yang tercatat di buku kas Sandy Shores!</p>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl border-2 border-black shadow-[3px_3px_0px_#000]">
+              <div className="overflow-x-auto rounded-xl border border-black/15 dark:border-white/10 shadow-xs">
                 <table className="w-full text-left text-xs border-collapse bg-white dark:bg-[#161922]">
                   <thead>
-                    <tr className="bg-[#FACC15] text-[#111827] border-b-2 border-black font-heading font-black uppercase text-[10px] sm:text-[11px] tracking-wider">
+                    <tr className="bg-[#FACC15] text-[#111827] border-b border-black/20 font-heading font-black uppercase text-[10px] sm:text-[11px] tracking-wider">
                       <th className="py-2.5 px-3 whitespace-nowrap">Tanggal</th>
                       <th className="py-2.5 px-3">Nama Donatur</th>
                       <th className="py-2.5 px-3 whitespace-nowrap">Nominal</th>
@@ -553,9 +628,12 @@ export default function DonorsSection() {
             )}
 
               {/* Bottom info: Ucapan Terima Kasih & Akuntabilitas */}
-              <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 dark:bg-amber-400/5 border border-amber-500/25 dark:border-amber-400/15 text-center text-xs">
+              <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 dark:bg-amber-400/5 border border-amber-500/25 dark:border-amber-400/15 text-center text-xs space-y-1">
                 <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-sans">
                   Terima kasih yang sebesar-besarnya atas segala bentuk kepedulian dan kebaikan yang telah diberikan. Seluruh dukungan dicatat secara amanah dan dialokasikan sepenuhnya untuk kemaslahatan warga serta kegiatan Paguyuban Pizza Sandy Shores.
+                </p>
+                <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400">
+                  Setelah melakukan transfer, silakan konfirmasi ke Kwaza Waza (No HP IC: <strong>66204074</strong>).
                 </p>
               </div>
             </div>

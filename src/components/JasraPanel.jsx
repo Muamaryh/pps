@@ -503,9 +503,9 @@ export default function JasraPanel({
   return (
     <div className="flex flex-col gap-5">
       {/* 1. Header Card with Actions */}
-      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#DC2626] border-2 border-black flex items-center justify-center text-[#FACC15] shadow-[2px_2px_0px_#000] shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#DC2626] border border-black/20 dark:border-white/15 flex items-center justify-center text-[#FACC15] shadow-xs shrink-0">
             <HeartHandshake size={24} />
           </div>
           <div>
@@ -528,7 +528,7 @@ export default function JasraPanel({
             type="button"
             onClick={() => handleSyncWithMembers(true)}
             disabled={isSyncing}
-            className="btn py-2 px-3 bg-white dark:bg-[#1E2230] text-slate-800 dark:text-slate-200 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 transition-all"
+            className="btn py-2 px-3 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-yellow-500/80 shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-75 transition-all rounded-lg active:translate-y-0.5"
             title="Sinkronisasikan data penerima gelombang ini dengan Database Anggota"
           >
             <RotateCcw size={14} className={isSyncing ? "animate-spin text-[#DC2626]" : "text-[#DC2626]"} />
@@ -538,7 +538,7 @@ export default function JasraPanel({
           <button
             type="button"
             onClick={handleOpenNewBatchModal}
-            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
             title="Catat penerimaan batch voucher baru dari pemerintah"
           >
             <Plus size={15} className="text-slate-950 shrink-0" />
@@ -549,7 +549,7 @@ export default function JasraPanel({
             type="button"
             onClick={handleOpenDistributeModal}
             disabled={!activeBatch || activeBatchRemaining.isExpired}
-            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
             title="Catat penyerahan voucher ke anggota atau warga luar pada batch aktif"
           >
             <Gift size={16} className="text-[#DC2626] shrink-0" />
@@ -563,7 +563,7 @@ export default function JasraPanel({
               navigator.clipboard.writeText(url);
               if (onShowToast) onShowToast(`Link laporan Jasra berhasil disalin: ${url}`, "success");
             }}
-            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
             title="Salin URL transparansi Jasra ke clipboard"
           >
             <Copy size={14} className="text-[#DC2626]" />
@@ -574,7 +574,7 @@ export default function JasraPanel({
 
       {/* 2. Viewed Government Batch Highlight Banner */}
       {viewedBatch ? (
-        <div className="card-brutal relative z-20 p-5 bg-[#FFFDF9] dark:bg-[#161822] border-[2.5px] border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col gap-4">
+        <div className="card-brutal relative z-20 p-5 bg-[#FFFDF9] dark:bg-[#161822] border-[2.5px] border-black dark:border-[#475569] shadow-md flex flex-col gap-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-3 border-b-2 border-black/10 dark:border-white/10">
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -635,7 +635,7 @@ export default function JasraPanel({
           {/* 3 Metric Cards: Stok Treatment, Stok Pingsan, & Penyaluran */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
             {/* Treatment Stock */}
-            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
+            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border border-black/15 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Stok Treatment</span>
                 <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
@@ -663,7 +663,7 @@ export default function JasraPanel({
             </div>
 
             {/* Pingsan Stock */}
-            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
+            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border border-black/15 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Stok Pingsan</span>
                 <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
@@ -691,7 +691,7 @@ export default function JasraPanel({
             </div>
 
             {/* Penerima Stats */}
-            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
+            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border border-black/15 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Penerima Manfaat</span>
                 <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-400">
@@ -715,7 +715,7 @@ export default function JasraPanel({
         </div>
       ) : (
         /* Empty State if No Batch */
-        <div className="card-brutal p-8 text-center bg-white dark:bg-[#161822] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000]">
+        <div className="card-brutal p-8 text-center bg-white dark:bg-[#161822] border border-black/15 dark:border-white/10 shadow-sm">
           <ShieldAlert size={38} className="mx-auto text-[#DC2626] mb-2" />
           <h4 className="font-heading font-black text-base text-slate-900 dark:text-slate-100 uppercase">
             Belum Ada Gelombang Voucher Jasra dari Pemerintah
@@ -726,7 +726,7 @@ export default function JasraPanel({
           <button
             type="button"
             onClick={handleOpenNewBatchModal}
-            className="btn text-xs py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-black border-2 border-black mt-3 shadow-[2px_2px_0px_#000] cursor-pointer inline-flex items-center gap-1.5"
+            className="btn text-xs py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-black border border-black/20 dark:border-white/15 mt-3 shadow-xs cursor-pointer inline-flex items-center gap-1.5"
           >
             <Plus size={15} />
             <span>+ Catat Penerimaan Jasra dari Pemerintah</span>
@@ -735,7 +735,7 @@ export default function JasraPanel({
       )}
 
       {/* 3. Distribution History Table & Filter Controls */}
-      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-4">
         {/* Search & Filter Bar */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Search Box */}
@@ -746,7 +746,7 @@ export default function JasraPanel({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari nama penerima, No. IC / KTP, nomor HP..."
-              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border-2 border-black dark:border-[#475569] bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-black/15 dark:border-white/10 bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 shadow-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
             />
             {searchQuery && (
               <button
@@ -774,7 +774,7 @@ export default function JasraPanel({
                 onClick={() => setFilterType(f.id)}
                 className={`px-3 py-1.5 rounded-full text-xs font-heading font-black border-2 transition-all cursor-pointer ${
                   filterType === f.id
-                    ? "bg-[#FACC15] text-[#111827] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                    ? "bg-[#FACC15] text-[#111827] border-black shadow-xs -translate-y-0.5"
                     : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 border-black/30 dark:border-slate-700 hover:border-black"
                 }`}
               >
@@ -785,7 +785,7 @@ export default function JasraPanel({
         </div>
 
         {/* Table of Distributions */}
-        <div className="overflow-x-auto border-2 border-black dark:border-[#475569] rounded-xl overflow-hidden">
+        <div className="overflow-x-auto border border-black/15 dark:border-white/10 rounded-xl overflow-hidden">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-900 text-white font-heading font-black uppercase text-[11px] tracking-wider border-b-2 border-black">
@@ -897,7 +897,7 @@ export default function JasraPanel({
       {/* 4. Modal: Catat Batch Jasra dari Pemerintah */}
       {isBatchModalOpen && (
         <div className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-[6px_6px_0px_#000] rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
             <div className="px-5 py-4 bg-[#FACC15] text-[#111827] border-b-2 border-black flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 size={20} className="text-[#DC2626]" />
@@ -925,7 +925,7 @@ export default function JasraPanel({
                   value={batchFormData.batchName}
                   onChange={(e) => setBatchFormData({ ...batchFormData, batchName: e.target.value })}
                   placeholder="Contoh: Batch Alokasi Jasra (02 – 09 Nov 2026)"
-                  className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                  className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                 />
               </div>
 
@@ -939,12 +939,12 @@ export default function JasraPanel({
                   value={batchFormData.source}
                   onChange={(e) => setBatchFormData({ ...batchFormData, source: e.target.value })}
                   placeholder="Pemerintah Kota San Andreas / Dinas Kesehatan"
-                  className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                  className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                 />
               </div>
 
               {/* Kuota Treatment & Pingsan */}
-              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border-2 border-black dark:border-amber-700/60">
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-black/20 dark:border-white/15 dark:border-amber-700/60">
                 <div>
                   <label className="block text-xs font-black text-[#DC2626] dark:text-red-400 uppercase mb-1">
                     Kuota Treatment
@@ -955,7 +955,7 @@ export default function JasraPanel({
                     required
                     value={batchFormData.initialTreatment}
                     onChange={(e) => setBatchFormData({ ...batchFormData, initialTreatment: e.target.value })}
-                    className="input-field w-full text-sm font-mono font-black py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                    className="input-field w-full text-sm font-mono font-black py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                   />
                   <span className="text-[10px] text-slate-500 font-medium">Contoh: 500 voucher</span>
                 </div>
@@ -970,7 +970,7 @@ export default function JasraPanel({
                     required
                     value={batchFormData.initialPingsan}
                     onChange={(e) => setBatchFormData({ ...batchFormData, initialPingsan: e.target.value })}
-                    className="input-field w-full text-sm font-mono font-black py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                    className="input-field w-full text-sm font-mono font-black py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                   />
                   <span className="text-[10px] text-slate-500 font-medium">Contoh: 500 voucher</span>
                 </div>
@@ -1028,7 +1028,7 @@ export default function JasraPanel({
                   value={batchFormData.notes}
                   onChange={(e) => setBatchFormData({ ...batchFormData, notes: e.target.value })}
                   placeholder="Catatan penyerahan dari dinkes, syarat, dll..."
-                  className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                  className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                 />
               </div>
 
@@ -1036,13 +1036,13 @@ export default function JasraPanel({
                 <button
                   type="button"
                   onClick={() => setIsBatchModalOpen(false)}
-                  className="btn btn-secondary text-xs py-2 px-4 border-2 border-black font-bold cursor-pointer"
+                  className="btn btn-secondary text-xs py-2 px-4 border border-black/20 dark:border-white/15 font-bold cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="btn text-xs py-2 px-5 bg-[#FACC15] hover:bg-yellow-400 text-black font-black border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer"
+                  className="btn text-xs py-2 px-5 bg-[#FACC15] hover:bg-yellow-400 text-black font-black border border-black/20 dark:border-white/15 shadow-xs cursor-pointer"
                 >
                   Simpan &amp; Aktifkan Batch
                 </button>
@@ -1055,7 +1055,7 @@ export default function JasraPanel({
       {/* 5. Modal: Bagikan Voucher ke Anggota / Warga Luar */}
       {isDistributeModalOpen && (
         <div className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-[6px_6px_0px_#000] rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
+          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
             <div className="px-5 py-4 bg-[#DC2626] text-white border-b-2 border-black flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Gift size={20} className="text-[#FACC15]" />
@@ -1075,7 +1075,7 @@ export default function JasraPanel({
             <form onSubmit={handleSaveDistribution} className="p-5 overflow-y-auto space-y-4">
               {/* Info Active Batch Remaining */}
               {activeBatch && (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-2 border-black text-xs flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-black/20 dark:border-white/15 text-xs flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase block">Batch Alokasi Aktif</span>
                     <strong className="font-heading font-black text-slate-900 dark:text-slate-100">
@@ -1099,9 +1099,9 @@ export default function JasraPanel({
                   <button
                     type="button"
                     onClick={() => setDistFormData({ ...distFormData, recipientType: "MEMBER" })}
-                    className={`py-2 px-3 rounded-xl text-xs font-heading font-black border-2 border-black flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    className={`py-2 px-3 rounded-xl text-xs font-heading font-black border border-black/20 dark:border-white/15 flex items-center justify-center gap-2 cursor-pointer transition-all ${
                       distFormData.recipientType === "MEMBER"
-                        ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000]"
+                        ? "bg-[#FACC15] text-[#111827] shadow-xs"
                         : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300"
                     }`}
                   >
@@ -1111,9 +1111,9 @@ export default function JasraPanel({
                   <button
                     type="button"
                     onClick={() => setDistFormData({ ...distFormData, recipientType: "NON_MEMBER", selectedMemberId: "" })}
-                    className={`py-2 px-3 rounded-xl text-xs font-heading font-black border-2 border-black flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    className={`py-2 px-3 rounded-xl text-xs font-heading font-black border border-black/20 dark:border-white/15 flex items-center justify-center gap-2 cursor-pointer transition-all ${
                       distFormData.recipientType === "NON_MEMBER"
-                        ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000]"
+                        ? "bg-[#FACC15] text-[#111827] shadow-xs"
                         : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300"
                     }`}
                   >
@@ -1137,16 +1137,16 @@ export default function JasraPanel({
 
                   {distFormData.selectedMemberId && selectedMember ? (
                     /* Selected Member Preview Card */
-                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border-2 border-black dark:border-amber-500/60 shadow-[2px_2px_0px_#000] flex items-center justify-between gap-3">
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-black/20 dark:border-white/15 dark:border-amber-500/60 shadow-xs flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         {selectedMember.photoUrl ? (
                           <img
                             src={selectedMember.photoUrl}
                             alt={selectedMember.fullName}
-                            className="w-10 h-10 rounded-full border-2 border-black object-cover shrink-0"
+                            className="w-10 h-10 rounded-full border border-black/20 dark:border-white/15 object-cover shrink-0"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-full border-2 border-black bg-[#FACC15] text-slate-950 flex items-center justify-center font-heading font-black text-sm shrink-0">
+                          <div className="w-10 h-10 rounded-full border border-black/20 dark:border-white/15 bg-[#FACC15] text-slate-950 flex items-center justify-center font-heading font-black text-sm shrink-0">
                             {(distFormData.recipientName || "AG").slice(0, 2).toUpperCase()}
                           </div>
                         )}
@@ -1182,7 +1182,7 @@ export default function JasraPanel({
                           }));
                           setIsMemberDropdownOpen(true);
                         }}
-                        className="px-2.5 py-1 text-[11px] font-heading font-black rounded-md bg-white dark:bg-[#1A1D26] hover:bg-slate-100 text-slate-900 dark:text-slate-200 border-2 border-black shadow-[1.5px_1.5px_0px_#000] shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                        className="px-2.5 py-1 text-[11px] font-heading font-black rounded-md bg-white dark:bg-[#1A1D26] hover:bg-slate-100 text-slate-900 dark:text-slate-200 border border-black/20 dark:border-white/15 shadow-xs shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
                       >
                         Ganti
                       </button>
@@ -1203,7 +1203,7 @@ export default function JasraPanel({
                           }}
                           onFocus={() => setIsMemberDropdownOpen(true)}
                           placeholder="Ketik nama anggota atau Citizen ID..."
-                          className="w-full pl-9 pr-9 py-2 text-xs font-bold rounded-xl border-2 border-black dark:border-[#475569] bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                          className="w-full pl-9 pr-9 py-2 text-xs font-bold rounded-xl border border-black/15 dark:border-white/10 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 shadow-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
                         />
                         {memberSearch && (
                           <button
@@ -1218,7 +1218,7 @@ export default function JasraPanel({
 
                       {/* Dropdown list */}
                       {isMemberDropdownOpen && (
-                        <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto divide-y divide-black/10 dark:divide-white/10 border-2 border-black dark:border-[#475569] rounded-xl overflow-hidden bg-white dark:bg-[#1A1D26] shadow-[4px_4px_0px_#000]">
+                        <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto divide-y divide-black/10 dark:divide-white/10 border border-black/15 dark:border-white/10 rounded-xl overflow-hidden bg-white dark:bg-[#1A1D26] shadow-md">
                           {filteredMembersForPicker.length === 0 ? (
                             <div className="p-3 text-center text-xs text-slate-500 font-medium">
                               Tidak ada anggota yang cocok dengan "{memberSearch}"
@@ -1291,7 +1291,7 @@ export default function JasraPanel({
 
                     {distFormData.ktpPhoto ? (
                       <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-xl border-2 border-dashed border-black/30 dark:border-white/20 bg-slate-50 dark:bg-[#1C202C]">
-                        <div className="relative w-28 h-20 rounded-lg border-2 border-black overflow-hidden bg-slate-900 shrink-0 shadow-[2px_2px_0px_#000]">
+                        <div className="relative w-28 h-20 rounded-lg border border-black/20 dark:border-white/15 overflow-hidden bg-slate-900 shrink-0 shadow-xs">
                           <img
                             src={distFormData.ktpPhoto}
                             alt="KTP Preview"
@@ -1371,7 +1371,7 @@ export default function JasraPanel({
                     value={distFormData.recipientName}
                     onChange={(e) => setDistFormData({ ...distFormData, recipientName: e.target.value.toUpperCase() })}
                     placeholder="Nama lengkap warga / IC..."
-                    className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                    className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                   />
                 </div>
                 <div>
@@ -1383,7 +1383,7 @@ export default function JasraPanel({
                     value={distFormData.citizenId}
                     onChange={(e) => setDistFormData({ ...distFormData, citizenId: e.target.value.toUpperCase() })}
                     placeholder="Contoh: CID-9021"
-                    className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                    className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                   />
                   {distFormData.cidCandidates && distFormData.cidCandidates.length > 0 && (
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
@@ -1415,7 +1415,7 @@ export default function JasraPanel({
                     value={distFormData.phone}
                     onChange={(e) => setDistFormData({ ...distFormData, phone: e.target.value })}
                     placeholder="Contoh: 555-0192"
-                    className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                    className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                   />
                 </div>
                 <div className="col-span-2">
@@ -1427,13 +1427,13 @@ export default function JasraPanel({
                     value={distFormData.notes}
                     onChange={(e) => setDistFormData({ ...distFormData, notes: e.target.value })}
                     placeholder="Contoh: Warga Paleto Bay / Rekomendasi RT..."
-                    className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                    className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                   />
                 </div>
               </div>
 
               {/* Jatah Voucher yang Diberikan */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border-2 border-black">
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-black/20 dark:border-white/15">
                 <div className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
                   <span>Jumlah Voucher yang Diserahkan</span>
                   <span className="text-[10px] font-mono font-bold text-slate-500">Standar: 10T + 10P</span>
@@ -1450,7 +1450,7 @@ export default function JasraPanel({
                       required
                       value={distFormData.treatmentCount}
                       onChange={(e) => setDistFormData({ ...distFormData, treatmentCount: e.target.value })}
-                      className="input-field w-full text-sm font-mono font-black py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                      className="input-field w-full text-sm font-mono font-black py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                     />
                     <span className="text-[10px] text-slate-500">Tersedia: {activeBatchMetrics.remainingTreatment}</span>
                   </div>
@@ -1465,7 +1465,7 @@ export default function JasraPanel({
                       required
                       value={distFormData.pingsanCount}
                       onChange={(e) => setDistFormData({ ...distFormData, pingsanCount: e.target.value })}
-                      className="input-field w-full text-sm font-mono font-black py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black"
+                      className="input-field w-full text-sm font-mono font-black py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                     />
                     <span className="text-[10px] text-slate-500">Tersedia: {activeBatchMetrics.remainingPingsan}</span>
                   </div>
@@ -1481,13 +1481,13 @@ export default function JasraPanel({
                 <button
                   type="button"
                   onClick={() => setIsDistributeModalOpen(false)}
-                  className="btn btn-secondary text-xs py-2 px-4 border-2 border-black font-bold cursor-pointer"
+                  className="btn btn-secondary text-xs py-2 px-4 border border-black/20 dark:border-white/15 font-bold cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="btn text-xs py-2 px-5 bg-[#DC2626] hover:bg-red-700 text-white font-black border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer"
+                  className="btn text-xs py-2 px-5 bg-[#DC2626] hover:bg-red-700 text-white font-black border border-black/20 dark:border-white/15 shadow-xs cursor-pointer"
                 >
                   Simpan &amp; Serahkan Voucher
                 </button>

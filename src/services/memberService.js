@@ -49,7 +49,9 @@ const APP_ID = "portal-anggota-app";
 const MEMBERS_COL_PATH = ["artifacts", APP_ID, "public", "data", "members"];
 const EXTERNAL_JASRA_COL_PATH = ["artifacts", APP_ID, "public", "data", "external_jasra"];
 const JASRA_DISTRIBUTIONS_COL_PATH = ["artifacts", APP_ID, "public", "data", "jasra_distributions"];
+const DISMISSED_MEMBERS_COL_PATH = ["artifacts", APP_ID, "public", "data", "dismissed_members"];
 const EXTERNAL_JASRA_STORAGE_KEY = "pps_external_jasra_cache";
+const DISMISSED_MEMBERS_STORAGE_KEY = "pps_dismissed_members_cache";
 
 /**
  * Fetch all external Jasra recipients (non-members) from cloud database
@@ -337,6 +339,218 @@ export async function submitMemberCloud(data) {
 export async function deleteMemberCloud(id) {
   const docRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, id);
   await deleteDoc(docRef);
+  return true;
+}
+
+/**
+ * Format helper tanggal & jam Indonesia (contoh: 14 Nov 2026 • 10:15 WIB)
+ */
+export function formatDismissedDateTime(dateInput = new Date()) {
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (isNaN(d.getTime())) return "-";
+
+  const datePart = d.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+
+  return `${datePart} • ${hours}:${minutes} WIB`;
+}
+
+/**
+ * Fetch all dismissed members from cloud database
+ */
+export async function loadDismissedMembersCloud() {
+  try {
+    const colRef = collection(getMemberDb(), ...DISMISSED_MEMBERS_COL_PATH);
+    const snap = await getDocs(colRef);
+    const list = [];
+    snap.forEach((d) => {
+      if (d.id !== "_meta") {
+        list.push({ id: d.id, ...d.data() });
+      }
+    });
+    list.sort((a, b) => (b.dismissedAt || b.createdAt || 0) - (a.dismissedAt || a.createdAt || 0));
+    try {
+      localStorage.setItem(DISMISSED_MEMBERS_STORAGE_KEY, JSON.stringify(list));
+    } catch {}
+    return list;
+  } catch (err) {
+    console.warn("Gagal memuat arsip anggota dikeluarkan:", err);
+    try {
+      const cached = localStorage.getItem(DISMISSED_MEMBERS_STORAGE_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  }
+}
+
+/**
+ * Real-time listener for dismissed members database
+ */
+export function subscribeDismissedMembersCloud(onUpdate, onError) {
+  try {
+    const colRef = collection(getMemberDb(), ...DISMISSED_MEMBERS_COL_PATH);
+    return onSnapshot(
+      colRef,
+      (snap) => {
+        const list = [];
+        snap.forEach((d) => {
+          if (d.id !== "_meta") {
+            list.push({ id: d.id, ...d.data() });
+          }
+        });
+        list.sort((a, b) => (b.dismissedAt || b.createdAt || 0) - (a.dismissedAt || a.createdAt || 0));
+        try {
+          localStorage.setItem(DISMISSED_MEMBERS_STORAGE_KEY, JSON.stringify(list));
+        } catch {}
+        if (typeof onUpdate === "function") onUpdate(list);
+      },
+      (err) => {
+        console.warn("Notice listener dismissed members:", err);
+        try {
+          const cached = localStorage.getItem(DISMISSED_MEMBERS_STORAGE_KEY);
+          if (cached && typeof onUpdate === "function") {
+            onUpdate(JSON.parse(cached));
+          }
+        } catch {}
+        if (typeof onError === "function") onError(err);
+      }
+    );
+  } catch (err) {
+    console.error("Gagal inisialisasi listener dismissed members:", err);
+    return () => {};
+  }
+}
+
+/**
+ * Dismiss a member: Archive to dismissed_members collection & remove from active members
+ */
+export async function dismissMemberCloud(memberOrPayload, options = {}) {
+  let memberId = "";
+  let memberData = {};
+  let reason = "";
+  let dismissedBy = "";
+
+  if (memberOrPayload && typeof memberOrPayload === "object") {
+    if (memberOrPayload.memberId) {
+      memberId = memberOrPayload.memberId;
+      memberData = memberOrPayload.memberData || memberOrPayload;
+      reason = memberOrPayload.reason || options.reason || "";
+      dismissedBy = memberOrPayload.dismissedBy || options.dismissedBy || "";
+    } else {
+      memberData = memberOrPayload;
+      memberId = memberOrPayload.id;
+      reason = options.reason || "";
+      dismissedBy = options.dismissedBy || "";
+    }
+  }
+
+  if (!memberId) throw new Error("ID anggota tidak valid.");
+  const now = new Date();
+  const dismissedPayload = {
+    ...memberData,
+    id: memberId,
+    status: "DISMISSED",
+    dismissedAt: now.getTime(),
+    dismissedDateFormatted: formatDismissedDateTime(now),
+    dismissedReason: String(reason || "").trim() || "Keputusan Pengurus LSM PPS",
+    dismissedBy: String(dismissedBy || "").trim() || "Pengurus LSM PPS",
+  };
+
+  // 1. Simpan di koleksi arsip anggota dikeluarkan
+  const dismissedDocRef = doc(getMemberDb(), ...DISMISSED_MEMBERS_COL_PATH, memberId);
+  await setDoc(dismissedDocRef, dismissedPayload);
+
+  // 2. Hapus dari koleksi anggota aktif
+  const activeDocRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, memberId);
+  await deleteDoc(activeDocRef);
+
+  return dismissedPayload;
+}
+
+/**
+ * Restore a dismissed member back to active members
+ */
+export async function restoreMemberCloud(dismissedMember) {
+  if (!dismissedMember || !dismissedMember.id) throw new Error("Data anggota tidak valid.");
+
+  const {
+    dismissedAt: _dAt,
+    dismissedDateFormatted: _dDate,
+    dismissedReason: _dReason,
+    dismissedBy: _dBy,
+    ...restoredPayload
+  } = dismissedMember;
+
+  const finalPayload = {
+    ...restoredPayload,
+    status: "ACTIVE",
+    restoredAt: Date.now(),
+  };
+
+  // 1. Kembalikan ke koleksi anggota aktif
+  const activeDocRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, dismissedMember.id);
+  await setDoc(activeDocRef, finalPayload);
+
+  // 2. Hapus dari koleksi anggota dikeluarkan
+  const dismissedDocRef = doc(getMemberDb(), ...DISMISSED_MEMBERS_COL_PATH, dismissedMember.id);
+  await deleteDoc(dismissedDocRef);
+
+  return finalPayload;
+}
+
+/**
+ * Delete a dismissed member permanently from archive
+ */
+export async function deleteDismissedMemberPermanentlyCloud(id) {
+  if (!id) return;
+  const docRef = doc(getMemberDb(), ...DISMISSED_MEMBERS_COL_PATH, id);
+  await deleteDoc(docRef);
+  return true;
+}
+
+/**
+ * Export dismissed members archive to Excel (.xlsx)
+ */
+export function exportDismissedMembersToExcel(list = []) {
+  if (!Array.isArray(list) || list.length === 0) return false;
+
+  const rows = list.map((item, index) => ({
+    No: index + 1,
+    "ID ANGGOTA": item.id,
+    "NAMA LENGKAP (IC)": item.fullName || "-",
+    "CITIZEN ID / NO KTP": item.icNumber || item.citizenId || "-",
+    "NO TELEPON": item.phone || "-",
+    "DISCORD TAG": item.discordTag || "-",
+    "TANGGAL & JAM DIKELUARKAN": item.dismissedDateFormatted || (item.dismissedAt ? formatDismissedDateTime(item.dismissedAt) : "-"),
+    "ALASAN PENGELUARAN": item.dismissedReason || "-",
+    "DICATAT OLEH (PENGURUS)": item.dismissedBy || "Pengurus LSM PPS",
+    "TANGGAL AWAL TERDAFTAR": item.regDate || "-",
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  worksheet["!cols"] = [
+    { wch: 6 },
+    { wch: 22 },
+    { wch: 26 },
+    { wch: 20 },
+    { wch: 18 },
+    { wch: 20 },
+    { wch: 28 },
+    { wch: 35 },
+    { wch: 24 },
+    { wch: 20 },
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Arsip Anggota Dikeluarkan");
+  const today = new Date().toISOString().split("T")[0];
+  XLSX.writeFile(workbook, `Arsip_Anggota_Dikeluarkan_PPS_${today}.xlsx`);
   return true;
 }
 
@@ -924,8 +1138,8 @@ export async function exportMembersToZip(members) {
 
   // 2. Add Photos to ZIP folders
   members.forEach((m, idx) => {
-    const cleanName = (m.fullName || `Anggota_${idx + 1}`).replace(/[^a-zA-Z0-9_\-]/g, "_");
-    const cleanIC = (m.icNumber || `${idx + 1}`).replace(/[^a-zA-Z0-9_\-]/g, "_");
+    const cleanName = (m.fullName || `Anggota_${idx + 1}`).replace(/[^a-zA-Z0-9_-]/g, "_");
+    const cleanIC = (m.icNumber || `${idx + 1}`).replace(/[^a-zA-Z0-9_-]/g, "_");
 
     if (m.profilePhoto) {
       const pBytes = base64ToUint8Array(m.profilePhoto);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -29,6 +29,12 @@ import {
   saveExternalJasraCloud,
   deleteExternalJasraCloud,
   exportExternalJasraToExcel,
+  subscribeDismissedMembersCloud,
+  dismissMemberCloud,
+  restoreMemberCloud,
+  deleteDismissedMemberPermanentlyCloud,
+  exportDismissedMembersToExcel,
+  formatDismissedDateTime,
 } from "../services/memberService";
 import { scanKtpImage, getGeminiApiKey, setGeminiApiKey } from "../utils/ktpOcr";
 import {
@@ -336,6 +342,18 @@ export default function AdminModal({
     } catch {}
     return [];
   });
+  // Dismissed Members State (Arsip Riwayat Pengeluaran Anggota)
+  const [dismissedMembersList, setDismissedMembersList] = useState([]);
+  const [memberSubTab, setMemberSubTab] = useState("active"); // 'active' | 'dismissed'
+  const [dismissedSearchQuery, setDismissedSearchQuery] = useState("");
+  const [dismissModal, setDismissModal] = useState({
+    isOpen: false,
+    member: null,
+    reason: "",
+    dismissedBy: "Pengurus LSM PPS",
+    isSubmitting: false,
+  });
+
   const [memberTabSubView, setMemberTabSubView] = useState("members"); // 'members' | 'external_jasra'
   const [editingExternalJasra, setEditingExternalJasra] = useState(null);
   const [isScanningExternalOcr, setIsScanningExternalOcr] = useState(false);
@@ -350,6 +368,9 @@ export default function AdminModal({
       loadSubmissions().then((data) => setSubmissions(data || []));
       const unsubscribeMembers = subscribeMembersCloud((list) => {
         setMembersList(list || []);
+      });
+      const unsubscribeDismissed = subscribeDismissedMembersCloud((list) => {
+        setDismissedMembersList(list || []);
       });
       loadExternalJasraCloud().then((list) => {
         if (Array.isArray(list)) setExternalJasraList(list);
@@ -394,6 +415,7 @@ export default function AdminModal({
       });
       return () => {
         if (typeof unsubscribeMembers === "function") unsubscribeMembers();
+        if (typeof unsubscribeDismissed === "function") unsubscribeDismissed();
         if (typeof unsubscribeExternalJasra === "function") unsubscribeExternalJasra();
         if (typeof unsubscribeJasraBatches === "function") unsubscribeJasraBatches();
         if (typeof unsubscribeJasraDistributions === "function") unsubscribeJasraDistributions();
@@ -1151,6 +1173,103 @@ export default function AdminModal({
       onShowToast("Gagal membuat file backup ZIP.", "error");
     } finally {
       setIsExportingZip(false);
+    }
+  }
+
+  // Handlers for Dismissed Members (Keluarkan Anggota & Arsip Riwayat)
+  function handleOpenDismissModal(member) {
+    if (!member) return;
+    setDismissModal({
+      isOpen: true,
+      member,
+      reason: "",
+      dismissedBy: "Pengurus LSM PPS",
+      isSubmitting: false,
+    });
+  }
+
+  async function handleConfirmDismiss(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!dismissModal.member) return;
+    if (!dismissModal.reason.trim()) {
+      onShowToast("Mohon masukkan alasan pengeluaran anggota.", "error");
+      return;
+    }
+
+    setDismissModal((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      await dismissMemberCloud(dismissModal.member, {
+        reason: dismissModal.reason.trim(),
+        dismissedBy: dismissModal.dismissedBy.trim() || "Pengurus LSM PPS",
+      });
+      const memberName = dismissModal.member.fullName || dismissModal.member.icNumber || "Anggota";
+      onShowToast(`${memberName} telah berhasil dikeluarkan dari keanggotaan dan dicatat ke riwayat.`, "success");
+      setDismissModal({
+        isOpen: false,
+        member: null,
+        reason: "",
+        dismissedBy: "Pengurus LSM PPS",
+        isSubmitting: false,
+      });
+    } catch (err) {
+      console.error("Gagal mengeluarkan anggota:", err);
+      onShowToast("Gagal memproses pengeluaran anggota: " + (err.message || "Terjadi kesalahan"), "error");
+      setDismissModal((prev) => ({ ...prev, isSubmitting: false }));
+    }
+  }
+
+  function handleRestoreMember(dismissedMember) {
+    if (!dismissedMember) return;
+    const name = dismissedMember.fullName || dismissedMember.icNumber || "Anggota";
+    setConfirmModal({
+      isOpen: true,
+      title: "Pulihkan Keanggotaan Warga",
+      message: `Apakah Anda yakin ingin memulihkan status keanggotaan "${name}" kembali menjadi Anggota Aktif LSM PPS? Data akan kembali muncul di Database Anggota dan direktori resmi.`,
+      confirmText: "Ya, Pulihkan Anggota",
+      variant: "primary",
+      onConfirm: async () => {
+        try {
+          await restoreMemberCloud(dismissedMember);
+          onShowToast(`Keanggotaan ${name} berhasil dipulihkan menjadi Anggota Aktif!`, "success");
+        } catch (err) {
+          console.error("Gagal memulihkan anggota:", err);
+          onShowToast("Gagal memulihkan keanggotaan: " + (err.message || "Terjadi kesalahan"), "error");
+        }
+      },
+    });
+  }
+
+  function handleDeleteDismissedPermanently(dismissedMember) {
+    if (!dismissedMember) return;
+    const name = dismissedMember.fullName || dismissedMember.icNumber || "Anggota";
+    setConfirmModal({
+      isOpen: true,
+      title: "Hapus Permanen Dari Riwayat",
+      message: `PERINGATAN: Apakah Anda yakin ingin menghapus data arsip pengeluaran "${name}" secara permanen? Catatan alasan dan riwayat tanggal/jam pengeluaran ini akan hilang selamanya.`,
+      confirmText: "Hapus Permanen",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteDismissedMemberPermanentlyCloud(dismissedMember.id);
+          onShowToast(`Riwayat pengeluaran ${name} berhasil dihapus permanen.`, "info");
+        } catch (err) {
+          console.error("Gagal menghapus permanen riwayat:", err);
+          onShowToast("Gagal menghapus riwayat pengeluaran: " + (err.message || "Terjadi kesalahan"), "error");
+        }
+      },
+    });
+  }
+
+  function handleExportDismissedExcel() {
+    if (dismissedMembersList.length === 0) {
+      onShowToast("Belum ada riwayat anggota yang dikeluarkan untuk diexport.", "error");
+      return;
+    }
+    const ok = exportDismissedMembersToExcel(dismissedMembersList);
+    if (ok) {
+      onShowToast("File Excel riwayat anggota dikeluarkan berhasil diunduh!", "success");
+    } else {
+      onShowToast("Gagal mengekspor riwayat ke Excel.", "error");
     }
   }
 
@@ -2265,6 +2384,17 @@ export default function AdminModal({
     return true;
   });
 
+  const filteredDismissedMembers = dismissedMembersList.filter((m) => {
+    if (!dismissedSearchQuery.trim()) return true;
+    const q = dismissedSearchQuery.toLowerCase().trim();
+    const name = (m.fullName || "").toLowerCase();
+    const ic = (m.icNumber || "").toLowerCase();
+    const phone = (m.phone || "").toLowerCase();
+    const reason = (m.dismissedReason || "").toLowerCase();
+    const by = (m.dismissedBy || "").toLowerCase();
+    return name.includes(q) || ic.includes(q) || phone.includes(q) || reason.includes(q) || by.includes(q);
+  });
+
   const filteredKasMembers = membersList.filter((m) => {
     if (kasMemberSearchQuery.trim()) {
       const q = kasMemberSearchQuery.toLowerCase();
@@ -2323,7 +2453,7 @@ export default function AdminModal({
       {/* Header Panel Administrator (Full Width Bar) */}
       <header className="shrink-0 flex items-center justify-between px-3.5 sm:px-8 py-2.5 sm:py-3.5 border-b-2 border-black dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1A1D26] shadow-[0_2px_0px_#000]/10">
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-[#DC2626] border-2 border-black flex items-center justify-center text-white shadow-[1.5px_1.5px_0px_#000] shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-[#DC2626] border border-black/20 dark:border-white/15 flex items-center justify-center text-white shadow-xs shrink-0">
             <Shield size={16} />
           </div>
           <div className="min-w-0">
@@ -2352,7 +2482,7 @@ export default function AdminModal({
               type="button"
               onClick={handleLogout}
               title="Keluar dari sesi admin"
-              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-heading font-black bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/80 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded border-2 border-black dark:border-rose-500 shadow-[1.5px_1.5px_0px_#000] transition-all active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-heading font-black bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/80 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded border border-black/20 dark:border-white/15 dark:border-rose-500 shadow-xs transition-all active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
             >
               <LogOut size={13} className="text-rose-600 dark:text-rose-300" />
               <span className="hidden sm:inline">Logout</span>
@@ -2361,7 +2491,7 @@ export default function AdminModal({
           <button
             type="button"
             onClick={onClose}
-            className="py-1.5 px-2.5 sm:px-3 bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-900 dark:text-red-200 text-xs font-heading font-black border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer rounded"
+            className="py-1.5 px-2.5 sm:px-3 bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-900 dark:text-red-200 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer rounded"
             title="Tutup Panel Admin dan kembali ke website utama"
           >
             <span className="hidden sm:inline">Tutup Panel</span>
@@ -2376,8 +2506,8 @@ export default function AdminModal({
           {!isAuthenticated ? (
             /* Login Screen Full Center */
             <div className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
-              <div className="card-brutal p-6 sm:p-8 bg-white dark:bg-[#1A1D26] border-3 border-black max-w-sm w-full rounded text-center flex flex-col items-center shadow-[6px_6px_0px_#000]">
-                <div className="w-12 h-12 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-[#111827] mb-3 shadow-[3px_3px_0px_#000]">
+              <div className="card-brutal p-6 sm:p-8 bg-white dark:bg-[#1A1D26] border border-black/20 dark:border-white/15 max-w-sm w-full rounded text-center flex flex-col items-center shadow-xl">
+                <div className="w-12 h-12 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-[#111827] mb-3 shadow-sm">
                   <Lock size={22} className="text-[#DC2626]" />
                 </div>
                 <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-100 mb-1">
@@ -2432,7 +2562,7 @@ export default function AdminModal({
                       }
                       disabled={lockoutState.isLocked}
                       autoFocus
-                      className="input-field text-center font-mono text-sm tracking-widest bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] disabled:opacity-50 disabled:bg-slate-200 dark:disabled:bg-slate-800"
+                      className="input-field text-center font-mono text-sm tracking-widest bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 shadow-xs disabled:opacity-50 disabled:bg-slate-200 dark:disabled:bg-slate-800"
                     />
                   </div>
 
@@ -2442,7 +2572,7 @@ export default function AdminModal({
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
                       disabled={lockoutState.isLocked}
-                      className="w-4 h-4 rounded border-2 border-black accent-[#DC2626] cursor-pointer"
+                      className="w-4 h-4 rounded border border-black/20 dark:border-white/15 accent-[#DC2626] cursor-pointer"
                     />
                     <span>Ingat saya di browser ini</span>
                   </label>
@@ -2450,7 +2580,7 @@ export default function AdminModal({
                   <button
                     type="submit"
                     disabled={lockoutState.isLocked}
-                    className="btn w-full py-2.5 bg-[#FACC15] disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-[#111827] border-2 border-black font-black shadow-[3px_3px_0px_#000]"
+                    className="btn w-full py-2.5 bg-[#FACC15] disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-[#111827] border border-black/20 dark:border-white/15 font-black shadow-sm"
                   >
                     {lockoutState.isLocked ? `Terkunci (${lockoutState.remainingSeconds}s)` : "Masuk ke Panel"}
                   </button>
@@ -2487,14 +2617,14 @@ export default function AdminModal({
               {/* SPLIT WORKSPACE: Left Sidebar (Desktop) + Right Content Area (Mobile/Desktop) */}
               <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
                 {/* DESKTOP SIDEBAR KIRI (md:flex) */}
-                <aside className="hidden md:flex w-64 lg:w-72 shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-r-3 border-black dark:border-[#475569] flex-col justify-between overflow-y-auto z-10 shadow-[3px_0px_0px_rgba(0,0,0,0.08)]">
+                <aside className="hidden md:flex w-64 lg:w-72 shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-r border-black/15 dark:border-white/10 flex-col justify-between overflow-y-auto z-10 shadow-[3px_0px_0px_rgba(0,0,0,0.08)]">
                   <div className="p-3.5 space-y-1.5">
                     {/* Sidebar Header Title */}
                     <div className="px-2.5 py-1.5 mb-1.5 bg-black/5 dark:bg-white/5 rounded border border-black/10 dark:border-white/10 flex items-center justify-between">
                       <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-400 tracking-wider">
                         Menu Navigasi
                       </span>
-                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-black px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000]">
+                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-black px-1.5 py-0.5 rounded border border-black shadow-xs">
                         {tabs.length} Tab
                       </span>
                     </div>
@@ -2523,10 +2653,10 @@ export default function AdminModal({
                                   key={tab.id}
                                   type="button"
                                   onClick={() => setActiveTab(tab.id)}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border-2 border-black dark:border-[#475569] font-heading font-black text-xs transition-all text-left cursor-pointer ${
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border border-black/15 dark:border-white/10 font-heading font-black text-xs transition-all text-left cursor-pointer ${
                                     isActive
-                                      ? "bg-[#FACC15] text-[#111827] shadow-[3px_3px_0px_#000] -translate-y-0.5 border-black ring-1 ring-black/20"
-                                      : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-slate-800 shadow-[1.5px_1.5px_0px_#000]"
+                                      ? "bg-[#FACC15] text-[#111827] shadow-sm -translate-y-0.5 border-black ring-1 ring-black/20"
+                                      : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-slate-800 shadow-xs"
                                   }`}
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0">
@@ -2535,7 +2665,7 @@ export default function AdminModal({
                                   </div>
                                   {Boolean(countText) && (
                                     <span
-                                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
+                                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-xs ${
                                         isActive
                                           ? "bg-black text-[#FACC15]"
                                           : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
@@ -2572,7 +2702,7 @@ export default function AdminModal({
                         className="flex items-center gap-2.5 min-w-0 flex-1 text-left py-0.5 px-1 -ml-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.98] transition-all cursor-pointer"
                         title="Buka menu navigasi"
                       >
-                        <div className="w-7 h-7 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-[#111827] shadow-[1px_1px_0px_#000] shrink-0">
+                        <div className="w-7 h-7 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-[#111827] shadow-xs shrink-0">
                           {React.createElement(activeTabObj.icon, { size: 14, className: "text-[#DC2626]" })}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -2589,7 +2719,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setMobileMenuOpen(true)}
-                        className="px-2.5 py-1.5 bg-[#FACC15] hover:bg-amber-400 text-slate-950 text-xs font-heading font-black rounded border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 shrink-0 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                        className="px-2.5 py-1.5 bg-[#FACC15] hover:bg-amber-400 text-slate-950 text-xs font-heading font-black rounded border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 shrink-0 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
                         title="Buka semua menu navigasi"
                       >
                         <Menu size={13} />
@@ -2614,7 +2744,7 @@ export default function AdminModal({
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex items-center gap-1.5 text-xs py-1.5 px-2.5 rounded-md shrink-0 border-2 font-heading font-black transition-all cursor-pointer min-h-[34px] ${
                               isActive
-                                ? "bg-slate-900 text-white border-black shadow-[1.5px_1.5px_0px_#000] -translate-y-0.5"
+                                ? "bg-slate-900 text-white border-black shadow-xs -translate-y-0.5"
                                 : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/20 dark:border-[#475569] hover:bg-slate-100"
                             }`}
                           >
@@ -2645,21 +2775,21 @@ export default function AdminModal({
                   {activeTab === "identity" && (
                     <div className="flex flex-col gap-4">
                       {/* Brand Name */}
-                      <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2">
+                      <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2">
                         <label className="card-label text-slate-700 dark:text-slate-300">Nama Brand / Judul Navbar</label>
                         <input
                           type="text"
                           value={formData.brand || ""}
                           onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                          className="input-field text-sm font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field text-sm font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
 
                       {/* Discord Links Settings Card */}
-                      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-4">
+                      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
                         <div className="flex items-center justify-between border-b-2 border-black/10 dark:border-white/10 pb-2.5">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-[#5865F2] text-white flex items-center justify-center border border-black shadow-[1px_1px_0px_#000]">
+                            <div className="w-8 h-8 rounded-lg bg-[#5865F2] text-white flex items-center justify-center border border-black shadow-xs">
                               <MessageSquare size={16} />
                             </div>
                             <div>
@@ -2699,7 +2829,7 @@ export default function AdminModal({
                             value={formData.discordUrl || ""}
                             onChange={(e) => handleDiscordUrlChange(e.target.value)}
                             placeholder="https://discord.gg/gb7ajBMduF"
-                            className="input-field text-xs sm:text-sm font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field text-xs sm:text-sm font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                           />
                           <span className="text-[11px] text-slate-500 dark:text-slate-400">
                             Mengatur tautan invite server Discord resmi. Otomatis mengubah pintasan <code>/discord</code> & <code>#discord</code>, tombol Discord di Footer, dan tombol ajakan di akhir pendaftaran anggota.
@@ -2732,7 +2862,7 @@ export default function AdminModal({
                             value={formData.discordVisitorUrl || ""}
                             onChange={(e) => handleDiscordVisitorUrlChange(e.target.value)}
                             placeholder="https://discord.gg/gb7ajBMduF"
-                            className="input-field text-xs sm:text-sm font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field text-xs sm:text-sm font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                           />
                           <span className="text-[11px] text-slate-500 dark:text-slate-400">
                             Mengatur channel visitor untuk pemohon stan lapak UMKM dan permohonan audiensi meeting. Tampil pada tiket bukti pendaftaran dan tombol pelacakan status tiket.
@@ -2741,13 +2871,13 @@ export default function AdminModal({
                       </div>
 
                       {/* Navigation Links */}
-                      <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2">
+                      <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2">
                         <label className="card-label text-slate-700 dark:text-slate-300">Link Navigasi Navbar (Format: Nama | URL, pisahkan koma)</label>
                         <input
                           type="text"
                           value={formData.navLinks || ""}
                           onChange={(e) => handleNavLinksChange(e.target.value)}
-                          className="input-field text-xs font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field text-xs font-mono bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                         <span className="text-[11px] text-slate-500 dark:text-slate-400">
                           Tautan menu navigasi atas. Jika kolom link Discord di atas diubah, tautan Discord di menu navigasi ini akan otomatis ikut tersinkronisasi.
@@ -2760,7 +2890,7 @@ export default function AdminModal({
               {activeTab === "hero" && (
                 <div className="flex flex-col gap-4">
                   {/* Slogan */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2">
+                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2">
                     <label className="card-label text-slate-700 dark:text-slate-300">
                       Slogan / Kalimat Penggerak (Bawah Banner)
                     </label>
@@ -2769,7 +2899,7 @@ export default function AdminModal({
                       value={formData.subtext || ""}
                       onChange={(e) => setFormData({ ...formData, subtext: e.target.value })}
                       placeholder="Bersatu • Berkarya • Untuk Masyarakat Sandy Shores"
-                      className="input-field text-sm font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                      className="input-field text-sm font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                     />
                     <span className="text-[11px] text-slate-600 dark:text-slate-400">
                       Tampil tebal di bawah banner foto pps.jpg di beranda.
@@ -2792,7 +2922,7 @@ export default function AdminModal({
                       {(formData.heroPillars || []).map((pilar, idx) => (
                         <div
                           key={idx}
-                          className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2"
+                          className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2"
                         >
                           <div className="flex items-center justify-between">
                             <span className="card-label text-[10px] text-slate-700 dark:text-slate-300">
@@ -2808,7 +2938,7 @@ export default function AdminModal({
                               value={pilar.label || ""}
                               onChange={(e) => handleHeroPillarChange(idx, "label", e.target.value)}
                               placeholder="Contoh: Wilayah Kerja"
-                              className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                           </div>
                           <div>
@@ -2820,7 +2950,7 @@ export default function AdminModal({
                               value={pilar.title || ""}
                               onChange={(e) => handleHeroPillarChange(idx, "title", e.target.value)}
                               placeholder="Contoh: Sandy Shores & Sekitarnya"
-                              className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                           </div>
                         </div>
@@ -2834,7 +2964,7 @@ export default function AdminModal({
               {activeTab === "about" && (
                 <div className="flex flex-col gap-5">
                   {/* 1. Header Bagian Tentang */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
+                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
                     <div className="flex items-center gap-1.5 font-heading font-black text-xs uppercase text-slate-950 dark:text-slate-100">
                       <FileText size={15} className="text-[#DC2626]" />
                       <span>Header Bagian Tentang Kami</span>
@@ -2850,7 +2980,7 @@ export default function AdminModal({
                           value={formData.aboutHeader?.label || ""}
                           onChange={(e) => handleAboutHeaderChange("label", e.target.value)}
                           placeholder="TENTANG KAMI"
-                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                       <div>
@@ -2862,7 +2992,7 @@ export default function AdminModal({
                           value={formData.aboutHeader?.title || ""}
                           onChange={(e) => handleAboutHeaderChange("title", e.target.value)}
                           placeholder="Profil & Arah Gerakan PPS"
-                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                       <div>
@@ -2874,7 +3004,7 @@ export default function AdminModal({
                           value={formData.aboutHeader?.badge || ""}
                           onChange={(e) => handleAboutHeaderChange("badge", e.target.value)}
                           placeholder="MANIFESTO RESMI"
-                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                     </div>
@@ -2890,7 +3020,7 @@ export default function AdminModal({
                       {(formData.aboutPillars || []).map((pillar, idx) => (
                         <div
                           key={idx}
-                          className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2"
+                          className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2"
                         >
                           <div className="flex items-center justify-between">
                             <span className="card-label text-[10px] text-slate-700 dark:text-slate-300">
@@ -2906,7 +3036,7 @@ export default function AdminModal({
                               value={pillar.badge || ""}
                               onChange={(e) => handleAboutPillarChange(idx, "badge", e.target.value)}
                               placeholder="Kepedulian Warga"
-                              className="input-field w-full text-xs font-bold py-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field w-full text-xs font-bold py-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                           </div>
                           <div>
@@ -2918,7 +3048,7 @@ export default function AdminModal({
                               value={pillar.title || ""}
                               onChange={(e) => handleAboutPillarChange(idx, "title", e.target.value)}
                               placeholder="Solidaritas & Aksi Sosial"
-                              className="input-field w-full text-xs font-bold py-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field w-full text-xs font-bold py-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                           </div>
                           <div>
@@ -2930,7 +3060,7 @@ export default function AdminModal({
                               value={pillar.desc || ""}
                               onChange={(e) => handleAboutPillarChange(idx, "desc", e.target.value)}
                               placeholder="Deskripsi kegiatan..."
-                              className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] leading-relaxed"
+                              className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 leading-relaxed"
                             />
                           </div>
                           <div>
@@ -2942,7 +3072,7 @@ export default function AdminModal({
                               value={pillar.status || ""}
                               onChange={(e) => handleAboutPillarChange(idx, "status", e.target.value)}
                               placeholder="Program Aktif Berkelanjutan"
-                              className="input-field w-full text-xs font-bold py-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field w-full text-xs font-bold py-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                           </div>
                         </div>
@@ -2951,7 +3081,7 @@ export default function AdminModal({
                   </div>
 
                   {/* 3. Visi & Misi Komunitas */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
+                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
                     <div className="flex items-center gap-1.5 font-heading font-black text-xs uppercase text-slate-950 dark:text-slate-100">
                       <Target size={15} className="text-[#DC2626]" />
                       <span>Visi & Misi Komunitas</span>
@@ -2967,7 +3097,7 @@ export default function AdminModal({
                           value={formData.visionMission?.visionLabel || ""}
                           onChange={(e) => handleVisionMissionChange("visionLabel", e.target.value)}
                           placeholder="Visi Komunitas"
-                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                       <div>
@@ -2979,7 +3109,7 @@ export default function AdminModal({
                           value={formData.visionMission?.visionTitle || ""}
                           onChange={(e) => handleVisionMissionChange("visionTitle", e.target.value)}
                           placeholder="“Terwujudnya Masyarakat Sandy Shores yang Kompak, Mandiri, dan Bermartabat Bersama.”"
-                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                     </div>
@@ -2993,7 +3123,7 @@ export default function AdminModal({
                         value={formData.visionMission?.visionDesc || ""}
                         onChange={(e) => handleVisionMissionChange("visionDesc", e.target.value)}
                         placeholder="Kemajuan suatu kawasan bertumpu pada solidaritas warganya..."
-                        className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] leading-relaxed"
+                        className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 leading-relaxed"
                       />
                     </div>
 
@@ -3006,7 +3136,7 @@ export default function AdminModal({
                         <button
                           type="button"
                           onClick={handleAddMissionItem}
-                          className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000]"
+                          className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 shadow-xs"
                         >
                           <Plus size={12} className="text-[#DC2626]" />
                           <span>Tambah Poin Misi</span>
@@ -3017,7 +3147,7 @@ export default function AdminModal({
                         value={formData.visionMission?.missionTitle || ""}
                         onChange={(e) => handleVisionMissionChange("missionTitle", e.target.value)}
                         placeholder="Misi Pokok Lembaga:"
-                        className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                       />
 
                       <div className="flex flex-col gap-2 mt-1">
@@ -3031,12 +3161,12 @@ export default function AdminModal({
                               value={mItem}
                               onChange={(e) => handleMissionItemChange(mIdx, e.target.value)}
                               placeholder="Isi poin misi..."
-                              className="input-field flex-1 text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field flex-1 text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                             <button
                               type="button"
                               onClick={() => handleRemoveMissionItem(mIdx)}
-                              className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white shrink-0"
+                              className="btn btn-secondary text-xs py-1 px-2 border border-black/20 dark:border-white/15 text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white shrink-0"
                             >
                               <Trash2 size={12} />
                             </button>
@@ -3047,7 +3177,7 @@ export default function AdminModal({
                   </div>
 
                   {/* 4. Naskah Pendirian & Dokumen LSM */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2.5">
+                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2.5">
                     <label className="card-label text-slate-700 dark:text-slate-300">
                       Judul Akordion / Bar Dokumen
                     </label>
@@ -3056,7 +3186,7 @@ export default function AdminModal({
                       value={formData.charterTitle || ""}
                       onChange={(e) => setFormData({ ...formData, charterTitle: e.target.value })}
                       placeholder="Naskah Pendirian & Penjelasan Lengkap LSM"
-                      className="input-field text-xs font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                      className="input-field text-xs font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                     />
 
                     <label className="card-label text-slate-700 dark:text-slate-300 mt-2">
@@ -3066,7 +3196,7 @@ export default function AdminModal({
                       rows={8}
                       value={formData.aboutText || ""}
                       onChange={(e) => setFormData({ ...formData, aboutText: e.target.value })}
-                      className="input-field text-xs leading-relaxed bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                      className="input-field text-xs leading-relaxed bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                     />
                   </div>
                 </div>
@@ -3076,7 +3206,7 @@ export default function AdminModal({
               {activeTab === "org" && (
                 <div className="flex flex-col gap-3.5">
                   {/* Card: Kustomisasi Label & Nama Tingkatan Bagan Struktur */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
+                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
                     <div className="flex items-center gap-2 pb-2 border-b border-black/15 dark:border-white/10">
                       <GitBranch size={16} className="text-[#DC2626] dark:text-[#FACC15]" />
                       <span className="font-heading font-black text-xs uppercase text-slate-800 dark:text-slate-200">
@@ -3093,7 +3223,7 @@ export default function AdminModal({
                           placeholder="Dewan Pimpinan Pusat (DPP)"
                           value={formData.orgTierTitles?.tier1 || ""}
                           onChange={(e) => handleTierTitleChange("tier1", e.target.value)}
-                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                       <div>
@@ -3105,7 +3235,7 @@ export default function AdminModal({
                           placeholder="Majelis Pertimbangan Organisasi (MPO)"
                           value={formData.orgTierTitles?.tier2Left || ""}
                           onChange={(e) => handleTierTitleChange("tier2Left", e.target.value)}
-                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                       <div>
@@ -3117,7 +3247,7 @@ export default function AdminModal({
                           placeholder="Wakil Ketua Umum & Komando Lapangan"
                           value={formData.orgTierTitles?.tier2Right || ""}
                           onChange={(e) => handleTierTitleChange("tier2Right", e.target.value)}
-                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                       <div>
@@ -3129,7 +3259,7 @@ export default function AdminModal({
                           placeholder="Badan Pengurus Harian (BPH)"
                           value={formData.orgTierTitles?.tier3 || ""}
                           onChange={(e) => handleTierTitleChange("tier3", e.target.value)}
-                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                       <div className="sm:col-span-2">
@@ -3141,7 +3271,7 @@ export default function AdminModal({
                           placeholder="Koordinator Daerah (Korda) & Komando Satgas"
                           value={formData.orgTierTitles?.tier4 || ""}
                           onChange={(e) => handleTierTitleChange("tier4", e.target.value)}
-                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
                     </div>
@@ -3154,7 +3284,7 @@ export default function AdminModal({
                     <button
                       type="button"
                       onClick={handleAddMember}
-                      className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000]"
+                      className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 shadow-xs"
                     >
                       <Plus size={14} className="text-[#DC2626]" />
                       <span>Tambah Anggota</span>
@@ -3165,7 +3295,7 @@ export default function AdminModal({
                     {formData.org?.map((member, idx) => (
                       <div
                         key={idx}
-                        className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2.5"
+                        className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2.5"
                       >
                         <div className="flex items-center justify-between">
                           <span className="card-label text-[11px] text-slate-700 dark:text-slate-300">
@@ -3174,7 +3304,7 @@ export default function AdminModal({
                           <button
                             type="button"
                             onClick={() => handleRemoveMember(idx)}
-                            className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white"
+                            className="btn btn-secondary text-xs py-1 px-2 border border-black/20 dark:border-white/15 text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white"
                           >
                             <Trash2 size={12} />
                             <span>Hapus</span>
@@ -3192,7 +3322,7 @@ export default function AdminModal({
                               max="10"
                               value={member.level || 1}
                               onChange={(e) => handleMemberChange(idx, "level", e.target.value)}
-                              className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                           </div>
                           <div>
@@ -3203,7 +3333,7 @@ export default function AdminModal({
                               type="text"
                               value={member.role || ""}
                               onChange={(e) => handleMemberChange(idx, "role", e.target.value)}
-                              className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                           </div>
                           <div>
@@ -3214,7 +3344,7 @@ export default function AdminModal({
                               type="text"
                               value={member.name || ""}
                               onChange={(e) => handleMemberChange(idx, "name", e.target.value)}
-                              className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                              className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                             />
                           </div>
                         </div>
@@ -3228,7 +3358,7 @@ export default function AdminModal({
                             placeholder="Biarkan kosong untuk deskripsi otomatis atau ketik deskripsi khusus..."
                             value={member.desc || ""}
                             onChange={(e) => handleMemberChange(idx, "desc", e.target.value)}
-                            className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                           />
                         </div>
 
@@ -3247,7 +3377,7 @@ export default function AdminModal({
                               <img
                                 src={member.photo}
                                 alt="Pratinjau"
-                                className="w-8 h-8 rounded object-cover border-2 border-black"
+                                className="w-8 h-8 rounded object-cover border border-black/20 dark:border-white/15"
                               />
                             )}
                           </div>
@@ -3282,7 +3412,7 @@ export default function AdminModal({
                               <button
                                 type="button"
                                 onClick={() => handleAddSubMember(idx)}
-                                className="btn text-[10px] py-1 px-2.5 bg-[#FACC15] text-[#111827] border border-black shadow-[1px_1px_0px_#000] font-black cursor-pointer"
+                                className="btn text-[10px] py-1 px-2.5 bg-[#FACC15] text-[#111827] border border-black shadow-xs font-black cursor-pointer"
                               >
                                 + Tambah Staf
                               </button>
@@ -3377,7 +3507,7 @@ export default function AdminModal({
                     <button
                       type="button"
                       onClick={handleAddGallery}
-                      className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000]"
+                      className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 shadow-xs"
                     >
                       <Plus size={14} className="text-[#DC2626]" />
                       <span>Tambah Foto</span>
@@ -3388,7 +3518,7 @@ export default function AdminModal({
                     {formData.gallery?.map((item, idx) => (
                       <div
                         key={idx}
-                        className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2.5"
+                        className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2.5"
                       >
                         <div className="flex items-center justify-between">
                           <span className="card-label text-[11px] text-slate-700 dark:text-slate-300">
@@ -3397,7 +3527,7 @@ export default function AdminModal({
                           <button
                             type="button"
                             onClick={() => handleRemoveGallery(idx)}
-                            className="btn btn-secondary text-xs py-1 px-2 border-2 border-black text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white"
+                            className="btn btn-secondary text-xs py-1 px-2 border border-black/20 dark:border-white/15 text-[#DC2626] dark:text-red-400 hover:bg-[#DC2626] hover:text-white"
                           >
                             <Trash2 size={12} />
                             <span>Hapus</span>
@@ -3412,7 +3542,7 @@ export default function AdminModal({
                             type="text"
                             value={item.title || ""}
                             onChange={(e) => handleGalleryChange(idx, "title", e.target.value)}
-                            className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                           />
                         </div>
 
@@ -3425,7 +3555,7 @@ export default function AdminModal({
                             placeholder="Tulis keterangan kegiatan di sini (tekan Enter untuk baris baru)..."
                             value={item.desc || ""}
                             onChange={(e) => handleGalleryChange(idx, "desc", e.target.value)}
-                            className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] leading-relaxed"
+                            className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 leading-relaxed"
                           />
                         </div>
 
@@ -3449,7 +3579,7 @@ export default function AdminModal({
                             placeholder="Contoh: SS Area / Sandy Shores Park"
                             value={item.location || ""}
                             onChange={(e) => handleGalleryChange(idx, "location", e.target.value)}
-                            className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                           />
                         </div>
 
@@ -3459,7 +3589,7 @@ export default function AdminModal({
                               Foto Dokumentasi ({getGalleryItemPhotos(item).length} Foto)
                             </label>
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <label className="cursor-pointer text-[10px] font-heading font-black py-1 px-2 rounded bg-[#FACC15] text-[#111827] border-2 border-black shadow-[1px_1px_0px_#000] hover:bg-[#EAB308] flex items-center gap-1 active:translate-x-0.5">
+                              <label className="cursor-pointer text-[10px] font-heading font-black py-1 px-2 rounded bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 shadow-xs hover:bg-[#EAB308] flex items-center gap-1 active:translate-x-0.5">
                                 <Plus size={12} className="text-[#DC2626]" />
                                 <span>+ Unggah File</span>
                                 <input
@@ -3478,7 +3608,7 @@ export default function AdminModal({
                               <button
                                 type="button"
                                 onClick={() => handleAddGalleryPhotoUrl(idx)}
-                                className="cursor-pointer text-[10px] font-heading font-black py-1 px-2 rounded bg-white dark:bg-[#161822] text-[#111827] dark:text-slate-200 border-2 border-black dark:border-slate-500 shadow-[1px_1px_0px_#000] hover:bg-slate-100 flex items-center gap-1 active:translate-x-0.5"
+                                className="cursor-pointer text-[10px] font-heading font-black py-1 px-2 rounded bg-white dark:bg-[#161822] text-[#111827] dark:text-slate-200 border border-black/20 dark:border-white/15 dark:border-slate-500 shadow-xs hover:bg-slate-100 flex items-center gap-1 active:translate-x-0.5"
                                 title="Tempel link URL gambar langsung (Discord / Imgur / Web) dengan kualitas 100% tanpa kompresi"
                               >
                                 <ExternalLink size={12} className="text-blue-600" />
@@ -3493,7 +3623,7 @@ export default function AdminModal({
                               {getGalleryItemPhotos(item).map((p, pIdx) => (
                                 <div
                                   key={pIdx}
-                                  className="relative group w-16 h-14 rounded overflow-hidden border-2 border-black dark:border-slate-600 shrink-0 bg-black"
+                                  className="relative group w-16 h-14 rounded overflow-hidden border border-black/15 dark:border-white/10 shrink-0 bg-black"
                                 >
                                   <img src={p} alt="" className="w-full h-full object-cover" />
                                   <button
@@ -3583,7 +3713,7 @@ export default function AdminModal({
                           return (
                             <div
                               key={sub.id}
-                              className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-2.5"
+                              className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2.5"
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-black/10 dark:border-white/10">
                                 <div className="flex items-center gap-2">
@@ -3693,7 +3823,7 @@ export default function AdminModal({
                               </div>
 
                               {isLapak ? (
-                                <div className="p-3.5 rounded bg-amber-50/70 dark:bg-[#1E212B] border-2 border-black/15 dark:border-white/10 text-xs font-sans">
+                                <div className="p-3.5 rounded bg-amber-50/70 dark:bg-[#1E212B] border border-black/20 dark:border-white/15/15 dark:border-white/10 text-xs font-sans">
                                   <div className="flex items-center justify-between pb-1.5 mb-2.5 border-b border-black/10 dark:border-white/10 text-[11px] font-heading font-black text-[#DC2626] dark:text-[#FACC15] uppercase tracking-wider">
                                     <span>🏪 Rincian Usaha & Lokasi Lapak</span>
                                     {(sub.fotoWajahIc || sub.ktpImage) && (
@@ -3707,7 +3837,7 @@ export default function AdminModal({
                                     {/* Kolom Kiri: 6 Field KTP IC + Rincian Lapak Usaha */}
                                     <div className="lg:col-span-8 flex flex-col justify-between space-y-2.5">
                                       {/* 6 Data Terpisah KTP IC */}
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded bg-white dark:bg-[#161820] border-2 border-black/15 dark:border-white/10 text-[11px] font-mono shadow-[2px_2px_0px_#000]/10">
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded bg-white dark:bg-[#161820] border border-black/20 dark:border-white/15/15 dark:border-white/10 text-[11px] font-mono shadow-xs/10">
                                         <div>
                                           <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">FIRST NAME:</span>
                                           <strong className="text-slate-900 dark:text-slate-100 text-xs">{sub.firstName || (sub.namaKtp ? sub.namaKtp.split(" ")[0] : "-")}</strong>
@@ -3758,7 +3888,7 @@ export default function AdminModal({
                                     </div>
 
                                     {/* Kolom Kanan Bawah: Gambar KTP IC */}
-                                    <div className="lg:col-span-4 flex flex-col justify-between rounded border-2 border-black dark:border-slate-700 bg-white dark:bg-[#161820] p-2.5 shadow-[2px_2px_0px_#000]">
+                                    <div className="lg:col-span-4 flex flex-col justify-between rounded border border-black/20 dark:border-white/15 dark:border-slate-700 bg-white dark:bg-[#161820] p-2.5 shadow-xs">
                                       <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-black/10 dark:border-white/10">
                                         <span className="text-[10px] font-heading font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1">
                                           <FileText size={12} className="text-[#DC2626] dark:text-[#FACC15]" />
@@ -3809,7 +3939,7 @@ export default function AdminModal({
                                   </div>
                                 </div>
                               ) : (
-                                <div className="p-3.5 rounded bg-red-50/70 dark:bg-[#1E212B] border-2 border-black/15 dark:border-white/10 text-xs font-sans">
+                                <div className="p-3.5 rounded bg-red-50/70 dark:bg-[#1E212B] border border-black/20 dark:border-white/15/15 dark:border-white/10 text-xs font-sans">
                                   <div className="flex items-center justify-between pb-1.5 mb-2.5 border-b border-black/10 dark:border-white/10 text-[11px] font-heading font-black text-[#DC2626] dark:text-[#FACC15] uppercase tracking-wider">
                                     <span>🤝 Rincian Audiensi & Usulan Pertemuan</span>
                                     {(sub.fotoWajahIc || sub.ktpImage) && (
@@ -3823,7 +3953,7 @@ export default function AdminModal({
                                     {/* Kolom Kiri: 6 Field KTP IC + Rincian Audiensi / Pertemuan */}
                                     <div className="lg:col-span-8 flex flex-col justify-between space-y-2.5">
                                       {/* 6 Data Terpisah KTP IC */}
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded bg-white dark:bg-[#161820] border-2 border-black/15 dark:border-white/10 text-[11px] font-mono shadow-[2px_2px_0px_#000]/10">
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded bg-white dark:bg-[#161820] border border-black/20 dark:border-white/15/15 dark:border-white/10 text-[11px] font-mono shadow-xs/10">
                                         <div>
                                           <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">FIRST NAME:</span>
                                           <strong className="text-slate-900 dark:text-slate-100 text-xs">{sub.firstName || (sub.characterName ? sub.characterName.split(" ")[0] : "-")}</strong>
@@ -3882,7 +4012,7 @@ export default function AdminModal({
                                     </div>
 
                                     {/* Kolom Kanan Bawah: Gambar KTP IC */}
-                                    <div className="lg:col-span-4 flex flex-col justify-between rounded border-2 border-black dark:border-slate-700 bg-white dark:bg-[#161820] p-2.5 shadow-[2px_2px_0px_#000]">
+                                    <div className="lg:col-span-4 flex flex-col justify-between rounded border border-black/20 dark:border-white/15 dark:border-slate-700 bg-white dark:bg-[#161820] p-2.5 shadow-xs">
                                       <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-black/10 dark:border-white/10">
                                         <span className="text-[10px] font-heading font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1">
                                           <FileText size={12} className="text-[#DC2626] dark:text-[#FACC15]" />
@@ -3956,7 +4086,7 @@ export default function AdminModal({
                                         handleUpdateSubmissionNote(sub.id, inputElem.value);
                                       }
                                     }}
-                                    className="px-3 py-1 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] text-xs font-heading font-black border border-black shadow-[1px_1px_0px_#000] rounded"
+                                    className="px-3 py-1 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] text-xs font-heading font-black border border-black shadow-xs rounded"
                                   >
                                     Simpan Catatan
                                   </button>
@@ -4006,9 +4136,9 @@ export default function AdminModal({
               {activeTab === "members_db" && (
                 <div className="flex flex-col gap-4">
                   {/* Top Header Card with Actions */}
-                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-900 shadow-[2px_2px_0px_#000] shrink-0">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-slate-900 shadow-xs shrink-0">
                         <Users2 size={20} className="text-[#DC2626]" />
                       </div>
                       <div>
@@ -4032,7 +4162,7 @@ export default function AdminModal({
                         type="button"
                         onClick={handleExportExcel}
                         disabled={membersList.length === 0}
-                        className="btn py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        className="btn py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
                         title="Download seluruh data anggota dalam format Excel (.xlsx)"
                       >
                         <FileSpreadsheet size={15} />
@@ -4043,7 +4173,7 @@ export default function AdminModal({
                         type="button"
                         onClick={handleExportZip}
                         disabled={isExportingZip || membersList.length === 0}
-                        className="btn py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        className="btn py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
                         title="Download arsip ZIP lengkap (Excel + seluruh folder Foto Profil & Foto KTP)"
                       >
                         <Archive size={15} />
@@ -4052,10 +4182,51 @@ export default function AdminModal({
                     </div>
                   </div>
 
-                  {/* Stats Ringkasan Kas (Langganan 30 Hari) & Voucher (7 Hari) */}
+                  {/* Sub-Tab Navigation: Anggota Aktif vs Riwayat Dikeluarkan */}
+                  <div className="flex items-center justify-between flex-wrap gap-2 p-1.5 bg-slate-100 dark:bg-[#15171E] border border-black/15 dark:border-white/10 rounded-lg shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMemberSubTab("active")}
+                        className={`flex items-center gap-2 py-2 px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                          memberSubTab === "active"
+                            ? "bg-[#FACC15] text-slate-950 border-yellow-500/80 shadow-xs"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-black"
+                        }`}
+                      >
+                        <Users2 size={15} className="text-[#DC2626]" />
+                        <span>Anggota Aktif ({membersList.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMemberSubTab("dismissed")}
+                        className={`flex items-center gap-2 py-2 px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                          memberSubTab === "dismissed"
+                            ? "bg-[#DC2626] text-white border-red-500/80 shadow-xs"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-black"
+                        }`}
+                      >
+                        <UserX size={15} className={memberSubTab === "dismissed" ? "text-white" : "text-rose-600 dark:text-rose-400"} />
+                        <span>Riwayat Dikeluarkan ({dismissedMembersList.length})</span>
+                      </button>
+                    </div>
+
+                    <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 px-2 py-1">
+                      {memberSubTab === "active" ? (
+                        <span>Warga aktif berhak menerima kas & voucher</span>
+                      ) : (
+                        <span>Arsip riwayat tanggal, jam & alasan pengeluaran</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {memberSubTab === "active" && (
+                    <>
+                      {/* Stats Ringkasan Kas (Langganan 30 Hari) & Voucher (7 Hari) */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center shrink-0">
+                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center shrink-0">
                         <Users size={18} className="text-slate-900" />
                       </div>
                       <div>
@@ -4066,10 +4237,10 @@ export default function AdminModal({
                       </div>
                     </div>
 
-                    <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
+                    <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-xs flex flex-col justify-between gap-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded bg-emerald-500 border-2 border-black flex items-center justify-center shrink-0 text-white shadow-xs">
+                          <div className="w-9 h-9 rounded bg-emerald-500 border border-black/20 dark:border-white/15 flex items-center justify-center shrink-0 text-white shadow-xs">
                             <DollarSign size={18} />
                           </div>
                           <div>
@@ -4089,7 +4260,7 @@ export default function AdminModal({
                         <button
                           type="button"
                           onClick={() => setActiveTab("kas_db")}
-                          className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white font-mono text-[10px] font-bold border border-black shadow-[1px_1px_0px_#000] cursor-pointer flex items-center gap-1"
+                          className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white font-mono text-[10px] font-bold border border-black shadow-xs cursor-pointer flex items-center gap-1"
                           title="Buka tab Keuangan & Kas LSM"
                         >
                           <DollarSign size={12} />
@@ -4103,7 +4274,7 @@ export default function AdminModal({
                         <button
                           type="button"
                           onClick={() => setActiveTab("member_kas")}
-                          className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-[1px_1px_0px_#000] cursor-pointer text-[10px] flex items-center gap-1"
+                          className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-xs cursor-pointer text-[10px] flex items-center gap-1"
                           title="Buka tab Catat Uang Kas untuk mengelola pembayaran kas anggota"
                         >
                           <DollarSign size={11} className="text-[#DC2626]" />
@@ -4112,10 +4283,10 @@ export default function AdminModal({
                       </div>
                     </div>
 
-                    <div className="card-brutal p-3 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-2">
+                    <div className="card-brutal p-3 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-xs flex flex-col justify-between gap-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center shrink-0 text-[#DC2626] shadow-xs">
+                          <div className="w-9 h-9 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center shrink-0 text-[#DC2626] shadow-xs">
                             <Gift size={18} />
                           </div>
                           <div>
@@ -4140,7 +4311,7 @@ export default function AdminModal({
                         <button
                           type="button"
                           onClick={() => setActiveTab("jasra_panel")}
-                          className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-[1px_1px_0px_#000] cursor-pointer text-[10px] flex items-center gap-1"
+                          className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-xs cursor-pointer text-[10px] flex items-center gap-1"
                           title="Buka panel Voucher Jasra untuk mengelola jatah dan distribusi voucher"
                         >
                           <Gift size={11} className="text-[#DC2626]" />
@@ -4151,7 +4322,7 @@ export default function AdminModal({
                   </div>
 
                   {/* Search and Filter Pills Bar */}
-                  <div className="card-brutal p-3.5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
+                  <div className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="relative w-full sm:max-w-md">
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -4160,7 +4331,7 @@ export default function AdminModal({
                           placeholder="Cari nama IC, No KTP, atau No HP..."
                           value={memberSearchQuery}
                           onChange={(e) => setMemberSearchQuery(e.target.value)}
-                          className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                         {memberSearchQuery && (
                           <button
@@ -4258,7 +4429,7 @@ export default function AdminModal({
 
                   {/* Members Grid Cards */}
                   {filteredMembers.length === 0 ? (
-                    <div className="card-brutal p-12 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-2">
+                    <div className="card-brutal p-12 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 text-center flex flex-col items-center justify-center gap-2">
                       <Users2 size={36} className="text-slate-300 dark:text-slate-600" />
                       <p className="font-heading font-black text-sm text-slate-700 dark:text-slate-300">
                         {memberSearchQuery ? "Tidak ditemukan anggota yang sesuai pencarian" : "Belum ada anggota terdaftar"}
@@ -4273,7 +4444,7 @@ export default function AdminModal({
                         return (
                           <div
                             key={member.id || idx}
-                            className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
+                            className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-sm flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
                           >
                             {/* Card Header: Avatar & Nama */}
                             <div className="flex items-start gap-3">
@@ -4288,7 +4459,7 @@ export default function AdminModal({
                                     });
                                   }
                                 }}
-                                className={`w-12 h-12 rounded-full border-2 border-black dark:border-[#475569] overflow-hidden shrink-0 flex items-center justify-center shadow-[2px_2px_0px_#000] bg-amber-100 dark:bg-amber-950/50 ${
+                                className={`w-12 h-12 rounded-full border border-black/15 dark:border-white/10 overflow-hidden shrink-0 flex items-center justify-center shadow-xs bg-amber-100 dark:bg-amber-950/50 ${
                                   member.profilePhoto ? "cursor-pointer group relative" : ""
                                 }`}
                                 title={member.profilePhoto ? "Klik untuk memperbesar foto profil" : "Foto profil belum diunggah"}
@@ -4338,7 +4509,7 @@ export default function AdminModal({
                             </div>
 
                             {/* Admin Controls: Status Kas (30 Hari) & Voucher Jasra (7 Hari) */}
-                            <div className="flex flex-col gap-2 p-2.5 rounded-lg bg-amber-50/70 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10">
+                            <div className="flex flex-col gap-2 p-2.5 rounded-lg bg-amber-50/70 dark:bg-[#14161F] border border-black/20 dark:border-white/15/15 dark:border-white/10">
                               <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1">
                                   <DollarSign size={12} className="text-emerald-600" /> STATUS KAS & VOUCHER
@@ -4456,9 +4627,10 @@ export default function AdminModal({
                               })()}
                             </div>
 
-                            {/* Action Buttons: Lihat KTP & Hapus */}
-                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-black/10 dark:border-white/10">
-                              <div className="flex items-center gap-1.5">
+                            {/* Action Buttons: Lihat Dokumen & Kelola Anggota */}
+                            <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-black/10 dark:border-white/10 mt-auto">
+                              {/* Left: Dokumen KTP & Foto Profil */}
+                              <div className="flex items-center gap-1.5 min-w-0">
                                 {member.icPhoto ? (
                                   <button
                                     type="button"
@@ -4469,14 +4641,14 @@ export default function AdminModal({
                                         citizenId: member.icNumber || "",
                                       })
                                     }
-                                    className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-black border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-sans font-bold bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border border-black shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer shrink-0 whitespace-nowrap"
                                     title="Lihat dokumen KTP IC"
                                   >
-                                    <FileText size={12} className="text-[#DC2626]" />
+                                    <FileText size={12} className="text-[#DC2626] shrink-0" />
                                     <span>Lihat KTP</span>
                                   </button>
                                 ) : (
-                                  <span className="text-[10px] text-slate-400 italic">Tanpa Foto KTP</span>
+                                  <span className="text-[10px] text-slate-400 dark:text-slate-500 italic shrink-0">Tanpa Foto KTP</span>
                                 )}
 
                                 {member.profilePhoto && (
@@ -4489,27 +4661,267 @@ export default function AdminModal({
                                         citizenId: member.icNumber || "",
                                       })
                                     }
-                                    className="btn text-[11px] py-1 px-2 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold border border-black dark:border-slate-600 flex items-center gap-1 cursor-pointer"
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-sans font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/30 dark:border-slate-600 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                                     title="Lihat foto profil resolusi penuh"
                                   >
-                                    <Eye size={12} />
+                                    <Eye size={12} className="shrink-0" />
                                     <span>Foto</span>
                                   </button>
                                 )}
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteMember(member.id, member.fullName)}
-                                className="p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 border border-transparent hover:border-red-500 transition-colors cursor-pointer"
-                                title="Hapus data anggota dari database"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              {/* Right: Tombol Keluarkan & Hapus */}
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDismissModal(member)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-sans font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
+                                  title="Keluarkan anggota dari paguyuban (catat riwayat tanggal, jam & alasan)"
+                                >
+                                  <UserMinus size={12} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                                  <span>Keluarkan</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMember(member.id, member.fullName)}
+                                  className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 border border-transparent hover:border-red-300 dark:hover:border-red-900 transition-colors cursor-pointer shrink-0"
+                                  title="Hapus data anggota dari database"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                    </>
+                  )}
+
+                  {/* Sub-Tab: Riwayat Anggota Dikeluarkan */}
+                  {memberSubTab === "dismissed" && (
+                    <div className="flex flex-col gap-4">
+                      {/* Search Bar & Export Riwayat */}
+                      <div className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="relative w-full sm:max-w-md">
+                          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="Cari nama IC, No KTP, alasan pengeluaran, atau nama petugas..."
+                            value={dismissedSearchQuery}
+                            onChange={(e) => setDismissedSearchQuery(e.target.value)}
+                            className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                          />
+                          {dismissedSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setDismissedSearchQuery("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                          <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
+                            Menampilkan <span className="text-rose-600 dark:text-rose-400">{filteredDismissedMembers.length}</span> dari {dismissedMembersList.length} arsip
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={handleExportDismissedExcel}
+                            disabled={dismissedMembersList.length === 0}
+                            className="btn py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer shrink-0"
+                            title="Unduh rekap riwayat pengeluaran dalam format Excel (.xlsx)"
+                          >
+                            <FileSpreadsheet size={14} />
+                            <span>Unduh Excel Riwayat</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Riwayat Grid Cards */}
+                      {filteredDismissedMembers.length === 0 ? (
+                        <div className="card-brutal p-12 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 text-center flex flex-col items-center justify-center gap-2">
+                          <UserX size={36} className="text-slate-300 dark:text-slate-600" />
+                          <p className="font-heading font-black text-sm text-slate-700 dark:text-slate-300">
+                            {dismissedSearchQuery ? "Tidak ditemukan riwayat yang sesuai pencarian" : "Belum ada anggota yang dikeluarkan"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {dismissedSearchQuery ? "Coba gunakan kata kunci pencarian lain." : "Anggota yang dikeluarkan dari database aktif akan tercatat lengkap dengan tanggal dan jam di sini."}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                          {filteredDismissedMembers.map((dismissedItem, idx) => {
+                            const formattedTime = formatDismissedDateTime(dismissedItem.dismissedAt);
+                            return (
+                              <div
+                                key={dismissedItem.id || idx}
+                                className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-rose-300 dark:border-rose-900/60 shadow-sm flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
+                              >
+                                {/* Header: Avatar & Info */}
+                                <div className="flex items-start gap-3">
+                                  <div
+                                    onClick={() => {
+                                      if (dismissedItem.profilePhoto) {
+                                        setPreviewKtp({
+                                          image: dismissedItem.profilePhoto,
+                                          name: `${dismissedItem.fullName || "Anggota"} (Foto Profil)`,
+                                          citizenId: dismissedItem.icNumber || "",
+                                        });
+                                      }
+                                    }}
+                                    className={`w-12 h-12 rounded-full border-2 border-rose-500 overflow-hidden shrink-0 flex items-center justify-center shadow-xs bg-rose-50 dark:bg-rose-950/40 ${
+                                      dismissedItem.profilePhoto ? "cursor-pointer group relative" : ""
+                                    }`}
+                                    title={dismissedItem.profilePhoto ? "Klik untuk memperbesar foto profil" : "Foto profil"}
+                                  >
+                                    {dismissedItem.profilePhoto ? (
+                                      <img
+                                        src={dismissedItem.profilePhoto}
+                                        alt={dismissedItem.fullName}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform grayscale contrast-125"
+                                      />
+                                    ) : (
+                                      <UserMinus size={20} className="text-rose-600 dark:text-rose-400" />
+                                    )}
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <h5 className="font-heading font-black text-sm text-slate-950 dark:text-slate-100 truncate" title={dismissedItem.fullName}>
+                                        {dismissedItem.fullName || "Nama Tidak Tertera"}
+                                      </h5>
+                                      <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border border-rose-400 shrink-0">
+                                        DIKELUARKAN
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-slate-500 block truncate">
+                                      Terdaftar awal: {dismissedItem.regDate || (dismissedItem.createdAt ? new Date(dismissedItem.createdAt).toLocaleDateString("id-ID") : "-")}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Kontak / IC */}
+                                <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono">
+                                  <div>
+                                    <span className="text-[9px] text-slate-400 font-sans font-bold block">NO KTP / IC:</span>
+                                    <strong className="text-rose-700 dark:text-rose-400 truncate block text-[11px]" title={dismissedItem.icNumber}>
+                                      {dismissedItem.icNumber || "-"}
+                                    </strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[9px] text-slate-400 font-sans font-bold block">NO TLP / WA:</span>
+                                    <span className="text-slate-800 dark:text-slate-200 truncate block text-[11px]" title={dismissedItem.phone}>
+                                      {dismissedItem.phone || "-"}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Box Waktu & Alasan Pengeluaran */}
+                                <div className="flex flex-col gap-2 p-2.5 rounded-lg bg-rose-50/70 dark:bg-rose-950/20 border-2 border-rose-300 dark:border-rose-900/60">
+                                  {/* Tanggal & Jam Pengeluaran */}
+                                  <div className="flex items-center justify-between gap-1 pb-1.5 border-b border-rose-200 dark:border-rose-900/40">
+                                    <span className="text-[10px] font-heading font-black text-rose-800 dark:text-rose-300 uppercase flex items-center gap-1">
+                                      <Clock size={12} className="text-rose-600 dark:text-rose-400" />
+                                      WAKTU DIKELUARKAN:
+                                    </span>
+                                    <strong className="text-[11px] font-mono font-black text-rose-900 dark:text-rose-200 bg-white dark:bg-[#1A1D26] px-1.5 py-0.5 rounded border border-rose-300 dark:border-rose-800">
+                                      {formattedTime}
+                                    </strong>
+                                  </div>
+
+                                  {/* Alasan */}
+                                  <div>
+                                    <span className="text-[9px] font-mono font-bold text-slate-500 uppercase block mb-0.5">
+                                      Alasan Pengeluaran:
+                                    </span>
+                                    <p className="text-xs text-slate-800 dark:text-slate-200 bg-white dark:bg-[#14161F] p-2 rounded border border-black/10 dark:border-white/10 italic leading-snug">
+                                      "{dismissedItem.dismissedReason || "Tidak ada alasan tercatat"}"
+                                    </p>
+                                  </div>
+
+                                  {/* Dicatat Oleh */}
+                                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 dark:text-slate-400 pt-1">
+                                    <span className="flex items-center gap-1">
+                                      <ShieldCheck size={11} className="text-slate-500" /> Dicatat Oleh:
+                                    </span>
+                                    <strong className="text-slate-900 dark:text-slate-200">
+                                      {dismissedItem.dismissedBy || "Pengurus LSM PPS"}
+                                    </strong>
+                                  </div>
+                                </div>
+
+                                {/* Footer Actions: Dokumen, Pulihkan, Hapus Permanen */}
+                                <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-black/10 dark:border-white/10 mt-auto">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    {dismissedItem.icPhoto ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewKtp({
+                                            image: dismissedItem.icPhoto,
+                                            name: dismissedItem.fullName || "Anggota",
+                                            citizenId: dismissedItem.icNumber || "",
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-sans font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/30 dark:border-slate-600 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                                        title="Lihat dokumen KTP IC"
+                                      >
+                                        <FileText size={12} className="text-rose-600 shrink-0" />
+                                        <span>KTP</span>
+                                      </button>
+                                    ) : null}
+
+                                    {dismissedItem.profilePhoto ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewKtp({
+                                            image: dismissedItem.profilePhoto,
+                                            name: `${dismissedItem.fullName || "Anggota"} (Foto Profil)`,
+                                            citizenId: dismissedItem.icNumber || "",
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-sans font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/30 dark:border-slate-600 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                                        title="Lihat foto profil"
+                                      >
+                                        <Eye size={12} className="shrink-0" />
+                                        <span>Foto</span>
+                                      </button>
+                                    ) : null}
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRestoreMember(dismissedItem)}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-sans font-black bg-emerald-600 hover:bg-emerald-700 text-white border border-black shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer whitespace-nowrap"
+                                      title="Pulihkan status anggota ini menjadi aktif kembali"
+                                    >
+                                      <RotateCcw size={12} className="shrink-0" />
+                                      <span>Pulihkan</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteDismissedPermanently(dismissedItem)}
+                                      className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 border border-transparent hover:border-red-300 dark:hover:border-red-900 transition-colors cursor-pointer shrink-0"
+                                      title="Hapus riwayat pengeluaran ini secara permanen"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -4519,9 +4931,9 @@ export default function AdminModal({
               {activeTab === "member_kas" && (
                 <div className="flex flex-col gap-4">
                   {/* Top Header Card with Actions */}
-                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-900 shadow-[2px_2px_0px_#000] shrink-0">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-slate-900 shadow-xs shrink-0">
                         <DollarSign size={20} className="text-[#DC2626]" />
                       </div>
                       <div>
@@ -4544,7 +4956,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setActiveTab("kas_db")}
-                        className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/10 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Buka menu Keuangan & mutasi kas"
                       >
                         <Landmark size={15} className="text-[#DC2626]" />
@@ -4554,7 +4966,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setActiveTab("members_db")}
-                        className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/10 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Kembali ke Database Anggota & Foto KTP"
                       >
                         <Users2 size={15} className="text-[#DC2626]" />
@@ -4565,7 +4977,7 @@ export default function AdminModal({
 
                   {/* Summary Metric Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs">
                       <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
                         Total Anggota
                       </span>
@@ -4575,7 +4987,7 @@ export default function AdminModal({
                       <span className="text-[10px] text-slate-500">Warga terdaftar</span>
                     </div>
 
-                    <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000]">
+                    <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-xs">
                       <span className="text-[10px] font-sans font-black text-emerald-900 dark:text-emerald-300 uppercase">
                         Sudah Bayar
                       </span>
@@ -4587,7 +4999,7 @@ export default function AdminModal({
                       </span>
                     </div>
 
-                    <div className="card-brutal p-3 bg-rose-50 dark:bg-rose-950/30 border-2 border-rose-500 dark:border-rose-400 shadow-[2px_2px_0px_#000]">
+                    <div className="card-brutal p-3 bg-rose-50 dark:bg-rose-950/30 border-2 border-rose-500 dark:border-rose-400 shadow-xs">
                       <span className="text-[10px] font-sans font-black text-rose-900 dark:text-rose-300 uppercase">
                         Belum Bayar
                       </span>
@@ -4599,7 +5011,7 @@ export default function AdminModal({
                   </div>
 
                   {/* Search & Filter Bar */}
-                  <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                  <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
                     {/* Search box */}
                     <div className="relative flex-1">
                       <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -4608,7 +5020,7 @@ export default function AdminModal({
                         placeholder="Cari anggota berdasarkan nama, nomor telepon, atau CID..."
                         value={kasMemberSearchQuery}
                         onChange={(e) => setKasMemberSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border-2 border-black dark:border-[#475569] rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#DC2626]"
+                        className="w-full pl-9 pr-8 py-2 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border border-black/15 dark:border-white/10 rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#DC2626]"
                       />
                       {kasMemberSearchQuery && (
                         <button
@@ -4626,9 +5038,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasMemberStatusFilter("all")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasMemberStatusFilter === "all"
-                            ? "bg-slate-900 text-white shadow-[1px_1px_0px_#000]"
+                            ? "bg-slate-900 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                         }`}
                       >
@@ -4637,9 +5049,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasMemberStatusFilter("active")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasMemberStatusFilter === "active"
-                            ? "bg-emerald-600 text-white shadow-[1px_1px_0px_#000]"
+                            ? "bg-emerald-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-emerald-50"
                         }`}
                       >
@@ -4648,9 +5060,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasMemberStatusFilter("unpaid")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasMemberStatusFilter === "unpaid"
-                            ? "bg-rose-600 text-white shadow-[1px_1px_0px_#000]"
+                            ? "bg-rose-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-rose-50"
                         }`}
                       >
@@ -4661,7 +5073,7 @@ export default function AdminModal({
 
                   {/* List / Cards of Members for Kas */}
                   {filteredKasMembers.length === 0 ? (
-                    <div className="card-brutal p-8 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center text-slate-500">
+                    <div className="card-brutal p-8 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 text-center text-slate-500">
                       <DollarSign size={36} className="mx-auto text-slate-300 mb-2" />
                       <p className="font-heading font-black text-sm">Tidak ada anggota yang cocok dengan filter pencarian.</p>
                       <p className="text-xs text-slate-400 mt-1">Coba gunakan kata kunci nama atau nomor CID lain.</p>
@@ -4673,12 +5085,12 @@ export default function AdminModal({
                         return (
                           <div
                             key={member.id}
-                            className="card-brutal p-4 rounded-xl border-2 bg-white dark:bg-[#1A1D26] border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] transition-all flex flex-col justify-between gap-3"
+                            className="card-brutal p-4 rounded-xl border-2 bg-white dark:bg-[#1A1D26] border-black dark:border-[#475569] shadow-xs transition-all flex flex-col justify-between gap-3"
                           >
                             {/* Member Header */}
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white border-2 border-black flex items-center justify-center font-heading font-black text-sm shadow-[1.5px_1.5px_0px_#000] shrink-0">
+                                <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white border border-black/20 dark:border-white/15 flex items-center justify-center font-heading font-black text-sm shadow-xs shrink-0">
                                   {member.fullName ? member.fullName.charAt(0).toUpperCase() : "A"}
                                 </div>
                                 <div className="min-w-0">
@@ -4735,7 +5147,7 @@ export default function AdminModal({
                                   setSelectedKasMember(member);
                                   setIsKasPaymentModalOpen(true);
                                 }}
-                                className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-xs border-2 border-black shadow-[2px_2px_0px_#000] flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all"
+                                className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-xs border border-black/20 dark:border-white/15 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all"
                                 title="Catat pembayaran iuran kas anggota ini"
                               >
                                 <DollarSign size={14} />
@@ -4779,9 +5191,9 @@ export default function AdminModal({
               {activeTab === "kas_db" && (
                 <div className="flex flex-col gap-4">
                   {/* Top Header Card with Actions */}
-                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-900 shadow-[2px_2px_0px_#000] shrink-0">
+                      <div className="w-10 h-10 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-slate-900 shadow-xs shrink-0">
                         <DollarSign size={20} className="text-[#DC2626]" />
                       </div>
                       <div>
@@ -4804,7 +5216,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setActiveTab("member_kas")}
-                        className="py-2 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Buka menu khusus pencatatan iuran kas anggota LSM"
                       >
                         <DollarSign size={15} />
@@ -4814,7 +5226,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setIsKasIncomeModalOpen(true)}
-                        className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Catat dana masuk baru (donasi warga, sponsorship, hasil UMKM, dll)"
                       >
                         <Plus size={15} />
@@ -4824,7 +5236,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setIsKasExpenseModalOpen(true)}
-                        className="py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Catat pengeluaran baru kas LSM"
                       >
                         <TrendingDown size={15} />
@@ -4835,7 +5247,7 @@ export default function AdminModal({
                         type="button"
                         onClick={handleExportKasExcel}
                         disabled={kasTransactions.length === 0}
-                        className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded"
+                        className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded"
                         title="Download seluruh mutasi kas dalam format Excel (.xlsx)"
                       >
                         <FileSpreadsheet size={15} />
@@ -4845,7 +5257,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setIsKasCopyModalOpen(true)}
-                        className="py-2 px-3.5 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2 px-3.5 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Salin laporan kas dalam format teks untuk Discord / WhatsApp"
                       >
                         <Copy size={15} />
@@ -4857,7 +5269,7 @@ export default function AdminModal({
                   {/* Metric Cards: 2 Pos Kas Bendahara & Total Saldo Bersih */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {/* Card 1: Kas Oita */}
-                    <div className="card-brutal p-3.5 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-1.5">
+                    <div className="card-brutal p-3.5 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-xs flex flex-col justify-between gap-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-sans font-black text-amber-900 dark:text-amber-300 uppercase">
                           Kas di Oita (Bendahara)
@@ -4874,7 +5286,7 @@ export default function AdminModal({
                     </div>
 
                     {/* Card 2: Kas Darren */}
-                    <div className="card-brutal p-3.5 bg-indigo-50 dark:bg-indigo-950/30 border-2 border-indigo-500 dark:border-indigo-400 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-1.5">
+                    <div className="card-brutal p-3.5 bg-indigo-50 dark:bg-indigo-950/30 border-2 border-indigo-500 dark:border-indigo-400 shadow-xs flex flex-col justify-between gap-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-sans font-black text-indigo-900 dark:text-indigo-300 uppercase">
                           Kas di Darren (Bendahara)
@@ -4891,7 +5303,7 @@ export default function AdminModal({
                     </div>
 
                     {/* Card 3: Saldo Kas Bersih LSM */}
-                    <div className="card-brutal p-3.5 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000] flex flex-col justify-between gap-1.5">
+                    <div className="card-brutal p-3.5 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-xs flex flex-col justify-between gap-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-sans font-black text-emerald-900 dark:text-emerald-300 uppercase">
                           Total Saldo Bersih LSM
@@ -4910,7 +5322,7 @@ export default function AdminModal({
 
                   {/* Arus Kas: Total Pemasukan vs Total Pengeluaran */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center justify-between">
+                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
                           Akumulasi Pemasukan
@@ -4924,7 +5336,7 @@ export default function AdminModal({
                       </span>
                     </div>
 
-                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center justify-between">
+                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs flex items-center justify-between">
                       <div className="flex flex-col">
                         <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
                           Akumulasi Pengeluaran
@@ -4940,7 +5352,7 @@ export default function AdminModal({
                   </div>
 
                   {/* Filter & Search Bar */}
-                  <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                  <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
                     {/* Search box */}
                     <div className="relative flex-1">
                       <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -4949,7 +5361,7 @@ export default function AdminModal({
                         placeholder="Cari transaksi, nama anggota, CID, bendahara, catatan..."
                         value={kasSearchQuery}
                         onChange={(e) => setKasSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-3 py-1.5 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border-2 border-black dark:border-[#475569] rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#DC2626]"
+                        className="w-full pl-9 pr-3 py-1.5 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border border-black/15 dark:border-white/10 rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#DC2626]"
                       />
                     </div>
 
@@ -4958,9 +5370,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("ALL")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasFilterType === "ALL"
-                            ? "bg-slate-900 text-white shadow-[1px_1px_0px_#000]"
+                            ? "bg-slate-900 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                         }`}
                       >
@@ -4969,9 +5381,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("INCOME")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasFilterType === "INCOME"
-                            ? "bg-emerald-600 text-white shadow-[1px_1px_0px_#000]"
+                            ? "bg-emerald-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-emerald-50"
                         }`}
                       >
@@ -4980,9 +5392,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("EXPENSE")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasFilterType === "EXPENSE"
-                            ? "bg-rose-600 text-white shadow-[1px_1px_0px_#000]"
+                            ? "bg-rose-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-rose-50"
                         }`}
                       >
@@ -4991,9 +5403,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("OITA")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasFilterType === "OITA"
-                            ? "bg-amber-500 text-slate-950 shadow-[1px_1px_0px_#000]"
+                            ? "bg-amber-500 text-slate-950 shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-amber-50"
                         }`}
                       >
@@ -5002,9 +5414,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("DARREN")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasFilterType === "DARREN"
-                            ? "bg-indigo-600 text-white shadow-[1px_1px_0px_#000]"
+                            ? "bg-indigo-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-indigo-50"
                         }`}
                       >
@@ -5014,7 +5426,7 @@ export default function AdminModal({
                   </div>
 
                   {/* Transactions Table */}
-                  <div className="card-brutal bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] overflow-hidden">
+                  <div className="card-brutal bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
@@ -5165,9 +5577,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setEventSubTab("events_manage")}
-                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border-2 border-black transition-all cursor-pointer ${
+                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border border-black/20 dark:border-white/15 transition-all cursor-pointer ${
                           eventSubTab === "events_manage"
-                            ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
+                            ? "bg-[#FACC15] text-slate-950 shadow-xs"
                             : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                         }`}
                       >
@@ -5177,9 +5589,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setEventSubTab("registrations")}
-                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border-2 border-black transition-all cursor-pointer ${
+                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border border-black/20 dark:border-white/15 transition-all cursor-pointer ${
                           eventSubTab === "registrations"
-                            ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
+                            ? "bg-[#FACC15] text-slate-950 shadow-xs"
                             : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                         }`}
                       >
@@ -5191,7 +5603,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={handleOpenAddEvent}
-                        className="btn py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                        className="btn py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-heading font-black text-xs uppercase border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
                       >
                         <Plus size={16} className="text-[#FACC15]" />
                         <span>+ Buat Event Baru</span>
@@ -5203,9 +5615,9 @@ export default function AdminModal({
                   {eventSubTab === "events_manage" && (
                     <div className="flex flex-col gap-4">
                       {/* Banner Info */}
-                      <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shadow-[2px_2px_0px_#000] shrink-0">
+                          <div className="w-10 h-10 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-slate-950 shadow-xs shrink-0">
                             <Ticket size={20} />
                           </div>
                           <div>
@@ -5220,7 +5632,7 @@ export default function AdminModal({
                         <button
                           type="button"
                           onClick={handleOpenAddEvent}
-                          className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+                          className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
                         >
                           <Plus size={15} />
                           <span>+ Buat Event Baru</span>
@@ -5229,8 +5641,8 @@ export default function AdminModal({
 
                       {/* Grid Event Cards */}
                       {eventsList.length === 0 ? (
-                        <div className="card-brutal p-8 sm:p-10 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-3">
-                          <div className="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-950/40 border-2 border-black flex items-center justify-center text-[#DC2626] dark:text-[#FACC15] shadow-[2px_2px_0px_#000]">
+                        <div className="card-brutal p-8 sm:p-10 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 text-center flex flex-col items-center justify-center gap-3">
+                          <div className="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-black/20 dark:border-white/15 flex items-center justify-center text-[#DC2626] dark:text-[#FACC15] shadow-xs">
                             <Ticket size={28} />
                           </div>
                           <div>
@@ -5244,7 +5656,7 @@ export default function AdminModal({
                           <button
                             type="button"
                             onClick={handleOpenAddEvent}
-                            className="btn py-2.5 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn py-2.5 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
                           >
                             <Plus size={16} className="text-[#DC2626]" />
                             <span>+ Buat Event Baru Sekarang</span>
@@ -5271,13 +5683,13 @@ export default function AdminModal({
                           return (
                             <div
                               key={evt.id}
-                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col justify-between gap-3 relative"
+                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-md flex flex-col justify-between gap-3 relative"
                             >
                               {/* Header Card: Status & Prefix */}
                               <div className="flex items-center justify-between gap-2 pb-2 border-b border-black/10 dark:border-white/10">
                                 <div className="flex items-center gap-2">
                                   <span
-                                    className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-black text-white border border-black shadow-[1px_1px_0px_#000] ${
+                                    className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-black text-white border border-black shadow-xs ${
                                       isOpen ? "bg-emerald-600" : "bg-red-600"
                                     }`}
                                   >
@@ -5443,9 +5855,9 @@ export default function AdminModal({
                   {eventSubTab === "registrations" && (
                     <div className="flex flex-col gap-4">
                       {/* Top Header Card */}
-                      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded bg-[#DC2626] border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_#000] shrink-0">
+                          <div className="w-10 h-10 rounded bg-[#DC2626] border border-black/20 dark:border-white/15 flex items-center justify-center text-white shadow-xs shrink-0">
                             <Ticket size={20} className="text-[#FACC15]" />
                           </div>
                           <div>
@@ -5472,7 +5884,7 @@ export default function AdminModal({
                           <select
                             value={selectedEventFilter}
                             onChange={(e) => setSelectedEventFilter(e.target.value)}
-                            className="text-xs font-heading font-black py-2 px-3 rounded border-2 border-black bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] cursor-pointer"
+                            className="text-xs font-heading font-black py-2 px-3 rounded border border-black/20 dark:border-white/15 bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 shadow-xs cursor-pointer"
                           >
                             <option value="all">Semua Event ({eventRegistrations.length})</option>
                             {eventsList.map((e) => (
@@ -5486,7 +5898,7 @@ export default function AdminModal({
                             type="button"
                             onClick={handleExportEventExcel}
                             disabled={filteredEvents.length === 0}
-                            className="btn py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                            className="btn py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
                             title="Download rekap pendaftar event dalam format Excel"
                           >
                             <FileSpreadsheet size={15} />
@@ -5496,7 +5908,7 @@ export default function AdminModal({
                       </div>
 
                       {/* Search Bar */}
-                      <div className="card-brutal p-3 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="card-brutal p-3 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
                         <div className="relative w-full sm:max-w-md">
                           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                           <input
@@ -5504,7 +5916,7 @@ export default function AdminModal({
                             placeholder="Cari kode tiket, nama IC, no telp, atau kategori..."
                             value={eventSearchQuery}
                             onChange={(e) => setEventSearchQuery(e.target.value)}
-                            className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                           />
                           {eventSearchQuery && (
                             <button
@@ -5524,7 +5936,7 @@ export default function AdminModal({
 
                       {/* Event Registrants Cards */}
                       {filteredEvents.length === 0 ? (
-                        <div className="card-brutal p-12 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-2">
+                        <div className="card-brutal p-12 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 text-center flex flex-col items-center justify-center gap-2">
                           <Ticket size={36} className="text-slate-300 dark:text-slate-600" />
                           <p className="font-heading font-black text-sm text-slate-700 dark:text-slate-300">
                             {eventSearchQuery ? "Tidak ditemukan pendaftar event yang sesuai" : "Belum ada pendaftar pada event ini"}
@@ -5538,7 +5950,7 @@ export default function AdminModal({
                           {filteredEvents.map((reg) => (
                             <div
                               key={reg.id}
-                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
+                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-sm flex flex-col justify-between gap-3 hover:-translate-y-0.5 transition-transform"
                             >
                               {/* Ticket Header */}
                               <div className="flex items-center justify-between gap-2 pb-2 border-b border-black/10 dark:border-white/10">
@@ -5621,7 +6033,7 @@ export default function AdminModal({
                                       citizenId: reg.citizenId || "",
                                     })
                                   }
-                                  className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-black border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center justify-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                                  className="btn text-[11px] py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-black border border-black shadow-xs flex items-center justify-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
                                   title="Lihat screenshot KTP IC dan HUD"
                                 >
                                   <FileText size={12} className="text-[#DC2626]" />
@@ -5640,7 +6052,7 @@ export default function AdminModal({
                                       backgroundColor: reg.feePaid ? "#059669" : "#FACC15",
                                       color: reg.feePaid ? "#FFFFFF" : "#020617",
                                     }}
-                                    className="w-full text-xs py-2 px-2.5 rounded font-mono font-black border-2 border-black flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#000]"
+                                    className="w-full text-xs py-2 px-2.5 rounded font-mono font-black border border-black/20 dark:border-white/15 flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all shadow-xs"
                                     title="Klik untuk mengubah status pembayaran fee"
                                   >
                                     {reg.feePaid ? (
@@ -5659,7 +6071,7 @@ export default function AdminModal({
                                       backgroundColor: reg.checkedIn ? "#059669" : "#FACC15",
                                       color: reg.checkedIn ? "#FFFFFF" : "#020617",
                                     }}
-                                    className="w-full text-xs py-2 px-2.5 rounded font-mono font-black border-2 border-black flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_#000]"
+                                    className="w-full text-xs py-2 px-2.5 rounded font-mono font-black border border-black/20 dark:border-white/15 flex items-center justify-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-all shadow-xs"
                                     title="Klik untuk mengubah status kehadiran di arena"
                                   >
                                     {reg.checkedIn ? (
@@ -5698,9 +6110,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setBansosSubTab("programs_manage")}
-                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border-2 border-black transition-all cursor-pointer ${
+                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border border-black/20 dark:border-white/15 transition-all cursor-pointer ${
                           bansosSubTab === "programs_manage"
-                            ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
+                            ? "bg-[#FACC15] text-slate-950 shadow-xs"
                             : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                         }`}
                       >
@@ -5710,9 +6122,9 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setBansosSubTab("claims_data")}
-                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border-2 border-black transition-all cursor-pointer ${
+                        className={`btn py-1.5 px-3.5 text-xs font-heading font-black border border-black/20 dark:border-white/15 transition-all cursor-pointer ${
                           bansosSubTab === "claims_data"
-                            ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
+                            ? "bg-[#FACC15] text-slate-950 shadow-xs"
                             : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                         }`}
                       >
@@ -5724,7 +6136,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={handleOpenAddBansosProgram}
-                        className="btn py-2 px-3.5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                        className="btn py-2 px-3.5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black text-xs uppercase border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
                       >
                         <Plus size={16} className="text-[#FACC15]" />
                         <span>+ Buat Program Bansos Baru</span>
@@ -5736,9 +6148,9 @@ export default function AdminModal({
                   {bansosSubTab === "programs_manage" && (
                     <div className="flex flex-col gap-4">
                       {/* Banner Info */}
-                      <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-950 shadow-[2px_2px_0px_#000] shrink-0">
+                          <div className="w-10 h-10 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-slate-950 shadow-xs shrink-0">
                             <Gift size={20} />
                           </div>
                           <div>
@@ -5753,7 +6165,7 @@ export default function AdminModal({
                         <button
                           type="button"
                           onClick={handleOpenAddBansosProgram}
-                          className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
+                          className="btn py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 self-start md:self-auto cursor-pointer"
                         >
                           <Plus size={15} />
                           <span>+ Buat Program Bansos</span>
@@ -5762,8 +6174,8 @@ export default function AdminModal({
 
                       {/* Grid Program Cards */}
                       {bansosPrograms.length === 0 ? (
-                        <div className="card-brutal p-8 sm:p-10 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] text-center flex flex-col items-center justify-center gap-3">
-                          <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border-2 border-black flex items-center justify-center text-emerald-600 shadow-[2px_2px_0px_#000]">
+                        <div className="card-brutal p-8 sm:p-10 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 text-center flex flex-col items-center justify-center gap-3">
+                          <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-black/20 dark:border-white/15 flex items-center justify-center text-emerald-600 shadow-xs">
                             <Gift size={28} />
                           </div>
                           <div>
@@ -5777,7 +6189,7 @@ export default function AdminModal({
                           <button
                             type="button"
                             onClick={handleOpenAddBansosProgram}
-                            className="btn py-2.5 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn py-2.5 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
                           >
                             <Plus size={16} className="text-emerald-700" />
                             <span>+ Buat Program Bansos Sekarang</span>
@@ -5794,7 +6206,7 @@ export default function AdminModal({
                             return (
                               <div
                                 key={prog.id}
-                                className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3"
+                                className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-sm flex flex-col justify-between gap-3"
                               >
                                 <div>
                                   {/* Header with Title and Badges */}
@@ -5810,7 +6222,7 @@ export default function AdminModal({
 
                                     <div className="flex items-center gap-1.5 shrink-0">
                                       <span
-                                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-black border border-black shadow-[1px_1px_0px_#000] ${
+                                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-black border border-black shadow-xs ${
                                           isActive
                                             ? "bg-emerald-600 text-white"
                                             : "bg-slate-400 text-slate-950"
@@ -5897,7 +6309,7 @@ export default function AdminModal({
                                     <button
                                       type="button"
                                       onClick={() => handleOpenEditBansosProgram(prog)}
-                                      className="p-1.5 bg-white dark:bg-[#1E212B] hover:bg-slate-100 text-slate-800 dark:text-slate-200 border border-black shadow-[1px_1px_0px_#000] cursor-pointer"
+                                      className="p-1.5 bg-white dark:bg-[#1E212B] hover:bg-slate-100 text-slate-800 dark:text-slate-200 border border-black shadow-xs cursor-pointer"
                                       title="Edit Program Bansos"
                                     >
                                       <Edit2 size={13} />
@@ -5907,7 +6319,7 @@ export default function AdminModal({
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteBansosProgram(prog)}
-                                      className="p-1.5 bg-red-100 hover:bg-red-200 text-red-700 border border-black shadow-[1px_1px_0px_#000] cursor-pointer"
+                                      className="p-1.5 bg-red-100 hover:bg-red-200 text-red-700 border border-black shadow-xs cursor-pointer"
                                       title="Hapus Program Bansos"
                                     >
                                       <Trash2 size={13} />
@@ -5926,9 +6338,9 @@ export default function AdminModal({
                   {bansosSubTab === "claims_data" && (
                     <div className="flex flex-col gap-4">
                       {/* Bansos Header Info Card */}
-                      <div className="card-brutal p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="card-brutal p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-start sm:items-center gap-3.5">
-                          <div className="w-12 h-12 bg-[#FACC15] text-[#111827] border-2 border-black flex items-center justify-center font-black shadow-[2px_2px_0px_#000] shrink-0">
+                          <div className="w-12 h-12 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 flex items-center justify-center font-black shadow-xs shrink-0">
                             <Gift size={26} />
                           </div>
                           <div>
@@ -5936,7 +6348,7 @@ export default function AdminModal({
                               <h3 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
                                 Bantuan Sosial (Bansos) Warga
                               </h3>
-                              <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000]">
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-xs">
                                 Total {bansosClaims.length} Pengajuan
                               </span>
                             </div>
@@ -5950,7 +6362,7 @@ export default function AdminModal({
                           href="/bansos"
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors shrink-0"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15 font-heading font-black text-xs uppercase shadow-xs hover:bg-amber-100 dark:hover:bg-slate-700 transition-colors shrink-0"
                         >
                           <ExternalLink size={14} />
                           <span>Buka Form /bansos</span>
@@ -5960,7 +6372,7 @@ export default function AdminModal({
                       {/* Summary Metric Cards */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
                         {/* 1. Total Permohonan */}
-                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-xs">
                           <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-slate-500 block truncate">
                             Total Pemohon
                           </span>
@@ -5971,7 +6383,7 @@ export default function AdminModal({
                         </div>
 
                         {/* 2. Belum Diambil */}
-                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-xs">
                           <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-amber-700 dark:text-amber-400 block truncate">
                             Belum Diambil
                           </span>
@@ -5982,7 +6394,7 @@ export default function AdminModal({
                         </div>
 
                         {/* 3. Sudah Diambil */}
-                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-xs">
                           <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-emerald-700 dark:text-emerald-400 block truncate">
                             Sudah Diambil
                           </span>
@@ -5993,7 +6405,7 @@ export default function AdminModal({
                         </div>
 
                         {/* 4. Total Bantuan Tunai Tersalurkan */}
-                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                        <div className="card-brutal p-3 sm:p-3.5 bg-white dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-xs">
                           <span className="text-[10px] sm:text-[11px] font-heading font-black uppercase text-green-700 dark:text-green-400 block truncate">
                             Dana Tersalurkan
                           </span>
@@ -6008,7 +6420,7 @@ export default function AdminModal({
                       </div>
 
                       {/* Filter & Search Toolbar */}
-                      <div className="card-brutal p-3 sm:p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                      <div className="card-brutal p-3 sm:p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                         {/* Search Bar */}
                         <div className="relative flex-1">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -6019,7 +6431,7 @@ export default function AdminModal({
                             placeholder="Cari Nama IC, Citizen ID (CID), atau Kode Kupon..."
                             value={bansosSearchQuery}
                             onChange={(e) => setBansosSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-8 py-2 bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] text-xs font-bold shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                            className="w-full pl-9 pr-8 py-2 bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 text-xs font-bold shadow-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
                           />
                           {bansosSearchQuery && (
                             <button
@@ -6039,7 +6451,7 @@ export default function AdminModal({
                               <select
                                 value={selectedBansosProgramFilter}
                                 onChange={(e) => setSelectedBansosProgramFilter(e.target.value)}
-                                className="appearance-none bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] py-1.5 pl-3 pr-8 rounded-lg text-xs font-heading font-black shadow-[2px_2px_0px_#000] focus:outline-none cursor-pointer max-w-[200px] truncate"
+                                className="appearance-none bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 py-1.5 pl-3 pr-8 rounded-lg text-xs font-heading font-black shadow-xs focus:outline-none cursor-pointer max-w-[200px] truncate"
                               >
                                 <option value="ALL">Semua Program ({bansosClaims.length})</option>
                                 {bansosPrograms.map((p) => {
@@ -6070,7 +6482,7 @@ export default function AdminModal({
                                 onClick={() => setBansosStatusFilter(f.id)}
                                 className={`px-3 py-1.5 rounded-full text-xs font-heading font-black border-2 transition-all cursor-pointer ${
                                   bansosStatusFilter === f.id
-                                    ? "bg-[#FACC15] text-[#111827] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
+                                    ? "bg-[#FACC15] text-[#111827] border-black shadow-xs -translate-y-0.5"
                                     : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 border-black/30 dark:border-slate-700 hover:border-black"
                                 }`}
                               >
@@ -6087,7 +6499,7 @@ export default function AdminModal({
                               navigator.clipboard.writeText(url);
                               onShowToast?.(`Link laporan bansos berhasil disalin: ${url}`, "success");
                             }}
-                            className="py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                            className="py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border border-black/20 dark:border-white/15 font-heading font-black text-xs uppercase shadow-xs active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 shrink-0 cursor-pointer"
                             title="Salin link laporan transparansi Bansos"
                           >
                             <Copy size={14} className="text-[#DC2626]" />
@@ -6122,7 +6534,7 @@ export default function AdminModal({
 
                         if (filtered.length === 0) {
                           return (
-                            <div className="card-brutal p-8 text-center bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] space-y-2">
+                            <div className="card-brutal p-8 text-center bg-white dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm space-y-2">
                               <Gift className="mx-auto text-slate-400" size={36} />
                               <h4 className="font-heading font-black text-sm uppercase text-slate-700 dark:text-slate-300">
                                 Tidak Ada Data Pengajuan Bansos
@@ -6141,7 +6553,7 @@ export default function AdminModal({
                             {filtered.map((claim) => (
                               <div
                                 key={claim.id}
-                                className="card-brutal p-4 bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+                                className="card-brutal p-4 bg-white dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
                               >
                                 {/* Left Section: KTP Thumbnail + Profile Details */}
                                 <div className="flex items-start gap-3.5 flex-1 min-w-0">
@@ -6155,7 +6567,7 @@ export default function AdminModal({
                                           `KTP IC - ${claim.fullName} (${claim.citizenId})`
                                         )
                                       }
-                                      className="group relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-900 border-2 border-black shrink-0 overflow-hidden shadow-[2px_2px_0px_#000] cursor-pointer hover:border-[#FACC15]"
+                                      className="group relative w-16 h-16 sm:w-20 sm:h-20 bg-slate-900 border border-black/20 dark:border-white/15 shrink-0 overflow-hidden shadow-xs cursor-pointer hover:border-[#FACC15]"
                                       title="Klik untuk melihat foto KTP IC lengkap"
                                     >
                                       <img
@@ -6169,7 +6581,7 @@ export default function AdminModal({
                                       </div>
                                     </button>
                                   ) : (
-                                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-200 dark:bg-slate-800 border-2 border-black flex flex-col items-center justify-center text-slate-500 shrink-0">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-200 dark:bg-slate-800 border border-black/20 dark:border-white/15 flex flex-col items-center justify-center text-slate-500 shrink-0">
                                       <User size={20} />
                                       <span className="text-[9px] font-black uppercase mt-1">No KTP</span>
                                     </div>
@@ -6178,7 +6590,7 @@ export default function AdminModal({
                                   {/* Details */}
                                   <div className="flex-1 min-w-0 space-y-1">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-mono font-black text-xs px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-[1px_1px_0px_#000] tracking-wide select-all">
+                                      <span className="font-mono font-black text-xs px-2 py-0.5 bg-black text-[#FACC15] border border-black shadow-xs tracking-wide select-all">
                                         {claim.claimCode}
                                       </span>
                                       <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100 truncate">
@@ -6225,7 +6637,7 @@ export default function AdminModal({
                                       type="button"
                                       onClick={() => handleToggleBansos(claim)}
                                       style={{ backgroundColor: "#059669", color: "#FFFFFF" }}
-                                      className="py-2 px-3.5 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      className="py-2 px-3.5 border border-black/20 dark:border-white/15 font-heading font-black text-xs uppercase shadow-xs active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
                                       title="Status SUDAH DIAMBIL. Klik untuk kembalikan ke BELUM DIAMBIL jika keliru."
                                     >
                                       <Check size={14} className="stroke-[3]" />
@@ -6236,7 +6648,7 @@ export default function AdminModal({
                                       type="button"
                                       onClick={() => handleToggleBansos(claim)}
                                       style={{ backgroundColor: "#FACC15", color: "#111827" }}
-                                      className="py-2 px-3.5 border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
+                                      className="py-2 px-3.5 border border-black/20 dark:border-white/15 font-heading font-black text-xs uppercase shadow-xs active:translate-x-0.5 active:translate-y-0.5 flex items-center gap-1.5 transition-colors cursor-pointer"
                                       title="Status BELUM DIAMBIL. Klik untuk tandai SUDAH DIAMBIL saat penyerahan."
                                     >
                                       <Clock size={14} className="stroke-[3]" />
@@ -6248,7 +6660,7 @@ export default function AdminModal({
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteBansos(claim)}
-                                    className="p-2 bg-white dark:bg-slate-800 text-red-600 hover:bg-red-600 hover:text-white border-2 border-black shadow-[2px_2px_0px_#000] transition-colors cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                                    className="p-2 bg-white dark:bg-slate-800 text-red-600 hover:bg-red-600 hover:text-white border border-black/20 dark:border-white/15 shadow-xs transition-colors cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
                                     title="Hapus data klaim ini"
                                   >
                                     <Trash2 size={15} />
@@ -6268,7 +6680,7 @@ export default function AdminModal({
               {activeTab === "security" && (
                 <div className="flex flex-col gap-5">
                   {/* Security Architecture Card */}
-                  <div className="card-brutal p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-4">
+                  <div className="card-brutal p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
                     <div className="flex items-center gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
                       <div className="w-10 h-10 rounded bg-emerald-500/10 border-2 border-emerald-600 flex items-center justify-center text-emerald-600 shadow-[2px_2px_0px_#059669]">
                         <ShieldCheck size={20} />
@@ -6284,7 +6696,7 @@ export default function AdminModal({
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div className="p-3 bg-slate-50 dark:bg-[#1E222D] border-2 border-black/15 dark:border-white/10 rounded">
+                      <div className="p-3 bg-slate-50 dark:bg-[#1E222D] border border-black/20 dark:border-white/15/15 dark:border-white/10 rounded">
                         <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                           Enkripsi Kata Sandi
                         </div>
@@ -6296,7 +6708,7 @@ export default function AdminModal({
                         </div>
                       </div>
 
-                      <div className="p-3 bg-slate-50 dark:bg-[#1E222D] border-2 border-black/15 dark:border-white/10 rounded">
+                      <div className="p-3 bg-slate-50 dark:bg-[#1E222D] border border-black/20 dark:border-white/15/15 dark:border-white/10 rounded">
                         <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                           Proteksi Anti Brute-Force
                         </div>
@@ -6310,7 +6722,7 @@ export default function AdminModal({
                     </div>
 
                     {/* Hash fingerprint info */}
-                    <div className="p-3 bg-slate-100 dark:bg-[#181A22] border-2 border-black/20 dark:border-white/15 rounded flex flex-col gap-1">
+                    <div className="p-3 bg-slate-100 dark:bg-[#181A22] border border-black/20 dark:border-white/15/20 dark:border-white/15 rounded flex flex-col gap-1">
                       <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">
                         Fingerprint Hash Aktif (SHA-256):
                       </span>
@@ -6321,7 +6733,7 @@ export default function AdminModal({
                   </div>
 
                   {/* Change Password Card */}
-                  <div className="card-brutal p-5 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-4">
+                  <div className="card-brutal p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
                     <div className="flex items-center justify-between border-b-2 border-black/10 dark:border-white/10 pb-3">
                       <div className="flex items-center gap-2.5">
                         <KeyRound size={18} className="text-[#DC2626]" />
@@ -6339,14 +6751,14 @@ export default function AdminModal({
                           <button
                             type="button"
                             onClick={() => setShowPasswordForm(true)}
-                            className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 font-black shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                           >
                             Ubah PIN / Password
                           </button>
                           <button
                             type="button"
                             onClick={handleResetPinToDefault}
-                            className="btn text-xs py-1.5 px-3 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border-2 border-black font-bold shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn text-xs py-1.5 px-3 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-black/20 dark:border-white/15 font-bold shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                             title="Atur kode akses admin ke PIN default: 114123"
                           >
                             Reset ke PIN 114123
@@ -6354,7 +6766,7 @@ export default function AdminModal({
                           <button
                             type="button"
                             onClick={handleResetPasswordToDefault}
-                            className="btn text-xs py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-2 border-black font-bold shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn text-xs py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                             title="Kembalikan password ke default: @adminpps22h6"
                           >
                             Reset ke Password Default
@@ -6364,7 +6776,7 @@ export default function AdminModal({
                     </div>
 
                     {showPasswordForm ? (
-                      <div className="flex flex-col gap-3.5 bg-slate-50 dark:bg-[#1C1F2A] p-4 border-2 border-black/20 dark:border-white/15 rounded">
+                      <div className="flex flex-col gap-3.5 bg-slate-50 dark:bg-[#1C1F2A] p-4 border border-black/20 dark:border-white/15/20 dark:border-white/15 rounded">
                         <div>
                           <label className="card-label text-slate-700 dark:text-slate-300 mb-1 block">
                             PIN / Password Baru (Minimal 6 Karakter atau 6 Digit)
@@ -6374,7 +6786,7 @@ export default function AdminModal({
                             placeholder="Ketik 6 digit PIN atau password baru..."
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                           />
                         </div>
 
@@ -6387,7 +6799,7 @@ export default function AdminModal({
                             placeholder="Ulangi password baru..."
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                           />
                         </div>
 
@@ -6396,7 +6808,7 @@ export default function AdminModal({
                             type="button"
                             disabled={isApplyingPassword}
                             onClick={handleApplyNewPassword}
-                            className="btn text-xs py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn text-xs py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black border border-black/20 dark:border-white/15 shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                           >
                             {isApplyingPassword ? "Menyimpan ke Database..." : "Simpan & Terapkan Password Baru"}
                           </button>
@@ -6407,7 +6819,7 @@ export default function AdminModal({
                               setNewPassword("");
                               setConfirmPassword("");
                             }}
-                            className="btn btn-secondary text-xs py-2 px-3 border-2 border-black dark:border-[#475569]"
+                            className="btn btn-secondary text-xs py-2 px-3 border border-black/15 dark:border-white/10"
                           >
                             Batal
                           </button>
@@ -6426,7 +6838,7 @@ export default function AdminModal({
                   </div>
 
                   {/* Google Gemini Vision AI Card */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col gap-3">
+                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shrink-0 border border-black/30 shadow-sm">
@@ -6462,20 +6874,20 @@ export default function AdminModal({
                           placeholder="AQ.Ab8RN6... atau AIzaSy..."
                           value={geminiKeyInput}
                           onChange={(e) => setGeminiKeyInput(e.target.value)}
-                          className="input-field font-mono text-xs flex-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field font-mono text-xs flex-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                         <button
                           type="button"
                           disabled={isTestingGemini}
                           onClick={handleTestGeminiKey}
-                          className="btn text-xs py-2 px-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50"
+                          className="btn text-xs py-2 px-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold border border-black/20 dark:border-white/15 shadow-xs active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50"
                         >
                           {isTestingGemini ? "Menguji..." : "Uji Koneksi AI"}
                         </button>
                         <button
                           type="button"
                           onClick={handleSaveGeminiKey}
-                          className="btn text-xs py-2 px-3 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                          className="btn text-xs py-2 px-3 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold border border-black/20 dark:border-white/15 shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                         >
                           Simpan Key
                         </button>
@@ -6487,7 +6899,7 @@ export default function AdminModal({
                   </div>
 
                   {/* Browser Session Card */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border-2 border-black dark:border-[#475569] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
                       <h4 className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100">
                         Sesi Login di Browser Ini
@@ -6499,7 +6911,7 @@ export default function AdminModal({
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="btn text-xs py-2 px-3.5 bg-red-600 hover:bg-red-700 text-white font-heading font-black border-2 border-black dark:border-red-400 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5"
+                      className="btn text-xs py-2 px-3.5 bg-red-600 hover:bg-red-700 text-white font-heading font-black border border-black/20 dark:border-white/15 dark:border-red-400 shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5"
                     >
                       <LogOut size={14} className="text-white" />
                       <span>Hapus Sesi & Logout</span>
@@ -6538,7 +6950,7 @@ export default function AdminModal({
                             onShowToast("Perubahan form dibatalkan.", "info");
                           }
                         }}
-                        className="btn text-xs py-2 px-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-2 border-black/30 dark:border-white/20 font-bold active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                        className="btn text-xs py-2 px-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-black/20 dark:border-white/15/30 dark:border-white/20 font-bold active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
                         title="Batalkan perubahan formulir dan kembalikan ke kondisi tersimpan terakhir"
                       >
                         Batal Editan
@@ -6547,7 +6959,7 @@ export default function AdminModal({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="btn btn-secondary text-xs py-2 px-4 border-2 border-black dark:border-[#475569] cursor-pointer"
+                      className="btn btn-secondary text-xs py-2 px-4 border border-black/15 dark:border-white/10 cursor-pointer"
                       title="Tutup panel admin dan lihat website utama"
                     >
                       Tutup Panel
@@ -6558,7 +6970,7 @@ export default function AdminModal({
                       disabled={isSaving || !isDirty}
                       className={`btn text-xs py-2 px-5 border-2 font-black transition-all flex items-center gap-1.5 ${
                         isDirty
-                          ? "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-black shadow-[2px_2px_0px_#000] cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                          ? "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-black shadow-xs cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
                           : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-700 shadow-none"
                       }`}
                     >
@@ -6596,7 +7008,7 @@ export default function AdminModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="p-4 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-3xl w-full rounded-xl overflow-hidden flex flex-col gap-3 shadow-[8px_8px_0px_#000] max-h-[92vh]"
+            className="p-4 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-3xl w-full rounded-xl overflow-hidden flex flex-col gap-3 shadow-2xl max-h-[92vh]"
           >
             {/* Header Modal Lightbox */}
             <div className="flex items-center justify-between w-full pb-2 border-b-2 border-black/15 dark:border-white/15">
@@ -6616,7 +7028,7 @@ export default function AdminModal({
               <button
                 type="button"
                 onClick={() => setPreviewKtp(null)}
-                className="w-8 h-8 rounded border-2 border-black bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 flex items-center justify-center font-bold text-sm shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                className="w-8 h-8 rounded border border-black/20 dark:border-white/15 bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 flex items-center justify-center font-bold text-sm shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                 title="Tutup Preview"
               >
                 <X size={16} />
@@ -6624,7 +7036,7 @@ export default function AdminModal({
             </div>
 
             {/* Container Gambar KTP Resolusi Penuh */}
-            <div className="bg-slate-950 rounded-lg p-2 flex items-center justify-center border-2 border-black/30 min-h-[280px] max-h-[62vh] overflow-hidden">
+            <div className="bg-slate-950 rounded-lg p-2 flex items-center justify-center border border-black/20 dark:border-white/15/30 min-h-[280px] max-h-[62vh] overflow-hidden">
               <img
                 src={previewKtp.image}
                 alt={"KTP " + previewKtp.name}
@@ -6641,7 +7053,7 @@ export default function AdminModal({
                 <button
                   type="button"
                   onClick={() => openImageSafely(previewKtp.image, "KTP-" + (previewKtp.citizenId || previewKtp.name))}
-                  className="btn py-1.5 px-3 bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 text-xs font-bold border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 hover:bg-slate-100"
+                  className="btn py-1.5 px-3 bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 text-xs font-bold border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 hover:bg-slate-100"
                   title="Buka gambar di tab baru dengan URL Blob (Aman dari blank tab)"
                 >
                   <ExternalLink size={13} />
@@ -6650,7 +7062,7 @@ export default function AdminModal({
                 <a
                   href={previewKtp.image}
                   download={"KTP_" + (previewKtp.citizenId || "IC") + ".jpg"}
-                  className="btn py-1.5 px-3 bg-[#FACC15] text-[#111827] text-xs font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 hover:bg-yellow-400"
+                  className="btn py-1.5 px-3 bg-[#FACC15] text-[#111827] text-xs font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 hover:bg-yellow-400"
                   title="Unduh file KTP ke komputer"
                 >
                   <span>Unduh KTP</span>
@@ -6658,7 +7070,7 @@ export default function AdminModal({
                 <button
                   type="button"
                   onClick={() => setPreviewKtp(null)}
-                  className="btn py-1.5 px-3.5 bg-slate-800 text-white text-xs font-bold border-2 border-black shadow-[2px_2px_0px_#000]"
+                  className="btn py-1.5 px-3.5 bg-slate-800 text-white text-xs font-bold border border-black/20 dark:border-white/15 shadow-xs"
                 >
                   Tutup
                 </button>
@@ -6675,7 +7087,7 @@ export default function AdminModal({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
+          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border-[3px] border-black shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
             {/* Header Modal */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#FACC15] text-slate-950">
               <div className="flex items-center gap-2">
@@ -6787,7 +7199,7 @@ export default function AdminModal({
               </div>
 
               {/* Syarat Validasi Form (Checkboxes) */}
-              <div className="p-3 bg-amber-50/70 dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
+              <div className="p-3 bg-amber-50/70 dark:bg-[#14161F] border border-black/20 dark:border-white/15/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
                 <span className="font-heading font-black uppercase text-xs text-slate-900 dark:text-slate-100">
                   Pengaturan Validasi Formulir & Syarat:
                 </span>
@@ -6846,7 +7258,7 @@ export default function AdminModal({
               </div>
 
               {/* Syarat Wajib Peserta (Editable List Mengurut 1, 2, 3 ke Bawah) */}
-              <div className="p-3.5 bg-amber-50/70 dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
+              <div className="p-3.5 bg-amber-50/70 dark:bg-[#14161F] border border-black/20 dark:border-white/15/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Sparkles size={15} className="text-[#DC2626]" />
@@ -6882,7 +7294,7 @@ export default function AdminModal({
               </div>
 
               {/* Pengaturan Pop-up Messenger Web */}
-              <div className="p-3 bg-slate-50 dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
+              <div className="p-3 bg-slate-50 dark:bg-[#14161F] border border-black/20 dark:border-white/15/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="font-heading font-black uppercase text-xs text-slate-900 dark:text-slate-100">
                     Pengaturan Notifikasi Messenger Web:
@@ -6944,14 +7356,14 @@ export default function AdminModal({
                 <button
                   type="button"
                   onClick={() => setEditingEvent(null)}
-                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border-2 border-black font-bold text-xs"
+                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold text-xs"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingEvent}
-                  className="btn py-2 px-5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] text-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
+                  className="btn py-2 px-5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black border border-black/20 dark:border-white/15 shadow-xs text-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
                 >
                   <Save size={14} className="text-[#DC2626]" />
                   <span>{isSavingEvent ? "Menyimpan Event..." : "Simpan Konfigurasi Event"}</span>
@@ -6969,7 +7381,7 @@ export default function AdminModal({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
+          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border-[3px] border-black shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
             {/* Header Modal */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#FACC15] text-slate-950">
               <div className="flex items-center gap-2">
@@ -7052,7 +7464,7 @@ export default function AdminModal({
               </div>
 
               {/* Daftar Barang / Komoditas Paket Bansos */}
-              <div className="p-3 bg-amber-50/50 dark:bg-[#1E212B] border-2 border-black/40 rounded-lg flex flex-col gap-2.5">
+              <div className="p-3 bg-amber-50/50 dark:bg-[#1E212B] border border-black/20 dark:border-white/15/40 rounded-lg flex flex-col gap-2.5">
                 <div className="flex items-center justify-between pb-1 border-b border-black/10 dark:border-white/10">
                   <span className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <Package size={14} className="text-amber-600" />
@@ -7061,7 +7473,7 @@ export default function AdminModal({
                   <button
                     type="button"
                     onClick={handleAddBansosItem}
-                    className="py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-[11px] border border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                    className="py-1 px-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-[11px] border border-black shadow-xs cursor-pointer"
                   >
                     + Tambah Barang
                   </button>
@@ -7127,7 +7539,7 @@ export default function AdminModal({
               </div>
 
               {/* Pengaturan Pop-up Messenger */}
-              <div className="p-3 bg-yellow-50/60 dark:bg-[#1E212B] border-2 border-black/40 rounded-lg flex flex-col gap-2.5">
+              <div className="p-3 bg-yellow-50/60 dark:bg-[#1E212B] border border-black/20 dark:border-white/15/40 rounded-lg flex flex-col gap-2.5">
                 <label className="flex items-center gap-2 cursor-pointer font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100">
                   <input
                     type="checkbox"
@@ -7231,14 +7643,14 @@ export default function AdminModal({
                 <button
                   type="button"
                   onClick={() => setEditingBansosProgram(null)}
-                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border-2 border-black font-bold text-xs"
+                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold text-xs"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingBansosProgram}
-                  className="btn py-2 px-5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] text-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
+                  className="btn py-2 px-5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black border border-black/20 dark:border-white/15 shadow-xs text-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 cursor-pointer"
                 >
                   <Save size={14} className="text-[#FACC15]" />
                   <span>{isSavingBansosProgram ? "Menyimpan Program..." : "Simpan Program Bansos"}</span>
@@ -7338,7 +7750,7 @@ export default function AdminModal({
       {/* Modal Tambah / Edit Penerima Jasra Luar Anggota */}
       {editingExternalJasra && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-xl bg-white dark:bg-[#151821] border-3 border-black rounded-xl shadow-[6px_6px_0px_#000] overflow-hidden my-auto text-slate-900 dark:text-slate-100">
+          <div className="relative w-full max-w-xl bg-white dark:bg-[#151821] border border-black/20 dark:border-white/15 rounded-xl shadow-xl overflow-hidden my-auto text-slate-900 dark:text-slate-100">
             {/* Header */}
             <div className="bg-[#FACC15] text-[#111827] px-4 py-3 border-b-3 border-black flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -7350,7 +7762,7 @@ export default function AdminModal({
               <button
                 type="button"
                 onClick={() => setEditingExternalJasra(null)}
-                className="w-7 h-7 rounded border-2 border-black bg-white hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
+                className="w-7 h-7 rounded border border-black/20 dark:border-white/15 bg-white hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
               >
                 <X size={15} />
               </button>
@@ -7371,7 +7783,7 @@ export default function AdminModal({
 
                 {editingExternalJasra.ktpPhoto ? (
                   <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border-2 border-dashed border-black/30 dark:border-white/20 bg-slate-50 dark:bg-[#1C202C]">
-                    <div className="relative w-28 h-20 rounded border-2 border-black overflow-hidden bg-slate-900 shrink-0">
+                    <div className="relative w-28 h-20 rounded border border-black/20 dark:border-white/15 overflow-hidden bg-slate-900 shrink-0">
                       <img
                         src={editingExternalJasra.ktpPhoto}
                         alt="KTP Preview"
@@ -7575,13 +7987,13 @@ export default function AdminModal({
                 <button
                   type="button"
                   onClick={() => setEditingExternalJasra(null)}
-                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border-2 border-black font-bold text-xs"
+                  className="btn py-2 px-4 bg-white dark:bg-[#1E222D] text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold text-xs"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="btn py-2 px-5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] text-xs flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                  className="btn py-2 px-5 bg-[#059669] hover:bg-[#047857] text-white font-heading font-black border border-black/20 dark:border-white/15 shadow-xs text-xs flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
                 >
                   <Save size={14} className="text-[#FACC15]" />
                   <span>Simpan Data Jasra</span>
@@ -7607,7 +8019,7 @@ export default function AdminModal({
             {/* Header */}
             <div className="p-3.5 border-b-2 border-black/10 dark:border-white/10 flex items-center justify-between bg-black/5 dark:bg-white/5">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded bg-[#FACC15] border-2 border-black flex items-center justify-center text-black shadow-[1.5px_1.5px_0px_#000]">
+                <div className="w-8 h-8 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-black shadow-xs">
                   <Menu size={16} className="text-[#DC2626]" />
                 </div>
                 <div>
@@ -7622,7 +8034,7 @@ export default function AdminModal({
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-10 h-10 rounded-lg bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-2 border-black dark:border-[#475569] flex items-center justify-center shadow-[1.5px_1.5px_0px_#000] active:translate-y-0.5 cursor-pointer"
+                className="w-10 h-10 rounded-lg bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border border-black/15 dark:border-white/10 flex items-center justify-center shadow-xs active:translate-y-0.5 cursor-pointer"
                 title="Tutup Menu"
               >
                 <X size={18} />
@@ -7661,8 +8073,8 @@ export default function AdminModal({
                             }}
                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border-2 font-heading font-black text-xs transition-all text-left cursor-pointer min-h-[44px] ${
                               isActive
-                                ? "bg-[#FACC15] text-[#111827] border-black shadow-[3px_3px_0px_#000] -translate-y-0.5"
-                                : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-black/20 dark:border-[#475569] hover:bg-amber-50 dark:hover:bg-slate-800 shadow-[1.5px_1.5px_0px_#000]"
+                                ? "bg-[#FACC15] text-[#111827] border-black shadow-sm -translate-y-0.5"
+                                : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-black/20 dark:border-[#475569] hover:bg-amber-50 dark:hover:bg-slate-800 shadow-xs"
                             }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
@@ -7672,7 +8084,7 @@ export default function AdminModal({
                             <div className="flex items-center gap-2 shrink-0">
                               {Boolean(countText) && (
                                 <span
-                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] ${
+                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-xs ${
                                     isActive
                                       ? "bg-black text-[#FACC15]"
                                       : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
@@ -7701,11 +8113,165 @@ export default function AdminModal({
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="btn w-full py-2.5 bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-2 border-black dark:border-[#475569] font-heading font-black text-xs rounded-lg shadow-[2px_2px_0px_#000] active:translate-y-0.5 cursor-pointer min-h-[44px]"
+                className="btn w-full py-2.5 bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border border-black/15 dark:border-white/10 font-heading font-black text-xs rounded-lg shadow-xs active:translate-y-0.5 cursor-pointer min-h-[44px]"
               >
                 Tutup Menu
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dialog: Keluarkan Anggota & Catat Riwayat */}
+      {dismissModal.isOpen && dismissModal.member && (
+        <div
+          onClick={() => {
+            if (!dismissModal.isSubmitting) {
+              setDismissModal((prev) => ({ ...prev, isOpen: false, member: null }));
+            }
+          }}
+          className="fixed inset-0 z-[130] bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="p-4 sm:p-5 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-lg w-full rounded-xl overflow-hidden flex flex-col gap-4 shadow-2xl max-h-[92vh] overflow-y-auto"
+          >
+            {/* Header Modal */}
+            <div className="flex items-center justify-between w-full pb-3 border-b-2 border-black/15 dark:border-white/15">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded bg-rose-100 dark:bg-rose-950 border-2 border-rose-600 flex items-center justify-center text-rose-600 shrink-0">
+                  <UserMinus size={18} />
+                </div>
+                <div>
+                  <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                    Keluarkan Anggota Paguyuban
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    Catat tanggal, jam, dan alasan resmi pengeluaran
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={dismissModal.isSubmitting}
+                onClick={() => setDismissModal((prev) => ({ ...prev, isOpen: false, member: null }))}
+                className="w-8 h-8 rounded border border-black/15 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Info Anggota Yang Akan Dikeluarkan */}
+            <div className="p-3 rounded-lg bg-rose-50/80 dark:bg-rose-950/30 border-2 border-rose-300 dark:border-rose-900/60 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full border border-black/20 dark:border-white/15 overflow-hidden shrink-0 bg-amber-100 flex items-center justify-center">
+                {dismissModal.member.profilePhoto ? (
+                  <img
+                    src={dismissModal.member.profilePhoto}
+                    alt={dismissModal.member.fullName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="font-heading font-black text-base text-[#DC2626]">
+                    {(dismissModal.member.fullName || "P").charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h5 className="font-heading font-black text-sm text-slate-950 dark:text-slate-100 truncate">
+                  {dismissModal.member.fullName || "Nama Tidak Tertera"}
+                </h5>
+                <div className="flex items-center gap-2 text-[11px] font-mono text-slate-600 dark:text-slate-400 mt-0.5">
+                  <span>KTP: <strong className="text-slate-900 dark:text-slate-200">{dismissModal.member.icNumber || "-"}</strong></span>
+                  <span>•</span>
+                  <span>HP: <strong className="text-slate-900 dark:text-slate-200">{dismissModal.member.phone || "-"}</strong></span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-500 block mt-0.5">
+                  Terdaftar: {dismissModal.member.regDate || (dismissModal.member.createdAt ? new Date(dismissModal.member.createdAt).toLocaleDateString("id-ID") : "-")}
+                </span>
+              </div>
+            </div>
+
+            {/* Form Input Alasan & Petugas */}
+            <form onSubmit={handleConfirmDismiss} className="flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                  Alasan Pengeluaran <span className="text-rose-600">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="Contoh: Mengundurkan diri secara baik-baik, melanggar aturan paguyuban, tidak aktif dalam jangka panjang..."
+                  value={dismissModal.reason}
+                  onChange={(e) => setDismissModal((prev) => ({ ...prev, reason: e.target.value }))}
+                  className="input-field w-full p-2.5 text-xs bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg"
+                />
+
+                {/* Quick Chips Alasan */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span className="text-[10px] font-mono font-bold text-slate-500">Pilihan Cepat:</span>
+                  {[
+                    "Mengundurkan diri / mutasi",
+                    "Melanggar aturan paguyuban",
+                    "Tidak aktif / inaktif lama",
+                    "Pelanggaran disiplin berat",
+                    "Pindah kota / domisili",
+                  ].map((quickText) => (
+                    <button
+                      key={quickText}
+                      type="button"
+                      onClick={() => setDismissModal((prev) => ({ ...prev, reason: quickText }))}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-black/20 dark:border-white/20 transition-colors cursor-pointer"
+                    >
+                      + {quickText}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                  Dicatat Oleh (Nama Petugas / Pengurus)
+                </label>
+                <div className="relative">
+                  <ShieldCheck size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={dismissModal.dismissedBy}
+                    onChange={(e) => setDismissModal((prev) => ({ ...prev, dismissedBy: e.target.value }))}
+                    placeholder="Nama Pengurus LSM PPS"
+                    className="input-field w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/50 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2">
+                <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="leading-snug">
+                  <strong>Pemberitahuan:</strong> Anggota ini akan dipindahkan ke arsip <em>Riwayat Dikeluarkan</em> lengkap dengan stempel waktu real-time (tanggal dan jam WIB). Hak kas dan jatah voucher Jasra akan otomatis dinonaktifkan. Data dapat dipulihkan sewaktu-waktu jika diperlukan.
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                <button
+                  type="button"
+                  disabled={dismissModal.isSubmitting}
+                  onClick={() => setDismissModal((prev) => ({ ...prev, isOpen: false, member: null }))}
+                  className="btn py-2 px-3.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-heading font-black border border-black/15 dark:border-white/10 rounded cursor-pointer"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={dismissModal.isSubmitting || !dismissModal.reason.trim()}
+                  className="btn py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded"
+                >
+                  <UserMinus size={14} />
+                  <span>{dismissModal.isSubmitting ? "Memproses..." : "Konfirmasi Keluarkan Anggota"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

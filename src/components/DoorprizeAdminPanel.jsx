@@ -402,7 +402,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
   return (
     <div className="space-y-5">
       {/* Header Banner & Status Controls */}
-      <div className="rounded-xl border-2 border-black bg-[#FACC15] text-[#111827] p-4 sm:p-5 shadow-[4px_4px_0px_#000]">
+      <div className="rounded-xl border border-black/20 dark:border-white/15 bg-[#FACC15] text-[#111827] p-4 sm:p-5 shadow-md">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-black text-[#FACC15] border border-black font-mono font-black text-[10px] uppercase">
@@ -423,7 +423,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             <button
               type="button"
               onClick={handleToggleStatus}
-              className={`py-2 px-3.5 rounded-lg border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`py-2 px-3.5 rounded-lg border border-black/20 dark:border-white/15 font-heading font-black text-xs shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeConfig.status === "OPEN"
                   ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                   : "bg-[#DC2626] hover:bg-red-700 text-white"
@@ -438,7 +438,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             <button
               type="button"
               onClick={handleToggleAutoPopup}
-              className={`py-2 px-3.5 rounded-lg border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer ${
+              className={`py-2 px-3.5 rounded-lg border border-black/20 dark:border-white/15 font-heading font-black text-xs shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer ${
                 activeConfig.autoPopupOnVisit !== false
                   ? "bg-blue-600 hover:bg-blue-700 text-white"
                   : "bg-slate-800 hover:bg-slate-700 text-slate-200"
@@ -464,7 +464,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                   return next;
                 });
               }}
-              className="py-2 px-3 rounded-lg bg-white hover:bg-slate-100 text-slate-950 border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="py-2 px-3 rounded-lg bg-white hover:bg-slate-100 text-slate-950 border border-black/20 dark:border-white/15 font-heading font-black text-xs shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Settings size={14} className="text-[#DC2626]" />
               <span>Pengaturan</span>
@@ -474,7 +474,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               <button
                 type="button"
                 onClick={onOpenVisitorModal}
-                className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-black text-[#FACC15] border-2 border-black font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="py-2 px-3 rounded-lg bg-slate-900 hover:bg-black text-[#FACC15] border border-black/20 dark:border-white/15 font-heading font-black text-xs shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <ExternalLink size={14} />
                 <span>Lihat Pop-up Warga</span>
@@ -485,7 +485,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
 
         {/* Quick Stats Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 pt-3.5 border-t border-black/20">
-          <div className="bg-white rounded-lg p-2.5 border-2 border-black shadow-[2px_2px_0px_#000]">
+          <div className="bg-white rounded-lg p-2.5 border border-black/20 dark:border-white/15 shadow-xs">
             <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
               TOTAL AMBIL NOMOR
             </span>
@@ -493,7 +493,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               {tickets.length} Peserta
             </strong>
           </div>
-          <div className="bg-white rounded-lg p-2.5 border-2 border-black shadow-[2px_2px_0px_#000]">
+          <div className="bg-white rounded-lg p-2.5 border border-black/20 dark:border-white/15 shadow-xs">
             <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
               SIAP DIKOCOK (AKTIF)
             </span>
@@ -501,7 +501,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               {eligibleTickets.length} Nomor
             </strong>
           </div>
-          <div className="bg-white rounded-lg p-2.5 border-2 border-black shadow-[2px_2px_0px_#000]">
+          <div className="bg-white rounded-lg p-2.5 border border-black/20 dark:border-white/15 shadow-xs">
             <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
               PEMENANG TERPILIH
             </span>
@@ -509,7 +509,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               {winners.length} / {maxWinners}
             </strong>
           </div>
-          <div className="bg-white rounded-lg p-2.5 border-2 border-black shadow-[2px_2px_0px_#000]">
+          <div className="bg-white rounded-lg p-2.5 border border-black/20 dark:border-white/15 shadow-xs">
             <span className="block text-[10px] font-mono uppercase text-slate-500 font-bold">
               GUGUR (BEDA KTP IC)
             </span>
@@ -524,7 +524,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
       {isEditingConfig && (
         <form
           onSubmit={handleSaveConfigForm}
-          className="rounded-xl border-2 border-black bg-amber-50 dark:bg-[#1B1F2B] p-4 shadow-[3px_3px_0px_#000] space-y-3"
+          className="rounded-xl border border-black/20 dark:border-white/15 bg-amber-50 dark:bg-[#1B1F2B] p-4 shadow-sm space-y-3"
         >
           <div className="flex items-center justify-between border-b border-black/15 pb-2">
             <h4 className="font-heading font-black text-xs uppercase text-slate-900 dark:text-white">
@@ -593,13 +593,13 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             <button
               type="button"
               onClick={() => setIsEditingConfig(false)}
-              className="py-1.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-900 dark:text-slate-100 border-2 border-black text-xs font-bold rounded-lg shadow-[2px_2px_0px_#000] cursor-pointer"
+              className="py-1.5 px-3 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15 text-xs font-bold rounded-lg shadow-xs cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="py-1.5 px-4 bg-[#059669] hover:bg-[#047857] text-white border-2 border-black text-xs font-heading font-black rounded-lg shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="py-1.5 px-4 bg-[#059669] hover:bg-[#047857] text-white border border-black/20 dark:border-white/15 text-xs font-heading font-black rounded-lg shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Save size={13} />
               <span>Simpan Pengaturan</span>
@@ -611,7 +611,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
       {/* Mesin Pengocok Undian & Daftar Pemenang */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left Column: Live Raffle Spinner */}
-        <div className="lg:col-span-5 rounded-xl border-2 border-black bg-white dark:bg-[#181B24] p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between space-y-4">
+        <div className="lg:col-span-5 rounded-xl border border-black/20 dark:border-white/15 bg-white dark:bg-[#181B24] p-4 shadow-sm flex flex-col justify-between space-y-4">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="font-mono font-black text-[10px] uppercase px-2 py-0.5 rounded bg-[#FACC15] text-black border border-black">
@@ -660,7 +660,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               type="button"
               disabled={isSpinning || eligibleTickets.length === 0 || remainingSlots <= 0}
               onClick={() => handleDrawWinner(1)}
-              className="w-full py-3 px-4 bg-[#FACC15] hover:bg-yellow-400 text-black border-2 border-black rounded-xl font-heading font-black text-xs sm:text-sm uppercase shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 px-4 bg-[#FACC15] hover:bg-yellow-400 text-black border border-black/20 dark:border-white/15 rounded-xl font-heading font-black text-xs sm:text-sm uppercase shadow-sm active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isSpinning ? (
                 <>
@@ -682,7 +682,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                 type="button"
                 disabled={isSpinning}
                 onClick={() => handleDrawWinner(remainingSlots)}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-[#FACC15] border-2 border-black rounded-xl font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-[#FACC15] border border-black/20 dark:border-white/15 rounded-xl font-heading font-black text-xs uppercase shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Dices size={14} />
                 <span>
@@ -695,7 +695,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
         </div>
 
         {/* Right Column: 10 Winners Verification & Re-roll List */}
-        <div className="lg:col-span-7 rounded-xl border-2 border-black bg-white dark:bg-[#181B24] p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between space-y-3">
+        <div className="lg:col-span-7 rounded-xl border border-black/20 dark:border-white/15 bg-white dark:bg-[#181B24] p-4 shadow-sm flex flex-col justify-between space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2.5">
             <div>
               <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -714,7 +714,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               <button
                 type="button"
                 onClick={handleCopyWinnersReport}
-                className="py-1.5 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 text-slate-800 dark:text-slate-200 border-2 border-black rounded-lg font-heading font-black text-[11px] shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer"
+                className="py-1.5 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 rounded-lg font-heading font-black text-[11px] shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer"
               >
                 <Copy size={12} />
                 <span>Salin Pemenang</span>
@@ -722,7 +722,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               <button
                 type="button"
                 onClick={handleResetAll}
-                className="py-1.5 px-2.5 bg-red-100 hover:bg-red-200 text-red-800 border-2 border-black rounded-lg font-heading font-black text-[11px] shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer"
+                className="py-1.5 px-2.5 bg-red-100 hover:bg-red-200 text-red-800 border border-black/20 dark:border-white/15 rounded-lg font-heading font-black text-[11px] shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer"
                 title="Reset semua peserta & pemenang untuk memulai event baru"
               >
                 <RotateCcw size={12} />
@@ -740,14 +740,14 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               {winners.map((w, idx) => (
                 <div
                   key={w.ticketId || idx}
-                  className={`p-3 rounded-xl border-2 border-black flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-[2px_2px_0px_#000] ${
+                  className={`p-3 rounded-xl border border-black/20 dark:border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs ${
                     w.verifiedKtp
                       ? "bg-emerald-50 dark:bg-emerald-950/30"
                       : "bg-amber-50/80 dark:bg-slate-800/70"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-7 h-7 rounded-lg bg-[#FACC15] text-black border-2 border-black font-heading font-black text-xs flex items-center justify-center shrink-0">
+                    <span className="w-7 h-7 rounded-lg bg-[#FACC15] text-black border border-black/20 dark:border-white/15 font-heading font-black text-xs flex items-center justify-center shrink-0">
                       #{idx + 1}
                     </span>
                     <div className="min-w-0">
@@ -775,7 +775,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     {w.verifiedKtp ? (
-                      <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white border-2 border-black font-mono font-black text-[10px] flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white border border-black/20 dark:border-white/15 font-mono font-black text-[10px] flex items-center gap-1">
                         <CheckCircle2 size={12} />
                         <span>SAH SESUAI KTP</span>
                       </span>
@@ -783,7 +783,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                       <button
                         type="button"
                         onClick={() => handleVerifyWinner(w)}
-                        className="py-1 px-2.5 bg-emerald-500 hover:bg-emerald-600 text-white border-2 border-black rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all"
+                        className="py-1 px-2.5 bg-emerald-500 hover:bg-emerald-600 text-white border border-black/20 dark:border-white/15 rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all"
                         title="Tandai Nama IC & Citizen ID sudah sesuai dengan KTP IC"
                       >
                         <CheckCircle2 size={12} />
@@ -795,7 +795,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
                       type="button"
                       disabled={isSpinning}
                       onClick={() => handleDisqualifyAndReroll(w)}
-                      className="py-1 px-2.5 bg-[#DC2626] hover:bg-red-700 text-white border-2 border-black rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all"
+                      className="py-1 px-2.5 bg-[#DC2626] hover:bg-red-700 text-white border border-black/20 dark:border-white/15 rounded-lg font-heading font-black text-[11px] flex items-center gap-1 cursor-pointer shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all"
                       title="Gugurkan karena nama/CID berbeda dengan KTP IC dan langsung kocok ulang"
                     >
                       <XCircle size={12} />
@@ -831,7 +831,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
       </div>
 
       {/* Participant List & Manual Entry (Semua Peserta Tanpa Batas: Nama - Citizen ID - Nomor Undian) */}
-      <div className="rounded-xl border-2 border-black bg-white dark:bg-[#181B24] p-4 shadow-[3px_3px_0px_#000] space-y-3">
+      <div className="rounded-xl border border-black/20 dark:border-white/15 bg-white dark:bg-[#181B24] p-4 shadow-sm space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2 flex-wrap">
@@ -852,7 +852,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             <button
               type="button"
               onClick={handleCopyAllParticipants}
-              className="py-1.5 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 text-slate-800 dark:text-slate-200 border-2 border-black rounded-lg font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
+              className="py-1.5 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 rounded-lg font-heading font-black text-xs shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
               title="Salin seluruh daftar Nama - Citizen ID - Nomor Undian"
             >
               <Copy size={12} />
@@ -880,7 +880,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               <button
                 type="submit"
                 disabled={isAddingManual}
-                className="py-1.5 px-3 bg-[#FACC15] hover:bg-yellow-400 text-black border-2 border-black rounded-lg font-heading font-black text-xs shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                className="py-1.5 px-3 bg-[#FACC15] hover:bg-yellow-400 text-black border border-black/20 dark:border-white/15 rounded-lg font-heading font-black text-xs shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1 cursor-pointer shrink-0"
               >
                 <Plus size={13} />
                 <span>Tambah</span>
@@ -908,7 +908,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
             Belum ada peserta yang mengambil nomor doorprize.
           </div>
         ) : (
-          <div className="border-2 border-black rounded-xl overflow-hidden">
+          <div className="border border-black/20 dark:border-white/15 rounded-xl overflow-hidden">
             <div className="max-h-[380px] overflow-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="bg-slate-900 text-[#FACC15] sticky top-0 z-10 font-heading uppercase text-[11px]">
