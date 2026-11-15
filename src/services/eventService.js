@@ -59,7 +59,7 @@ export const DEFAULT_EVENT = {
   title: "Pizzarena : Civilian Street Fight",
   organizer: "LSM Paguyuban Pizza Sandy Shores",
   tagline: "Turnamen Tarung Bebas Resmi Khusus Warga Sipil Sandy Shores",
-  status: "OPEN", // "OPEN" | "CLOSED" | "DRAFT"
+  status: "DRAFT", // "OPEN" | "CLOSED" | "DRAFT"
   entryFee: "$10.000 USD",
   ticketPrefix: "PZR-CIV",
   requirements: [
@@ -73,7 +73,7 @@ export const DEFAULT_EVENT = {
   requireNoGangOnly: true,
   requireHpIc: true,
   requireDiscord: true,
-  showMessengerNotification: true,
+  showMessengerNotification: false,
   messengerHeading: "Ada Event Baru!",
   messengerMessage: "Halo warga! LSM Paguyuban Pizza Sandy Shores mempersembahkan event baru nih: Pizzarena : Civilian Street Fight.",
   sampleImage: "/contoh-ss-ktp2.jpg",

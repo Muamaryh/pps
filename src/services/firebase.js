@@ -201,17 +201,29 @@ function createLightweightCache(data) {
     if (Array.isArray(copy.gallery)) {
       copy.gallery = copy.gallery.map((g) => ({
         ...g,
-        // Only keep short photo URLs or small preview in localStorage offline cache
-        photo: typeof g.photo === "string" && g.photo.length < 80000 ? g.photo : "",
+        // Only keep short external photo URLs in offline cache (strip large base64 data URLs)
+        photo:
+          typeof g.photo === "string" && !g.photo.startsWith("data:")
+            ? g.photo
+            : typeof g.photo === "string" && g.photo.length < 30000
+            ? g.photo
+            : "",
         photos: Array.isArray(g.photos)
-          ? g.photos.filter((p) => typeof p === "string" && !p.startsWith("data:")).slice(0, 3)
+          ? g.photos
+              .filter((p) => typeof p === "string" && !p.startsWith("data:"))
+              .slice(0, 3)
           : [],
       }));
     }
     if (Array.isArray(copy.org)) {
       copy.org = copy.org.map((o) => ({
         ...o,
-        photo: typeof o.photo === "string" && o.photo.length < 80000 ? o.photo : "",
+        photo:
+          typeof o.photo === "string" && !o.photo.startsWith("data:")
+            ? o.photo
+            : typeof o.photo === "string" && o.photo.length < 30000
+            ? o.photo
+            : "",
       }));
     }
     return copy;

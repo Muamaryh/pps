@@ -60,11 +60,17 @@ export default function BansosMessengerPopup({
   // Auto pop-up after 1.5 seconds if used independently
   useEffect(() => {
     if (isControlled || !isNotificationEnabled) return;
+    if (typeof window !== "undefined" && sessionStorage.getItem("pps_messenger_dock_auto_opened")) {
+      return;
+    }
     const timer = setTimeout(() => {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("pps_messenger_dock_auto_opened", "true");
+      }
       setInternalIsOpen(true);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [isControlled, isNotificationEnabled, activeProgram.id]);
+  }, [isControlled, isNotificationEnabled, activeProgram?.id]);
 
   if (!isNotificationEnabled) {
     return null;

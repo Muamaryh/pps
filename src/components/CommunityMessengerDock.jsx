@@ -22,7 +22,13 @@ export default function CommunityMessengerDock({
 
   // Auto pop-up initial impression after 1.5s
   useEffect(() => {
+    if (typeof window !== "undefined" && sessionStorage.getItem("pps_messenger_dock_auto_opened")) {
+      return;
+    }
     const timer = setTimeout(() => {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("pps_messenger_dock_auto_opened", "true");
+      }
       if (isEventActive && activeEvent?.status === "OPEN") {
         setActivePopup("event");
       } else if (isBansosActive) {
@@ -45,19 +51,26 @@ export default function CommunityMessengerDock({
     return null;
   }
 
+  function handleDismiss() {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("pps_messenger_dock_auto_opened", "true");
+    }
+    setActivePopup(null);
+  }
+
   // Handle CTA actions: open respective modal & collapse card to pill
   function handleOpenEventModal(evt) {
     if (typeof onOpenRegisterEvent === "function") {
       onOpenRegisterEvent(evt);
     }
-    setActivePopup(null);
+    handleDismiss();
   }
 
   function handleOpenBansosModal(prog) {
     if (typeof onOpenBansos === "function") {
       onOpenBansos(prog || activeBansosProgram);
     }
-    setActivePopup(null);
+    handleDismiss();
   }
 
   return (
@@ -82,7 +95,7 @@ export default function CommunityMessengerDock({
                 isStacked={true}
                 isOpen={true}
                 event={activeEvent}
-                onClose={() => setActivePopup(null)}
+                onClose={handleDismiss}
                 onOpenRegisterEvent={handleOpenEventModal}
               />
             </>
@@ -102,7 +115,7 @@ export default function CommunityMessengerDock({
                 program={activeBansosProgram}
                 isStacked={true}
                 isOpen={true}
-                onClose={() => setActivePopup(null)}
+                onClose={handleDismiss}
                 onOpenBansos={handleOpenBansosModal}
               />
             </>
@@ -139,7 +152,7 @@ export default function CommunityMessengerDock({
           onToggle={() =>
             setActivePopup((prev) => (prev === "event" ? null : "event"))
           }
-          onClose={() => setActivePopup(null)}
+          onClose={handleDismiss}
           onOpenRegisterEvent={handleOpenEventModal}
         />
       )}
@@ -153,7 +166,7 @@ export default function CommunityMessengerDock({
           onToggle={() =>
             setActivePopup((prev) => (prev === "bansos" ? null : "bansos"))
           }
-          onClose={() => setActivePopup(null)}
+          onClose={handleDismiss}
           onOpenBansos={handleOpenBansosModal}
         />
       )}

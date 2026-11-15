@@ -60,7 +60,7 @@ export const DEFAULT_BANSOS_PROGRAM = {
   id: "bns-makanan-tunai-v1",
   title: "Bantuan Sosial Warga Sandy Shores",
   tagline: "Program Kepedulian LSM Paguyuban Pizza Sandy Shores",
-  status: "ACTIVE", // "ACTIVE" | "INACTIVE"
+  status: "INACTIVE", // "ACTIVE" | "INACTIVE"
   items: [
     { name: "1 Paket Makanan", icon: "Utensils", desc: "Ransum konsumsi siap santap bergizi" },
     { name: "Uang Tunai $2.500 USD", icon: "DollarSign", desc: "Bantuan tunai langsung untuk kebutuhan darurat" },
@@ -72,7 +72,7 @@ export const DEFAULT_BANSOS_PROGRAM = {
     "Pengambilan bantuan fisik dilakukan langsung di Kantor LSM Paguyuban Pizza Sandy Shores",
     "Tunjukkan bukti kupon digital atau sebutkan Citizen ID kepada Pengurus yang bertugas",
   ],
-  showMessengerNotification: true,
+  showMessengerNotification: false,
   messengerHeading: "Bansos Warga Sandy Shores",
   messengerMessage: "Halo warga Sandy Shores! Paguyuban Pizza menyediakan paket bantuan sosial 1 Paket Makanan dan Uang Tunai $2.500 USD untuk warga yang membutuhkan:",
   pillLabel: "1 Makanan + $2.500 USD",

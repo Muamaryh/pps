@@ -6,7 +6,6 @@ import Hero from "./components/Hero";
 import About from "./components/About";
 import ProgramsShowcase from "./components/ProgramsShowcase";
 import DonorsSection from "./components/DonorsSection";
-import OrgStructure from "./components/OrgStructure";
 import StructurePage from "./components/StructurePage";
 import GalleryPage from "./components/GalleryPage";
 import Footer from "./components/Footer";
@@ -25,8 +24,8 @@ import FloatingActions from "./components/FloatingActions";
 import PizzaLoader from "./components/PizzaLoader";
 import { Users, Camera, ArrowRight, Ticket, Dices } from "lucide-react";
 import { subscribeMembersCloud } from "./services/memberService";
-import { subscribeEventsCloud, DEFAULT_EVENT } from "./services/eventService";
-import { subscribeBansosProgramsCloud, DEFAULT_BANSOS_PROGRAM } from "./services/bansosService";
+import { subscribeEventsCloud } from "./services/eventService";
+import { subscribeBansosProgramsCloud } from "./services/bansosService";
 import DoorprizeModal from "./components/DoorprizeModal";
 import {
   subscribeDoorprizeConfigCloud,
@@ -44,8 +43,7 @@ export default function App() {
       const cached = localStorage.getItem("pps_events_list_cache");
       if (cached !== null) return JSON.parse(cached);
     } catch {}
-    const isInit = typeof window !== "undefined" && localStorage.getItem("pps_events_initialized") === "true";
-    return isInit ? [] : [DEFAULT_EVENT];
+    return [];
   });
   const [selectedEventForModal, setSelectedEventForModal] = useState(null);
 
@@ -54,10 +52,7 @@ export default function App() {
       const cached = localStorage.getItem("pps_bansos_programs_cache");
       if (cached !== null) return JSON.parse(cached);
     } catch {}
-    const isInit =
-      typeof window !== "undefined" &&
-      localStorage.getItem("pps_bansos_programs_initialized") === "true";
-    return isInit ? [] : [DEFAULT_BANSOS_PROGRAM];
+    return [];
   });
   const [selectedBansosProgramForModal, setSelectedBansosProgramForModal] = useState(null);
   const [data, setData] = useState(() => {
@@ -804,7 +799,11 @@ export default function App() {
   }
 
   // Doorprize Undian Senam Sehat State & Live Cloud Sync
-  const [doorprizeConfig, setDoorprizeConfig] = useState(DEFAULT_DOORPRIZE_CONFIG);
+  const [doorprizeConfig, setDoorprizeConfig] = useState(() => ({
+    ...DEFAULT_DOORPRIZE_CONFIG,
+    status: "CLOSED",
+    autoPopupOnVisit: false,
+  }));
   const [doorprizeTickets, setDoorprizeTickets] = useState([]);
   const [doorprizeModalOpen, setDoorprizeModalOpen] = useState(() => {
     const path = window.location.pathname.toLowerCase();
@@ -826,18 +825,26 @@ export default function App() {
       if (
         cfg.status === "OPEN" &&
         cfg.autoPopupOnVisit !== false &&
-        !hasAutoOpenedDoorprize
+        !hasAutoOpenedDoorprize &&
+        !adminModalOpen
       ) {
         const path = window.location.pathname.toLowerCase();
         const hash = window.location.hash.toLowerCase();
         const isOtherDirectModal =
+          adminModalOpen ||
           path.includes("/admin") ||
           hash.includes("admin") ||
           path.includes("/transparansi") ||
           hash.includes("transparansi") ||
           path.includes("/anggota") ||
           hash.includes("anggota");
-        if (!isOtherDirectModal) {
+        const alreadyPoppedInSession =
+          typeof window !== "undefined" &&
+          sessionStorage.getItem("pps_doorprize_auto_popup_shown") === "true";
+        if (!isOtherDirectModal && !alreadyPoppedInSession) {
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("pps_doorprize_auto_popup_shown", "true");
+          }
           setDoorprizeModalOpen(true);
           setHasAutoOpenedDoorprize(true);
         }
@@ -850,7 +857,7 @@ export default function App() {
       unsubCfg();
       unsubTickets();
     };
-  }, [hasAutoOpenedDoorprize]);
+  }, [hasAutoOpenedDoorprize, adminModalOpen]);
 
   function handleOpenDoorprizeModal() {
     setDoorprizeModalOpen(true);
@@ -1147,12 +1154,14 @@ export default function App() {
       />
 
       {/* Floating Messenger Community Dock (Event & Bansos Anti-Collision System) */}
-      <CommunityMessengerDock
-        activeEvent={activeEvent}
-        activeBansosProgram={activeBansosProgram}
-        onOpenRegisterEvent={handleOpenEventModal}
-        onOpenBansos={handleOpenBansosModal}
-      />
+      {!adminModalOpen && (
+        <CommunityMessengerDock
+          activeEvent={activeEvent}
+          activeBansosProgram={activeBansosProgram}
+          onOpenRegisterEvent={handleOpenEventModal}
+          onOpenBansos={handleOpenBansosModal}
+        />
+      )}
 
       {/* Lightbox Modal */}
       <LightboxModal
@@ -1247,9 +1256,10 @@ export default function App() {
       />
 
       {/* Floating Tombol Cepat Ambil / Cek Nomor Doorprize Senam Sehat */}
-      {(doorprizeConfig?.status === "OPEN" ||
-        (Array.isArray(doorprizeConfig?.winners) &&
-          doorprizeConfig.winners.length > 0)) &&
+      {!adminModalOpen &&
+        (doorprizeConfig?.status === "OPEN" ||
+          (Array.isArray(doorprizeConfig?.winners) &&
+            doorprizeConfig.winners.length > 0)) &&
         !doorprizeModalOpen && (
           <div className="fixed bottom-4 left-4 z-[85] pointer-events-auto">
             {(() => {
