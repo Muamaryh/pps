@@ -137,15 +137,39 @@ function parseDonorFromKasTx(tx) {
   };
 }
 
-export default function DonorsSection({ isOpen: externalIsOpen, onClose: externalOnClose }) {
+export default function DonorsSection({
+  isOpen: externalIsOpen,
+  onOpen: externalOnOpen,
+  onClose: externalOnClose,
+}) {
   const [internalOpen, setInternalOpen] = useState(false);
-  const modalOpen = externalIsOpen !== undefined ? externalIsOpen : internalOpen;
+  const [prevExternalIsOpen, setPrevExternalIsOpen] = useState(externalIsOpen);
+
+  // Pola resmi React: sesuaikan state internal saat prop eksternal berubah
+  if (externalIsOpen !== prevExternalIsOpen) {
+    setPrevExternalIsOpen(externalIsOpen);
+    setInternalOpen(Boolean(externalIsOpen));
+  }
+
+  // Modal aktif jika state external ATAU internal bernilai true
+  const modalOpen = externalIsOpen !== undefined ? (externalIsOpen || internalOpen) : internalOpen;
+
   const setModalOpen = useCallback(
     (val) => {
       setInternalOpen(val);
-      if (!val && externalOnClose) externalOnClose();
+      if (val) {
+        if (externalOnOpen) {
+          externalOnOpen();
+        } else if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("pps:open-donasi"));
+        }
+      } else {
+        if (externalOnClose) {
+          externalOnClose();
+        }
+      }
     },
-    [externalOnClose]
+    [externalOnOpen, externalOnClose]
   );
   const [donors, setDonors] = useState(FALLBACK_DONORS);
   const [copiedPhone, setCopiedPhone] = useState(false);
@@ -387,11 +411,13 @@ export default function DonorsSection({ isOpen: externalIsOpen, onClose: externa
         {/* Action Button */}
         <button
           type="button"
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             setSelectedMonthKey(currentMonthInfo.monthKey);
             setModalOpen(true);
           }}
-          className="shrink-0 px-2 py-0.5 mr-0.5 rounded bg-white hover:bg-slate-100 text-slate-900 border border-black/20 shadow-[1px_1px_0px_#000] dark:bg-white/10 dark:hover:bg-white/20 dark:text-white dark:border-white/15 dark:shadow-none text-[9px] font-heading font-bold uppercase tracking-wider flex items-center gap-0.5 cursor-pointer transition-all active:scale-95 z-20"
+          aria-label="Lihat detail daftar donatur Orang Baik"
+          className="relative z-20 shrink-0 px-2 py-0.5 mr-0.5 rounded bg-white hover:bg-slate-100 text-slate-900 border border-black/20 shadow-[1px_1px_0px_#000] dark:bg-white/10 dark:hover:bg-white/20 dark:text-white dark:border-white/15 dark:shadow-none text-[9px] font-heading font-bold uppercase tracking-wider flex items-center gap-0.5 cursor-pointer transition-all active:scale-95"
         >
           <span>Detail</span>
           <ChevronRight size={11} />

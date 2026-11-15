@@ -955,6 +955,7 @@ export default function App() {
         <DonorsSection
           onOpenTransparency={handleOpenTransparency}
           isOpen={donationModalOpen}
+          onOpen={handleOpenDonation}
           onClose={handleCloseDonation}
         />
       </div>
