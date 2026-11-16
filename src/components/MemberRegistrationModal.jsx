@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { submitMemberCloud, subscribeMembersCloud } from "../services/memberService";
 import { scanKtpImage } from "../utils/ktpOcr";
+import PizzaMascot from "./PizzaMascot";
 
 export default function MemberRegistrationModal({
   isOpen,
@@ -349,9 +350,7 @@ export default function MemberRegistrationModal({
           {submittedData ? (
             /* Custom Success Screen (No Ticket Code, Direct Discord Action) */
             <div className="py-3 flex flex-col items-center text-center max-w-lg mx-auto">
-              <div className="w-16 h-16 rounded-full bg-emerald-500 text-white border-2 border-emerald-400 flex items-center justify-center mb-3 shadow-md animate-bounce">
-                <CheckCircle2 size={36} />
-              </div>
+              <PizzaMascot size="sm" variant="waving" speechBubble="SELAMAT BERGABUNG!" className="mb-2" />
 
               <span className="badge-brutal badge-yellow text-xs py-1 px-3 font-black mb-1.5 shadow-sm">
                 PENGAJUAN TERCATAT

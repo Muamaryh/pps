@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   Shield,
-  ArrowUp,
   MapPin,
   Store,
   UserPlus,
@@ -36,10 +35,6 @@ export default function Footer({
     });
     return () => unsub();
   }, []);
-
-  function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
 
   return (
     <footer className="mt-14 sm:mt-20 bg-[#E1DDD3] dark:bg-[#07080E] text-xs text-slate-700 dark:text-slate-400 font-heading border-t border-black/25 dark:border-white/10 shadow-sm dark:shadow-[0_-10px_35px_rgba(0,0,0,0.8)] overflow-hidden transition-colors">
@@ -236,7 +231,7 @@ export default function Footer({
 
         {/* Bottom Bar: Copyright, Tech Badge & Back to Top */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 dark:text-slate-400 font-medium">
-          <p className="text-center sm:text-left text-[11px]">
+          <p className="text-center sm:text-left text-[11px] sm:pl-28 md:pl-32">
             &copy; 2026{" "}
             <span className="font-bold text-slate-900 dark:text-white">
               {brand || "LSM Paguyuban Pizza Sandy Shores"}
@@ -244,7 +239,7 @@ export default function Footer({
             . Seluruh aset, naskah manifesto, dan sistem pendaftaran dilindungi.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2.5">
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2.5 sm:pr-24 md:pr-28">
             {/* Live Visitor Counter Badge (Sleek Modern Pill) */}
             <div
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-white/5 border border-black/20 dark:border-white/10 text-[10.5px] font-heading font-black text-slate-800 dark:text-slate-200 shadow-sm"
@@ -256,21 +251,6 @@ export default function Footer({
                 {Number(visitorStats.totalVisitors || 1).toLocaleString("id-ID")}
               </span>
             </div>
-
-            <div className="badge-brutal badge-yellow text-[10px] py-1 px-3 flex items-center gap-1.5 font-bold">
-              <Shield size={12} className="text-[#DC2626]" />
-              <span>Portal Terverifikasi PPS</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={scrollToTop}
-              className="btn btn-secondary text-[11px] py-1 px-3 flex items-center gap-1.5 cursor-pointer active:translate-y-0.5 font-bold"
-              title="Kembali ke atas halaman"
-            >
-              <ArrowUp size={12} />
-              <span>Atas</span>
-            </button>
           </div>
         </div>
       </div>

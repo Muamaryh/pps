@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Users, Store, Heart, X, ChevronUp, ArrowUp } from "lucide-react";
+import { Users, Store, Heart, X, ChevronUp } from "lucide-react";
 
 export default function FloatingActions({
   onOpenRegister,
@@ -9,22 +9,7 @@ export default function FloatingActions({
   memberCount = 58,
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [showScrollTop, setShowScrollTop] = useState(false);
   const containerRef = useRef(null);
-
-  // Monitor window scroll position to show/hide Scroll-to-Top
-  useEffect(() => {
-    function handleScroll() {
-      setShowScrollTop(window.scrollY > 350);
-    }
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  function handleScrollToTop() {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
 
   // Auto-close on click outside or escape key
   useEffect(() => {
@@ -69,19 +54,6 @@ export default function FloatingActions({
         aria-label="Aksi Cepat Komunitas"
         className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-2.5 pointer-events-auto select-none"
       >
-        {/* Dedicated Tactile Scroll To Top Button (Appears when scrolled down) */}
-        {showScrollTop && (
-          <button
-            type="button"
-            onClick={handleScrollToTop}
-            aria-label="Kembali ke atas"
-            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white dark:bg-[#1E212B] hover:bg-[#FACC15] dark:hover:bg-[#FACC15] text-slate-900 hover:text-black dark:text-slate-100 dark:hover:text-black border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000] flex items-center justify-center hover:-translate-y-0.5 active:translate-y-1 transition-all cursor-pointer animate-fadeIn"
-            title="Kembali ke atas halaman"
-          >
-            <ArrowUp size={18} strokeWidth={2.5} />
-          </button>
-        )}
-
         {/* Animated Action Buttons List */}
         <div
           className={`flex flex-col items-end gap-2.5 origin-bottom-right transition-all duration-300 ease-out ${

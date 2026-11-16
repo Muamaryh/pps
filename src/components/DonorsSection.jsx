@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import {
   ChevronRight,
   X,
-  Info,
   Calendar,
   Heart,
   Phone,
@@ -17,6 +16,7 @@ import {
   parseDateInputToTimestamp,
   formatCurrency,
 } from "../services/kasService.js";
+import PizzaMascot from "./PizzaMascot";
 
 const INDO_MONTH_NAMES = [
   "Januari",
@@ -237,6 +237,11 @@ export default function DonorsSection({
     return donors.filter((d) => d.monthKey === currentMonthInfo.monthKey);
   }, [donors, currentMonthInfo.monthKey]);
 
+  // Total nominal donasi bulan berjalan
+  const currentMonthTotal = useMemo(() => {
+    return currentMonthDonors.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  }, [currentMonthDonors]);
+
   // Daftar bulan yang tersedia di arsip donasi
   const availableMonths = useMemo(() => {
     const map = new Map();
@@ -287,9 +292,27 @@ export default function DonorsSection({
         className="w-full h-8 sm:h-9 bg-[#FAF7EE]/95 dark:bg-[#07090E]/95 backdrop-blur-md text-slate-900 dark:text-slate-100 border-b border-black/15 dark:border-white/10 px-2.5 sm:px-4 flex items-center overflow-hidden relative select-none transition-colors"
       >
         {/* Pinned Label */}
-        <div className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded bg-[#FACC15] text-[#111827] border border-black/30 dark:border-black/60 shadow-[1px_1px_0px_#000] font-heading font-black uppercase text-[9px] tracking-wider z-20">
-          <Info size={11} className="shrink-0 text-slate-950" />
+        <div className="flex items-center shrink-0 px-2.5 py-0.5 rounded-full bg-[#FACC15] text-[#111827] border border-yellow-500/70 dark:border-yellow-400/40 shadow-xs font-heading font-black uppercase text-[9px] tracking-wider z-20">
           <span>ORANG BAIK</span>
+        </div>
+
+        {/* Live Indicator Badge: Periode Bulan & Total Kas */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-1.5 px-2.5 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-[10px] font-mono z-20 shadow-xs">
+          <span className="relative flex h-1.5 w-1.5 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+          </span>
+          <span className="font-bold text-slate-700 dark:text-slate-300">
+            {currentMonthInfo.monthLabel}
+          </span>
+          {currentMonthTotal > 0 && (
+            <>
+              <span className="text-slate-400 dark:text-slate-600">•</span>
+              <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+                {formatCurrency(currentMonthTotal)}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Marquee Track Container */}
@@ -299,14 +322,14 @@ export default function DonorsSection({
             setModalOpen(true);
           }}
           title="Klik untuk melihat tabel & arsip donasi bulanan"
-          className="relative flex-1 overflow-hidden py-0.5 cursor-pointer"
+          className="relative flex-1 overflow-hidden py-0.5 cursor-pointer ml-1"
         >
           {/* Edge Fades: Halus untuk Terang & Gelap */}
           <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 sm:w-14 bg-gradient-to-r from-[#FAF7EE] dark:from-[#07090E] to-transparent z-10 transition-colors" />
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 sm:w-14 bg-gradient-to-l from-[#FAF7EE] dark:from-[#07090E] to-transparent z-10 transition-colors" />
 
           {/* Running Track */}
-          <div className="animate-marquee flex items-center">
+          <div className="animate-marquee hover:[animation-play-state:paused] flex items-center">
             {currentMonthDonors.length > 0 ? (
               <>
                 {/* Set 1 */}
@@ -417,10 +440,10 @@ export default function DonorsSection({
             setModalOpen(true);
           }}
           aria-label="Lihat detail daftar donatur Orang Baik"
-          className="relative z-20 shrink-0 px-2 py-0.5 mr-0.5 rounded bg-white hover:bg-slate-100 text-slate-900 border border-black/20 shadow-[1px_1px_0px_#000] dark:bg-white/10 dark:hover:bg-white/20 dark:text-white dark:border-white/15 dark:shadow-none text-[9px] font-heading font-bold uppercase tracking-wider flex items-center gap-0.5 cursor-pointer transition-all active:scale-95"
+          className="relative z-20 shrink-0 px-2.5 py-0.5 mr-0.5 rounded-full bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/20 text-slate-800 dark:text-slate-200 border border-black/15 dark:border-white/15 shadow-xs text-[9px] font-heading font-bold uppercase tracking-wider flex items-center gap-0.5 cursor-pointer transition-all active:scale-95"
         >
           <span>Detail</span>
-          <ChevronRight size={11} />
+          <ChevronRight size={11} className="text-slate-500 dark:text-slate-400" />
         </button>
       </div>
 
@@ -615,8 +638,9 @@ export default function DonorsSection({
 
             {/* Tabel Arsip Donasi */}
             {filteredModalDonors.length === 0 ? (
-              <div className="py-12 text-center rounded-xl border-2 border-dashed border-black/20 text-slate-500 dark:text-slate-400 font-mono text-xs space-y-1">
-                <p className="font-bold">Belum ada donasi tercatat untuk periode {selectedMonthLabel}.</p>
+              <div className="py-8 sm:py-10 text-center rounded-xl border-2 border-dashed border-black/20 text-slate-500 dark:text-slate-400 font-mono text-xs flex flex-col items-center justify-center gap-2">
+                <PizzaMascot size="sm" variant="thankyou" speechBubble="Menunggu Donatur Baru..." />
+                <p className="font-bold text-slate-700 dark:text-slate-200">Belum ada donasi tercatat untuk periode {selectedMonthLabel}.</p>
                 <p className="text-[11px]">Jadilah Orang Baik pertama yang tercatat di buku kas Sandy Shores!</p>
               </div>
             ) : (
@@ -672,13 +696,16 @@ export default function DonorsSection({
             )}
 
               {/* Bottom info: Ucapan Terima Kasih & Akuntabilitas */}
-              <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 dark:bg-amber-400/5 border border-amber-500/25 dark:border-amber-400/15 text-center text-xs space-y-1">
-                <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-sans">
-                  Terima kasih yang sebesar-besarnya atas segala bentuk kepedulian dan kebaikan yang telah diberikan. Seluruh dukungan dicatat secara amanah dan dialokasikan sepenuhnya untuk kemaslahatan warga serta kegiatan Paguyuban Pizza Sandy Shores.
-                </p>
-                <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400">
-                  Setelah melakukan transfer, silakan konfirmasi ke Kwaza Waza (No HP IC: <strong>66204074</strong>).
-                </p>
+              <div className="p-3.5 sm:p-4 rounded-xl bg-amber-500/10 dark:bg-amber-400/5 border border-amber-500/25 dark:border-amber-400/15 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-center sm:text-left">
+                <PizzaMascot size="sm" variant="thankyou" className="shrink-0" speechBubble="TERIMA KASIH!" />
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-sans">
+                    Terima kasih yang sebesar-besarnya atas segala bentuk kepedulian dan kebaikan yang telah diberikan. Seluruh dukungan dicatat secara amanah dan dialokasikan sepenuhnya untuk kemaslahatan warga serta kegiatan Paguyuban Pizza Sandy Shores.
+                  </p>
+                  <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400">
+                    Setelah melakukan transfer, silakan konfirmasi ke Kwaza Waza (No HP IC: <strong>66204074</strong>).
+                  </p>
+                </div>
               </div>
             </div>
           </div>

@@ -21,6 +21,7 @@ import TransparencyModal from "./components/TransparencyModal";
 import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
+import ScrollToTopMascot from "./components/ScrollToTopMascot";
 import PizzaLoader from "./components/PizzaLoader";
 import { Users, Camera, ArrowRight, Ticket, Dices } from "lucide-react";
 import { subscribeMembersCloud } from "./services/memberService";
@@ -1137,6 +1138,9 @@ export default function App() {
         onOpenMembersDirectory={handleOpenMembersDirectory}
         onOpenDonation={handleOpenDonation}
       />
+
+      {/* Floating Scroll to Top with Mascot & Reading Progress */}
+      <ScrollToTopMascot />
 
       {/* Footer */}
       <Footer
