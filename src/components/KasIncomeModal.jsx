@@ -4,7 +4,7 @@
 // ==========================================================================
 
 import React, { useState } from "react";
-import { X, TrendingUp, DollarSign, HeartHandshake } from "lucide-react";
+import { X, TrendingUp } from "lucide-react";
 import {
   INCOME_CATEGORIES,
   recordKasIncomeCloud,
@@ -23,8 +23,6 @@ export default function KasIncomeModal({
   onSuccess,
   onShowToast,
 }) {
-  if (!isOpen) return null;
-
   const [wallet, setWallet] = useState("Oita"); // "Oita" | "Darren"
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Donasi Sukarela & Warga");
@@ -88,6 +86,8 @@ export default function KasIncomeModal({
       setIsSubmitting(false);
     }
   }
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs">
@@ -230,8 +230,8 @@ export default function KasIncomeModal({
                 </span>
                 <input
                   type="number"
-                  min="1000"
-                  step="1000"
+                  min="1"
+                  step="any"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required

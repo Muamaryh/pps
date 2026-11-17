@@ -7851,7 +7851,7 @@ export default function AdminModal({
                   <input
                     type="number"
                     min="0"
-                    step="100"
+                    step="any"
                     placeholder="2500"
                     value={editingBansosProgram.totalCash ?? ""}
                     onChange={(e) => handleTotalCashChange(e.target.value)}

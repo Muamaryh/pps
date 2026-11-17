@@ -311,8 +311,8 @@ export default function KasPaymentModal({
                   </span>
                   <input
                     type="number"
-                    min="1000"
-                    step="1000"
+                    min="1"
+                    step="any"
                     value={customAmount}
                     onChange={(e) => setCustomAmount(e.target.value)}
                     required={isCustomMode}

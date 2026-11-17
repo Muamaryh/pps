@@ -3,7 +3,7 @@
 // ==========================================================================
 
 import React, { useState } from "react";
-import { X, TrendingDown, Calendar, AlertCircle } from "lucide-react";
+import { X, TrendingDown, AlertCircle } from "lucide-react";
 import {
   EXPENSE_CATEGORIES,
   recordKasExpenseCloud,
@@ -22,8 +22,6 @@ export default function KasExpenseModal({
   onSuccess,
   onShowToast,
 }) {
-  if (!isOpen) return null;
-
   const [wallet, setWallet] = useState("Oita"); // "Oita" | "Darren"
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Operasional & Logistik");
@@ -80,6 +78,8 @@ export default function KasExpenseModal({
       setIsSubmitting(false);
     }
   }
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs">
@@ -219,8 +219,8 @@ export default function KasExpenseModal({
                 </span>
                 <input
                   type="number"
-                  min="1000"
-                  step="1000"
+                  min="1"
+                  step="any"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
