@@ -30,7 +30,7 @@ import {
 import { submitServiceRequest, searchSubmissions, loadSubmissions } from "../services/firebase";
 import BrutalistSelect from "./BrutalistSelect";
 import BrutalistDatePicker from "./BrutalistDatePicker";
-import { scanKtpImage } from "../utils/ktpOcr";
+import { scanKtpImage, resolveGeminiApiKey } from "../utils/ktpOcr";
 
 const DEFAULT_DISCORD_VISITOR_URL = "https://discord.gg/gb7ajBMduF";
 const DEFAULT_DISCORD_SERVER_URL = "https://discord.gg/gb7ajBMduF";
@@ -150,8 +150,11 @@ export default function ServicePortalModal({
   const [copiedVisitorData, setCopiedVisitorData] = useState(false);
 
   useEffect(() => {
-    if (isOpen && initialTab) {
-      setActiveTab(initialTab);
+    if (isOpen) {
+      resolveGeminiApiKey().catch(() => {});
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
     }
   }, [isOpen, initialTab]);
 

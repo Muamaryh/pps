@@ -582,3 +582,28 @@ export async function searchSubmissions(query) {
     return false;
   });
 }
+
+export async function loadCloudOcrConfig() {
+  try {
+    const snap = await getDoc(doc(db, "pps_website", "ocr_config"));
+    if (snap.exists()) {
+      return snap.data() || {};
+    }
+  } catch (err) {
+    console.warn("Notice loading cloud OCR config:", err);
+  }
+  return {};
+}
+
+export async function saveCloudOcrConfig(geminiApiKey) {
+  const cleanKey = (geminiApiKey || "").trim();
+  await setDoc(
+    doc(db, "pps_website", "ocr_config"),
+    {
+      geminiApiKey: cleanKey,
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true }
+  );
+  return cleanKey;
+}

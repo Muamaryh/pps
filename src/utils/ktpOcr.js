@@ -1,7 +1,7 @@
 import Tesseract from "tesseract.js";
-import { scanKtpWithGemini, getGeminiApiKey, setGeminiApiKey } from "./geminiOcr.js";
+import { scanKtpWithGemini, scanCombinedEventWithGemini, getGeminiApiKey, resolveGeminiApiKey, setGeminiApiKey } from "./geminiOcr.js";
 
-export { scanKtpWithGemini, getGeminiApiKey, setGeminiApiKey };
+export { scanKtpWithGemini, scanCombinedEventWithGemini, getGeminiApiKey, resolveGeminiApiKey, setGeminiApiKey };
 
 // Blacklist of common card labels and dictionary words that must NEVER be treated as Citizen IDs or names
 const BLACKLIST_WORDS = new Set([
@@ -226,11 +226,18 @@ export function generateCidSmartVariants(rawCid, extractedNames = [], isFromCidL
   if (cid.length === 8) {
     if (!hasDigits) {
       if (isFromCidLabel) {
-        // 0 digits: all letters (e.g. JORTPIDO) -> Smart substitutions
+        // 0 digits: all letters (e.g. JORTPSDO or JORTPIDO) -> Smart substitutions
         let v1 = cid;
         if (v1[1] === "O") v1 = v1[0] + "0" + v1.slice(2);
-        if (v1[5] === "I") v1 = v1.slice(0, 5) + "9" + v1.slice(6);
+        if (v1[5] === "I" || v1[5] === "S") v1 = v1.slice(0, 5) + "9" + v1.slice(6);
         candidates.add(v1);
+
+        if (cid[5] === "S") {
+          let vS5 = cid;
+          if (vS5[1] === "O") vS5 = vS5[0] + "0" + vS5.slice(2);
+          vS5 = vS5.slice(0, 5) + "5" + vS5.slice(6);
+          candidates.add(vS5);
+        }
 
         let v2 = v1;
         if (v2[7] === "O") v2 = v2.slice(0, 7) + "0";
@@ -242,13 +249,25 @@ export function generateCidSmartVariants(rawCid, extractedNames = [], isFromCidL
         candidates.add(v3);
 
         let v4 = cid;
-        if (v4[5] === "I") v4 = v4.slice(0, 5) + "9" + v4.slice(6);
+        if (v4[5] === "I" || v4[5] === "S") v4 = v4.slice(0, 5) + "9" + v4.slice(6);
         candidates.add(v4);
+
+        // General letter->digit fallback if still no digit substituted
+        let vGen = cid
+          .replace(/O/g, "0")
+          .replace(/I/g, "1")
+          .replace(/Z/g, "2")
+          .replace(/B/g, "8");
+        if (vGen !== cid) candidates.add(vGen);
       }
     } else {
       candidates.add(cid);
       if (cid.includes("0")) candidates.add(cid.replace(/0/g, "O"));
       if (cid.includes("O")) candidates.add(cid.replace(/O/g, "0"));
+      if (isFromCidLabel && cid.includes("S")) {
+        candidates.add(cid.replace(/S/, "9"));
+        candidates.add(cid.replace(/S/, "5"));
+      }
       if (/^[A-Z]\d{2}0\d[A-Z]/.test(cid)) {
         candidates.add(cid[0] + cid.slice(1, 3) + "J" + cid.slice(4));
       }
@@ -638,12 +657,210 @@ export function parseKtpOcrText(rawText) {
 }
 
 /**
+ * Spatial Y-Alignment KTP Parser from Tesseract Bounding Boxes:
+ * Matches each label on the left (LAST NAME, FIRST NAME, DOB, SEX, NATIONALITY, CITIZEN ID)
+ * directly to the value words horizontally aligned on the right on the exact same row (sejajar kiri ke kanan),
+ * preventing misreads from bottom cursive signatures or middle map noise.
+ */
+export function parseKtpFromBlocks(blocks) {
+  if (!Array.isArray(blocks) || blocks.length === 0) return null;
+
+  const words = [];
+  let maxX = 0;
+
+  for (const block of blocks) {
+    for (const para of block.paragraphs || []) {
+      for (const line of para.lines || []) {
+        for (const wd of line.words || []) {
+          const text = (wd?.text || "").trim();
+          if (!text || !wd.bbox) continue;
+          const { x0, y0, x1, y1 } = wd.bbox;
+          const height = Math.max(8, y1 - y0);
+          const yCenter = (y0 + y1) / 2;
+          if (x1 > maxX) maxX = x1;
+          words.push({ text, x0, x1, y0, y1, yCenter, height });
+        }
+      }
+    }
+  }
+
+  if (words.length === 0) return null;
+
+  // Sort by vertical center, then group into horizontal rows
+  words.sort((a, b) => a.yCenter - b.yCenter);
+  const avgHeight = words.reduce((acc, w) => acc + w.height, 0) / words.length;
+  const rowTolerance = Math.max(12, avgHeight * 0.8);
+
+  const rows = [];
+  for (const w of words) {
+    let targetRow = null;
+    for (const r of rows) {
+      if (Math.abs(w.yCenter - r.yCenter) <= rowTolerance) {
+        targetRow = r;
+        break;
+      }
+    }
+    if (targetRow) {
+      targetRow.words.push(w);
+      targetRow.yCenter =
+        targetRow.words.reduce((acc, item) => acc + item.yCenter, 0) / targetRow.words.length;
+    } else {
+      rows.push({ yCenter: w.yCenter, words: [w] });
+    }
+  }
+
+  rows.forEach((r) => r.words.sort((a, b) => a.x0 - b.x0));
+
+  const out = {
+    firstName: "",
+    lastName: "",
+    fullName: "",
+    dob: "",
+    sex: "",
+    nationality: "",
+    citizenId: "",
+    citizenIdCandidates: [],
+  };
+
+  // Helper to get value tokens to the right of a matched label on the same row
+  const getRightAlignedValue = (rowWords, labelEndX) => {
+    const rightWords = rowWords.filter((w) => w.x0 > labelEndX + 12);
+    if (rightWords.length === 0) return "";
+    // Prefer words in the right-hand value zone if right-aligned layout (avoids center map watermark noise)
+    const farRight = rightWords.filter((w) => w.x1 >= maxX * 0.68 || w.x0 >= maxX * 0.55);
+    const chosen = farRight.length > 0 ? farRight : rightWords;
+    return chosen.map((w) => w.text).join(" ").trim();
+  };
+
+  for (const row of rows) {
+    const rw = row.words;
+    const upperTokens = rw.map((w) => w.text.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+    const joined = upperTokens.join(" ");
+
+    // 1. LAST NAME
+    if (!out.lastName && /\bLAST\s*NAME\b|\bLASTNAME\b/.test(joined)) {
+      let labelEndX = 0;
+      rw.forEach((w) => {
+        const up = w.text.toUpperCase().replace(/[^A-Z]/g, "");
+        if (up === "LAST" || up === "NAME" || up === "LASTNAME") {
+          if (w.x1 > labelEndX) labelEndX = w.x1;
+        }
+      });
+      const val = cleanOcrName(getRightAlignedValue(rw, labelEndX));
+      if (val) out.lastName = val;
+    }
+
+    // 2. FIRST NAME
+    if (!out.firstName && /\b(?:FIRST|IRST)\s*NAME\b|\b(?:FIRST|IRST)NAME\b/.test(joined)) {
+      let labelEndX = 0;
+      rw.forEach((w) => {
+        const up = w.text.toUpperCase().replace(/[^A-Z]/g, "");
+        if (up === "FIRST" || up === "IRST" || up === "NAME" || up === "FIRSTNAME" || up === "IRSTNAME") {
+          if (w.x1 > labelEndX) labelEndX = w.x1;
+        }
+      });
+      const val = cleanOcrName(getRightAlignedValue(rw, labelEndX));
+      if (val) out.firstName = val;
+    }
+
+    // 3. DOB
+    if (!out.dob && /\b(?:DOB|POOB)\b/.test(joined)) {
+      let labelEndX = 0;
+      rw.forEach((w) => {
+        const up = w.text.toUpperCase().replace(/[^A-Z]/g, "");
+        if (up === "DOB" || up === "POOB") {
+          if (w.x1 > labelEndX) labelEndX = w.x1;
+        }
+      });
+      const rawDob = getRightAlignedValue(rw, labelEndX);
+      const dm = rawDob.match(/(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{4})/);
+      if (dm) out.dob = dm[1];
+    }
+
+    // 4. SEX
+    if (!out.sex && (/\bSEX\b/.test(joined) || /\b(?:MALE|FEMALE)\b/.test(joined))) {
+      const rowStr = rw.map((w) => w.text).join(" ");
+      if (/\bfemale\b/i.test(rowStr)) out.sex = "Female";
+      else if (/\bmale\b/i.test(rowStr)) out.sex = "Male";
+    }
+
+    // 5. NATIONALITY
+    if (!out.nationality && /\bNATIONALITY\b/.test(joined)) {
+      let labelEndX = 0;
+      rw.forEach((w) => {
+        const up = w.text.toUpperCase().replace(/[^A-Z]/g, "");
+        if (up === "NATIONALITY") {
+          if (w.x1 > labelEndX) labelEndX = w.x1;
+        }
+      });
+      const val = cleanOcrName(getRightAlignedValue(rw, labelEndX));
+      if (val) out.nationality = val;
+    }
+
+    // 6. CITIZEN ID (strictly aligned horizontally with CITIZEN ID label)
+    if (!out.citizenId && /\bCITIZEN\b/.test(joined)) {
+      let labelEndX = 0;
+      rw.forEach((w) => {
+        const up = w.text.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (up === "CITIZEN" || up === "ID" || up === "1D" || up === "CITIZENID") {
+          if (w.x1 > labelEndX) labelEndX = w.x1;
+        }
+      });
+      const rawCidStr = getRightAlignedValue(rw, labelEndX)
+        .replace(/[!|]/g, "I")
+        .replace(/[^A-Za-z0-9]/g, "")
+        .toUpperCase();
+      if (rawCidStr && rawCidStr.length >= 5 && !BLACKLIST_WORDS.has(rawCidStr)) {
+        const extractedNames = [out.firstName, out.lastName];
+        const variants = generateCidSmartVariants(rawCidStr, extractedNames, true);
+        if (variants.length > 0) {
+          out.citizenId = variants[0];
+          out.citizenIdCandidates = variants.slice(0, 6);
+        } else {
+          out.citizenId = rawCidStr;
+          out.citizenIdCandidates = [rawCidStr];
+        }
+      }
+    }
+  }
+
+  out.fullName = [out.firstName, out.lastName].filter(Boolean).join(" ").trim().toUpperCase();
+  return out;
+}
+
+/**
+ * Merges spatial block-aligned KTP result with text-parsed KTP fallback
+ */
+function mergeKtpResults(spatial, textParsed) {
+  if (!spatial) return textParsed;
+  const firstName = spatial.firstName || textParsed.firstName || "";
+  const lastName = spatial.lastName || textParsed.lastName || "";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim().toUpperCase() || textParsed.fullName || "";
+  const citizenId = spatial.citizenId || textParsed.citizenId || "";
+  const combinedCandidates = [
+    ...(spatial.citizenIdCandidates || []),
+    ...(textParsed.citizenIdCandidates || []),
+  ].filter((v, idx, arr) => v && arr.indexOf(v) === idx);
+
+  return {
+    firstName,
+    lastName,
+    fullName,
+    dob: spatial.dob || textParsed.dob || "",
+    sex: spatial.sex || textParsed.sex || "",
+    nationality: spatial.nationality || textParsed.nationality || "",
+    citizenId,
+    citizenIdCandidates: combinedCandidates.slice(0, 6),
+  };
+}
+
+/**
  * Runs OCR on an image and returns parsed KTP fields:
- * - Priority 1: Google Gemini Vision AI (if API key is available, ultra-fast & 99.9% accurate)
- * - Priority 2: Local Tesseract.js (automatic fallback if offline, rate limited, or no key)
+ * - Priority 1: Google Gemini Vision AI (resolves Cloud/Local/Env key, 99.9% accurate)
+ * - Priority 2: Local Tesseract.js with Spatial Y-Row Alignment (PSM.SINGLE_BLOCK)
  */
 export async function scanKtpImage(imageFileOrUrl, onProgress) {
-  // 1. Try Gemini Vision AI first if API key is configured
+  // 1. Try Gemini Vision AI first (resolves key from localStorage, env, or Cloud Firestore)
   try {
     const geminiRes = await scanKtpWithGemini(imageFileOrUrl);
     if (geminiRes && geminiRes.success && geminiRes.fields) {
@@ -663,7 +880,7 @@ export async function scanKtpImage(imageFileOrUrl, onProgress) {
 
   let worker = null;
   try {
-    // Pass 1: Upscale image smoothly with bicubic interpolation, NO harsh 1-bit threshold binarization
+    // Pass 1: Upscale image smoothly with bicubic interpolation
     const preprocessed = await preprocessImageForOcr(imageFileOrUrl, { binarize: false });
     
     if (typeof Tesseract.createWorker === "function") {
@@ -675,19 +892,26 @@ export async function scanKtpImage(imageFileOrUrl, onProgress) {
         },
       });
 
-      // Pass 1: Standard AUTO layout segmentation
+      // Pass 1: SINGLE_BLOCK ('6') keeps left labels and right values on the same horizontal rows
       await worker.setParameters({
-        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+        tessedit_pageseg_mode: "6",
       });
 
-      const { data } = await worker.recognize(preprocessed);
-      let parsed = parseKtpOcrText(data.text);
+      const { data } = await worker.recognize(preprocessed, {}, { blocks: true });
+      const spatialParsed = parseKtpFromBlocks(data.blocks);
+      const textParsed = parseKtpOcrText(data.text);
+      let parsed = mergeKtpResults(spatialParsed, textParsed);
 
-      // Pass 2 fallback: If either Citizen ID or Full Name is incomplete (or citizenId < 6 chars), scan raw image
+      // Pass 2 fallback: If Citizen ID or Full Name is incomplete, try AUTO segmentation on raw image
       if (!parsed.citizenId || parsed.citizenId.length < 6 || !parsed.firstName || !parsed.lastName) {
         try {
-          const retryResult = await worker.recognize(imageFileOrUrl);
-          const retryParsed = parseKtpOcrText(retryResult.data.text);
+          await worker.setParameters({
+            tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+          });
+          const retryResult = await worker.recognize(imageFileOrUrl, {}, { blocks: true });
+          const retrySpatial = parseKtpFromBlocks(retryResult.data.blocks);
+          const retryText = parseKtpOcrText(retryResult.data.text);
+          const retryParsed = mergeKtpResults(retrySpatial, retryText);
 
           if ((!parsed.citizenId || parsed.citizenId.length < 6) && retryParsed.citizenId) {
             parsed.citizenId = retryParsed.citizenId;
@@ -728,7 +952,9 @@ export async function scanKtpImage(imageFileOrUrl, onProgress) {
           }
         },
       });
-      let parsed = parseKtpOcrText(data.text);
+      const spatialParsed = parseKtpFromBlocks(data.blocks);
+      const textParsed = parseKtpOcrText(data.text);
+      const parsed = mergeKtpResults(spatialParsed, textParsed);
       return {
         success: true,
         rawText: data.text,
@@ -975,20 +1201,104 @@ export function parseUfcScreenshotOcr(rawText, options = {}) {
 }
 
 /**
- * Runs OCR on a UFC registration screenshot and returns evaluation results
+ * Runs OCR on an Event / UFC registration screenshot and returns evaluation results:
+ * - Priority 1: Google Gemini Vision AI (Cloud-synced, reads both KTP & HUD Status accurately)
+ * - Priority 2: Local Spatial Tesseract (PSM.SINGLE_BLOCK + Bounding Boxes)
  */
 export async function scanUfcScreenshotImage(imageFileOrUrl, onProgress, options = {}) {
+  const requireCivilian = options.requireCivilianOnly !== false;
+  const requireNoGang = options.requireNoGangOnly !== false;
+  const eventTitle = options.title || "Turnamen / Event";
+
+  // 1. Priority 1: Gemini Vision AI
+  try {
+    if (typeof onProgress === "function") onProgress(35);
+    const aiRes = await scanCombinedEventWithGemini(imageFileOrUrl);
+    if (aiRes && aiRes.success && aiRes.fields) {
+      const f = aiRes.fields;
+      const jobStr = f.jobStatus || "";
+      const gangStr = f.gangStatus || "";
+      const isCivilian = /civilian|freelancer/i.test(jobStr);
+      const isForbiddenJob = /(?:police|polisi|sheriff|ems|medic|paramedic|doctor|dokter|government|pemerintah|paspampres)/i.test(jobStr);
+      const isNoGang = /no\s*gang|unaffiliated/i.test(gangStr);
+
+      let isValidUfc = true;
+      let rejectionReason = "";
+      if (requireCivilian && (!isCivilian || isForbiddenJob)) {
+        isValidUfc = false;
+        rejectionReason = `Pendaftaran Ditolak: Status pekerjaan bukan Civilian! ${eventTitle} ini khusus untuk Civilian (Warga Sipil / Freelancer).`;
+      } else if (requireNoGang && !isNoGang) {
+        isValidUfc = false;
+        rejectionReason = `Pendaftaran Ditolak: Anda terdeteksi memiliki afiliasi Gang! ${eventTitle} ini khusus petarung No Gang (Unaffiliated).`;
+      }
+
+      if (typeof onProgress === "function") onProgress(100);
+      return {
+        success: true,
+        source: "gemini-ai",
+        rawText: `[Gemini Vision AI] ${f.fullName} (${f.citizenId}) | ${jobStr} | ${gangStr}`,
+        parsed: {
+          isValidUfc,
+          rejectionReason,
+          dateTime: f.dateTime || "Terdeteksi",
+          hasDate: Boolean(f.dateTime),
+          jobStatus: jobStr || (isCivilian ? "Civilian - Freelancer" : "Bebas / Lainnya"),
+          gangStatus: gangStr || (isNoGang ? "No Gang - Unaffiliated" : "Bebas / Lainnya"),
+          isCivilian,
+          isNoGang,
+          firstName: f.firstName || "",
+          lastName: f.lastName || "",
+          fullName: f.fullName || "",
+          dob: f.dob || "",
+          sex: f.sex || "",
+          nationality: f.nationality || "",
+          citizenId: f.citizenId || "",
+          rawText: `[Gemini Vision AI] ${f.fullName} (${f.citizenId})`,
+        },
+        preprocessedImage: typeof imageFileOrUrl === "string" ? imageFileOrUrl : null,
+      };
+    }
+  } catch (aiErr) {
+    console.warn("[Event OCR] Gemini Vision skipped, falling back to spatial Tesseract:", aiErr);
+  }
+
+  // 2. Priority 2: Spatial Tesseract Fallback (PSM 6 + Bounding Boxes)
+  let worker = null;
   try {
     const preprocessed = await preprocessImageForOcr(imageFileOrUrl);
-    const { data } = await Tesseract.recognize(preprocessed, "eng", {
-      logger: (m) => {
-        if (m.status === "recognizing text" && typeof onProgress === "function") {
-          onProgress(Math.round(m.progress * 100));
-        }
-      },
-    });
+    let data;
+    if (typeof Tesseract.createWorker === "function") {
+      worker = await Tesseract.createWorker("eng", 1, {
+        logger: (m) => {
+          if (m.status === "recognizing text" && typeof onProgress === "function") {
+            onProgress(Math.round(45 + m.progress * 55));
+          }
+        },
+      });
+      await worker.setParameters({ tessedit_pageseg_mode: "6" });
+      const rec = await worker.recognize(preprocessed, {}, { blocks: true });
+      data = rec.data;
+      await worker.terminate();
+      worker = null;
+    } else {
+      const rec = await Tesseract.recognize(preprocessed, "eng");
+      data = rec.data;
+    }
 
     const parsed = parseUfcScreenshotOcr(data.text, options);
+    const spatial = parseKtpFromBlocks(data.blocks);
+    if (spatial) {
+      if (spatial.firstName) parsed.firstName = spatial.firstName;
+      if (spatial.lastName) parsed.lastName = spatial.lastName;
+      if (spatial.firstName || spatial.lastName) {
+        parsed.fullName = [parsed.firstName, parsed.lastName].filter(Boolean).join(" ").trim().toUpperCase();
+      }
+      if (spatial.citizenId) parsed.citizenId = spatial.citizenId;
+      if (spatial.dob) parsed.dob = spatial.dob;
+      if (spatial.sex) parsed.sex = spatial.sex.toUpperCase();
+      if (spatial.nationality) parsed.nationality = spatial.nationality;
+    }
+
     return {
       success: true,
       rawText: data.text,
@@ -996,6 +1306,11 @@ export async function scanUfcScreenshotImage(imageFileOrUrl, onProgress, options
       preprocessedImage: preprocessed,
     };
   } catch (err) {
+    if (worker) {
+      try {
+        await worker.terminate();
+      } catch {}
+    }
     console.error("UFC OCR scan error:", err);
     return {
       success: false,

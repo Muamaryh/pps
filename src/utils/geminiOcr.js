@@ -1,7 +1,9 @@
 /**
- * Google Gemini Vision AI OCR for GTA V / FiveM KTPs
- * High-accuracy multi-modal recognition directly extracting structured KTP data.
+ * Google Gemini Vision AI OCR for GTA V / FiveM KTPs & HUD Status
+ * High-accuracy multi-modal recognition with step-by-step spatial verification.
  */
+
+import { loadCloudOcrConfig, saveCloudOcrConfig } from "../services/firebase.js";
 
 const DEFAULT_MODELS = [
   "gemini-3-flash-preview",
@@ -11,13 +13,19 @@ const DEFAULT_MODELS = [
   "gemini-flash-lite-latest",
 ];
 
+let cachedCloudGeminiKey = null;
+let cloudKeyPromise = null;
+
 /**
- * Retrieves the active Gemini API key from localStorage or Vite env
+ * Retrieves synchronous Gemini API key from localStorage, memory cache, or Vite env
  */
 export function getGeminiApiKey() {
   if (typeof window !== "undefined") {
     const local = localStorage.getItem("pps_gemini_api_key");
     if (local && local.trim()) return local.trim();
+  }
+  if (cachedCloudGeminiKey && cachedCloudGeminiKey.trim()) {
+    return cachedCloudGeminiKey.trim();
   }
   const envKey = import.meta.env?.VITE_GEMINI_API_KEY;
   if (envKey && envKey.trim()) return envKey.trim();
@@ -25,15 +33,49 @@ export function getGeminiApiKey() {
 }
 
 /**
- * Stores custom Gemini API key into localStorage
+ * Asynchronously resolves the active Gemini API key (localStorage -> env -> Firestore Cloud Config)
+ * Ensures live deployed builds always have AI Vision enabled even without local .env files.
  */
-export function setGeminiApiKey(key) {
+export async function resolveGeminiApiKey(customKey = null) {
+  if (customKey && customKey.trim()) return customKey.trim();
+
+  const syncKey = getGeminiApiKey();
+  if (syncKey) return syncKey;
+
+  try {
+    if (!cloudKeyPromise) {
+      cloudKeyPromise = loadCloudOcrConfig().finally(() => {
+        cloudKeyPromise = null;
+      });
+    }
+    const cfg = await cloudKeyPromise;
+    if (cfg && typeof cfg.geminiApiKey === "string" && cfg.geminiApiKey.trim()) {
+      cachedCloudGeminiKey = cfg.geminiApiKey.trim();
+      return cachedCloudGeminiKey;
+    }
+  } catch (err) {
+    console.warn("[Gemini OCR] Cloud key lookup skipped:", err);
+  }
+
+  return "";
+}
+
+/**
+ * Stores custom Gemini API key into localStorage and optionally syncs to Firestore Cloud Config
+ */
+export async function setGeminiApiKey(key, options = { syncCloud: false }) {
+  const cleanKey = (key || "").trim();
+  cachedCloudGeminiKey = cleanKey || cachedCloudGeminiKey;
   if (typeof window !== "undefined") {
-    if (!key || !key.trim()) {
+    if (!cleanKey) {
       localStorage.removeItem("pps_gemini_api_key");
     } else {
-      localStorage.setItem("pps_gemini_api_key", key.trim());
+      localStorage.setItem("pps_gemini_api_key", cleanKey);
     }
+  }
+  if (options?.syncCloud) {
+    cachedCloudGeminiKey = cleanKey;
+    await saveCloudOcrConfig(cleanKey);
   }
 }
 
@@ -41,7 +83,6 @@ export function setGeminiApiKey(key) {
  * Converts File, Blob, Data URL, or Remote URL to raw base64 string + mimeType
  */
 async function imageToBase64Payload(imageFileOrUrl) {
-  // Case 1: Data URL string (e.g. data:image/jpeg;base64,...)
   if (typeof imageFileOrUrl === "string") {
     if (imageFileOrUrl.startsWith("data:")) {
       const match = imageFileOrUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -49,7 +90,6 @@ async function imageToBase64Payload(imageFileOrUrl) {
         return { mimeType: match[1], data: match[2] };
       }
     }
-    // Remote URL string
     try {
       const resp = await fetch(imageFileOrUrl);
       const blob = await resp.blob();
@@ -69,7 +109,6 @@ async function imageToBase64Payload(imageFileOrUrl) {
     }
   }
 
-  // Case 2: File or Blob object
   if (imageFileOrUrl instanceof Blob || (typeof File !== "undefined" && imageFileOrUrl instanceof File)) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -91,7 +130,7 @@ async function imageToBase64Payload(imageFileOrUrl) {
  * Scans GTA V / FiveM ID Card (KTP) using Google Gemini Vision AI
  */
 export async function scanKtpWithGemini(imageFileOrUrl, customKey = null) {
-  const apiKey = (customKey || getGeminiApiKey() || "").trim();
+  const apiKey = await resolveGeminiApiKey(customKey);
   if (!apiKey) {
     return { success: false, error: "NO_API_KEY", message: "Gemini API key tidak ditemukan." };
   }
@@ -103,36 +142,31 @@ export async function scanKtpWithGemini(imageFileOrUrl, customKey = null) {
     return { success: false, error: "IMAGE_CONVERT_FAILED", message: err.message };
   }
 
-  const prompt = `Anda adalah mesin OCR Vision AI berspesialisasi tinggi untuk membaca KTP IC game GTA V / FiveM Roleplay (QBCore, ESX, Los Santos / San Andreas Identity Card).
+  const prompt = `Anda adalah mesin OCR Vision AI berspesialisasi tinggi untuk membaca KTP IC game GTA V / FiveM Roleplay (Los Santos Identity / San Andreas Identity Card).
 
-TUGAS: Ekstrak data teks dari gambar KTP ini secara 100% akurat tanpa typo.
+CARA BERPIKIR SEBELUM AUTO-FILL (WAJIB DIIKUTI):
+Pada kartu identitas Los Santos Identity, label berada di kolom kiri dan nilainya berada SEJAJAR LURUS DI SEBELAH KANAN pada baris horizontal yang sama:
+1. Cari label "LAST NAME" -> baca teks yang sejajar lurus di sebelah kanannya pada baris yang sama (contoh: "WAZA"). Itu adalah "lastName".
+2. Cari label "FIRST NAME" -> baca teks yang sejajar lurus di sebelah kanannya pada baris yang sama (contoh: "KWAZA"). Itu adalah "firstName".
+3. "fullName" adalah gabungan "firstName" diikuti spasi lalu "lastName" (contoh: "KWAZA WAZA").
+4. Cari label "DOB" -> baca tanggal lahir yang sejajar lurus di sebelah kanannya (contoh: "1998-01-01").
+5. Cari label "SEX" -> baca jenis kelamin yang sejajar lurus di sebelah kanannya ("Male" atau "Female").
+6. Cari label "NATIONALITY" -> baca kewarganegaraan yang sejajar lurus di sebelah kanannya (contoh: "INDONESIA").
+7. Cari label "CITIZEN ID" -> baca kode alfanumerik yang SEJAJAR LURUS DI SEBELAH KANANNYA pada baris yang sama (contoh: "J0RTP9DO").
 
-PANDUAN ANTI-TYPO & VERIFIKASI HURUF:
-1. CITIZEN ID / NIK:
-   - Citizen ID pada FiveM umumnya berupa 4 s/d 10 karakter alfanumerik kapital (contoh: ZJ1W71T7, E21J9V03, BXA49218, atau angka murni).
-   - Periksa huruf/angka yang rawan tertukar:
-     * Angka 0 (nol) vs Huruf O (kapital)
-     * Angka 1 (satu) vs Huruf I (kapital) vs Huruf L
-     * Angka 8 (delapan) vs Huruf B
-     * Angka 5 (lima) vs Huruf S
-     * Angka 2 (dua) vs Huruf Z
-     * Angka 6 (enam) vs Huruf G
-   - HANYA ambil kodenya saja (buang simbol "#", awalan "ID:", "CITIZEN ID:", atau tanda baca).
+ATURAN ANTI-TYPO CITIZEN ID (PERIKSA HURUF DEMI HURUF):
+- Citizen ID umumnya 6 s/d 10 karakter huruf kapital & angka (contoh: J0RTP9DO, ZJ1W71T7, E21J9V03).
+- Amati bentuk karakter dengan cermat:
+  * Angka 0 (oval ramping) vs Huruf O (bulat lebar) - contoh pada "J0RTP9DO": karakter ke-2 adalah angka 0, karakter terakhir adalah huruf O.
+  * Angka 9 vs Huruf S / P / g.
+  * Angka 1 vs Huruf I / L.
+  * Angka 8 vs Huruf B, Angka 5 vs Huruf S, Angka 2 vs Huruf Z.
+- DILARANG KERAS mengambil tulisan tanda tangan sambung/kursif di kiri bawah kartu atau gambar latar belakang peta/watermark sebagai Citizen ID!
+- Jangan masukkan kata label ("FIRST NAME", "LAST NAME", "CITIZEN ID", "LOS SANTOS") ke dalam isi data.
 
-2. NAMA LENGKAP (FIRST NAME & LAST NAME):
-   - Baca huruf demi huruf dengan cermat sesuai font di gambar.
-   - Jangan masukkan label kartu (seperti "FIRST NAME", "LAST NAME", "NAME", "IDENTITY", "SAN ANDREAS", "LOS SANTOS") ke dalam nilai nama.
-   - Jangan tertukar antara FIRST NAME dan LAST NAME.
-   - Jangan salah membaca garis latar belakang atau watermark peta sebagai huruf tambahan.
-   - "fullName" adalah gabungan nama karakter yang bersih (First Name + Last Name).
-
-3. TANGGAL LAHIR (DOB), GENDER/SEX, & NATIONALITY:
-   - dob: format tanggal sesuai kartu (misal: "YYYY-MM-DD" atau "DD-MM-YYYY").
-   - sex: "Male" atau "Female".
-   - nationality: kewarganegaraan tertera (misal: "INDONESIA", "AMERICAN").
-
-Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks):
+Tuliskan analisis singkat baris-per-baris Anda terlebih dahulu pada field "reasoning", lalu isi hasil akhirnya secara presisi dalam JSON murni:
 {
+  "reasoning": "Baris LAST NAME sejajar kanan dengan ..., FIRST NAME sejajar kanan dengan ..., CITIZEN ID sejajar kanan dengan ...",
   "firstName": "...",
   "lastName": "...",
   "fullName": "...",
@@ -146,12 +180,11 @@ Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks)
 
   for (const model of DEFAULT_MODELS) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
         },
         body: JSON.stringify({
           contents: [
@@ -188,18 +221,15 @@ Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks)
         continue;
       }
 
-      // Parse JSON
       let parsed = {};
       try {
         parsed = JSON.parse(rawJson.replace(/^```json/i, "").replace(/```$/, "").trim());
       } catch (parseErr) {
-        // Fallback regex if wrapped
         const jsonMatch = rawJson.match(/\{[\s\S]*\}/);
         if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
         else throw parseErr;
       }
 
-      // Sanitizer & Anti-Typo Cleaner
       const cleanField = (str) => {
         if (!str || typeof str !== "string") return "";
         return str
@@ -212,30 +242,28 @@ Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks)
       let lastName = cleanField(parsed.lastName).toUpperCase();
       let fullName = cleanField(parsed.fullName).toUpperCase();
 
-      // If fullName has label words accidentally retained, clean them
       fullName = fullName
         .replace(/\b(?:FIRST\s*NAME|LAST\s*NAME|NAME)\b/gi, "")
         .replace(/\s+/g, " ")
         .trim();
 
-      if (!fullName) {
+      if (firstName && lastName) {
+        fullName = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
+      } else if (!fullName) {
         fullName = [firstName, lastName].filter(Boolean).join(" ").trim().toUpperCase();
       }
 
-      // If firstName or lastName was empty, try splitting fullName
       if (!firstName && fullName.includes(" ")) {
         const parts = fullName.split(" ");
         firstName = parts[0];
         lastName = parts.slice(1).join(" ");
       }
 
-      // Clean Citizen ID: uppercase, strip '#', prefixes, and non-alphanumerics
       let citizenId = (parsed.citizenId || "").toString().trim().toUpperCase();
       citizenId = citizenId
         .replace(/^(?:#|CITIZEN\s*ID|ID|NIK)[:\s-]*/i, "")
         .replace(/[^A-Z0-9]/g, "");
 
-      // Normalize Gender / Sex
       let sex = (parsed.sex || "").toString().trim();
       if (/^m(?:ale)?$/i.test(sex)) sex = "Male";
       else if (/^f(?:emale)?$/i.test(sex)) sex = "Female";
@@ -272,7 +300,7 @@ Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks)
  * Scans GTA V / FiveM HUD Status screenshot using Google Gemini Vision AI
  */
 export async function scanStatusWithGemini(imageFileOrUrl, customKey = null) {
-  const apiKey = (customKey || getGeminiApiKey() || "").trim();
+  const apiKey = await resolveGeminiApiKey(customKey);
   if (!apiKey) {
     return { success: false, error: "NO_API_KEY", message: "Gemini API key tidak ditemukan." };
   }
@@ -284,25 +312,32 @@ export async function scanStatusWithGemini(imageFileOrUrl, customKey = null) {
     return { success: false, error: "IMAGE_CONVERT_FAILED", message: err.message };
   }
 
-  const prompt = `Anda adalah mesin OCR Vision AI berspesialisasi tinggi untuk membaca HUD status karakter game GTA V / FiveM Roleplay (JMR, QBCore, ESX).
+  const prompt = `Anda adalah mesin OCR Vision AI berspesialisasi tinggi untuk membaca HUD Status Karakter game GTA V / FiveM Roleplay.
 
-TUGAS: Ekstrak data teks dari gambar HUD status ini secara 100% akurat tanpa typo.
+CARA BERPIKIR SEBELUM AUTO-FILL (WAJIB DIIKUTI):
+Perhatikan bahwa HUD FiveM memiliki 2 variasi tata letak umum:
+- Variasi Horizontal (2 Baris, Logo/Icon di sebelah KANAN teks):
+  * Baris atas: "#386 09:03 [logo jam] 174 [logo server] $100.336 [logo dompet] $360.587 [logo bank]"
+  * Baris bawah: "Roxwood Medic - Paramedic [logo koper] No Gang - Unaffiliated [logo perisai]"
+- Variasi Vertikal (3 Baris, Logo/Icon di sebelah KIRI teks):
+  * Baris 1: "[logo jam] 11:56 ..."
+  * Baris 2: "[logo koper] Civilian - Freelancer"
+  * Baris 3: "[logo perisai] No Gang - Unaffiliated"
 
-DATA YANG HARUS DIAMBIL:
-1. "time": Waktu / jam yang tertera di sebelah icon jam (format HH:MM, contoh: "11:56").
-2. "jobStatus": Pekerjaan / profesi / status sipil yang tertera di sebelah icon koper / tas (contoh: "Civilian - Freelancer", "Police Officer", "EMS", dll. Sesuaikan persis dengan yang tampil di gambar).
-3. "gangAffiliation": Status kelompok / gang yang tertera di sebelah icon perisai / shield (contoh: "No Gang - Unaffiliated", atau nama gang jika terafiliasi. Sesuaikan persis dengan yang tampil di gambar).
-4. "playerId": Nomor ID / player tag jika terlihat di bagian atas (contoh: "1046").
-5. "cash": Jumlah uang tunai (contoh: "$16.630").
-6. "bank": Jumlah uang bank (contoh: "$60.550").
+ATURAN EKSTRAKSI SUPER KETAT:
+1. "time":
+   - Ambil HANYA waktu jam:menit format 24-jam HH:MM yang berdampingan dengan logo jam (contoh: "09:03" atau "11:56").
+   - Jangan tertukar dengan nomor ID pemain ("#386" atau "#1046") maupun angka kantong/ping ("174", "394").
+2. "jobStatus" (PEKERJAAN - JABATAN SAJA):
+   - Formatnya adalah "<Nama Pekerjaan> - <Jabatan>" yang berdampingan dengan logo koper/tas (contoh: "Roxwood Medic - Paramedic", "Civilian - Freelancer", "Police - Officer").
+   - PENTING: Jika setelah "<Nama Pekerjaan> - <Jabatan>" terdapat logo/icon (seperti kotak logo koper merah/abu-abu), ITU ADALAH BATAS AKHIR TEKS PEKERJAAN! BERHENTI DI SITU dan JANGAN PERNAH menyambungkan teks afiliasi/gang di sebelah kanannya ke dalam "jobStatus"!
+3. "gangAffiliation" (AFILIASI / GANG - JABATAN SAJA):
+   - Formatnya adalah "<Nama Gang atau No Gang> - <Pangkat atau Unaffiliated>" yang berdampingan dengan logo perisai/shield (contoh: "No Gang - Unaffiliated", atau nama kelompok/gang beserta jabatannya yang tampil di gambar).
+   - Berhenti tepat pada batas logo perisai, jangan masukkan karakter noise dari icon.
 
-PANDUAN ANTI-TYPO & VERIFIKASI:
-- Periksa angka jam dan menit dengan teliti (misal 11:56, jangan salah baca 11:58 atau 11:50).
-- Jangan mencampurkan kata dari baris lain.
-- Tuliskan jobStatus dan gangAffiliation dengan huruf kapital di setiap awal kata (Title Case) yang rapi.
-
-Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks):
+Tuliskan analisis batas logo dan pembacaan Anda terlebih dahulu di field "reasoning", lalu isi JSON murni berikut:
 {
+  "reasoning": "Waktu di dekat logo jam adalah ...; Teks pekerjaan sebelum batas logo koper adalah ...; Teks afiliasi pada logo perisai adalah ...",
   "time": "...",
   "jobStatus": "...",
   "gangAffiliation": "...",
@@ -315,12 +350,11 @@ Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks)
 
   for (const model of DEFAULT_MODELS) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
         },
         body: JSON.stringify({
           contents: [
@@ -367,8 +401,10 @@ Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks)
       }
 
       let time = String(parsed.time || "").trim();
-      const timeMatch = time.match(/([01]?[0-9]|2[0-3]):[0-5][0-9]/);
-      if (timeMatch) time = timeMatch[0];
+      const timeMatch = time.match(/([01]?[0-9]|2[0-3]):([0-5][0-9])/);
+      if (timeMatch) {
+        time = `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}`;
+      }
 
       let jobStatus = String(parsed.jobStatus || "").trim();
       let gangAffiliation = String(parsed.gangAffiliation || "").trim();
@@ -389,6 +425,139 @@ Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks)
     } catch (err) {
       lastError = err.message;
       console.warn(`[Gemini Status OCR] Error calling model ${model}:`, err);
+    }
+  }
+
+  return {
+    success: false,
+    error: "ALL_MODELS_FAILED",
+    message: lastError || "Semua model Gemini gagal merespon.",
+  };
+}
+
+/**
+ * Scans combined Event / Tournament screenshot (KTP IC + HUD Status) using Google Gemini Vision AI
+ */
+export async function scanCombinedEventWithGemini(imageFileOrUrl, customKey = null) {
+  const apiKey = await resolveGeminiApiKey(customKey);
+  if (!apiKey) {
+    return { success: false, error: "NO_API_KEY", message: "Gemini API key tidak ditemukan." };
+  }
+
+  let payload;
+  try {
+    payload = await imageToBase64Payload(imageFileOrUrl);
+  } catch (err) {
+    return { success: false, error: "IMAGE_CONVERT_FAILED", message: err.message };
+  }
+
+  const prompt = `Anda adalah mesin OCR Vision AI berspesialisasi tinggi untuk memverifikasi screenshot pendaftaran Event GTA V / FiveM Roleplay (memuat KTP Los Santos Identity dan HUD Status Karakter).
+
+CARA BERPIKIR SEBELUM AUTO-FILL (WAJIB DIIKUTI):
+1. KTP IC (BACA BARIS YANG SEJAJAR LURUS KIRI KE KANAN):
+   - "LAST NAME" di kiri -> baca kata yang sejajar di kanannya ("lastName").
+   - "FIRST NAME" di kiri -> baca kata yang sejajar di kanannya ("firstName").
+   - "fullName" = gabungan "firstName" + spasi + "lastName".
+   - "CITIZEN ID" di kiri -> baca kode alfanumerik yang sejajar di kanannya ("citizenId"). Bedakan angka 0 vs huruf O, angka 9 vs S/P, angka 1 vs I. Abaikan tanda tangan sambung di bawah kartu!
+   - Ambil juga "dob", "sex" ("MALE" / "FEMALE"), dan "nationality" jika tampak.
+2. HUD STATUS KARAKTER:
+   - "dateTime": Tanggal dan/atau jam pada HUD di dekat logo jam (contoh: "20/09/2026 - 11:12" atau "09:03").
+   - "jobStatus": HANYA "<Nama Pekerjaan> - <Jabatan>" pada logo koper (contoh: "Civilian - Freelancer", "Roxwood Medic - Paramedic"). Berhenti tepat pada batas logo koper, jangan sambungkan dengan teks afiliasi/gang!
+   - "gangStatus": HANYA "<Nama Gang atau No Gang> - <Jabatan atau Unaffiliated>" pada logo perisai (contoh: "No Gang - Unaffiliated").
+
+Tuliskan penalaran singkat pada field "reasoning" terlebih dahulu, lalu keluarkan JSON murni:
+{
+  "reasoning": "...",
+  "firstName": "...",
+  "lastName": "...",
+  "fullName": "...",
+  "dob": "...",
+  "sex": "...",
+  "nationality": "...",
+  "citizenId": "...",
+  "dateTime": "...",
+  "jobStatus": "...",
+  "gangStatus": "..."
+}`;
+
+  let lastError = null;
+
+  for (const model of DEFAULT_MODELS) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: payload.mimeType || "image/jpeg",
+                    data: payload.data,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            response_mime_type: "application/json",
+            temperature: 0.0,
+            top_p: 0.1,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.error) {
+        lastError = data.error.message || JSON.stringify(data.error);
+        continue;
+      }
+
+      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawJson) continue;
+
+      let parsed = {};
+      try {
+        parsed = JSON.parse(rawJson.replace(/^```json/i, "").replace(/```$/, "").trim());
+      } catch (parseErr) {
+        const jsonMatch = rawJson.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+        else throw parseErr;
+      }
+
+      const firstName = String(parsed.firstName || "").trim().toUpperCase();
+      const lastName = String(parsed.lastName || "").trim().toUpperCase();
+      const fullName = (firstName && lastName ? `${firstName} ${lastName}` : String(parsed.fullName || "")).trim().toUpperCase();
+      const citizenId = String(parsed.citizenId || "")
+        .trim()
+        .toUpperCase()
+        .replace(/^(?:#|CITIZEN\s*ID|ID|NIK)[:\s-]*/i, "")
+        .replace(/[^A-Z0-9]/g, "");
+
+      return {
+        success: true,
+        source: "gemini-ai",
+        modelUsed: model,
+        fields: {
+          firstName,
+          lastName,
+          fullName,
+          dob: String(parsed.dob || "").trim(),
+          sex: String(parsed.sex || "").trim().toUpperCase(),
+          nationality: String(parsed.nationality || "").trim().toUpperCase(),
+          citizenId,
+          dateTime: String(parsed.dateTime || "").trim(),
+          jobStatus: String(parsed.jobStatus || "").trim(),
+          gangStatus: String(parsed.gangStatus || "").trim(),
+        },
+      };
+    } catch (err) {
+      lastError = err.message;
     }
   }
 

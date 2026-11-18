@@ -22,7 +22,7 @@ import {
   Eye,
 } from "lucide-react";
 import { submitMemberCloud, subscribeMembersCloud } from "../services/memberService";
-import { scanKtpImage } from "../utils/ktpOcr";
+import { scanKtpImage, resolveGeminiApiKey } from "../utils/ktpOcr";
 import { scanStatusImage } from "../utils/statusOcr";
 import PizzaMascot from "./PizzaMascot";
 
@@ -70,9 +70,10 @@ export default function MemberRegistrationModal({
   const [statusOcrProgress, setStatusOcrProgress] = useState(0);
   const [statusOcrSuccess, setStatusOcrSuccess] = useState(null);
 
-  // Subscribe to existing members when modal is open to detect duplicates in real-time
+  // Subscribe to existing members & warm up Cloud AI Vision key when modal is open
   useEffect(() => {
     if (!isOpen) return;
+    resolveGeminiApiKey().catch(() => {});
     const unsubscribe = subscribeMembersCloud((list) => {
       setExistingMembers(list || []);
     });
@@ -725,12 +726,22 @@ export default function MemberRegistrationModal({
 
                 {/* Bagian 1: Foto Profil Karakter IC */}
                 <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between pb-1 border-b border-black/10 dark:border-white/10">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
                     <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                       <User size={14} />
                       <span>1. Foto Profil Karakter IC (Wajib)</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono">Foto Wajah Karakter</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGuideTab("profile");
+                        setGuideModalOpen(true);
+                      }}
+                      className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye size={12} />
+                      <span>Lihat Contoh Foto</span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-3.5">
@@ -765,30 +776,24 @@ export default function MemberRegistrationModal({
                   </div>
                 </div>
 
-                {/* Bagian 2: Dokumen KTP IC (Auto-Scan OCR) */}
+                {/* Bagian 2: Dokumen KTP IC */}
                 <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3">
                   <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
                     <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                       <CreditCard size={14} />
-                      <span>2. Dokumen KTP IC (Auto-Scan OCR)</span>
+                      <span>2. Dokumen KTP IC (Wajib)</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGuideTab("ktp");
-                          setGuideModalOpen(true);
-                        }}
-                        className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <Eye size={12} />
-                        <span>Lihat Contoh KTP</span>
-                      </button>
-                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-amber-400 shadow-xs flex items-center gap-1">
-                        <ScanLine size={12} />
-                        <span>AUTO-FILL AKTIF</span>
-                      </span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGuideTab("ktp");
+                        setGuideModalOpen(true);
+                      }}
+                      className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye size={12} />
+                      <span>Lihat Contoh KTP</span>
+                    </button>
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -873,23 +878,17 @@ export default function MemberRegistrationModal({
                       <Briefcase size={14} />
                       <span>3. Screenshot Status HUD IC (Waktu, Job, Gang)</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGuideTab("status");
-                          setGuideModalOpen(true);
-                        }}
-                        className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <Eye size={12} />
-                        <span>Lihat Contoh Status</span>
-                      </button>
-                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-amber-400 shadow-xs flex items-center gap-1">
-                        <ScanLine size={12} />
-                        <span>AUTO-FILL STATUS</span>
-                      </span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGuideTab("status");
+                        setGuideModalOpen(true);
+                      }}
+                      className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye size={12} />
+                      <span>Lihat Contoh Status</span>
+                    </button>
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -1038,14 +1037,14 @@ export default function MemberRegistrationModal({
                         Waktu / Jam IC (Saat Screenshot) <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Clock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <Clock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         <input
                           type="text"
                           placeholder="Contoh: 11:56"
                           value={formData.statusTime}
                           onChange={(e) => setFormData({ ...formData, statusTime: e.target.value })}
                           required
-                          className="input-field pl-8 text-xs font-mono font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                          className="input-field !pl-9 text-xs font-mono font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
                         />
                       </div>
                     </div>
@@ -1055,14 +1054,14 @@ export default function MemberRegistrationModal({
                         Status Pekerjaan IC (Job) <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Briefcase size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         <input
                           type="text"
-                          placeholder="Contoh: Civilian - Freelancer"
+                          placeholder="Contoh: Roxwood Medic - Paramedic"
                           value={formData.statusJob}
                           onChange={(e) => setFormData({ ...formData, statusJob: e.target.value })}
                           required
-                          className="input-field pl-8 text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                          className="input-field !pl-9 text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
                         />
                       </div>
                     </div>
@@ -1072,19 +1071,16 @@ export default function MemberRegistrationModal({
                         Status Afiliasi Gang / Kelompok <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Shield size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <Shield size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         <input
                           type="text"
-                          placeholder="Contoh: No Gang - Unaffiliated"
+                          placeholder="Contoh: No Gang - Unaffiliated (atau nama kelompok/gang Anda)"
                           value={formData.statusGang}
                           onChange={(e) => setFormData({ ...formData, statusGang: e.target.value })}
                           required
-                          className="input-field pl-8 text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                          className="input-field !pl-9 text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
                         />
                       </div>
-                      <span className="text-[10px] text-slate-500 mt-1 block">
-                        Pastikan sesuai status di HUD Anda (LSM PPS mengutamakan warga netral tanpa afiliasi gang kriminal).
-                      </span>
                     </div>
 
                     {/* Kontak Warga */}
@@ -1093,14 +1089,14 @@ export default function MemberRegistrationModal({
                         Nomor Telepon / WA IC <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Phone size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         <input
                           type="text"
                           placeholder="Contoh: 555-0199 atau 0812..."
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                           required
-                          className="input-field pl-8 text-xs font-mono bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                          className="input-field !pl-9 text-xs font-mono bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
                         />
                       </div>
                     </div>
@@ -1293,18 +1289,26 @@ export default function MemberRegistrationModal({
 
             {guideTab === "profile" && (
               <div className="flex flex-col gap-3 text-xs leading-relaxed animate-fadeIn">
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#14161F] border border-black/15 flex flex-col gap-2">
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-black/20 flex flex-col items-center">
+                  <img
+                    src="/sample-profile.jpg"
+                    alt="Contoh Foto Profil Karakter IC LSM PPS"
+                    className="w-full max-h-60 object-contain rounded"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60 flex flex-col gap-2">
                   <span className="font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                     Ketentuan Foto Profil Karakter IC:
                   </span>
-                  <ul className="space-y-2 text-slate-800 dark:text-slate-200">
+                  <ul className="space-y-1.5 text-slate-800 dark:text-slate-200">
                     <li className="flex items-start gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] mt-1.5 shrink-0" />
-                      <span><strong>Wajah Tampak Jelas:</strong> Ambil foto close-up atau setengah badan karakter Anda dengan pencahayaan terang.</span>
+                      <span><strong>Wajah & Setengah Badan Jelas:</strong> Ambil foto menghadap depan seperti contoh di atas dengan pencahayaan terang.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] mt-1.5 shrink-0" />
-                      <span><strong>Bukan Foto Jauh / Gelap:</strong> Hindari foto yang terlalu jauh, membelakangi kamera, atau terlalu gelap pada malam hari.</span>
+                      <span><strong>Bukan Foto Jauh / Gelap:</strong> Hindari foto yang terlalu jauh, membelakangi kamera, atau terlalu gelap.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] mt-1.5 shrink-0" />

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   X,
   Trophy,
@@ -22,7 +22,7 @@ import {
   HelpCircle,
   Lock,
 } from "lucide-react";
-import { scanUfcScreenshotImage } from "../utils/ktpOcr";
+import { scanUfcScreenshotImage, resolveGeminiApiKey } from "../utils/ktpOcr";
 import { submitEventRegistrationCloud, DEFAULT_EVENT } from "../services/eventService";
 
 export default function EventRegistrationModal({ isOpen, onClose, event = null }) {
@@ -51,6 +51,12 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
 
   // Guide Preview Modal State
   const [showSampleModal, setShowSampleModal] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      resolveGeminiApiKey().catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

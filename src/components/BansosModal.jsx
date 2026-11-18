@@ -25,7 +25,7 @@ import {
   Search,
   Lock,
 } from "lucide-react";
-import { scanKtpImage } from "../utils/ktpOcr";
+import { scanKtpImage, resolveGeminiApiKey } from "../utils/ktpOcr";
 import {
   submitBansosClaimCloud,
   subscribeBansosClaimsCloud,
@@ -117,6 +117,7 @@ export default function BansosModal({
         setIsLoadingClaims(false);
       }
     );
+    resolveGeminiApiKey().catch(() => {});
     return () => {
       if (typeof unsub === "function") unsub();
     };

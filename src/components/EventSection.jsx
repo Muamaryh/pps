@@ -139,7 +139,7 @@ export default function EventSection({ onOpenRegisterEvent }) {
                   <span>Daftar UFC Civilian (Biaya 10K)</span>
                 </button>
                 <span className="text-[11px] text-center font-mono text-slate-500">
-                  Verifikasi otomatis via Tesseract OCR in-game Los Santos ID.
+                  Verifikasi otomatis via AI Vision & OCR in-game Los Santos ID.
                 </span>
               </div>
             </div>

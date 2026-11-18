@@ -41,7 +41,7 @@ import {
   cleanupDuplicateMembersCloud,
   updateMemberProfileCloud,
 } from "../services/memberService";
-import { scanKtpImage, getGeminiApiKey, setGeminiApiKey } from "../utils/ktpOcr";
+import { scanKtpImage, getGeminiApiKey, resolveGeminiApiKey, setGeminiApiKey } from "../utils/ktpOcr";
 import {
   subscribeEventRegistrationsCloud,
   deleteEventRegistrationCloud,
@@ -403,6 +403,9 @@ export default function AdminModal({
 
   useEffect(() => {
     if (isOpen && isAuthenticated) {
+      resolveGeminiApiKey().then((k) => {
+        if (k) setGeminiKeyInput(k);
+      }).catch(() => {});
       loadSubmissions().then((data) => setSubmissions(data || []));
       const unsubscribeMembers = subscribeMembersCloud((list) => {
         setMembersList(list || []);
@@ -2010,11 +2013,11 @@ export default function AdminModal({
     });
   }
 
-  // Handle Save Gemini API Key
-  function handleSaveGeminiKey() {
+  // Handle Save Gemini API Key (syncs to both localStorage and Cloud Firestore for public OCR)
+  async function handleSaveGeminiKey() {
     try {
-      setGeminiApiKey(geminiKeyInput.trim());
-      onShowToast("Gemini API Key berhasil disimpan!", "success");
+      await setGeminiApiKey(geminiKeyInput.trim(), { syncCloud: true });
+      onShowToast("Gemini API Key berhasil disimpan ke Cloud! Seluruh pendaftar kini menggunakan AI Vision OCR.", "success");
       setGeminiTestStatus(null);
     } catch (err) {
       console.error(err);
@@ -4765,11 +4768,6 @@ export default function AdminModal({
                         const isApproved = !applicant.status || applicant.status === "APPROVED";
                         const isRejected = applicant.status === "REJECTED";
 
-                        const isNoGang =
-                          !applicant.statusGang ||
-                          applicant.statusGang.toLowerCase().includes("no gang") ||
-                          applicant.statusGang.toLowerCase().includes("unaffiliated");
-
                         return (
                           <div
                             key={applicant.id}
@@ -5024,18 +5022,12 @@ export default function AdminModal({
                                     </strong>
                                   </div>
 
-                                  {/* Afiliasi Gang */}
-                                  <div
-                                    className={`flex items-center justify-between font-mono px-2 py-1 rounded border ${
-                                      isNoGang
-                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
-                                        : "bg-red-50 dark:bg-red-950/40 text-red-900 dark:text-red-200 border-red-300 dark:border-red-800"
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-1 font-bold">
-                                      <Shield size={11} /> {isNoGang ? "Gang Bebas:" : "Afiliasi Gang:"}
+                                  {/* Afiliasi Gang / Kelompok */}
+                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2 py-1 rounded border border-black/15">
+                                    <span className="text-slate-500 flex items-center gap-1">
+                                      <Shield size={11} className="text-emerald-500" /> Afiliasi:
                                     </span>
-                                    <strong className="truncate max-w-[120px]" title={applicant.statusGang}>
+                                    <strong className="text-slate-900 dark:text-slate-100 truncate max-w-[130px]" title={applicant.statusGang}>
                                       {applicant.statusGang || "No Gang - Unaffiliated"}
                                     </strong>
                                   </div>
@@ -7971,7 +7963,7 @@ export default function AdminModal({
                         </button>
                       </div>
                       <p className="text-[10px] text-slate-500 leading-normal">
-                        Kunci API disimpan secara lokal di browser dan otomatis dipakai untuk fitur pendaftaran anggota, klaim bansos, dan pencatatan Jasra. Jika kosong, sistem otomatis mundur ke OCR lokal (Tesseract).
+                        Kunci API tersinkron ke Cloud dan otomatis dipakai di seluruh fitur OCR (pendaftaran anggota, klaim bansos, lapak UMKM, request meeting, event/UFC, dan Jasra). Jika kosong atau offline, sistem otomatis beralih ke OCR spasial lokal.
                       </p>
                     </div>
                   </div>
@@ -8258,11 +8250,11 @@ export default function AdminModal({
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    "Foto KTP IC buram / tidak terbaca",
-                    "Screenshot Status HUD tidak menampilkan jam / waktu IC",
-                    "Terdeteksi masih berafiliasi dengan Gang lain",
-                    "Data identitas pada formulir tidak cocok dengan KTP",
-                    "Status pekerjaan tidak sesuai regulasi LSM PPS",
+                    "Foto KTP IC buram / Citizen ID tidak terbaca jelas",
+                    "Screenshot Status HUD tidak utuh (Jam / Pekerjaan / Afiliasi terpotong)",
+                    "Data formulir tidak sesuai dengan bukti KTP atau Status HUD",
+                    "Foto profil karakter tidak jelas / tidak sesuai ketentuan",
+                    "Terindikasi akun perusuh / data pendaftaran tidak valid",
                   ].map((preset, idx) => (
                     <button
                       key={idx}
