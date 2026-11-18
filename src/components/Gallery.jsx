@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { ArrowRight, Image as ImageIcon, Sparkles, FolderArchive, Layers } from "lucide-react";
+import { ArrowRight, Image as ImageIcon, FolderArchive, Layers } from "lucide-react";
 import GalleryCard, { parseDateScore, getPhotos } from "./GalleryCard";
 
 export default function Gallery({
@@ -101,7 +101,7 @@ export default function Gallery({
       <div className="mt-8 card-brutal p-6 sm:p-7 flex flex-col md:flex-row items-center justify-between gap-5">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-[#FACC15] border border-amber-400/50 flex items-center justify-center shrink-0 shadow-sm">
-            <Sparkles size={22} className="text-[#DC2626]" />
+            <FolderArchive size={22} className="text-[#DC2626]" />
           </div>
           <div>
             <div className="badge-brutal badge-red text-[10px] mb-1 font-black">

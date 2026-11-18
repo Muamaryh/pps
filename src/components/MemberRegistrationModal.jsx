@@ -7,7 +7,7 @@ import {
   Phone,
   CreditCard,
   User,
-  Sparkles,
+  Info,
   Camera,
   ScanLine,
   ExternalLink,
@@ -16,9 +16,14 @@ import {
   AlertCircle,
   Copy,
   Check,
+  Clock,
+  Briefcase,
+  Shield,
+  Eye,
 } from "lucide-react";
 import { submitMemberCloud, subscribeMembersCloud } from "../services/memberService";
 import { scanKtpImage } from "../utils/ktpOcr";
+import { scanStatusImage } from "../utils/statusOcr";
 import PizzaMascot from "./PizzaMascot";
 
 export default function MemberRegistrationModal({
@@ -33,6 +38,10 @@ export default function MemberRegistrationModal({
   const [copySuccess, setCopySuccess] = useState(false);
   const [existingMembers, setExistingMembers] = useState([]);
 
+  // Guide Modal State for Samples
+  const [guideModalOpen, setGuideModalOpen] = useState(false);
+  const [guideTab, setGuideTab] = useState("status"); // "status" | "ktp" | "profile"
+
   const activeDiscordUrl = discordUrl || "https://discord.gg/gb7ajBMduF";
 
   // Form State
@@ -40,8 +49,13 @@ export default function MemberRegistrationModal({
     fullName: "",
     icNumber: "",
     phone: "",
+    discordTag: "",
     profilePhoto: "",
     icPhoto: "",
+    statusPhoto: "",
+    statusTime: "",
+    statusJob: "",
+    statusGang: "",
     agreedMOU: false,
   });
 
@@ -50,6 +64,11 @@ export default function MemberRegistrationModal({
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrSuccess, setOcrSuccess] = useState(null);
   const [ocrCidCandidates, setOcrCidCandidates] = useState([]);
+
+  // OCR Scanning State for Status HUD
+  const [isScanningStatus, setIsScanningStatus] = useState(false);
+  const [statusOcrProgress, setStatusOcrProgress] = useState(0);
+  const [statusOcrSuccess, setStatusOcrSuccess] = useState(null);
 
   // Subscribe to existing members when modal is open to detect duplicates in real-time
   useEffect(() => {
@@ -144,14 +163,13 @@ export default function MemberRegistrationModal({
         ctx.drawImage(img, 0, 0, width, height);
         const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75);
 
-        // Store KTP image preview in form data
         setFormData((prev) => ({ ...prev, icPhoto: compressedBase64 }));
       };
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 
-    // Run OCR scan on original raw file for 100% text recognition accuracy
+    // Run OCR scan on original raw file
     setIsScanningKtp(true);
     setOcrProgress(0);
     setOcrSuccess(null);
@@ -211,6 +229,84 @@ export default function MemberRegistrationModal({
       });
   }
 
+  // Handle Status HUD Upload + Auto-Scan OCR
+  function handleStatusUploadWithOcr(file) {
+    if (!file) return;
+
+    // Generate compressed base64 preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75);
+
+        setFormData((prev) => ({ ...prev, statusPhoto: compressedBase64 }));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    // Run OCR scan on status image
+    setIsScanningStatus(true);
+    setStatusOcrProgress(0);
+    setStatusOcrSuccess(null);
+
+    scanStatusImage(file, (prog) => {
+      setStatusOcrProgress(prog);
+    })
+      .then((scanResult) => {
+        if (scanResult.success && scanResult.fields) {
+          const { time, jobStatus, gangAffiliation } = scanResult.fields;
+
+          setFormData((prev) => ({
+            ...prev,
+            statusTime: time || prev.statusTime,
+            statusJob: jobStatus || prev.statusJob,
+            statusGang: gangAffiliation || prev.statusGang,
+          }));
+
+          setStatusOcrSuccess(true);
+          if (onShowToast) {
+            onShowToast(
+              `Status IC terdeteksi! Waktu: ${time || "-"} • Pekerjaan: ${jobStatus || "-"} • Gang: ${gangAffiliation || "-"}`,
+              "success"
+            );
+          }
+        } else {
+          setStatusOcrSuccess(false);
+          if (onShowToast) {
+            onShowToast("Teks Status HUD belum terbaca otomatis. Anda dapat melengkapinya secara manual.", "info");
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Status OCR error in MemberRegistrationModal:", err);
+        setStatusOcrSuccess(false);
+      })
+      .finally(() => {
+        setIsScanningStatus(false);
+      });
+  }
+
   // Handle Submit Form
   async function handleSubmit(e) {
     e.preventDefault();
@@ -228,12 +324,32 @@ export default function MemberRegistrationModal({
       if (onShowToast) onShowToast("Nomor Telepon / WA IC wajib diisi!", "error");
       return;
     }
+    if (!formData.discordTag.trim()) {
+      if (onShowToast) onShowToast("Nama / ID Akun Discord wajib diisi!", "error");
+      return;
+    }
     if (!formData.profilePhoto) {
       if (onShowToast) onShowToast("Foto profil karakter IC wajib diunggah!", "error");
       return;
     }
     if (!formData.icPhoto) {
       if (onShowToast) onShowToast("Foto KTP IC wajib diunggah!", "error");
+      return;
+    }
+    if (!formData.statusPhoto) {
+      if (onShowToast) onShowToast("Screenshot Status IC (Jam, Job, Gang) wajib diunggah!", "error");
+      return;
+    }
+    if (!formData.statusTime.trim()) {
+      if (onShowToast) onShowToast("Waktu / Jam IC wajib diisi!", "error");
+      return;
+    }
+    if (!formData.statusJob.trim()) {
+      if (onShowToast) onShowToast("Status Pekerjaan / Job IC wajib diisi!", "error");
+      return;
+    }
+    if (!formData.statusGang.trim()) {
+      if (onShowToast) onShowToast("Status Afiliasi Gang wajib diisi!", "error");
       return;
     }
     if (!formData.agreedMOU) {
@@ -269,9 +385,12 @@ export default function MemberRegistrationModal({
         fullName: formData.fullName.trim(),
         icNumber: formData.icNumber.trim(),
         phone: formData.phone.trim(),
+        statusTime: formData.statusTime.trim(),
+        statusJob: formData.statusJob.trim(),
+        statusGang: formData.statusGang.trim(),
       });
       if (onShowToast) {
-        onShowToast("Pendaftaran Anggota berhasil dikirim ke Database!", "success");
+        onShowToast("Pendaftaran Anggota berhasil dikirim! Menunggu verifikasi pengurus.", "success");
       }
     } catch (err) {
       console.error("Submit member error:", err);
@@ -298,558 +417,914 @@ export default function MemberRegistrationModal({
       fullName: "",
       icNumber: "",
       phone: "",
+      discordTag: "",
       profilePhoto: "",
       icPhoto: "",
+      statusPhoto: "",
+      statusTime: "",
+      statusJob: "",
+      statusGang: "",
       agreedMOU: false,
     });
     setOcrSuccess(null);
     setOcrCidCandidates([]);
+    setStatusOcrSuccess(null);
     setCopySuccess(false);
+    setGuideModalOpen(false);
     onClose();
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[110] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-fadeIn"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-black/20 dark:border-white/15 shadow-2xl bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-black/15 dark:border-white/10 bg-[#FFFDF9] dark:bg-[#151824]">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white dark:bg-[#161820] border border-black/15 dark:border-white/15 flex items-center justify-center shrink-0 p-1 shadow-sm">
-              <img
-                src="/logo.png"
-                alt="Logo LSM Paguyuban Pizza Sandy Shores"
-                className="w-full h-full object-contain"
-              />
+    <>
+      <div
+        className="fixed inset-0 z-[110] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-fadeIn"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-black/20 dark:border-white/15 shadow-2xl bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-black/15 dark:border-white/10 bg-[#FFFDF9] dark:bg-[#151824]">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white dark:bg-[#161820] border border-black/15 dark:border-white/15 flex items-center justify-center shrink-0 p-1 shadow-sm">
+                <img
+                  src="/logo.png"
+                  alt="Logo LSM Paguyuban Pizza Sandy Shores"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="leading-tight">
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#DC2626] dark:text-[#FACC15] block">
+                  PENDAFTARAN ANGGOTA • LSM PPS
+                </span>
+                <h3 className="font-heading font-black text-sm sm:text-base md:text-lg text-slate-950 dark:text-slate-100 uppercase tracking-tight">
+                  Formulir Anggota Paguyuban Pizza Sandy Shores
+                </h3>
+              </div>
             </div>
-            <div className="leading-tight">
-              <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#DC2626] dark:text-[#FACC15] block">
-                PENDAFTARAN ANGGOTA • LSM PPS
-              </span>
-              <h3 className="font-heading font-black text-sm sm:text-base md:text-lg text-slate-950 dark:text-slate-100 uppercase tracking-tight">
-                Formulir Anggota Paguyuban Pizza Sandy Shores
-              </h3>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCloseAndReset}
+                className="w-8 h-8 rounded-lg border border-black/15 dark:border-white/10 shadow-sm bg-[var(--card-bg)] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                title="Tutup Formulir"
+              >
+                <X size={16} />
+              </button>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleCloseAndReset}
-            className="w-8 h-8 rounded-lg border border-black/15 dark:border-white/10 shadow-sm bg-[var(--card-bg)] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-            title="Tutup Formulir"
-          >
-            <X size={16} />
-          </button>
-        </div>
+          {/* Modal Body */}
+          <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+            {submittedData ? (
+              /* Success Screen (Verification Pending) */
+              <div className="py-3 flex flex-col items-center text-center max-w-lg mx-auto">
+                <PizzaMascot size="sm" variant="waving" speechBubble="PENGAJUAN TERCATAT!" className="mb-2" />
 
-        {/* Modal Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-4">
-          {submittedData ? (
-            /* Custom Success Screen (No Ticket Code, Direct Discord Action) */
-            <div className="py-3 flex flex-col items-center text-center max-w-lg mx-auto">
-              <PizzaMascot size="sm" variant="waving" speechBubble="SELAMAT BERGABUNG!" className="mb-2" />
-
-              <span className="badge-brutal badge-yellow text-xs py-1 px-3 font-black mb-1.5 shadow-sm">
-                PENGAJUAN TERCATAT
-              </span>
-
-              <h3 className="font-heading font-black text-xl sm:text-2xl text-slate-950 dark:text-slate-100 uppercase tracking-tight">
-                Berkas Berhasil Diterima!
-              </h3>
-
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 mb-4">
-                Terima kasih telah mendaftar menjadi bagian dari keluarga besar LSM Paguyuban Pizza Sandy Shores.
-              </p>
-
-              {/* Status Points Container */}
-              <div className="w-full text-left p-4 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3 mb-4">
-                <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] border-b pb-2 border-black/15 dark:border-white/15">
-                  <ShieldCheck size={16} />
-                  <span>INSTRUKSI LANGKAH SELANJUTNYA:</span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-950/80 border-2 border-amber-400 text-amber-900 dark:text-amber-200 font-heading font-black text-xs uppercase mb-2 shadow-sm">
+                  <Clock size={14} className="text-amber-600 animate-pulse" />
+                  <span>TAHAP PROSES VERIFIKASI PENGURUS</span>
                 </div>
 
-                <div className="text-xs space-y-3 text-slate-800 dark:text-slate-200">
-                  {/* Point 1 */}
-                  <div className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[11px] shadow-sm">
-                      1
-                    </span>
-                    <div className="leading-relaxed">
-                      <strong>Berkas Identitas Disimpan:</strong> Data KTP IC (
-                      <span className="text-[#DC2626] dark:text-[#FACC15] font-black">
-                        {submittedData.fullName || "-"}
-                      </span>
-                      ), Citizen ID (
-                      <span className="font-mono font-bold">
-                        {submittedData.icNumber || "-"}
-                      </span>
-                      ), sudah kami terima.
-                    </div>
-                  </div>
+                <h3 className="font-heading font-black text-xl sm:text-2xl text-slate-950 dark:text-slate-100 uppercase tracking-tight">
+                  Berkas Pendaftaran Berhasil Dikirim!
+                </h3>
 
-                  {/* Point 2 */}
-                  <div className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[11px] shadow-sm">
-                      2
-                    </span>
-                    <div className="leading-relaxed flex-1">
-                      <div>
-                        <strong>Wajib Masuk Discord & Isi Data Anggota:</strong> Silakan salin teks di bawah ini.
-                      </div>
-                      {/* Copy Box */}
-                      <div className="mt-2 p-2.5 bg-white dark:bg-[#14161F] border-2 border-black dark:border-[#475569] rounded shadow-[2px_2px_0px_#000] flex flex-col gap-2">
-                        <div className="font-mono text-xs text-slate-900 dark:text-slate-100 whitespace-pre-line leading-relaxed select-all">
-                          {`Nama Lengkap : ${submittedData.fullName || ""}\nCitizen ID : ${submittedData.icNumber || ""}\nNo HP IC : ${submittedData.phone || ""}\nRole : Anggota`}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const copyText = `Nama Lengkap : ${submittedData.fullName || ""}\nCitizen ID : ${submittedData.icNumber || ""}\nNo HP IC : ${submittedData.phone || ""}\nRole : Anggota`;
-                            navigator.clipboard.writeText(copyText);
-                            setCopySuccess(true);
-                            if (onShowToast) onShowToast("Format data anggota berhasil disalin!", "success");
-                            setTimeout(() => setCopySuccess(false), 2500);
-                          }}
-                          className="btn self-start text-[11px] py-1.5 px-3 bg-amber-400 hover:bg-amber-500 text-slate-950 border border-black shadow-[1.5px_1.5px_0px_#000] font-bold flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
-                        >
-                          {copySuccess ? (
-                            <>
-                              <Check size={13} className="text-emerald-800" />
-                              <span>Format Data Berhasil Disalin!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy size={13} />
-                              <span>Salin Format Data</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 mb-4 leading-relaxed">
+                  Terima kasih telah mendaftar. Berkas <strong>KTP IC</strong> dan <strong>Status HUD IC</strong> Anda telah masuk ke portal peninjauan Pengurus LSM PPS.
+                </p>
 
-                  {/* Point 3 */}
-                  <div className="flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-[#FACC15] text-[#111827] font-black flex items-center justify-center shrink-0 text-[11px] shadow-sm">
-                      3
+                {/* Important Disclaimer Card */}
+                <div className="w-full text-left p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-400 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 mb-4 shadow-sm flex items-start gap-2.5">
+                  <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    <strong className="font-heading font-black uppercase text-amber-900 dark:text-amber-300 block mb-0.5">
+                      Disclaimer Status Keanggotaan:
+                    </strong>
+                    <span>
+                      Pada tahap ini, Anda <strong>belum resmi</strong> menjadi anggota aktif LSM PPS sampai berkas diperiksa dan disetujui resmi oleh Admin Pengurus di panel pendaftaran.
                     </span>
-                    <div className="leading-relaxed">
-                      Silakan klik tombol di bawah untuk membuka channel Discord LSM PPS. Di sana Anda cukup paste data yang sudah disalin tadi, agar pengurus dapat memberikan role.
-                    </div>
                   </div>
                 </div>
 
-                {/* Big Prominent Discord Button */}
-                <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-black/10 dark:border-white/10">
-                  <a
-                    href={activeDiscordUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn py-3 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-                    </svg>
-                    <span>Masuk Discord LSM PPS</span>
-                    <ExternalLink size={15} />
-                  </a>
-                  <p className="text-[11px] text-slate-500 text-center leading-tight">
-                    Tautan invite resmi yang otomatis mengarahkan Anda langsung mendarat di server Discord LSM PPS.
-                  </p>
-                </div>
-              </div>
-
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={handleCloseAndReset}
-                className="btn text-xs py-2 px-6 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
-              >
-                Selesai & Kembali ke Beranda
-              </button>
-            </div>
-          ) : rejectedData ? (
-            /* Rejection Screen */
-            <div className="py-3 flex flex-col items-center text-center max-w-lg mx-auto animate-fadeIn">
-              <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-400 border-[3px] border-black flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000]">
-                <ShieldAlert size={36} />
-              </div>
-
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 dark:bg-red-950/80 border border-red-500 text-red-700 dark:text-red-300 font-mono text-xs font-bold mb-2">
-                <AlertCircle size={13} />
-                <span>PENDAFTARAN DITOLAK (SUDAH TERDAFTAR)</span>
-              </div>
-
-              <h3 className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-slate-100 uppercase tracking-tight">
-                Anda Sudah Pernah Terdaftar!
-              </h3>
-
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 mb-4">
-                Sistem mendeteksi bahwa data Anda sudah tercatat resmi di Database Anggota LSM Paguyuban Pizza Sandy Shores.
-              </p>
-
-              {/* Detail Box */}
-              <div className="w-full text-left p-4 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-red-500 shadow-[4px_4px_0px_#000] flex flex-col gap-3 mb-4">
-                <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/15">
-                  <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-red-600 dark:text-red-400">
+                {/* Status Points Container */}
+                <div className="w-full text-left p-4 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3 mb-4">
+                  <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] border-b pb-2 border-black/15 dark:border-white/15">
                     <ShieldCheck size={16} />
-                    <span>DATA KEANGGOTAAN TERDAFTAR:</span>
+                    <span>RINGKASAN DATA YANG DIKIRIM:</span>
                   </div>
-                  <span className="text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-500">
-                    ANGGOTA RESMI
-                  </span>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Nama Lengkap (IC)</span>
-                    <strong className="text-slate-900 dark:text-slate-100 text-sm font-heading">
-                      {rejectedData.existingMember?.fullName || rejectedData.inputName || "-"}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Citizen ID / No KTP</span>
-                    <strong className="text-[#DC2626] dark:text-[#FACC15] font-mono text-sm">
-                      {rejectedData.existingMember?.icNumber || rejectedData.inputCid || "-"}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Tanggal Bergabung</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-bold">
-                      {rejectedData.existingMember?.regDate || "Terdaftar Resmi"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Aturan Keanggotaan</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-bold">
-                      1 Warga = 1 Kartu Anggota
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-2.5 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed mt-1">
-                  💡 <strong>Informasi Penting:</strong> Setiap warga hanya dapat mendaftarkan satu kartu identitas. Jika Anda ingin memperbarui nomor telepon IC, foto profil, atau ada pergantian data lainnya, silakan hubungi pengurus LSM PPS di Kantor Sandy Shores atau buka tiket di Discord resmi.
-                </div>
-
-                {/* Discord Button */}
-                <div className="flex flex-col gap-1.5 mt-1 pt-2 border-t border-black/10 dark:border-white/10">
-                  <a
-                    href={activeDiscordUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black text-xs uppercase flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-                    </svg>
-                    <span>Buka Discord Pengurus LSM PPS</span>
-                    <ExternalLink size={14} />
-                  </a>
-                </div>
-              </div>
-
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={handleCloseAndReset}
-                className="btn text-xs py-2 px-6 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-2 border-black font-heading font-black cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
-              >
-                Tutup & Kembali
-              </button>
-            </div>
-          ) : (
-            /* Registration Form */
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {/* Duplicate Member Warning Banner */}
-              {duplicateMember && (
-                <div className="p-3.5 rounded-lg bg-red-50 dark:bg-red-950/50 border-2 border-red-500 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 animate-fadeIn shadow-[3px_3px_0px_#ef4444]">
-                  <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <strong className="font-heading font-black uppercase text-red-700 dark:text-red-400 block text-xs">
-                      Peringatan: Anda Sudah Terdaftar Sebagai Anggota!
-                    </strong>
-                    <p className="mt-0.5 leading-relaxed text-[11px]">
-                      {String(duplicateMember.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "") === cleanCurrentCid ? (
-                        <>Citizen ID <strong>({cleanCurrentCid})</strong> sudah terdaftar atas nama <strong>{duplicateMember.fullName}</strong>.</>
-                      ) : (
-                        <>Nama warga <strong>{cleanCurrentName}</strong> sudah terdaftar dengan Citizen ID <strong>{duplicateMember.icNumber}</strong>.</>
-                      )}
-                    </p>
-                    <p className="text-[10px] mt-1 text-slate-600 dark:text-slate-400">
-                      Sesuai ketentuan, 1 warga hanya diperbolehkan mendaftar 1 kali. Formulir ini tidak dapat dikirim ulang.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {/* Info Banner */}
-              <div className="p-3.5 rounded bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-400 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2.5">
-                <Sparkles size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="font-heading font-black uppercase">
-                    Pendaftaran Anggota Paguyuban Pizza Sandy Shores (PAPS):
-                  </strong>
-                  <p className="mt-0.5">
-                    Unggah foto KTP IC Anda untuk pemindaian otomatis (OCR). Setelah submit, berkas Anda langsung tersimpan ke database resmi LSM PPS.
-                  </p>
-                </div>
-              </div>
-
-              {/* Area 1: Unggah KTP dengan Auto-Scan OCR */}
-              <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
-                  <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
-                    <CreditCard size={14} />
-                    <span>1. Dokumen KTP IC (Auto-Scan OCR Aktif)</span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-amber-400 shadow-sm flex items-center gap-1">
-                    <ScanLine size={12} />
-                    <span>AUTO-FILL AKTIF</span>
-                  </span>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <div className="w-full sm:w-1/2">
-                    <div className="border-2 border-dashed border-black/30 dark:border-white/20 rounded p-3 text-center bg-slate-50 dark:bg-[#14161F] hover:bg-amber-50/50 transition-colors">
-                      {formData.icPhoto ? (
-                        <div className="flex flex-col items-center gap-1.5">
-                          <img
-                            src={formData.icPhoto}
-                            alt="KTP IC Preview"
-                            className="w-full max-h-28 object-contain rounded border border-black shadow-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setFormData({ ...formData, icPhoto: "" })}
-                            className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
-                          >
-                            Ganti Foto KTP
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer flex flex-col items-center gap-1.5 w-full">
-                          <CreditCard size={28} className="text-slate-400" />
-                          <span className="text-xs font-bold text-[#DC2626] dark:text-[#FACC15] underline">
-                            Unggah Foto KTP IC
-                          </span>
-                          <span className="text-[10px] text-slate-500">
-                            Format JPG/PNG • Otomatis Deteksi Teks KTP
-                          </span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            required
-                            onChange={(e) => handleKtpUploadWithOcr(e.target.files[0])}
-                            className="hidden"
-                          />
-                        </label>
-                      )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-slate-800 dark:text-slate-200 font-mono">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-sans font-bold block">NAMA LENGKAP (IC):</span>
+                      <strong className="text-slate-900 dark:text-slate-100 font-heading">{submittedData.fullName}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-sans font-bold block">CITIZEN ID / NO KTP:</span>
+                      <strong className="text-[#DC2626] dark:text-[#FACC15]">{submittedData.icNumber}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-sans font-bold block">WAKTU IC SCREENSHOT:</span>
+                      <span>{submittedData.statusTime || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-sans font-bold block">PEKERJAAN IC:</span>
+                      <span>{submittedData.statusJob || "-"}</span>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] text-slate-400 font-sans font-bold block">AFILIASI GANG:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{submittedData.statusGang || "-"}</span>
                     </div>
                   </div>
 
-                  <div className="w-full sm:w-1/2 text-xs flex flex-col justify-center">
-                    {isScanningKtp ? (
-                      <div className="p-3 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-400 text-amber-900 dark:text-amber-200 flex flex-col gap-1.5 animate-pulse">
-                        <div className="flex items-center gap-2 font-bold">
-                          <ScanLine size={16} className="animate-spin text-amber-600" />
-                          <span>Memindai Dokumen KTP IC... {ocrProgress}%</span>
-                        </div>
-                        <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-                          <div
-                            className="bg-amber-500 h-full transition-all duration-200"
-                            style={{ width: `${ocrProgress}%` }}
-                          />
-                        </div>
-                        <span className="text-[10px] text-slate-500">
-                          Mendeteksi Nama Lengkap & Citizen ID otomatis...
-                        </span>
+                  {/* Copy Box for Discord */}
+                  <div className="mt-2 p-2.5 bg-white dark:bg-[#14161F] border-2 border-black dark:border-[#475569] rounded shadow-[2px_2px_0px_#000] flex flex-col gap-2">
+                    <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Format Konfirmasi Discord (Salin & Kirim ke Channel Pendaftaran):
+                    </div>
+                    <div className="font-mono text-xs text-slate-900 dark:text-slate-100 whitespace-pre-line leading-relaxed select-all">
+                      {`Nama Lengkap : ${submittedData.fullName || ""}\nCitizen ID : ${submittedData.icNumber || ""}\nNo HP IC : ${submittedData.phone || ""}\nStatus IC : ${submittedData.statusJob || ""} • ${submittedData.statusGang || ""}\nRole : Menunggu Verifikasi`}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const copyText = `Nama Lengkap : ${submittedData.fullName || ""}\nCitizen ID : ${submittedData.icNumber || ""}\nNo HP IC : ${submittedData.phone || ""}\nStatus IC : ${submittedData.statusJob || ""} • ${submittedData.statusGang || ""}\nRole : Menunggu Verifikasi`;
+                        navigator.clipboard.writeText(copyText);
+                        setCopySuccess(true);
+                        if (onShowToast) onShowToast("Format konfirmasi berhasil disalin!", "success");
+                        setTimeout(() => setCopySuccess(false), 2500);
+                      }}
+                      className="btn self-start text-[11px] py-1.5 px-3 bg-amber-400 hover:bg-amber-500 text-slate-950 border border-black shadow-[1.5px_1.5px_0px_#000] font-bold flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                    >
+                      {copySuccess ? (
+                        <>
+                          <Check size={13} className="text-emerald-800" />
+                          <span>Format Berhasil Disalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={13} />
+                          <span>Salin Format Konfirmasi</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Big Prominent Discord Button */}
+                  <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-black/10 dark:border-white/10">
+                    <a
+                      href={activeDiscordUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn py-3 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                      </svg>
+                      <span>Buka Discord LSM PPS (Konfirmasi Pendaftaran)</span>
+                      <ExternalLink size={15} />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={handleCloseAndReset}
+                  className="btn text-xs py-2 px-6 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                >
+                  Selesai & Kembali ke Beranda
+                </button>
+              </div>
+            ) : rejectedData ? (
+              /* Rejection Screen */
+              <div className="py-3 flex flex-col items-center text-center max-w-lg mx-auto animate-fadeIn">
+                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-400 border-[3px] border-black flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000]">
+                  <ShieldAlert size={36} />
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 dark:bg-red-950/80 border border-red-500 text-red-700 dark:text-red-300 font-mono text-xs font-bold mb-2">
+                  <AlertCircle size={13} />
+                  <span>PENDAFTARAN DITOLAK (SUDAH TERDAFTAR)</span>
+                </div>
+
+                <h3 className="font-heading font-black text-xl sm:text-2xl text-slate-900 dark:text-slate-100 uppercase tracking-tight">
+                  Anda Sudah Pernah Terdaftar!
+                </h3>
+
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 mb-4">
+                  Sistem mendeteksi bahwa data Anda sudah tercatat resmi di Database Anggota LSM Paguyuban Pizza Sandy Shores.
+                </p>
+
+                {/* Detail Box */}
+                <div className="w-full text-left p-4 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-red-500 shadow-[4px_4px_0px_#000] flex flex-col gap-3 mb-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/15">
+                    <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-red-600 dark:text-red-400">
+                      <ShieldCheck size={16} />
+                      <span>DATA KEANGGOTAAN TERDAFTAR:</span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-500">
+                      ANGGOTA RESMI
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="text-[10px] font-mono text-slate-500 uppercase block">Nama Lengkap (IC)</span>
+                      <strong className="text-slate-900 dark:text-slate-100 text-sm font-heading">
+                        {rejectedData.existingMember?.fullName || rejectedData.inputName || "-"}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono text-slate-500 uppercase block">Citizen ID / No KTP</span>
+                      <strong className="text-[#DC2626] dark:text-[#FACC15] font-mono text-sm">
+                        {rejectedData.existingMember?.icNumber || rejectedData.inputCid || "-"}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono text-slate-500 uppercase block">Tanggal Bergabung</span>
+                      <span className="text-slate-800 dark:text-slate-200 font-bold">
+                        {rejectedData.existingMember?.regDate || "Terdaftar Resmi"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono text-slate-500 uppercase block">Aturan Keanggotaan</span>
+                      <span className="text-slate-800 dark:text-slate-200 font-bold">
+                        1 Warga = 1 Kartu Anggota
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed mt-1">
+                    Informasi: Setiap warga hanya dapat mendaftarkan satu kartu identitas. Jika Anda ingin memperbarui nomor telepon IC, foto profil, atau ada pergantian data lainnya, silakan hubungi pengurus LSM PPS di Discord resmi.
+                  </div>
+
+                  {/* Discord Button */}
+                  <div className="flex flex-col gap-1.5 mt-1 pt-2 border-t border-black/10 dark:border-white/10">
+                    <a
+                      href={activeDiscordUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black text-xs uppercase flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                      </svg>
+                      <span>Buka Discord Pengurus LSM PPS</span>
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={handleCloseAndReset}
+                  className="btn text-xs py-2 px-6 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-2 border-black font-heading font-black cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                >
+                  Tutup & Kembali
+                </button>
+              </div>
+            ) : (
+              /* Registration Form */
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                {/* Duplicate Member Warning Banner */}
+                {duplicateMember && (
+                  <div className="p-3.5 rounded-lg bg-red-50 dark:bg-red-950/50 border-2 border-red-500 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 animate-fadeIn shadow-[3px_3px_0px_#ef4444]">
+                    <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <strong className="font-heading font-black uppercase text-red-700 dark:text-red-400 block text-xs">
+                        Peringatan: Anda Sudah Terdaftar Sebagai Anggota!
+                      </strong>
+                      <p className="mt-0.5 leading-relaxed text-[11px]">
+                        {String(duplicateMember.icNumber || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "") === cleanCurrentCid ? (
+                          <>Citizen ID <strong>({cleanCurrentCid})</strong> sudah terdaftar atas nama <strong>{duplicateMember.fullName}</strong>.</>
+                        ) : (
+                          <>Nama warga <strong>{cleanCurrentName}</strong> sudah terdaftar dengan Citizen ID <strong>{duplicateMember.icNumber}</strong>.</>
+                        )}
+                      </p>
+                      <p className="text-[10px] mt-1 text-slate-600 dark:text-slate-400">
+                        Sesuai ketentuan, 1 warga hanya diperbolehkan mendaftar 1 kali. Formulir ini tidak dapat dikirim ulang.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Verification Notice Banner */}
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-400 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2.5">
+                  <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">
+                    <strong className="font-heading font-black uppercase block">
+                      Alur Pendaftaran & Verifikasi Anggota PPS:
+                    </strong>
+                    <p className="mt-0.5 text-[11.5px]">
+                      Unggah <strong>Foto Profil Karakter</strong>, <strong>Foto KTP IC</strong>, dan <strong>Screenshot Status HUD</strong> Anda. Sistem OCR akan mendeteksi data secara otomatis. Setelah dikirim, data Anda akan masuk ke tahap verifikasi oleh Pengurus LSM PPS.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bagian 1: Foto Profil Karakter IC */}
+                <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-black/10 dark:border-white/10">
+                    <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
+                      <User size={14} />
+                      <span>1. Foto Profil Karakter IC (Wajib)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">Foto Wajah Karakter</span>
+                  </div>
+
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-16 h-16 rounded-full border-2 border-black dark:border-white/20 overflow-hidden shrink-0 bg-slate-100 dark:bg-[#14161F] flex items-center justify-center shadow-sm relative group">
+                      {formData.profilePhoto ? (
+                        <img
+                          src={formData.profilePhoto}
+                          alt="Foto Profil Karakter"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User size={26} className="text-slate-400" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 flex flex-col gap-1">
+                      <label className="btn inline-flex items-center gap-1.5 text-xs py-1.5 px-3.5 bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/20 shadow-xs cursor-pointer hover:bg-slate-50 w-fit">
+                        <Camera size={13} className="text-[#DC2626] dark:text-[#FACC15]" />
+                        <span>{formData.profilePhoto ? "Ganti Foto Profil" : "Unggah Foto Profil IC"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          required={!formData.profilePhoto}
+                          onChange={(e) => handleCompressProfilePhoto(e.target.files[0])}
+                          className="hidden"
+                        />
+                      </label>
+                      <span className="text-[10.5px] text-slate-500 leading-tight">
+                        Foto wajah/setengah badan karakter IC Anda di kota. Jelas, terang, dan tidak buram.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bagian 2: Dokumen KTP IC (Auto-Scan OCR) */}
+                <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
+                    <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
+                      <CreditCard size={14} />
+                      <span>2. Dokumen KTP IC (Auto-Scan OCR)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGuideTab("ktp");
+                          setGuideModalOpen(true);
+                        }}
+                        className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye size={12} />
+                        <span>Lihat Contoh KTP</span>
+                      </button>
+                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-amber-400 shadow-xs flex items-center gap-1">
+                        <ScanLine size={12} />
+                        <span>AUTO-FILL AKTIF</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <div className="w-full sm:w-1/2">
+                      <div className="border-2 border-dashed border-black/30 dark:border-white/20 rounded-xl p-3 text-center bg-slate-50 dark:bg-[#14161F] hover:bg-amber-50/50 transition-colors">
+                        {formData.icPhoto ? (
+                          <div className="flex flex-col items-center gap-1.5">
+                            <img
+                              src={formData.icPhoto}
+                              alt="KTP IC Preview"
+                              className="w-full max-h-28 object-contain rounded border border-black shadow-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, icPhoto: "" })}
+                              className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                            >
+                              Ganti Foto KTP
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer flex flex-col items-center gap-1.5 w-full">
+                            <CreditCard size={28} className="text-slate-400" />
+                            <span className="text-xs font-bold text-[#DC2626] dark:text-[#FACC15] underline">
+                              Unggah Foto KTP IC
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              Format JPG/PNG • Otomatis Deteksi Nama & Citizen ID
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              required={!formData.icPhoto}
+                              onChange={(e) => handleKtpUploadWithOcr(e.target.files[0])}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
                       </div>
-                    ) : ocrSuccess === true ? (
-                      <div className="p-2.5 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500 text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
-                        <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-                        <div>
-                          <strong className="block font-bold">✓ KTP Terdeteksi Sukses!</strong>
-                          <span className="text-[11px] block mt-0.5">
-                            Nama dan Citizen ID telah otomatis diisi di bawah. Periksa kembali sebelum submit.
+                    </div>
+
+                    <div className="w-full sm:w-1/2 text-xs flex flex-col justify-center">
+                      {isScanningKtp ? (
+                        <div className="p-3 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-400 text-amber-900 dark:text-amber-200 flex flex-col gap-1.5 animate-pulse">
+                          <div className="flex items-center gap-2 font-bold">
+                            <ScanLine size={16} className="animate-spin text-amber-600" />
+                            <span>Memindai Dokumen KTP IC... {ocrProgress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="bg-amber-500 h-full transition-all duration-200"
+                              style={{ width: `${ocrProgress}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-slate-500">
+                            Mendeteksi Nama Lengkap & Citizen ID otomatis...
                           </span>
                         </div>
+                      ) : ocrSuccess === true ? (
+                        <div className="p-2.5 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500 text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
+                          <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                          <div>
+                            <strong className="block font-bold">✓ KTP Terdeteksi Sukses!</strong>
+                            <span className="text-[11px] block mt-0.5">
+                              Nama dan Citizen ID telah otomatis diisi di bawah. Periksa kembali sebelum submit.
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-2.5 rounded bg-slate-100 dark:bg-[#161820] border border-black/15 text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+                          <strong className="text-slate-800 dark:text-slate-200">Tips OCR:</strong> Pastikan foto KTP IC tampak jelas dan tidak silau agar sistem dapat membaca Nama Lengkap serta Citizen ID secara otomatis.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bagian 3: Screenshot Status HUD IC (Waktu, Job, Gang) */}
+                <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
+                    <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
+                      <Briefcase size={14} />
+                      <span>3. Screenshot Status HUD IC (Waktu, Job, Gang)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGuideTab("status");
+                          setGuideModalOpen(true);
+                        }}
+                        className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye size={12} />
+                        <span>Lihat Contoh Status</span>
+                      </button>
+                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-amber-400 shadow-xs flex items-center gap-1">
+                        <ScanLine size={12} />
+                        <span>AUTO-FILL STATUS</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <div className="w-full sm:w-1/2">
+                      <div className="border-2 border-dashed border-black/30 dark:border-white/20 rounded-xl p-3 text-center bg-slate-50 dark:bg-[#14161F] hover:bg-amber-50/50 transition-colors">
+                        {formData.statusPhoto ? (
+                          <div className="flex flex-col items-center gap-1.5">
+                            <img
+                              src={formData.statusPhoto}
+                              alt="Status HUD Preview"
+                              className="w-full max-h-28 object-contain rounded border border-black shadow-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, statusPhoto: "" })}
+                              className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                            >
+                              Ganti Foto Status
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer flex flex-col items-center gap-1.5 w-full">
+                            <Camera size={28} className="text-slate-400" />
+                            <span className="text-xs font-bold text-[#DC2626] dark:text-[#FACC15] underline">
+                              Unggah Screenshot Status HUD
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              Format JPG/PNG • Otomatis Deteksi Waktu, Job, & Gang
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              required={!formData.statusPhoto}
+                              onChange={(e) => handleStatusUploadWithOcr(e.target.files[0])}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
                       </div>
-                    ) : (
-                      <div className="p-2.5 rounded bg-slate-100 dark:bg-[#161820] border border-black/15 text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-                        💡 <strong>Tips OCR:</strong> Pastikan foto KTP IC tampak jelas dan tidak silau agar sistem dapat membaca Nama Lengkap serta Citizen ID secara otomatis.
-                      </div>
-                    )}
+                    </div>
+
+                    <div className="w-full sm:w-1/2 text-xs flex flex-col justify-center">
+                      {isScanningStatus ? (
+                        <div className="p-3 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-400 text-amber-900 dark:text-amber-200 flex flex-col gap-1.5 animate-pulse">
+                          <div className="flex items-center gap-2 font-bold">
+                            <ScanLine size={16} className="animate-spin text-amber-600" />
+                            <span>Memindai Status HUD... {statusOcrProgress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                            <div
+                              className="bg-amber-500 h-full transition-all duration-200"
+                              style={{ width: `${statusOcrProgress}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-slate-500">
+                            Menganalisis Jam, Pekerjaan, dan Afiliasi Gang...
+                          </span>
+                        </div>
+                      ) : statusOcrSuccess === true ? (
+                        <div className="p-2.5 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500 text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
+                          <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                          <div>
+                            <strong className="block font-bold">✓ Status HUD Terdeteksi!</strong>
+                            <div className="text-[11px] mt-1 space-y-0.5 font-mono">
+                              <div className="flex items-center gap-1.5"><Clock size={12} className="text-amber-500" /> Jam: <strong>{formData.statusTime || "-"}</strong></div>
+                              <div className="flex items-center gap-1.5"><Briefcase size={12} className="text-blue-500" /> Job: <strong>{formData.statusJob || "-"}</strong></div>
+                              <div className="flex items-center gap-1.5"><Shield size={12} className="text-emerald-500" /> Gang: <strong>{formData.statusGang || "-"}</strong></div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-2.5 rounded bg-slate-100 dark:bg-[#161820] border border-black/15 text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+                          <strong className="text-slate-800 dark:text-slate-200">Info Status HUD:</strong> Ambil screenshot HUD status di pojok kanan atas karakter Anda (yang menampilkan Jam, Job/Pekerjaan, dan Gang).
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Area 2: Unggah Foto Profil / Wajah Karakter */}
-              <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-2">
-                <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1 border-b border-black/10 dark:border-white/10">
-                  <User size={14} />
-                  <span>2. Foto Profil Karakter IC</span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-full border border-black/20 dark:border-white/20 overflow-hidden shrink-0 bg-slate-100 dark:bg-[#14161F] flex items-center justify-center shadow-sm">
-                    {formData.profilePhoto ? (
-                      <img
-                        src={formData.profilePhoto}
-                        alt="Foto Profil"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User size={24} className="text-slate-400" />
-                    )}
+                {/* Bagian 4: Data Identitas Lengkap */}
+                <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3">
+                  <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1 border-b border-black/10 dark:border-white/10">
+                    <UserPlus size={14} />
+                    <span>4. Verifikasi & Koreksi Rincian Data</span>
                   </div>
 
-                  <div className="flex-1">
-                    <label className="btn inline-flex items-center gap-1.5 text-xs py-1.5 px-3 bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 shadow-sm cursor-pointer hover:bg-slate-50">
-                      <Camera size={13} />
-                      <span>{formData.profilePhoto ? "Ganti Foto Profil" : "Pilih Foto Profil"}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        required
-                        onChange={(e) => handleCompressProfilePhoto(e.target.files[0])}
-                        className="hidden"
-                      />
-                    </label>
-                    <span className="text-[10px] text-slate-500 block mt-1">
-                      Foto wajah close-up karakter IC Anda di kota.
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Area 3: Data Identitas Lengkap */}
-              <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-3">
-                <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1 border-b border-black/10 dark:border-white/10">
-                  <UserPlus size={14} />
-                  <span>3. Rincian Data Anggota</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
-                      Nama Lengkap IC <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Contoh: Linus Zeroday"
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      required
-                      className="input-field text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
-                      Citizen ID / No KTP IC <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Contoh: L5849U72 atau CTZ12345"
-                      value={formData.icNumber}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          icNumber: e.target.value.toUpperCase().replace(/\s+/g, ""),
-                        })
-                      }
-                      required
-                      className="input-field text-xs font-mono font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
-                    />
-
-                    {/* OCR Candidates Chips & Guidance */}
-                    {ocrCidCandidates.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <span className="text-[10px] text-slate-500 font-bold">Hasil OCR:</span>
-                        {ocrCidCandidates.map((cid, cIdx) => (
-                          <button
-                            key={cIdx}
-                            type="button"
-                            onClick={() => setFormData((prev) => ({ ...prev, icNumber: cid }))}
-                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-                              formData.icNumber === cid
-                                ? "bg-emerald-500 text-white border-black shadow-[1px_1px_0px_#000]"
-                                : "bg-slate-100 dark:bg-[#161820] text-slate-700 dark:text-slate-300 border-black/30 hover:bg-amber-100 dark:hover:bg-amber-950"
-                            } cursor-pointer transition-colors`}
-                            title={`Gunakan Citizen ID: ${cid}`}
-                          >
-                            {cid}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <span className="text-[10px] text-slate-500 block mt-1 leading-tight">
-                      💡 Periksa karakter CID di atas. Anda dapat mengetik langsung jika ada huruf/angka yang perlu disesuaikan.
-                    </span>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
-                      Nomor Telepon / WA IC <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Phone size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
+                        Nama Lengkap IC <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
-                        placeholder="Contoh: 555-0199 atau 0812..."
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="Contoh: Linus Zeroday"
+                        value={formData.fullName}
+                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                         required
-                        className="input-field pl-8 text-xs font-mono bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                        className="input-field text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
+                        Citizen ID / No KTP IC <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: L5849U72 atau CTZ12345"
+                        value={formData.icNumber}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            icNumber: e.target.value.toUpperCase().replace(/\s+/g, ""),
+                          })
+                        }
+                        required
+                        className="input-field text-xs font-mono font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                      />
+
+                      {/* OCR Candidates Chips */}
+                      {ocrCidCandidates.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          <span className="text-[10px] text-slate-500 font-bold">Pilihan CID:</span>
+                          {ocrCidCandidates.map((cid, cIdx) => (
+                            <button
+                              key={cIdx}
+                              type="button"
+                              onClick={() => setFormData((prev) => ({ ...prev, icNumber: cid }))}
+                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                                formData.icNumber === cid
+                                  ? "bg-emerald-500 text-white border-black shadow-[1px_1px_0px_#000]"
+                                  : "bg-slate-100 dark:bg-[#161820] text-slate-700 dark:text-slate-300 border-black/30 hover:bg-amber-100 dark:hover:bg-amber-950"
+                              } cursor-pointer transition-colors`}
+                              title={`Gunakan Citizen ID: ${cid}`}
+                            >
+                              {cid}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Data Status HUD (Waktu, Job, Gang) */}
+                    <div>
+                      <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
+                        Waktu / Jam IC (Saat Screenshot) <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Clock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Contoh: 11:56"
+                          value={formData.statusTime}
+                          onChange={(e) => setFormData({ ...formData, statusTime: e.target.value })}
+                          required
+                          className="input-field pl-8 text-xs font-mono font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
+                        Status Pekerjaan IC (Job) <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Briefcase size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Contoh: Civilian - Freelancer"
+                          value={formData.statusJob}
+                          onChange={(e) => setFormData({ ...formData, statusJob: e.target.value })}
+                          required
+                          className="input-field pl-8 text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
+                        Status Afiliasi Gang / Kelompok <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Shield size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Contoh: No Gang - Unaffiliated"
+                          value={formData.statusGang}
+                          onChange={(e) => setFormData({ ...formData, statusGang: e.target.value })}
+                          required
+                          className="input-field pl-8 text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-500 mt-1 block">
+                        Pastikan sesuai status di HUD Anda (LSM PPS mengutamakan warga netral tanpa afiliasi gang kriminal).
+                      </span>
+                    </div>
+
+                    {/* Kontak Warga */}
+                    <div>
+                      <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
+                        Nomor Telepon / WA IC <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Phone size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="Contoh: 555-0199 atau 0812..."
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          required
+                          className="input-field pl-8 text-xs font-mono bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="card-label text-slate-700 dark:text-slate-300 block mb-1">
+                        Nama / ID Akun Discord <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: nama_discord atau username#1234 (Wajib)"
+                        value={formData.discordTag}
+                        onChange={(e) => setFormData({ ...formData, discordTag: e.target.value })}
+                        required
+                        className="input-field text-xs font-mono bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
                       />
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Area 4: Pernyataan & Persetujuan MOU */}
-              <div className="p-3 rounded bg-amber-50/70 dark:bg-amber-950/20 border-2 border-black/20 dark:border-white/10 flex items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  id="agree-mou-member"
-                  checked={formData.agreedMOU}
-                  onChange={(e) => setFormData({ ...formData, agreedMOU: e.target.checked })}
-                  required
-                  className="mt-0.5 rounded border-2 border-black text-[#DC2626] focus:ring-0 cursor-pointer"
-                />
-                <label htmlFor="agree-mou-member" className="text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none leading-relaxed">
-                  Saya menyatakan bahwa data IC yang dicantumkan adalah benar dan asli. Saya bersedia menjaga ketertiban, solidaritas, serta mematuhi norma dan peraturan LSM Paguyuban Pizza Sandy Shores.
-                </label>
-              </div>
+                {/* Bagian 5: Pernyataan & Persetujuan MOU */}
+                <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border-2 border-black/20 dark:border-white/10 flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="agree-mou-member"
+                    checked={formData.agreedMOU}
+                    onChange={(e) => setFormData({ ...formData, agreedMOU: e.target.checked })}
+                    required
+                    className="mt-0.5 rounded border-2 border-black text-[#DC2626] focus:ring-0 cursor-pointer"
+                  />
+                  <label htmlFor="agree-mou-member" className="text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none leading-relaxed">
+                    Saya menyatakan bahwa data IC yang dicantumkan adalah benar dan asli. Saya bersedia menjaga ketertiban, solidaritas, serta mematuhi norma dan peraturan LSM Paguyuban Pizza Sandy Shores.
+                  </label>
+                </div>
 
-              {/* Tombol Submit */}
-              <button
-                type="submit"
-                disabled={isSubmitting || Boolean(duplicateMember)}
-                className={`btn w-full py-3 border border-black/15 font-heading font-black text-sm uppercase shadow-md active:scale-98 flex items-center justify-center gap-2 ${
-                  duplicateMember
-                    ? "bg-red-500 hover:bg-red-600 text-white cursor-not-allowed opacity-90"
-                    : "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] disabled:opacity-50 cursor-pointer"
-                }`}
-              >
-                {duplicateMember ? (
-                  <>
-                    <AlertCircle size={16} />
-                    <span>Pendaftaran Ditolak (Sudah Pernah Terdaftar)</span>
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    <span>{isSubmitting ? "Mengirim Formulir..." : "Kirim Formulir Pendaftaran Anggota"}</span>
-                  </>
-                )}
-              </button>
-            </form>
-          )}
+                {/* Tombol Submit */}
+                <button
+                  type="submit"
+                  disabled={isSubmitting || Boolean(duplicateMember)}
+                  className={`btn w-full py-3 border border-black/15 font-heading font-black text-sm uppercase shadow-md active:scale-98 flex items-center justify-center gap-2 ${
+                    duplicateMember
+                      ? "bg-red-500 hover:bg-red-600 text-white cursor-not-allowed opacity-90"
+                      : "bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] disabled:opacity-50 cursor-pointer"
+                  }`}
+                >
+                  {duplicateMember ? (
+                    <>
+                      <AlertCircle size={16} />
+                      <span>Pendaftaran Ditolak (Sudah Pernah Terdaftar)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      <span>{isSubmitting ? "Mengirim Berkas Pendaftaran..." : "Kirim Formulir Pendaftaran"}</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Guide & Sample Preview Modal */}
+      {guideModalOpen && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-xl bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 max-h-[90vh] overflow-y-auto text-slate-900 dark:text-slate-100">
+            {/* Guide Header */}
+            <div className="flex items-center justify-between pb-2.5 border-b border-black/15 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#FACC15] text-[#111827] border border-black/20 flex items-center justify-center font-black">
+                  ?
+                </div>
+                <h4 className="font-heading font-black text-sm uppercase tracking-tight">
+                  Contoh & Cara Pengambilan Screenshot
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGuideModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Guide Navigation Tabs */}
+            <div className="flex items-center gap-1.5 border-b border-black/10 dark:border-white/10 pb-2">
+              <button
+                type="button"
+                onClick={() => setGuideTab("status")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-heading font-black uppercase transition-all cursor-pointer ${
+                  guideTab === "status"
+                    ? "bg-[#DC2626] text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                }`}
+              >
+                1. Contoh Status HUD
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuideTab("ktp")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-heading font-black uppercase transition-all cursor-pointer ${
+                  guideTab === "ktp"
+                    ? "bg-[#DC2626] text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                }`}
+              >
+                2. Contoh KTP IC
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuideTab("profile")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-heading font-black uppercase transition-all cursor-pointer ${
+                  guideTab === "profile"
+                    ? "bg-[#DC2626] text-white shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                }`}
+              >
+                3. Foto Profil Karakter
+              </button>
+            </div>
+
+            {/* Guide Tab Contents */}
+            {guideTab === "status" && (
+              <div className="flex flex-col gap-3 text-xs leading-relaxed animate-fadeIn">
+                <div className="p-2.5 rounded-xl bg-slate-900 border border-black/20 flex flex-col items-center">
+                  <img
+                    src="/sample-status.png"
+                    alt="Contoh Screenshot Status HUD GTA V FiveM"
+                    className="w-full max-h-56 object-contain rounded"
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60 flex flex-col gap-2">
+                  <span className="font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
+                    Bagian yang Terbaca Otomatis dari Status HUD:
+                  </span>
+                  <ul className="space-y-1.5 text-slate-800 dark:text-slate-200">
+                    <li className="flex items-start gap-2">
+                      <span className="font-mono font-bold text-amber-700 dark:text-amber-400">1. Waktu / Jam:</span>
+                      <span>Di sebelah icon jam (contoh: <strong>11:56</strong>).</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-mono font-bold text-amber-700 dark:text-amber-400">2. Status Pekerjaan:</span>
+                      <span>Di sebelah icon koper (contoh: <strong>Civilian - Freelancer</strong>, dll).</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-mono font-bold text-amber-700 dark:text-amber-400">3. Status Gang:</span>
+                      <span>Di sebelah icon perisai/shield (contoh: <strong>No Gang - Unaffiliated</strong>).</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                  Tips: Ambil screenshot in-game saat HUD status terlihat jelas di pojok layar Anda menggunakan tombol F12 (Steam), PrintScreen, atau Windows+Shift+S.
+                </div>
+              </div>
+            )}
+
+            {guideTab === "ktp" && (
+              <div className="flex flex-col gap-3 text-xs leading-relaxed animate-fadeIn">
+                <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-black/20 flex flex-col items-center">
+                  <img
+                    src="/sample-ktp.jpg"
+                    alt="Contoh Screenshot KTP IC GTA V FiveM"
+                    className="w-full max-h-56 object-contain rounded"
+                  />
+                </div>
+
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60 flex flex-col gap-1.5">
+                  <span className="font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
+                    Bagian yang Terbaca Otomatis dari KTP:
+                  </span>
+                  <ul className="space-y-1 text-slate-800 dark:text-slate-200">
+                    <li>• <strong>First Name & Last Name</strong> (Nama Lengkap IC karakter Anda).</li>
+                    <li>• <strong>Citizen ID</strong> (Nomor identitas unik kartu IC Anda).</li>
+                  </ul>
+                </div>
+
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+                  Tips: Buka kartu identitas IC di inventori game Anda, lalu ambil screenshot penuh agar teks nama dan citizen ID tidak terpotong.
+                </div>
+              </div>
+            )}
+
+            {guideTab === "profile" && (
+              <div className="flex flex-col gap-3 text-xs leading-relaxed animate-fadeIn">
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#14161F] border border-black/15 flex flex-col gap-2">
+                  <span className="font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
+                    Ketentuan Foto Profil Karakter IC:
+                  </span>
+                  <ul className="space-y-2 text-slate-800 dark:text-slate-200">
+                    <li className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] mt-1.5 shrink-0" />
+                      <span><strong>Wajah Tampak Jelas:</strong> Ambil foto close-up atau setengah badan karakter Anda dengan pencahayaan terang.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] mt-1.5 shrink-0" />
+                      <span><strong>Bukan Foto Jauh / Gelap:</strong> Hindari foto yang terlalu jauh, membelakangi kamera, atau terlalu gelap pada malam hari.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] mt-1.5 shrink-0" />
+                      <span><strong>Format Gambar:</strong> Mendukung file JPG, PNG, atau WebP (otomatis dikompresi agar ringan).</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setGuideModalOpen(false)}
+              className="btn py-2 px-4 bg-[#FACC15] text-[#111827] border border-black font-heading font-black text-xs uppercase self-end mt-1 cursor-pointer"
+            >
+              Mengerti & Lanjutkan Pendaftaran
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

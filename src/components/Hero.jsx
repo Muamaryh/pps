@@ -4,7 +4,7 @@ import {
   Users,
   Camera,
   ExternalLink,
-  Sparkles,
+  HeartHandshake,
 } from "lucide-react";
 
 export default function Hero({
@@ -175,7 +175,7 @@ export default function Hero({
             href="#program"
             className="btn btn-red bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/80 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black shadow-[0_4px_15px_rgba(220,38,38,0.3)] hover:shadow-[0_6px_25px_rgba(220,38,38,0.5)] whitespace-nowrap"
           >
-            <Sparkles size={16} className="text-[#FACC15] shrink-0" />
+            <HeartHandshake size={16} className="text-[#FACC15] shrink-0" />
             <span>Program Warga</span>
           </a>
 

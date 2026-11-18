@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, Clock, MapPin, Award, Users, ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { Calendar, Clock, MapPin, Award, Users, ArrowRight, Trophy, CheckCircle2 } from "lucide-react";
 
 export default function EventSection({ onOpenRegisterEvent }) {
   return (
@@ -9,7 +9,7 @@ export default function EventSection({ onOpenRegisterEvent }) {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 sm:mb-10">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FACC15] border-2 border-black shadow-[2px_2px_0px_#000] mb-3">
-              <Sparkles size={14} className="text-[#DC2626]" />
+              <Trophy size={14} className="text-[#DC2626]" />
               <span className="font-heading font-black text-xs uppercase tracking-wider text-[#111827]">
                 TURNAMEN RESMI LSM PPS
               </span>
@@ -135,7 +135,7 @@ export default function EventSection({ onOpenRegisterEvent }) {
                   onClick={onOpenRegisterEvent}
                   className="w-full btn py-3.5 px-4 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-sm uppercase tracking-wider border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
                 >
-                  <Sparkles size={16} className="text-[#DC2626]" />
+                  <Trophy size={16} className="text-[#DC2626]" />
                   <span>Daftar UFC Civilian (Biaya 10K)</span>
                 </button>
                 <span className="text-[11px] text-center font-mono text-slate-500">

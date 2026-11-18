@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, Upload, Loader2, Layers } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, Briefcase, AlertCircle, Upload, Loader2, Layers } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
   deleteMemberCloud,
+  approveMemberCloud,
+  rejectMemberCloud,
+  revertMemberToPendingCloud,
   exportMembersToExcel,
   exportMembersToZip,
   updateMemberKasAndVoucherCloud,
@@ -271,6 +274,14 @@ export default function AdminModal({
   const [isExportingZip, setIsExportingZip] = useState(false);
   const [filterKas, setFilterKas] = useState("all"); // 'all' | 'paid' | 'unpaid'
   const [filterVoucher, setFilterVoucher] = useState("all"); // 'all' | 'received' | 'unreceived'
+
+  // Member Registration Verification State (Verifikasi Anggota Baru)
+  const [memberRegFilterTab, setMemberRegFilterTab] = useState("PENDING"); // 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'
+  const [memberRegSearchQuery, setMemberRegSearchQuery] = useState("");
+  const [previewImageDetail, setPreviewImageDetail] = useState(null); // { url, title, subtitle }
+  const [rejectTargetMember, setRejectTargetMember] = useState(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState("");
+  const [isProcessingRegAction, setIsProcessingRegAction] = useState(false);
 
   // Event & Registration State
   const [eventsList, setEventsList] = useState(() => {
@@ -1169,6 +1180,57 @@ export default function AdminModal({
         }
       },
     });
+  }
+
+  // Handlers for Member Registration Verification
+  async function handleApproveMemberRegistration(member) {
+    if (!member || !member.id) return;
+    setIsProcessingRegAction(true);
+    try {
+      await approveMemberCloud(member.id, "Admin LSM PPS");
+      onShowToast(`Pendaftaran ${member.fullName || "Anggota"} berhasil DISETUJUI menjadi Anggota Resmi!`, "success");
+    } catch (err) {
+      console.error("Gagal menyetujui pendaftaran anggota:", err);
+      onShowToast("Gagal menyetujui pendaftaran anggota.", "error");
+    } finally {
+      setIsProcessingRegAction(false);
+    }
+  }
+
+  function handleOpenRejectModal(member) {
+    setRejectTargetMember(member);
+    setRejectionReasonInput("");
+  }
+
+  async function handleConfirmRejectMember() {
+    if (!rejectTargetMember || !rejectTargetMember.id) return;
+    const reason = (rejectionReasonInput || "").trim() || "Berkas tidak memenuhi syarat verifikasi LSM PPS.";
+    setIsProcessingRegAction(true);
+    try {
+      await rejectMemberCloud(rejectTargetMember.id, reason, "Admin LSM PPS");
+      onShowToast(`Pendaftaran ${rejectTargetMember.fullName || "Calon Anggota"} DITOLAK.`, "info");
+      setRejectTargetMember(null);
+      setRejectionReasonInput("");
+    } catch (err) {
+      console.error("Gagal menolak pendaftaran anggota:", err);
+      onShowToast("Gagal menolak pendaftaran anggota.", "error");
+    } finally {
+      setIsProcessingRegAction(false);
+    }
+  }
+
+  async function handleRevertMemberToPending(member) {
+    if (!member || !member.id) return;
+    setIsProcessingRegAction(true);
+    try {
+      await revertMemberToPendingCloud(member.id, "Admin LSM PPS");
+      onShowToast(`Status ${member.fullName || "Calon Anggota"} dikembalikan ke Tahap Menunggu Verifikasi.`, "info");
+    } catch (err) {
+      console.error("Gagal mengembalikan status anggota:", err);
+      onShowToast("Gagal mengembalikan status pendaftaran.", "error");
+    } finally {
+      setIsProcessingRegAction(false);
+    }
   }
 
   function handleExportExcel() {
@@ -2593,6 +2655,50 @@ export default function AdminModal({
   const kasSummary = getKasSummary(kasTransactions, totalKasRupiah);
   const kasRunningBalances = computeKasRunningBalances(kasTransactions);
 
+  const pendingMembersCount = membersList.filter((m) => m.status === "PENDING_VERIFIKASI").length;
+
+  let pendingRegistrationsCount = 0;
+  let approvedRegistrationsCount = 0;
+  let rejectedRegistrationsCount = 0;
+
+  membersList.forEach((m) => {
+    if (m.status === "PENDING_VERIFIKASI") pendingRegistrationsCount++;
+    else if (m.status === "REJECTED") rejectedRegistrationsCount++;
+    else approvedRegistrationsCount++;
+  });
+
+  const memberRegSearchQ = memberRegSearchQuery.trim().toLowerCase();
+
+  const memberRegistrationsList = membersList.filter((m) => {
+    if (memberRegFilterTab === "PENDING" && m.status !== "PENDING_VERIFIKASI") return false;
+    if (memberRegFilterTab === "APPROVED" && (m.status === "PENDING_VERIFIKASI" || m.status === "REJECTED")) return false;
+    if (memberRegFilterTab === "REJECTED" && m.status !== "REJECTED") return false;
+
+    if (!memberRegSearchQ) return true;
+    const name = (m.fullName || "").toLowerCase();
+    const cid = (m.icNumber || "").toLowerCase();
+    const phone = (m.phone || "").toLowerCase();
+    const discord = (m.discordTag || "").toLowerCase();
+    const job = (m.statusJob || "").toLowerCase();
+    const gang = (m.statusGang || "").toLowerCase();
+    return (
+      name.includes(memberRegSearchQ) ||
+      cid.includes(memberRegSearchQ) ||
+      phone.includes(memberRegSearchQ) ||
+      discord.includes(memberRegSearchQ) ||
+      job.includes(memberRegSearchQ) ||
+      gang.includes(memberRegSearchQ)
+    );
+  });
+
+  memberRegistrationsList.sort((a, b) => {
+    if (a.status === "PENDING_VERIFIKASI" && b.status !== "PENDING_VERIFIKASI") return -1;
+    if (b.status === "PENDING_VERIFIKASI" && a.status !== "PENDING_VERIFIKASI") return 1;
+    const timeA = a.submittedAt || (a.regDate ? new Date(a.regDate).getTime() : 0);
+    const timeB = b.submittedAt || (b.regDate ? new Date(b.regDate).getTime() : 0);
+    return timeB - timeA;
+  });
+
   function parseTabLabel(label) {
     const match = String(label || "").match(/^(.*?)\s*\(([^)]+)\)$/);
     return match ? { cleanTitle: match[1], countText: match[2] } : { cleanTitle: label, countText: null };
@@ -2616,9 +2722,10 @@ export default function AdminModal({
       group: "Warga & Keuangan",
       shortLabel: "Warga",
       icon: Users2,
-      badgeCount: (submissions.length > 0 || membersList.length > 0) ? (submissions.length + membersList.length) : null,
+      badgeCount: (submissions.length > 0 || membersList.length > 0 || pendingMembersCount > 0) ? (submissions.length + membersList.length) : null,
       tabs: [
         { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
+        { id: "member_registrations", label: `Verifikasi Anggota (${pendingMembersCount})`, icon: UserCheck },
         { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
         { id: "member_kas", label: "Catat Uang Kas", icon: DollarSign },
         { id: "jasra_panel", label: "Voucher Jasra", icon: HeartHandshake },
@@ -4503,6 +4610,580 @@ export default function AdminModal({
                             </div>
                           );
                         })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab: Verifikasi Anggota Baru (member_registrations) */}
+              {activeTab === "member_registrations" && (
+                <div className="flex flex-col gap-4">
+                  {/* Top Header Card */}
+                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded bg-amber-400 border border-black/20 dark:border-white/15 flex items-center justify-center text-slate-900 shadow-xs shrink-0">
+                        <UserCheck size={20} className="text-slate-900" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                            Verifikasi Pendaftaran Anggota Baru
+                          </h4>
+                          {pendingRegistrationsCount > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-heading font-black bg-amber-400 text-slate-950 border border-black flex items-center gap-1 animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                              {pendingRegistrationsCount} Menunggu Tindakan
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Tinjau berkas pendaftaran calon anggota: Foto Profil IC, Dokumen KTP IC, dan Screenshot Status HUD IC.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Stats Counter Badges */}
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <div className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 font-bold flex items-center gap-1.5">
+                        <Clock size={13} className="text-amber-600 dark:text-amber-400" />
+                        <span>Menunggu: {pendingRegistrationsCount}</span>
+                      </div>
+                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold flex items-center gap-1.5">
+                        <Check size={13} className="text-emerald-600 dark:text-emerald-400" />
+                        <span>Resmi: {approvedRegistrationsCount}</span>
+                      </div>
+                      <div className="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 font-bold flex items-center gap-1.5">
+                        <X size={13} className="text-red-600 dark:text-red-400" />
+                        <span>Ditolak: {rejectedRegistrationsCount}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter Tabs and Search Bar */}
+                  <div className="card-brutal p-3 sm:p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    {/* Status Filter Tabs */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setMemberRegFilterTab("PENDING")}
+                        className={`px-3 py-1.5 rounded-md text-xs font-heading font-black border-2 border-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                          memberRegFilterTab === "PENDING"
+                            ? "bg-amber-400 text-slate-950 shadow-[2px_2px_0px_#000]"
+                            : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Clock size={13} />
+                        <span>Menunggu Verifikasi ({pendingRegistrationsCount})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMemberRegFilterTab("ALL")}
+                        className={`px-3 py-1.5 rounded-md text-xs font-heading font-black border-2 border-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                          memberRegFilterTab === "ALL"
+                            ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 shadow-[2px_2px_0px_#000]"
+                            : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Users2 size={13} />
+                        <span>Semua Pendaftar ({membersList.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMemberRegFilterTab("APPROVED")}
+                        className={`px-3 py-1.5 rounded-md text-xs font-heading font-black border-2 border-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                          memberRegFilterTab === "APPROVED"
+                            ? "bg-emerald-400 text-slate-950 shadow-[2px_2px_0px_#000]"
+                            : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        <Check size={13} />
+                        <span>Disetujui ({approvedRegistrationsCount})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMemberRegFilterTab("REJECTED")}
+                        className={`px-3 py-1.5 rounded-md text-xs font-heading font-black border-2 border-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                          memberRegFilterTab === "REJECTED"
+                            ? "bg-red-400 text-slate-950 shadow-[2px_2px_0px_#000]"
+                            : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        }`}
+                      >
+                        <X size={13} />
+                        <span>Ditolak ({rejectedRegistrationsCount})</span>
+                      </button>
+                    </div>
+
+                    {/* Search Input */}
+                    <div className="relative w-full md:w-80">
+                      <Search
+                        size={15}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Cari nama IC, CID, HP, Discord, Job..."
+                        value={memberRegSearchQuery}
+                        onChange={(e) => setMemberRegSearchQuery(e.target.value)}
+                        className="input-field w-full pl-9 pr-8 py-1.5 text-xs bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 rounded-md"
+                      />
+                      {memberRegSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setMemberRegSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-xs font-bold"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Applicants List */}
+                  {memberRegistrationsList.length === 0 ? (
+                    <div className="card-brutal p-8 text-center bg-[var(--card-bg)] border border-black/15 dark:border-white/10 rounded-xl space-y-2">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-black flex items-center justify-center mx-auto text-slate-400">
+                        <Users2 size={24} />
+                      </div>
+                      <h5 className="font-heading font-black text-sm uppercase text-slate-800 dark:text-slate-200">
+                        Tidak Ada Data Pendaftaran
+                      </h5>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                        {memberRegSearchQuery
+                          ? `Tidak ditemukan berkas pendaftaran dengan kata kunci "${memberRegSearchQuery}".`
+                          : memberRegFilterTab === "PENDING"
+                          ? "Semua pendaftaran telah diverifikasi. Tidak ada berkas yang menunggu tindakan saat ini."
+                          : "Belum ada berkas pendaftaran anggota pada kategori filter ini."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      {memberRegistrationsList.map((applicant) => {
+                        const isPending = applicant.status === "PENDING_VERIFIKASI";
+                        const isApproved = !applicant.status || applicant.status === "APPROVED";
+                        const isRejected = applicant.status === "REJECTED";
+
+                        const isNoGang =
+                          !applicant.statusGang ||
+                          applicant.statusGang.toLowerCase().includes("no gang") ||
+                          applicant.statusGang.toLowerCase().includes("unaffiliated");
+
+                        return (
+                          <div
+                            key={applicant.id}
+                            className={`card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-white/20 rounded-xl space-y-4 shadow-[3px_3px_0px_#000] dark:shadow-[3px_3px_0px_rgba(255,255,255,0.15)] transition-all ${
+                              isPending
+                                ? "ring-2 ring-amber-400/50"
+                                : isRejected
+                                ? "opacity-80"
+                                : ""
+                            }`}
+                          >
+                            {/* Card Header: Profil, Nama IC, CID & Status Badge */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-black/10 dark:border-white/10">
+                              <div className="flex items-center gap-3">
+                                {/* Small Avatar / Initial */}
+                                <div
+                                  className="w-11 h-11 rounded-lg border-2 border-black overflow-hidden bg-slate-200 dark:bg-slate-800 flex items-center justify-center shrink-0 cursor-pointer group relative"
+                                  onClick={() => {
+                                    if (applicant.photoUrl) {
+                                      setPreviewImageDetail({
+                                        url: applicant.photoUrl,
+                                        title: `Foto Profil IC - ${applicant.fullName || "Anggota"}`,
+                                        subtitle: `Citizen ID: ${applicant.icNumber || "-"}`,
+                                      });
+                                    }
+                                  }}
+                                  title={applicant.photoUrl ? "Klik untuk perbesar foto profil" : "Foto Profil"}
+                                >
+                                  {applicant.photoUrl ? (
+                                    <>
+                                      <img
+                                        src={applicant.photoUrl}
+                                        alt={applicant.fullName}
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] transition-opacity">
+                                        <Eye size={14} />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <User size={20} className="text-slate-400" />
+                                  )}
+                                </div>
+
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                                      {applicant.fullName || "Tanpa Nama IC"}
+                                    </h4>
+                                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-amber-300 border border-red-300 dark:border-red-900">
+                                      CID: {applicant.icNumber || "-"}
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                                    <span>Tgl Daftar: {applicant.regDate || "-"}</span>
+                                    {applicant.submittedAt && (
+                                      <span>
+                                        • Jam: {new Date(applicant.submittedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Status Badge */}
+                              <div className="self-start sm:self-center">
+                                {isPending ? (
+                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border-2 border-black bg-amber-300 text-amber-950 flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_#000]">
+                                    <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping" />
+                                    <span>MENUNGGU VERIFIKASI</span>
+                                  </span>
+                                ) : isApproved ? (
+                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border-2 border-black bg-emerald-300 text-emerald-950 flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_#000]">
+                                    <Check size={13} className="text-emerald-800" />
+                                    <span>ANGGOTA RESMI</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border-2 border-black bg-rose-300 text-rose-950 flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_#000]">
+                                    <X size={13} className="text-rose-800" />
+                                    <span>PENDAFTARAN DITOLAK</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 3-Panel Verification Grid: Profil, KTP, Status HUD */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                              {/* Panel 1: Foto Profil Karakter IC */}
+                              <div className="p-3 rounded-lg border-2 border-black/20 dark:border-white/10 bg-slate-50 dark:bg-[#12141a] flex flex-col gap-2">
+                                <div className="flex items-center justify-between pb-1.5 border-b border-black/10 dark:border-white/10">
+                                  <span className="text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                    <Camera size={13} className="text-blue-500" />
+                                    <span>1. Foto Profil IC</span>
+                                  </span>
+                                  {applicant.photoUrl && (
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                      Terunggah
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="h-40 rounded-lg border border-black/20 overflow-hidden bg-black/5 dark:bg-black/40 flex items-center justify-center relative group">
+                                  {applicant.photoUrl ? (
+                                    <>
+                                      <img
+                                        src={applicant.photoUrl}
+                                        alt={`Foto Profil ${applicant.fullName}`}
+                                        className="w-full h-full object-contain"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewImageDetail({
+                                            url: applicant.photoUrl,
+                                            title: `Foto Profil IC - ${applicant.fullName || "Anggota"}`,
+                                            subtitle: `Citizen ID: ${applicant.icNumber || "-"}`,
+                                          })
+                                        }
+                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-heading font-bold cursor-pointer"
+                                      >
+                                        <Eye size={18} />
+                                        <span>Perbesar Foto</span>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <div className="text-center p-3 text-slate-400 text-xs">
+                                      <User size={28} className="mx-auto mb-1 opacity-50" />
+                                      <span>Tidak melampirkan foto profil</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Panel 2: Dokumen KTP IC */}
+                              <div className="p-3 rounded-lg border-2 border-black/20 dark:border-white/10 bg-slate-50 dark:bg-[#12141a] flex flex-col gap-2">
+                                <div className="flex items-center justify-between pb-1.5 border-b border-black/10 dark:border-white/10">
+                                  <span className="text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                    <FileText size={13} className="text-amber-500" />
+                                    <span>2. Dokumen KTP IC</span>
+                                  </span>
+                                  {applicant.ktpImage && (
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                      Terunggah
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="h-40 rounded-lg border border-black/20 overflow-hidden bg-black/5 dark:bg-black/40 flex items-center justify-center relative group">
+                                  {applicant.ktpImage ? (
+                                    <>
+                                      <img
+                                        src={applicant.ktpImage}
+                                        alt={`KTP ${applicant.fullName}`}
+                                        className="w-full h-full object-contain"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewImageDetail({
+                                            url: applicant.ktpImage,
+                                            title: `Dokumen KTP IC - ${applicant.fullName || "Anggota"}`,
+                                            subtitle: `Citizen ID: ${applicant.icNumber || "-"}`,
+                                          })
+                                        }
+                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-heading font-bold cursor-pointer"
+                                      >
+                                        <Eye size={18} />
+                                        <span>Perbesar KTP</span>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <div className="text-center p-3 text-slate-400 text-xs">
+                                      <FileText size={28} className="mx-auto mb-1 opacity-50" />
+                                      <span>Tidak melampirkan berkas KTP</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-400 font-mono pt-1">
+                                  <div className="truncate">
+                                    <span className="text-slate-400">Nama:</span> <strong>{applicant.fullName || "-"}</strong>
+                                  </div>
+                                  <div className="truncate">
+                                    <span className="text-slate-400">CID:</span> <strong className="text-red-600 dark:text-amber-300">{applicant.icNumber || "-"}</strong>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Panel 3: Screenshot Status HUD IC */}
+                              <div className="p-3 rounded-lg border-2 border-black/20 dark:border-white/10 bg-slate-50 dark:bg-[#12141a] flex flex-col gap-2">
+                                <div className="flex items-center justify-between pb-1.5 border-b border-black/10 dark:border-white/10">
+                                  <span className="text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                    <Clock size={13} className="text-emerald-500" />
+                                    <span>3. Status HUD IC</span>
+                                  </span>
+                                  {applicant.statusPhoto && (
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                      Terunggah
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="h-40 rounded-lg border border-black/20 overflow-hidden bg-black/5 dark:bg-black/40 flex items-center justify-center relative group">
+                                  {applicant.statusPhoto ? (
+                                    <>
+                                      <img
+                                        src={applicant.statusPhoto}
+                                        alt={`Status HUD ${applicant.fullName}`}
+                                        className="w-full h-full object-contain"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewImageDetail({
+                                            url: applicant.statusPhoto,
+                                            title: `Screenshot Status HUD IC - ${applicant.fullName || "Anggota"}`,
+                                            subtitle: `Waktu: ${applicant.statusTime || "-"} • Pekerjaan: ${applicant.statusJob || "-"} • Gang: ${applicant.statusGang || "-"}`,
+                                          })
+                                        }
+                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-heading font-bold cursor-pointer"
+                                      >
+                                        <Eye size={18} />
+                                        <span>Perbesar Status HUD</span>
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <div className="text-center p-3 text-slate-400 text-xs">
+                                      <Clock size={28} className="mx-auto mb-1 opacity-50" />
+                                      <span>Tidak melampirkan screenshot HUD</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="space-y-1.5 pt-1 text-[11px]">
+                                  {/* Waktu IC */}
+                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2 py-1 rounded border border-black/15">
+                                    <span className="text-slate-500 flex items-center gap-1">
+                                      <Clock size={11} className="text-amber-500" /> Waktu IC:
+                                    </span>
+                                    <strong className="text-slate-900 dark:text-slate-100">
+                                      {applicant.statusTime || "-"}
+                                    </strong>
+                                  </div>
+
+                                  {/* Status Pekerjaan */}
+                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2 py-1 rounded border border-black/15">
+                                    <span className="text-slate-500 flex items-center gap-1">
+                                      <Briefcase size={11} className="text-blue-500" /> Job:
+                                    </span>
+                                    <strong className="text-slate-900 dark:text-slate-100 truncate max-w-[130px]" title={applicant.statusJob}>
+                                      {applicant.statusJob || "-"}
+                                    </strong>
+                                  </div>
+
+                                  {/* Afiliasi Gang */}
+                                  <div
+                                    className={`flex items-center justify-between font-mono px-2 py-1 rounded border ${
+                                      isNoGang
+                                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
+                                        : "bg-red-50 dark:bg-red-950/40 text-red-900 dark:text-red-200 border-red-300 dark:border-red-800"
+                                    }`}
+                                  >
+                                    <span className="flex items-center gap-1 font-bold">
+                                      <Shield size={11} /> {isNoGang ? "Gang Bebas:" : "Afiliasi Gang:"}
+                                    </span>
+                                    <strong className="truncate max-w-[120px]" title={applicant.statusGang}>
+                                      {applicant.statusGang || "No Gang - Unaffiliated"}
+                                    </strong>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Info Kontak & Persetujuan MOU */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-black/10 dark:border-white/10 text-xs">
+                              <div className="flex items-center gap-4 flex-wrap text-slate-700 dark:text-slate-300">
+                                <span className="flex items-center gap-1 font-mono">
+                                  <Phone size={12} className="text-emerald-500" />
+                                  <span>HP: {applicant.phone || "-"}</span>
+                                </span>
+                                <span className="flex items-center gap-1 font-mono">
+                                  <MessageSquare size={12} className="text-indigo-500" />
+                                  <span>Discord: {applicant.discordTag || "-"}</span>
+                                </span>
+                              </div>
+                              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                                <Check size={12} /> Menyetujui Ketentuan & MOU LSM PPS
+                              </span>
+                            </div>
+
+                            {/* Audit Rejection Note (if rejected) */}
+                            {isRejected && applicant.rejectedReason && (
+                              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border-2 border-red-400 dark:border-red-800 text-xs text-red-950 dark:text-red-200 space-y-1">
+                                <div className="font-heading font-black uppercase text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                                  <AlertTriangle size={13} />
+                                  <span>Alasan Penolakan:</span>
+                                </div>
+                                <p className="font-mono">{applicant.rejectedReason}</p>
+                                {applicant.rejectedAt && (
+                                  <div className="text-[10px] text-red-600 dark:text-red-400 pt-0.5">
+                                    Ditolak pada: {new Date(applicant.rejectedAt).toLocaleString("id-ID")} {applicant.rejectedBy ? `• Oleh: ${applicant.rejectedBy}` : ""}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Audit Approval Info (if approved) */}
+                            {isApproved && applicant.verifiedAt && (
+                              <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                                <span>
+                                  ✓ Diverifikasi pada: {new Date(applicant.verifiedAt).toLocaleString("id-ID")}
+                                </span>
+                                {applicant.verifiedBy && (
+                                  <span className="font-bold">Oleh: {applicant.verifiedBy}</span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Action Buttons Bar */}
+                            <div className="pt-2 border-t border-black/15 dark:border-white/10 flex items-center gap-2 flex-wrap">
+                              {isPending ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={isProcessingRegAction}
+                                    onClick={() => handleApproveMemberRegistration(applicant)}
+                                    className="btn py-2 px-3.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer disabled:opacity-50"
+                                  >
+                                    <Check size={14} />
+                                    <span>✓ Setujui (Jadikan Anggota Resmi)</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={isProcessingRegAction}
+                                    onClick={() => handleOpenRejectModal(applicant)}
+                                    className="btn py-2 px-3.5 bg-red-400 hover:bg-red-300 text-slate-950 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer disabled:opacity-50"
+                                  >
+                                    <X size={14} />
+                                    <span>✕ Tolak Pendaftaran</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={isProcessingRegAction}
+                                    onClick={() => handleDeleteMember(applicant.id, applicant.fullName)}
+                                    className="btn py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer ml-auto"
+                                    title="Hapus berkas pendaftaran ini"
+                                  >
+                                    <Trash2 size={13} />
+                                    <span>Hapus</span>
+                                  </button>
+                                </>
+                              ) : isApproved ? (
+                                <>
+                                  <span className="text-[11px] font-heading font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                    <CheckCircle2 size={14} /> Anggota Resmi LSM PPS
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    disabled={isProcessingRegAction}
+                                    onClick={() => handleRevertMemberToPending(applicant)}
+                                    className="btn py-1.5 px-3 bg-amber-200 hover:bg-amber-300 text-slate-900 border-2 border-black font-heading font-bold text-[11px] uppercase flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000] cursor-pointer ml-auto"
+                                  >
+                                    <RotateCcw size={12} />
+                                    <span>Kembalikan ke Pending</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={isProcessingRegAction}
+                                    onClick={() => handleDeleteMember(applicant.id, applicant.fullName)}
+                                    className="btn py-1.5 px-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-2 border-black font-heading font-bold text-[11px] uppercase flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={isProcessingRegAction}
+                                    onClick={() => handleApproveMemberRegistration(applicant)}
+                                    className="btn py-1.5 px-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                                  >
+                                    <Check size={13} />
+                                    <span>Ubah Menjadi Setujui</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={isProcessingRegAction}
+                                    onClick={() => handleRevertMemberToPending(applicant)}
+                                    className="btn py-1.5 px-3 bg-amber-200 hover:bg-amber-300 text-slate-900 border-2 border-black font-heading font-bold text-[11px] uppercase flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                                  >
+                                    <RotateCcw size={12} />
+                                    <span>Kembalikan ke Pending</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={isProcessingRegAction}
+                                    onClick={() => handleDeleteMember(applicant.id, applicant.fullName)}
+                                    className="btn py-1.5 px-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-2 border-black font-heading font-bold text-[11px] uppercase flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000] cursor-pointer ml-auto"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -7477,6 +8158,159 @@ export default function AdminModal({
         </div>
       )}
 
+      {/* Lightbox Preview Modal for Member Registration Images (Photo / KTP / Status HUD) */}
+      {previewImageDetail && (
+        <div
+          className="fixed inset-0 z-[135] bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-fadeIn"
+          onClick={() => setPreviewImageDetail(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-3xl bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3 text-slate-900 dark:text-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/10">
+              <div>
+                <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                  {previewImageDetail.title || "Pratinjau Berkas"}
+                </h4>
+                {previewImageDetail.subtitle && (
+                  <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+                    {previewImageDetail.subtitle}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewImageDetail(null)}
+                className="w-8 h-8 rounded-lg border border-black/20 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="max-h-[65vh] overflow-hidden rounded-xl border-2 border-black flex items-center justify-center bg-black/90">
+              <img
+                src={previewImageDetail.url}
+                alt={previewImageDetail.title || "Berkas"}
+                className="w-full h-full object-contain max-h-[65vh]"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={() => openImageSafely(previewImageDetail.url, previewImageDetail.title)}
+                className="btn py-2 px-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-400 font-heading font-bold text-xs uppercase flex items-center gap-1.5 cursor-pointer"
+              >
+                <ExternalLink size={13} />
+                <span>Buka di Tab Baru</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setPreviewImageDetail(null)}
+                className="btn py-2 px-4 bg-[#FACC15] text-[#111827] border border-amber-400 font-heading font-black text-xs uppercase shadow-sm cursor-pointer"
+              >
+                Tutup Pratinjau
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dialog Tolak Pendaftaran Anggota */}
+      {rejectTargetMember && (
+        <div
+          className="fixed inset-0 z-[140] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fadeIn"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-lg bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-5 space-y-4 text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/10">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-heading font-black text-sm uppercase">
+                <AlertTriangle size={18} />
+                <span>Tolak Pendaftaran Anggota</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRejectTargetMember(null)}
+                className="w-7 h-7 rounded-lg border border-black/20 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-xs space-y-3">
+              <p className="text-slate-700 dark:text-slate-300">
+                Anda akan menolak pengajuan calon anggota{" "}
+                <strong className="text-red-600 dark:text-red-400 font-heading">
+                  {rejectTargetMember.fullName || "Calon Anggota"}
+                </strong>{" "}
+                (CID: {rejectTargetMember.icNumber || "-"}). Masukkan alasan penolakan agar tercatat di sistem:
+              </p>
+
+              {/* Quick presets */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-heading font-black uppercase text-slate-500 dark:text-slate-400">
+                  Pilih Alasan Cepat:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "Foto KTP IC buram / tidak terbaca",
+                    "Screenshot Status HUD tidak menampilkan jam / waktu IC",
+                    "Terdeteksi masih berafiliasi dengan Gang lain",
+                    "Data identitas pada formulir tidak cocok dengan KTP",
+                    "Status pekerjaan tidak sesuai regulasi LSM PPS",
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setRejectionReasonInput(preset)}
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-700 dark:text-slate-300 hover:text-red-700 dark:hover:text-red-300 border border-black/20 transition-colors text-left"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-heading font-black uppercase text-slate-600 dark:text-slate-400">
+                  Rincian Alasan Penolakan:
+                </label>
+                <textarea
+                  value={rejectionReasonInput}
+                  onChange={(e) => setRejectionReasonInput(e.target.value)}
+                  placeholder="Tulis alasan penolakan pendaftaran anggota..."
+                  rows={3}
+                  className="input-field w-full p-2.5 text-xs bg-white dark:bg-[#12141a] text-slate-900 dark:text-slate-100 border-2 border-black rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/15 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setRejectTargetMember(null)}
+                className="btn py-2 px-3.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-black font-heading font-bold text-xs uppercase cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isProcessingRegAction}
+                onClick={handleConfirmRejectMember}
+                className="btn py-2 px-4 bg-red-500 hover:bg-red-600 text-white border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] cursor-pointer disabled:opacity-50"
+              >
+                Konfirmasi Tolak
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL FORM BUAT / EDIT EVENT */}
       {editingEvent && (
         <div
@@ -7658,7 +8492,7 @@ export default function AdminModal({
               <div className="p-3.5 bg-amber-50/70 dark:bg-[#14161F] border border-black/20 dark:border-white/15/20 dark:border-white/10 rounded-lg flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Sparkles size={15} className="text-[#DC2626]" />
+                    <FileText size={15} className="text-[#DC2626]" />
                     <label className="block text-xs font-heading font-black uppercase text-slate-800 dark:text-slate-200">
                       Syarat Wajib Peserta (Tampil Mengurut 1, 2, 3 ke Bawah)
                     </label>

@@ -10,6 +10,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  updateDoc,
   deleteDoc,
   onSnapshot,
 } from "firebase/firestore";
@@ -405,6 +406,15 @@ export async function submitMemberCloud(data) {
     discordTag: (data.discordTag || "").trim(),
     profilePhoto: data.profilePhoto || "",
     icPhoto: data.icPhoto || "",
+    statusPhoto: data.statusPhoto || "",
+    statusTime: (data.statusTime || "").trim(),
+    statusJob: (data.statusJob || "").trim(),
+    statusGang: (data.statusGang || "").trim(),
+    status: "PENDING_VERIFIKASI",
+    verifiedAt: null,
+    verifiedBy: null,
+    rejectedAt: null,
+    rejectedReason: null,
     createdAt: Date.now(),
     regDate: now.toLocaleDateString("id-ID", {
       day: "2-digit",
@@ -417,6 +427,72 @@ export async function submitMemberCloud(data) {
   const docRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, newDocId);
   await setDoc(docRef, payload);
   return { id: newDocId, ...payload };
+}
+
+/**
+ * Approve a pending member registration (Official Member)
+ */
+export async function approveMemberCloud(memberId, adminName = "Admin") {
+  if (!memberId) throw new Error("ID anggota wajib disertakan.");
+  const docRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, memberId);
+  const updatePayload = {
+    status: "APPROVED",
+    verifiedAt: Date.now(),
+    verifiedBy: adminName,
+    rejectedAt: null,
+    rejectedReason: null,
+  };
+  await updateDoc(docRef, updatePayload);
+  return { id: memberId, ...updatePayload };
+}
+
+/**
+ * Reject a member registration
+ */
+export async function rejectMemberCloud(memberId, reason = "", adminName = "Admin") {
+  if (!memberId) throw new Error("ID anggota wajib disertakan.");
+  const docRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, memberId);
+  const updatePayload = {
+    status: "REJECTED",
+    rejectedAt: Date.now(),
+    rejectedReason: reason.trim() || "Berkas pendaftaran belum memenuhi syarat",
+    rejectedBy: adminName,
+  };
+  await updateDoc(docRef, updatePayload);
+  return { id: memberId, ...updatePayload };
+}
+
+/**
+ * Revert a member back to pending verification
+ */
+export async function revertMemberToPendingCloud(memberId, _adminName = "Admin") {
+  if (!memberId) throw new Error("ID anggota wajib disertakan.");
+  const docRef = doc(getMemberDb(), ...MEMBERS_COL_PATH, memberId);
+  const updatePayload = {
+    status: "PENDING_VERIFIKASI",
+    verifiedAt: null,
+    verifiedBy: null,
+    rejectedAt: null,
+    rejectedReason: null,
+  };
+  await updateDoc(docRef, updatePayload);
+  return { id: memberId, ...updatePayload };
+}
+
+/**
+ * Status helper checks for member records
+ */
+export function isMemberPendingVerification(member) {
+  return member?.status === "PENDING_VERIFIKASI";
+}
+
+export function isMemberApproved(member) {
+  if (!member) return false;
+  return !member.status || member.status === "APPROVED" || member.status === "RESMI";
+}
+
+export function isMemberRejected(member) {
+  return member?.status === "REJECTED";
 }
 
 /**

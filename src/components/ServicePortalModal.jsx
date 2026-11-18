@@ -13,7 +13,7 @@ import {
   Calendar,
   Clock,
   ShieldCheck,
-  Sparkles,
+  Info,
   Search,
   AlertCircle,
   FileText,
@@ -755,7 +755,7 @@ export default function ServicePortalModal({
                                 Format Data Visitor ({isLapak ? "Lapak UMKM" : "Request Meeting"})
                               </span>
                               <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                                <Sparkles size={11} />
+                                <Check size={12} />
                                 Otomatis Terisi
                               </span>
                             </div>
@@ -905,7 +905,7 @@ export default function ServicePortalModal({
                 <form onSubmit={handleSubmitLapak} className="flex flex-col gap-4">
                   {/* Banner Informasi Alur */}
                   <div className="p-3 rounded bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-300 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2">
-                    <Sparkles size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                    <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <strong>Pendaftaran Stan Lapak Sandy Shores:</strong> Isi data identitas KTP IC, Citizen ID, dan unggah foto wajah karakter. Setelah submit, Anda akan diarahkan ke Discord untuk melengkapi data visitor serta mengatur jadwal pertemuan (meeting) dengan pengurus.
                     </div>

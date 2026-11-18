@@ -4,10 +4,11 @@
  */
 
 const DEFAULT_MODELS = [
-  "gemini-flash-latest",
-  "gemini-2.5-flash-lite",
-  "gemini-flash-lite-latest",
   "gemini-3-flash-preview",
+  "gemini-3.5-flash-lite",
+  "gemini-flash-latest",
+  "gemini-3.8-flash",
+  "gemini-flash-lite-latest",
 ];
 
 /**
@@ -257,6 +258,137 @@ Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks)
     } catch (err) {
       lastError = err.message;
       console.warn(`[Gemini OCR] Error calling model ${model}:`, err);
+    }
+  }
+
+  return {
+    success: false,
+    error: "ALL_MODELS_FAILED",
+    message: lastError || "Semua model Gemini gagal merespon.",
+  };
+}
+
+/**
+ * Scans GTA V / FiveM HUD Status screenshot using Google Gemini Vision AI
+ */
+export async function scanStatusWithGemini(imageFileOrUrl, customKey = null) {
+  const apiKey = (customKey || getGeminiApiKey() || "").trim();
+  if (!apiKey) {
+    return { success: false, error: "NO_API_KEY", message: "Gemini API key tidak ditemukan." };
+  }
+
+  let payload;
+  try {
+    payload = await imageToBase64Payload(imageFileOrUrl);
+  } catch (err) {
+    return { success: false, error: "IMAGE_CONVERT_FAILED", message: err.message };
+  }
+
+  const prompt = `Anda adalah mesin OCR Vision AI berspesialisasi tinggi untuk membaca HUD status karakter game GTA V / FiveM Roleplay (JMR, QBCore, ESX).
+
+TUGAS: Ekstrak data teks dari gambar HUD status ini secara 100% akurat tanpa typo.
+
+DATA YANG HARUS DIAMBIL:
+1. "time": Waktu / jam yang tertera di sebelah icon jam (format HH:MM, contoh: "11:56").
+2. "jobStatus": Pekerjaan / profesi / status sipil yang tertera di sebelah icon koper / tas (contoh: "Civilian - Freelancer", "Police Officer", "EMS", dll. Sesuaikan persis dengan yang tampil di gambar).
+3. "gangAffiliation": Status kelompok / gang yang tertera di sebelah icon perisai / shield (contoh: "No Gang - Unaffiliated", atau nama gang jika terafiliasi. Sesuaikan persis dengan yang tampil di gambar).
+4. "playerId": Nomor ID / player tag jika terlihat di bagian atas (contoh: "1046").
+5. "cash": Jumlah uang tunai (contoh: "$16.630").
+6. "bank": Jumlah uang bank (contoh: "$60.550").
+
+PANDUAN ANTI-TYPO & VERIFIKASI:
+- Periksa angka jam dan menit dengan teliti (misal 11:56, jangan salah baca 11:58 atau 11:50).
+- Jangan mencampurkan kata dari baris lain.
+- Tuliskan jobStatus dan gangAffiliation dengan huruf kapital di setiap awal kata (Title Case) yang rapi.
+
+Keluarkan HANYA JSON murni tanpa markdown, tanpa tanda kutip tiga (no backticks):
+{
+  "time": "...",
+  "jobStatus": "...",
+  "gangAffiliation": "...",
+  "playerId": "...",
+  "cash": "...",
+  "bank": "..."
+}`;
+
+  let lastError = null;
+
+  for (const model of DEFAULT_MODELS) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: payload.mimeType || "image/png",
+                    data: payload.data,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            response_mime_type: "application/json",
+            temperature: 0.0,
+            top_p: 0.1,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (data.error) {
+        lastError = data.error.message || JSON.stringify(data.error);
+        console.warn(`[Gemini Status OCR] Model ${model} returned error:`, data.error);
+        continue;
+      }
+
+      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawJson) {
+        lastError = "AI tidak mengembalikan teks jawaban";
+        continue;
+      }
+
+      let parsed = {};
+      try {
+        parsed = JSON.parse(rawJson.replace(/^```json/i, "").replace(/```$/, "").trim());
+      } catch (parseErr) {
+        const jsonMatch = rawJson.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+        else throw parseErr;
+      }
+
+      let time = String(parsed.time || "").trim();
+      const timeMatch = time.match(/([01]?[0-9]|2[0-3]):[0-5][0-9]/);
+      if (timeMatch) time = timeMatch[0];
+
+      let jobStatus = String(parsed.jobStatus || "").trim();
+      let gangAffiliation = String(parsed.gangAffiliation || "").trim();
+
+      return {
+        success: true,
+        source: "gemini-ai",
+        modelUsed: model,
+        fields: {
+          time,
+          jobStatus,
+          gangAffiliation,
+          playerId: String(parsed.playerId || "").trim(),
+          cash: String(parsed.cash || "").trim(),
+          bank: String(parsed.bank || "").trim(),
+        },
+      };
+    } catch (err) {
+      lastError = err.message;
+      console.warn(`[Gemini Status OCR] Error calling model ${model}:`, err);
     }
   }
 

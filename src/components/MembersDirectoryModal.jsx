@@ -4,26 +4,17 @@ import {
   Users,
   Search,
   UserPlus,
-  CreditCard,
-  Phone,
-  Calendar,
   ShieldCheck,
-  FileText,
-  Eye,
-  Sparkles,
-  ExternalLink,
   HeartHandshake,
   Gift,
+  AlertCircle,
+  Eye,
 } from "lucide-react";
 import {
   subscribeMembersCloud,
   subscribeExternalJasraCloud,
   getMemberKasSubscription,
   getMemberVoucherSubscription,
-  isMemberKasPaidCurrentMonth,
-  isMemberVoucherReceivedCurrentWeek,
-  getCurrentMonthLabel,
-  getCurrentWeekLabel,
 } from "../services/memberService";
 import {
   subscribeJasraDistributionsCloud,
@@ -47,6 +38,8 @@ export default function MembersDirectoryModal({
   const [previewKtp, setPreviewKtp] = useState(null); // { image, name, citizenId }
   const [filterJasraOnly, setFilterJasraOnly] = useState(false);
   const [jasraScopeFilter, setJasraScopeFilter] = useState("ALL"); // 'ALL' | 'MEMBER' | 'EXTERNAL'
+  const [statusFilter, setStatusFilter] = useState("ALL"); // 'ALL' | 'APPROVED' | 'PENDING'
+  const [selectedPendingDisclaimer, setSelectedPendingDisclaimer] = useState(null);
 
   // Subscribe to real-time Cloud Database
   useEffect(() => {
@@ -191,18 +184,32 @@ export default function MembersDirectoryModal({
     ? activeBatchDistributions.length
     : (memberJasraCount + externalJasraCount);
 
-  // Filter items based on search query & filter Jasra & scope
+  // Status segmentation (Approved vs Pending Verification)
+  const pendingMembers = useMemo(() => {
+    return members.filter((m) => m.status === "PENDING_VERIFIKASI");
+  }, [members]);
+
+  const approvedMembers = useMemo(() => {
+    return members.filter((m) => !m.status || m.status === "APPROVED" || m.status === "RESMI");
+  }, [members]);
+
+  // Filter items based on search query & filter Jasra & scope & status
   const q = searchQuery.trim().toLowerCase();
 
   const displayedItems = useMemo(() => {
     if (!filterJasraOnly) {
-      // Normal mode: All registered members
+      // Normal mode: Registered members filtered by status & search
       const list = members.filter((m) => {
+        if (statusFilter === "APPROVED" && m.status === "PENDING_VERIFIKASI") return false;
+        if (statusFilter === "PENDING" && m.status !== "PENDING_VERIFIKASI") return false;
+
         if (!q) return true;
         const name = (m.fullName || "").toLowerCase();
         const ic = (m.icNumber || "").toLowerCase();
         const phone = (m.phone || "").toLowerCase();
-        return name.includes(q) || ic.includes(q) || phone.includes(q);
+        const job = (m.statusJob || "").toLowerCase();
+        const gang = (m.statusGang || "").toLowerCase();
+        return name.includes(q) || ic.includes(q) || phone.includes(q) || job.includes(q) || gang.includes(q);
       });
       return list.map((m) => ({ type: "MEMBER", data: m }));
     }
@@ -234,7 +241,7 @@ export default function MembersDirectoryModal({
     }
 
     return result;
-  }, [members, externalJasraItems, filterJasraOnly, jasraScopeFilter, memberJasraList, q]);
+  }, [members, externalJasraItems, filterJasraOnly, jasraScopeFilter, memberJasraList, q, statusFilter]);
 
   if (!isOpen) return null;
 
@@ -284,23 +291,66 @@ export default function MembersDirectoryModal({
 
           {/* Subheader Toolbar & Stats */}
           <div className="p-3 sm:px-6 sm:py-3.5 bg-amber-50/50 dark:bg-[#151822] border-b border-black/10 dark:border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-            {/* Stats Badges & Jasra Counter */}
+            {/* Stats Badges, Status Filter & Jasra Counter */}
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => setFilterJasraOnly(false)}
+                onClick={() => {
+                  setFilterJasraOnly(false);
+                  setStatusFilter("ALL");
+                }}
                 className={`px-3 py-1.5 rounded-lg border text-xs font-heading font-bold uppercase tracking-wide flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-sm ${
-                  !filterJasraOnly
+                  !filterJasraOnly && statusFilter === "ALL"
                     ? "bg-[#FACC15] text-[#111827] border-amber-400 font-extrabold"
                     : "bg-white dark:bg-[#1F222C] text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
-                title="Tampilkan seluruh anggota resmi terdaftar"
+                title="Tampilkan seluruh data anggota terdaftar"
               >
                 <Users size={14} />
                 <span>
-                  {isLoading ? "Memuat..." : `${members.length} Anggota Terdaftar`}
+                  {isLoading ? "Memuat..." : `${members.length} Semua Anggota`}
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterJasraOnly(false);
+                  setStatusFilter("APPROVED");
+                }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-heading font-bold uppercase tracking-wide flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-sm ${
+                  !filterJasraOnly && statusFilter === "APPROVED"
+                    ? "bg-emerald-500 text-slate-950 border-emerald-600 font-extrabold"
+                    : "bg-white dark:bg-[#1F222C] text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+                title="Tampilkan hanya anggota resmi terverifikasi"
+              >
+                <ShieldCheck size={14} className={!filterJasraOnly && statusFilter === "APPROVED" ? "text-slate-950" : "text-emerald-600"} />
+                <span>
+                  {isLoading ? "..." : `${approvedMembers.length} Resmi`}
+                </span>
+              </button>
+
+              {pendingMembers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterJasraOnly(false);
+                    setStatusFilter("PENDING");
+                  }}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-heading font-bold uppercase tracking-wide flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-sm ${
+                    !filterJasraOnly && statusFilter === "PENDING"
+                      ? "bg-amber-400 text-slate-950 border-amber-500 font-extrabold shadow-sm"
+                      : "bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 hover:bg-amber-100"
+                  }`}
+                  title="Tampilkan anggota yang sedang dalam proses verifikasi berkas"
+                >
+                  <AlertCircle size={14} className="text-amber-600 animate-pulse" />
+                  <span>
+                    {isLoading ? "..." : `${pendingMembers.length} Proses Verifikasi`}
+                  </span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -383,7 +433,7 @@ export default function MembersDirectoryModal({
                 ) : (
                   <>
                     Menampilkan <strong>{displayedItems.length}</strong> dari{" "}
-                    <strong>{members.length}</strong> anggota resmi
+                    <strong>{members.length}</strong> anggota {statusFilter === "PENDING" ? "proses verifikasi" : statusFilter === "APPROVED" ? "resmi" : "terdaftar"}
                   </>
                 )}
               </span>
@@ -637,7 +687,72 @@ export default function MembersDirectoryModal({
                               <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                                 <Eye size={15} />
                               </span>
-                            </>
+                              {/* Pending Verification Disclaimer Modal */}
+      {selectedPendingDisclaimer && (
+        <div
+          className="fixed inset-0 z-[125] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-fadeIn"
+          onClick={() => setSelectedPendingDisclaimer(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 text-slate-900 dark:text-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/10">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-heading font-black text-sm uppercase">
+                <AlertCircle size={18} />
+                <span>Tahap Proses Verifikasi</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPendingDisclaimer(null)}
+                className="w-7 h-7 rounded-lg border border-black/20 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-xs space-y-2.5 leading-relaxed text-slate-700 dark:text-slate-300">
+              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-400 text-amber-950 dark:text-amber-200">
+                <strong className="block text-slate-950 dark:text-slate-100 font-heading text-xs uppercase">
+                  {selectedPendingDisclaimer.fullName || "Calon Anggota"}
+                </strong>
+                <span className="font-mono text-[11px] text-[#DC2626] dark:text-[#FACC15]">
+                  Citizen ID: {selectedPendingDisclaimer.icNumber || "-"}
+                </span>
+                {(selectedPendingDisclaimer.statusJob || selectedPendingDisclaimer.statusGang) && (
+                  <div className="text-[10.5px] text-slate-600 dark:text-slate-400 mt-1 font-mono">
+                    Pekerjaan: {selectedPendingDisclaimer.statusJob || "-"} • Gang: {selectedPendingDisclaimer.statusGang || "-"}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800/60 text-red-950 dark:text-red-200">
+                <strong className="block font-heading font-black uppercase text-red-700 dark:text-red-400 mb-1">
+                  DISCLAIMER KEANGGOTAAN:
+                </strong>
+                <span>
+                  Dalam tahap proses verifikasi ini, yang bersangkutan <strong>BELUM resmi menjadi anggota</strong> LSM Paguyuban Pizza Sandy Shores. Berkas KTP IC dan Status HUD sedang dalam peninjauan oleh Admin Pengurus.
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Calon anggota baru akan resmi tercatat dan mendapatkan hak keanggotaan penuh (seperti klaim voucher, hak kas, dan suara) setelah diverifikasi dan disetujui di panel pengurus.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedPendingDisclaimer(null)}
+              className="btn py-2 px-4 bg-[#FACC15] text-[#111827] border border-amber-400 font-heading font-black text-xs uppercase self-end cursor-pointer active:scale-95"
+            >
+              Tutup Penjelasan
+            </button>
+          </div>
+        </div>
+      )}
+    </>
                           ) : (
                             <Users size={20} className="text-slate-400" />
                           )}
@@ -651,9 +766,21 @@ export default function MembersDirectoryModal({
                             >
                               {member.fullName || "Nama Tidak Tertera"}
                             </h4>
-                            <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-500 shrink-0">
-                              RESMI
-                            </span>
+                            {member.status === "PENDING_VERIFIKASI" ? (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPendingDisclaimer(member)}
+                                className="inline-flex items-center gap-1 text-[9px] font-mono font-black px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-400 hover:bg-amber-200 cursor-pointer shadow-xs transition-colors shrink-0"
+                                title="Klik untuk membaca penjelasan status verifikasi"
+                              >
+                                <AlertCircle size={10} className="text-amber-600 dark:text-amber-400 animate-pulse" />
+                                <span>PROSES VERIFIKASI</span>
+                              </button>
+                            ) : (
+                              <span className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-500 shrink-0">
+                                RESMI
+                              </span>
+                            )}
                           </div>
                           <span className="text-[10px] font-mono text-slate-500 block truncate">
                             Terdaftar: {member.regDate || (member.createdAt ? new Date(member.createdAt).toLocaleDateString("id-ID") : "-")}
@@ -662,7 +789,7 @@ export default function MembersDirectoryModal({
                       </div>
 
                       {/* Details Info: Citizen ID & Phone */}
-                      <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded-xl bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2.5">
+                      <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded-xl bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2">
                         <div>
                           <span className="text-[9px] text-slate-400 font-sans font-bold block">
                             CITIZEN ID / KTP:
@@ -687,8 +814,22 @@ export default function MembersDirectoryModal({
                         </div>
                       </div>
 
-                      {/* Status Kas & Voucher Jasra (Read-Only) */}
-                      {(() => {
+                      {/* Status Kas & Voucher Jasra */}
+                      {member.status === "PENDING_VERIFIKASI" ? (
+                        <div className="flex flex-col gap-1 p-2 rounded-xl bg-amber-50/60 dark:bg-[#12141D] border border-amber-300/60 dark:border-amber-700/40 mb-2.5 text-[11px]">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] font-mono font-bold text-amber-800 dark:text-amber-300 uppercase flex items-center gap-1">
+                              <AlertCircle size={11} className="text-amber-600" /> TAHAP VERIFIKASI
+                            </span>
+                            <span className="text-[9px] font-mono font-bold bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-1.5 py-0.2 rounded">
+                              BELUM RESMI
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400 leading-tight">
+                            Menunggu verifikasi berkas oleh pengurus. Belum aktif sebagai anggota resmi.
+                          </span>
+                        </div>
+                      ) : (() => {
                         const kasSub = getMemberKasSubscription(member);
                         const voucherSub = getMemberVoucherSubscription(member, new Date(), activeBatch);
                         return (
@@ -832,6 +973,71 @@ export default function MembersDirectoryModal({
               className="btn py-2 bg-[#FACC15] text-[#111827] border border-amber-400 font-heading font-black text-xs uppercase shadow-sm"
             >
               Tutup Pratinjau
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Pending Verification Disclaimer Modal */}
+      {selectedPendingDisclaimer && (
+        <div
+          className="fixed inset-0 z-[125] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 animate-fadeIn"
+          onClick={() => setSelectedPendingDisclaimer(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 text-slate-900 dark:text-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/10">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-heading font-black text-sm uppercase">
+                <AlertCircle size={18} />
+                <span>Tahap Proses Verifikasi</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedPendingDisclaimer(null)}
+                className="w-7 h-7 rounded-lg border border-black/20 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-xs space-y-2.5 leading-relaxed text-slate-700 dark:text-slate-300">
+              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-400 text-amber-950 dark:text-amber-200">
+                <strong className="block text-slate-950 dark:text-slate-100 font-heading text-xs uppercase">
+                  {selectedPendingDisclaimer.fullName || "Calon Anggota"}
+                </strong>
+                <span className="font-mono text-[11px] text-[#DC2626] dark:text-[#FACC15]">
+                  Citizen ID: {selectedPendingDisclaimer.icNumber || "-"}
+                </span>
+                {(selectedPendingDisclaimer.statusJob || selectedPendingDisclaimer.statusGang) && (
+                  <div className="text-[10.5px] text-slate-600 dark:text-slate-400 mt-1 font-mono">
+                    Pekerjaan: {selectedPendingDisclaimer.statusJob || "-"} • Gang: {selectedPendingDisclaimer.statusGang || "-"}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800/60 text-red-950 dark:text-red-200">
+                <strong className="block font-heading font-black uppercase text-red-700 dark:text-red-400 mb-1">
+                  DISCLAIMER KEANGGOTAAN:
+                </strong>
+                <span>
+                  Dalam tahap proses verifikasi ini, yang bersangkutan <strong>BELUM resmi menjadi anggota</strong> LSM Paguyuban Pizza Sandy Shores. Berkas KTP IC dan Status HUD sedang dalam peninjauan oleh Admin Pengurus.
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Calon anggota baru akan resmi tercatat dan mendapatkan hak keanggotaan penuh (seperti klaim voucher, hak kas, dan suara) setelah diverifikasi dan disetujui di panel pengurus.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedPendingDisclaimer(null)}
+              className="btn py-2 px-4 bg-[#FACC15] text-[#111827] border border-amber-400 font-heading font-black text-xs uppercase self-end cursor-pointer active:scale-95"
+            >
+              Tutup Penjelasan
             </button>
           </div>
         </div>

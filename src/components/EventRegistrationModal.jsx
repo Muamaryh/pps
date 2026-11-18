@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import {
   X,
-  Sparkles,
+  Trophy,
   Ticket,
   CheckCircle2,
   AlertTriangle,
@@ -353,7 +353,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                 <div className="p-3.5 bg-amber-50 dark:bg-[#14161F] border-2 border-black dark:border-[#475569] rounded-lg flex flex-col gap-2.5 text-xs shadow-[2px_2px_0px_#000]/10">
                   <div className="flex items-center justify-between gap-3 border-b border-black/10 dark:border-white/10 pb-2">
                     <div className="flex items-center gap-2">
-                      <Sparkles size={16} className="text-[#DC2626]" />
+                      <Trophy size={16} className="text-[#DC2626]" />
                       <strong className="block text-slate-950 dark:text-slate-100 font-heading font-black uppercase text-xs tracking-tight">
                         Syarat Wajib Peserta:
                       </strong>
