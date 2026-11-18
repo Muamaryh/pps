@@ -1107,7 +1107,7 @@ export default function MemberRegistrationModal({
                       </label>
                       <input
                         type="text"
-                        placeholder="Contoh: nama_discord atau username#1234 (Wajib)"
+                        placeholder="Contoh: nama_discord atau username#1234"
                         value={formData.discordTag}
                         onChange={(e) => setFormData({ ...formData, discordTag: e.target.value })}
                         required
