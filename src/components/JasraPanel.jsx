@@ -1139,9 +1139,9 @@ export default function JasraPanel({
                     /* Selected Member Preview Card */
                     <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-black/20 dark:border-white/15 dark:border-amber-500/60 shadow-xs flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        {selectedMember.photoUrl ? (
+                        {(selectedMember.profilePhoto || selectedMember.photoUrl) ? (
                           <img
-                            src={selectedMember.photoUrl}
+                            src={selectedMember.profilePhoto || selectedMember.photoUrl}
                             alt={selectedMember.fullName}
                             className="w-10 h-10 rounded-full border border-black/20 dark:border-white/15 object-cover shrink-0"
                           />
@@ -1234,9 +1234,9 @@ export default function JasraPanel({
                                   className="w-full text-left p-2.5 hover:bg-amber-50 dark:hover:bg-slate-800 flex items-center justify-between gap-2.5 transition-colors cursor-pointer group"
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    {m.photoUrl ? (
+                                    {(m.profilePhoto || m.photoUrl) ? (
                                       <img
-                                        src={m.photoUrl}
+                                        src={m.profilePhoto || m.photoUrl}
                                         alt=""
                                         className="w-7 h-7 rounded-full border border-black object-cover shrink-0"
                                       />

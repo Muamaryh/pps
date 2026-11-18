@@ -4622,9 +4622,9 @@ export default function AdminModal({
               {activeTab === "member_registrations" && (
                 <div className="flex flex-col gap-4">
                   {/* Top Header Card */}
-                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-amber-400 border border-black/20 dark:border-white/15 flex items-center justify-center text-slate-900 shadow-xs shrink-0">
+                      <div className="w-11 h-11 rounded-xl bg-amber-400/90 border border-amber-500/50 flex items-center justify-center text-slate-900 shadow-sm shrink-0">
                         <UserCheck size={20} className="text-slate-900" />
                       </div>
                       <div>
@@ -4633,8 +4633,8 @@ export default function AdminModal({
                             Verifikasi Pendaftaran Anggota Baru
                           </h4>
                           {pendingRegistrationsCount > 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-heading font-black bg-amber-400 text-slate-950 border border-black flex items-center gap-1 animate-pulse">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-heading font-black bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-400 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                               {pendingRegistrationsCount} Menunggu Tindakan
                             </span>
                           )}
@@ -4647,15 +4647,15 @@ export default function AdminModal({
 
                     {/* Stats Counter Badges */}
                     <div className="flex items-center gap-2 flex-wrap text-xs">
-                      <div className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 font-bold flex items-center gap-1.5">
+                      <div className="px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 font-bold flex items-center gap-1.5 shadow-xs">
                         <Clock size={13} className="text-amber-600 dark:text-amber-400" />
                         <span>Menunggu: {pendingRegistrationsCount}</span>
                       </div>
-                      <div className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold flex items-center gap-1.5">
+                      <div className="px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold flex items-center gap-1.5 shadow-xs">
                         <Check size={13} className="text-emerald-600 dark:text-emerald-400" />
                         <span>Resmi: {approvedRegistrationsCount}</span>
                       </div>
-                      <div className="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 font-bold flex items-center gap-1.5">
+                      <div className="px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-red-900 dark:text-red-200 font-bold flex items-center gap-1.5 shadow-xs">
                         <X size={13} className="text-red-600 dark:text-red-400" />
                         <span>Ditolak: {rejectedRegistrationsCount}</span>
                       </div>
@@ -4663,16 +4663,16 @@ export default function AdminModal({
                   </div>
 
                   {/* Filter Tabs and Search Bar */}
-                  <div className="card-brutal p-3 sm:p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="p-3 sm:p-4 rounded-2xl bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                     {/* Status Filter Tabs */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <button
                         type="button"
                         onClick={() => setMemberRegFilterTab("PENDING")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-heading font-black border-2 border-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-black flex items-center gap-1.5 cursor-pointer transition-all ${
                           memberRegFilterTab === "PENDING"
-                            ? "bg-amber-400 text-slate-950 shadow-[2px_2px_0px_#000]"
-                            : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                            ? "bg-[#FACC15] text-slate-950 shadow-sm border border-amber-400/80 font-black"
+                            : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10"
                         }`}
                       >
                         <Clock size={13} />
@@ -4682,10 +4682,10 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setMemberRegFilterTab("ALL")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-heading font-black border-2 border-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-black flex items-center gap-1.5 cursor-pointer transition-all ${
                           memberRegFilterTab === "ALL"
-                            ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 shadow-[2px_2px_0px_#000]"
-                            : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                            ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 shadow-sm border border-black/20 dark:border-white/20 font-black"
+                            : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10"
                         }`}
                       >
                         <Users2 size={13} />
@@ -4695,10 +4695,10 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setMemberRegFilterTab("APPROVED")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-heading font-black border-2 border-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-black flex items-center gap-1.5 cursor-pointer transition-all ${
                           memberRegFilterTab === "APPROVED"
-                            ? "bg-emerald-400 text-slate-950 shadow-[2px_2px_0px_#000]"
-                            : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                            ? "bg-emerald-500 text-white shadow-sm border border-emerald-600 font-black"
+                            : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10"
                         }`}
                       >
                         <Check size={13} />
@@ -4708,10 +4708,10 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setMemberRegFilterTab("REJECTED")}
-                        className={`px-3 py-1.5 rounded-md text-xs font-heading font-black border-2 border-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-black flex items-center gap-1.5 cursor-pointer transition-all ${
                           memberRegFilterTab === "REJECTED"
-                            ? "bg-red-400 text-slate-950 shadow-[2px_2px_0px_#000]"
-                            : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                            ? "bg-red-500 text-white shadow-sm border border-red-600 font-black"
+                            : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10"
                         }`}
                       >
                         <X size={13} />
@@ -4730,7 +4730,7 @@ export default function AdminModal({
                         placeholder="Cari nama IC, CID, HP, Discord, Job..."
                         value={memberRegSearchQuery}
                         onChange={(e) => setMemberRegSearchQuery(e.target.value)}
-                        className="input-field w-full pl-9 pr-8 py-1.5 text-xs bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 rounded-md"
+                        className="input-field w-full pl-9 pr-8 py-2 text-xs bg-slate-50 dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-amber-400"
                       />
                       {memberRegSearchQuery && (
                         <button
@@ -4746,8 +4746,8 @@ export default function AdminModal({
 
                   {/* Applicants List */}
                   {memberRegistrationsList.length === 0 ? (
-                    <div className="card-brutal p-8 text-center bg-[var(--card-bg)] border border-black/15 dark:border-white/10 rounded-xl space-y-2">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-black flex items-center justify-center mx-auto text-slate-400">
+                    <div className="p-8 text-center bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 rounded-2xl space-y-2 shadow-sm">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 border border-black/10 dark:border-white/10 flex items-center justify-center mx-auto text-slate-400">
                         <Users2 size={24} />
                       </div>
                       <h5 className="font-heading font-black text-sm uppercase text-slate-800 dark:text-slate-200">
@@ -4767,39 +4767,42 @@ export default function AdminModal({
                         const isPending = applicant.status === "PENDING_VERIFIKASI";
                         const isApproved = !applicant.status || applicant.status === "APPROVED";
                         const isRejected = applicant.status === "REJECTED";
+                        const applicantProfilePhoto = applicant.profilePhoto || applicant.photoUrl || applicant.avatarUrl || "";
+                        const applicantKtpPhoto = applicant.icPhoto || applicant.ktpImage || applicant.ktpPhoto || applicant.ktpUrl || "";
+                        const applicantStatusPhoto = applicant.statusPhoto || applicant.hudPhoto || "";
 
                         return (
                           <div
                             key={applicant.id}
-                            className={`card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border-2 border-black dark:border-white/20 rounded-xl space-y-4 shadow-[3px_3px_0px_#000] dark:shadow-[3px_3px_0px_rgba(255,255,255,0.15)] transition-all ${
+                            className={`p-4 sm:p-5 bg-white dark:bg-[#151824] border rounded-2xl space-y-4 shadow-sm hover:shadow-md transition-all ${
                               isPending
-                                ? "ring-2 ring-amber-400/50"
+                                ? "border-amber-400/80 dark:border-amber-500/60 bg-amber-50/[0.04]"
                                 : isRejected
-                                ? "opacity-80"
-                                : ""
+                                ? "opacity-85 border-red-300/60 dark:border-red-900/40"
+                                : "border-black/15 dark:border-white/10"
                             }`}
                           >
                             {/* Card Header: Profil, Nama IC, CID & Status Badge */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-black/10 dark:border-white/10">
                               <div className="flex items-center gap-3">
-                                {/* Small Avatar / Initial */}
+                                {/* Small Avatar */}
                                 <div
-                                  className="w-11 h-11 rounded-lg border-2 border-black overflow-hidden bg-slate-200 dark:bg-slate-800 flex items-center justify-center shrink-0 cursor-pointer group relative"
+                                  className="w-12 h-12 rounded-full border border-black/15 dark:border-white/15 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 cursor-pointer group relative shadow-xs"
                                   onClick={() => {
-                                    if (applicant.photoUrl) {
+                                    if (applicantProfilePhoto) {
                                       setPreviewImageDetail({
-                                        url: applicant.photoUrl,
+                                        url: applicantProfilePhoto,
                                         title: `Foto Profil IC - ${applicant.fullName || "Anggota"}`,
                                         subtitle: `Citizen ID: ${applicant.icNumber || "-"}`,
                                       });
                                     }
                                   }}
-                                  title={applicant.photoUrl ? "Klik untuk perbesar foto profil" : "Foto Profil"}
+                                  title={applicantProfilePhoto ? "Klik untuk perbesar foto profil" : "Foto Profil"}
                                 >
-                                  {applicant.photoUrl ? (
+                                  {applicantProfilePhoto ? (
                                     <>
                                       <img
-                                        src={applicant.photoUrl}
+                                        src={applicantProfilePhoto}
                                         alt={applicant.fullName}
                                         className="w-full h-full object-cover"
                                       />
@@ -4817,7 +4820,7 @@ export default function AdminModal({
                                     <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
                                       {applicant.fullName || "Tanpa Nama IC"}
                                     </h4>
-                                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-amber-300 border border-red-300 dark:border-red-900">
+                                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-amber-300 border border-red-300 dark:border-red-900">
                                       CID: {applicant.icNumber || "-"}
                                     </span>
                                   </div>
@@ -4835,18 +4838,18 @@ export default function AdminModal({
                               {/* Status Badge */}
                               <div className="self-start sm:self-center">
                                 {isPending ? (
-                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border-2 border-black bg-amber-300 text-amber-950 flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_#000]">
-                                    <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping" />
+                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border border-amber-400 bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 flex items-center gap-1.5 shadow-xs">
+                                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                                     <span>MENUNGGU VERIFIKASI</span>
                                   </span>
                                 ) : isApproved ? (
-                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border-2 border-black bg-emerald-300 text-emerald-950 flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_#000]">
-                                    <Check size={13} className="text-emerald-800" />
+                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border border-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5 shadow-xs">
+                                    <Check size={13} className="text-emerald-700 dark:text-emerald-400" />
                                     <span>ANGGOTA RESMI</span>
                                   </span>
                                 ) : (
-                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border-2 border-black bg-rose-300 text-rose-950 flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_#000]">
-                                    <X size={13} className="text-rose-800" />
+                                  <span className="px-3 py-1 rounded-full text-[11px] font-heading font-black border border-rose-400 bg-rose-100 dark:bg-rose-950/80 text-rose-900 dark:text-rose-200 flex items-center gap-1.5 shadow-xs">
+                                    <X size={13} className="text-rose-700 dark:text-rose-400" />
                                     <span>PENDAFTARAN DITOLAK</span>
                                   </span>
                                 )}
@@ -4856,24 +4859,24 @@ export default function AdminModal({
                             {/* 3-Panel Verification Grid: Profil, KTP, Status HUD */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
                               {/* Panel 1: Foto Profil Karakter IC */}
-                              <div className="p-3 rounded-lg border-2 border-black/20 dark:border-white/10 bg-slate-50 dark:bg-[#12141a] flex flex-col gap-2">
+                              <div className="p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/80 dark:bg-[#12141d] flex flex-col gap-2.5 shadow-xs">
                                 <div className="flex items-center justify-between pb-1.5 border-b border-black/10 dark:border-white/10">
                                   <span className="text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                     <Camera size={13} className="text-blue-500" />
                                     <span>1. Foto Profil IC</span>
                                   </span>
-                                  {applicant.photoUrl && (
-                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                                      Terunggah
+                                  {applicantProfilePhoto && (
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                      <Check size={11} /> Terunggah
                                     </span>
                                   )}
                                 </div>
 
-                                <div className="h-40 rounded-lg border border-black/20 overflow-hidden bg-black/5 dark:bg-black/40 flex items-center justify-center relative group">
-                                  {applicant.photoUrl ? (
+                                <div className="h-44 rounded-xl border border-black/10 dark:border-white/10 overflow-hidden bg-slate-100 dark:bg-black/40 flex items-center justify-center relative group">
+                                  {applicantProfilePhoto ? (
                                     <>
                                       <img
-                                        src={applicant.photoUrl}
+                                        src={applicantProfilePhoto}
                                         alt={`Foto Profil ${applicant.fullName}`}
                                         className="w-full h-full object-contain"
                                       />
@@ -4881,12 +4884,12 @@ export default function AdminModal({
                                         type="button"
                                         onClick={() =>
                                           setPreviewImageDetail({
-                                            url: applicant.photoUrl,
+                                            url: applicantProfilePhoto,
                                             title: `Foto Profil IC - ${applicant.fullName || "Anggota"}`,
                                             subtitle: `Citizen ID: ${applicant.icNumber || "-"}`,
                                           })
                                         }
-                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-heading font-bold cursor-pointer"
+                                        className="absolute inset-0 bg-black/50 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white text-xs font-heading font-bold cursor-pointer"
                                       >
                                         <Eye size={18} />
                                         <span>Perbesar Foto</span>
@@ -4902,24 +4905,24 @@ export default function AdminModal({
                               </div>
 
                               {/* Panel 2: Dokumen KTP IC */}
-                              <div className="p-3 rounded-lg border-2 border-black/20 dark:border-white/10 bg-slate-50 dark:bg-[#12141a] flex flex-col gap-2">
+                              <div className="p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/80 dark:bg-[#12141d] flex flex-col gap-2.5 shadow-xs">
                                 <div className="flex items-center justify-between pb-1.5 border-b border-black/10 dark:border-white/10">
                                   <span className="text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                     <FileText size={13} className="text-amber-500" />
                                     <span>2. Dokumen KTP IC</span>
                                   </span>
-                                  {applicant.ktpImage && (
-                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                                      Terunggah
+                                  {applicantKtpPhoto && (
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                      <Check size={11} /> Terunggah
                                     </span>
                                   )}
                                 </div>
 
-                                <div className="h-40 rounded-lg border border-black/20 overflow-hidden bg-black/5 dark:bg-black/40 flex items-center justify-center relative group">
-                                  {applicant.ktpImage ? (
+                                <div className="h-44 rounded-xl border border-black/10 dark:border-white/10 overflow-hidden bg-slate-100 dark:bg-black/40 flex items-center justify-center relative group">
+                                  {applicantKtpPhoto ? (
                                     <>
                                       <img
-                                        src={applicant.ktpImage}
+                                        src={applicantKtpPhoto}
                                         alt={`KTP ${applicant.fullName}`}
                                         className="w-full h-full object-contain"
                                       />
@@ -4927,12 +4930,12 @@ export default function AdminModal({
                                         type="button"
                                         onClick={() =>
                                           setPreviewImageDetail({
-                                            url: applicant.ktpImage,
+                                            url: applicantKtpPhoto,
                                             title: `Dokumen KTP IC - ${applicant.fullName || "Anggota"}`,
                                             subtitle: `Citizen ID: ${applicant.icNumber || "-"}`,
                                           })
                                         }
-                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-heading font-bold cursor-pointer"
+                                        className="absolute inset-0 bg-black/50 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white text-xs font-heading font-bold cursor-pointer"
                                       >
                                         <Eye size={18} />
                                         <span>Perbesar KTP</span>
@@ -4957,24 +4960,24 @@ export default function AdminModal({
                               </div>
 
                               {/* Panel 3: Screenshot Status HUD IC */}
-                              <div className="p-3 rounded-lg border-2 border-black/20 dark:border-white/10 bg-slate-50 dark:bg-[#12141a] flex flex-col gap-2">
+                              <div className="p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-slate-50/80 dark:bg-[#12141d] flex flex-col gap-2.5 shadow-xs">
                                 <div className="flex items-center justify-between pb-1.5 border-b border-black/10 dark:border-white/10">
                                   <span className="text-[11px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                     <Clock size={13} className="text-emerald-500" />
                                     <span>3. Status HUD IC</span>
                                   </span>
-                                  {applicant.statusPhoto && (
-                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                                      Terunggah
+                                  {applicantStatusPhoto && (
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                      <Check size={11} /> Terunggah
                                     </span>
                                   )}
                                 </div>
 
-                                <div className="h-40 rounded-lg border border-black/20 overflow-hidden bg-black/5 dark:bg-black/40 flex items-center justify-center relative group">
-                                  {applicant.statusPhoto ? (
+                                <div className="h-44 rounded-xl border border-black/10 dark:border-white/10 overflow-hidden bg-slate-100 dark:bg-black/40 flex items-center justify-center relative group">
+                                  {applicantStatusPhoto ? (
                                     <>
                                       <img
-                                        src={applicant.statusPhoto}
+                                        src={applicantStatusPhoto}
                                         alt={`Status HUD ${applicant.fullName}`}
                                         className="w-full h-full object-contain"
                                       />
@@ -4982,12 +4985,12 @@ export default function AdminModal({
                                         type="button"
                                         onClick={() =>
                                           setPreviewImageDetail({
-                                            url: applicant.statusPhoto,
+                                            url: applicantStatusPhoto,
                                             title: `Screenshot Status HUD IC - ${applicant.fullName || "Anggota"}`,
                                             subtitle: `Waktu: ${applicant.statusTime || "-"} • Pekerjaan: ${applicant.statusJob || "-"} • Gang: ${applicant.statusGang || "-"}`,
                                           })
                                         }
-                                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-heading font-bold cursor-pointer"
+                                        className="absolute inset-0 bg-black/50 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white text-xs font-heading font-bold cursor-pointer"
                                       >
                                         <Eye size={18} />
                                         <span>Perbesar Status HUD</span>
@@ -5003,7 +5006,7 @@ export default function AdminModal({
 
                                 <div className="space-y-1.5 pt-1 text-[11px]">
                                   {/* Waktu IC */}
-                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2 py-1 rounded border border-black/15">
+                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10">
                                     <span className="text-slate-500 flex items-center gap-1">
                                       <Clock size={11} className="text-amber-500" /> Waktu IC:
                                     </span>
@@ -5013,7 +5016,7 @@ export default function AdminModal({
                                   </div>
 
                                   {/* Status Pekerjaan */}
-                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2 py-1 rounded border border-black/15">
+                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10">
                                     <span className="text-slate-500 flex items-center gap-1">
                                       <Briefcase size={11} className="text-blue-500" /> Job:
                                     </span>
@@ -5023,7 +5026,7 @@ export default function AdminModal({
                                   </div>
 
                                   {/* Afiliasi Gang / Kelompok */}
-                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2 py-1 rounded border border-black/15">
+                                  <div className="flex items-center justify-between font-mono bg-white dark:bg-[#1a1d26] px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10">
                                     <span className="text-slate-500 flex items-center gap-1">
                                       <Shield size={11} className="text-emerald-500" /> Afiliasi:
                                     </span>
@@ -5036,13 +5039,13 @@ export default function AdminModal({
                             </div>
 
                             {/* Info Kontak & Persetujuan MOU */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-black/10 dark:border-white/10 text-xs">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 border border-black/10 dark:border-white/10 text-xs">
                               <div className="flex items-center gap-4 flex-wrap text-slate-700 dark:text-slate-300">
-                                <span className="flex items-center gap-1 font-mono">
+                                <span className="flex items-center gap-1.5 font-mono">
                                   <Phone size={12} className="text-emerald-500" />
                                   <span>HP: {applicant.phone || "-"}</span>
                                 </span>
-                                <span className="flex items-center gap-1 font-mono">
+                                <span className="flex items-center gap-1.5 font-mono">
                                   <MessageSquare size={12} className="text-indigo-500" />
                                   <span>Discord: {applicant.discordTag || "-"}</span>
                                 </span>
@@ -5054,7 +5057,7 @@ export default function AdminModal({
 
                             {/* Audit Rejection Note (if rejected) */}
                             {isRejected && applicant.rejectedReason && (
-                              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border-2 border-red-400 dark:border-red-800 text-xs text-red-950 dark:text-red-200 space-y-1">
+                              <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800/80 text-xs text-red-950 dark:text-red-200 space-y-1">
                                 <div className="font-heading font-black uppercase text-red-700 dark:text-red-400 flex items-center gap-1.5">
                                   <AlertTriangle size={13} />
                                   <span>Alasan Penolakan:</span>
@@ -5070,7 +5073,7 @@ export default function AdminModal({
 
                             {/* Audit Approval Info (if approved) */}
                             {isApproved && applicant.verifiedAt && (
-                              <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
                                 <span>
                                   ✓ Diverifikasi pada: {new Date(applicant.verifiedAt).toLocaleString("id-ID")}
                                 </span>
@@ -5081,34 +5084,34 @@ export default function AdminModal({
                             )}
 
                             {/* Action Buttons Bar */}
-                            <div className="pt-2 border-t border-black/15 dark:border-white/10 flex items-center gap-2 flex-wrap">
+                            <div className="pt-2 border-t border-black/10 dark:border-white/10 flex items-center gap-2 flex-wrap">
                               {isPending ? (
                                 <>
                                   <button
                                     type="button"
                                     disabled={isProcessingRegAction}
                                     onClick={() => handleApproveMemberRegistration(applicant)}
-                                    className="btn py-2 px-3.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer disabled:opacity-50"
+                                    className="py-2.5 px-4 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border border-amber-400/80 font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50 active:scale-98"
                                   >
-                                    <Check size={14} />
-                                    <span>✓ Setujui (Jadikan Anggota Resmi)</span>
+                                    <Check size={14} className="stroke-[2.5]" />
+                                    <span>Setujui (Jadikan Anggota Resmi)</span>
                                   </button>
 
                                   <button
                                     type="button"
                                     disabled={isProcessingRegAction}
                                     onClick={() => handleOpenRejectModal(applicant)}
-                                    className="btn py-2 px-3.5 bg-red-400 hover:bg-red-300 text-slate-950 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer disabled:opacity-50"
+                                    className="py-2.5 px-4 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 text-slate-900 dark:text-amber-200 border border-amber-400/60 font-heading font-black text-xs uppercase flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
                                   >
-                                    <X size={14} />
-                                    <span>✕ Tolak Pendaftaran</span>
+                                    <X size={14} className="stroke-[2.5]" />
+                                    <span>Tolak Pendaftaran</span>
                                   </button>
 
                                   <button
                                     type="button"
                                     disabled={isProcessingRegAction}
                                     onClick={() => handleDeleteMember(applicant.id, applicant.fullName)}
-                                    className="btn py-2 px-3 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-300 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer ml-auto"
+                                    className="py-2.5 px-3.5 rounded-xl bg-slate-100 hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-950/30 text-slate-600 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 border border-black/10 dark:border-white/10 font-heading font-bold text-xs uppercase flex items-center gap-1.5 transition-colors cursor-pointer ml-auto"
                                     title="Hapus berkas pendaftaran ini"
                                   >
                                     <Trash2 size={13} />
@@ -5125,7 +5128,7 @@ export default function AdminModal({
                                     type="button"
                                     disabled={isProcessingRegAction}
                                     onClick={() => handleRevertMemberToPending(applicant)}
-                                    className="btn py-1.5 px-3 bg-amber-200 hover:bg-amber-300 text-slate-900 border-2 border-black font-heading font-bold text-[11px] uppercase flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000] cursor-pointer ml-auto"
+                                    className="py-2 px-3 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 font-heading font-bold text-xs uppercase flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer ml-auto"
                                   >
                                     <RotateCcw size={12} />
                                     <span>Kembalikan ke Pending</span>
@@ -5135,7 +5138,7 @@ export default function AdminModal({
                                     type="button"
                                     disabled={isProcessingRegAction}
                                     onClick={() => handleDeleteMember(applicant.id, applicant.fullName)}
-                                    className="btn py-1.5 px-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-2 border-black font-heading font-bold text-[11px] uppercase flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                                    className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-950/30 text-slate-600 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 border border-black/10 dark:border-white/10 font-heading font-bold text-xs uppercase flex items-center gap-1 transition-colors cursor-pointer"
                                   >
                                     <Trash2 size={12} />
                                   </button>
@@ -5146,7 +5149,7 @@ export default function AdminModal({
                                     type="button"
                                     disabled={isProcessingRegAction}
                                     onClick={() => handleApproveMemberRegistration(applicant)}
-                                    className="btn py-1.5 px-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 border-2 border-black font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                                    className="py-2 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 font-heading font-black text-xs uppercase flex items-center gap-1.5 shadow-xs cursor-pointer"
                                   >
                                     <Check size={13} />
                                     <span>Ubah Menjadi Setujui</span>
@@ -5156,7 +5159,7 @@ export default function AdminModal({
                                     type="button"
                                     disabled={isProcessingRegAction}
                                     onClick={() => handleRevertMemberToPending(applicant)}
-                                    className="btn py-1.5 px-3 bg-amber-200 hover:bg-amber-300 text-slate-900 border-2 border-black font-heading font-bold text-[11px] uppercase flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                                    className="py-2 px-3 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 font-heading font-bold text-xs uppercase flex items-center gap-1 shadow-xs cursor-pointer"
                                   >
                                     <RotateCcw size={12} />
                                     <span>Kembalikan ke Pending</span>
@@ -5166,7 +5169,7 @@ export default function AdminModal({
                                     type="button"
                                     disabled={isProcessingRegAction}
                                     onClick={() => handleDeleteMember(applicant.id, applicant.fullName)}
-                                    className="btn py-1.5 px-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-2 border-black font-heading font-bold text-[11px] uppercase flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000] cursor-pointer ml-auto"
+                                    className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-950/30 text-slate-600 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 border border-black/10 dark:border-white/10 font-heading font-bold text-xs uppercase flex items-center gap-1 shadow-xs cursor-pointer ml-auto"
                                   >
                                     <Trash2 size={12} />
                                   </button>
@@ -8159,10 +8162,10 @@ export default function AdminModal({
           aria-modal="true"
         >
           <div
-            className="w-full max-w-3xl bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3 text-slate-900 dark:text-slate-100"
+            className="w-full max-w-3xl bg-white dark:bg-[#161820] border border-black/15 dark:border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3 text-slate-900 dark:text-slate-100"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/10">
+            <div className="flex items-center justify-between pb-2 border-b border-black/10 dark:border-white/10">
               <div>
                 <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
                   {previewImageDetail.title || "Pratinjau Berkas"}
@@ -8176,13 +8179,13 @@ export default function AdminModal({
               <button
                 type="button"
                 onClick={() => setPreviewImageDetail(null)}
-                className="w-8 h-8 rounded-lg border border-black/20 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-bold cursor-pointer"
+                className="w-8 h-8 rounded-xl border border-black/10 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-bold cursor-pointer transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <div className="max-h-[65vh] overflow-hidden rounded-xl border-2 border-black flex items-center justify-center bg-black/90">
+            <div className="max-h-[65vh] overflow-hidden rounded-xl border border-black/10 dark:border-white/10 flex items-center justify-center bg-black/90">
               <img
                 src={previewImageDetail.url}
                 alt={previewImageDetail.title || "Berkas"}
@@ -8194,7 +8197,7 @@ export default function AdminModal({
               <button
                 type="button"
                 onClick={() => openImageSafely(previewImageDetail.url, previewImageDetail.title)}
-                className="btn py-2 px-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-400 font-heading font-bold text-xs uppercase flex items-center gap-1.5 cursor-pointer"
+                className="py-2 px-3.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800 font-heading font-bold text-xs uppercase flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 <ExternalLink size={13} />
                 <span>Buka di Tab Baru</span>
@@ -8203,7 +8206,7 @@ export default function AdminModal({
               <button
                 type="button"
                 onClick={() => setPreviewImageDetail(null)}
-                className="btn py-2 px-4 bg-[#FACC15] text-[#111827] border border-amber-400 font-heading font-black text-xs uppercase shadow-sm cursor-pointer"
+                className="py-2 px-4 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border border-amber-400 font-heading font-black text-xs uppercase shadow-sm cursor-pointer transition-all active:scale-98"
               >
                 Tutup Pratinjau
               </button>
@@ -8219,8 +8222,8 @@ export default function AdminModal({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-lg bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-5 space-y-4 text-slate-900 dark:text-slate-100">
-            <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/10">
+          <div className="w-full max-w-lg bg-white dark:bg-[#161820] border border-black/15 dark:border-white/10 rounded-2xl shadow-2xl p-5 space-y-4 text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-black/10 dark:border-white/10">
               <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-heading font-black text-sm uppercase">
                 <AlertTriangle size={18} />
                 <span>Tolak Pendaftaran Anggota</span>
@@ -8228,7 +8231,7 @@ export default function AdminModal({
               <button
                 type="button"
                 onClick={() => setRejectTargetMember(null)}
-                className="w-7 h-7 rounded-lg border border-black/20 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="w-7 h-7 rounded-xl border border-black/10 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 ✕
               </button>
@@ -8260,7 +8263,7 @@ export default function AdminModal({
                       key={idx}
                       type="button"
                       onClick={() => setRejectionReasonInput(preset)}
-                      className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-700 dark:text-slate-300 hover:text-red-700 dark:hover:text-red-300 border border-black/20 transition-colors text-left"
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-700 dark:text-slate-300 hover:text-red-700 dark:hover:text-red-300 border border-black/10 dark:border-white/10 transition-colors text-left"
                     >
                       + {preset}
                     </button>
@@ -8277,16 +8280,16 @@ export default function AdminModal({
                   onChange={(e) => setRejectionReasonInput(e.target.value)}
                   placeholder="Tulis alasan penolakan pendaftaran anggota..."
                   rows={3}
-                  className="input-field w-full p-2.5 text-xs bg-white dark:bg-[#12141a] text-slate-900 dark:text-slate-100 border-2 border-black rounded-lg"
+                  className="input-field w-full p-2.5 text-xs bg-slate-50 dark:bg-[#12141a] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-red-400"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/15 dark:border-white/10">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/10 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => setRejectTargetMember(null)}
-                className="btn py-2 px-3.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-black font-heading font-bold text-xs uppercase cursor-pointer"
+                className="py-2 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10 font-heading font-bold text-xs uppercase cursor-pointer transition-colors"
               >
                 Batal
               </button>
@@ -8294,7 +8297,7 @@ export default function AdminModal({
                 type="button"
                 disabled={isProcessingRegAction}
                 onClick={handleConfirmRejectMember}
-                className="btn py-2 px-4 bg-red-500 hover:bg-red-600 text-white border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] cursor-pointer disabled:opacity-50"
+                className="py-2 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white border border-red-600 font-heading font-black text-xs uppercase shadow-sm cursor-pointer disabled:opacity-50 transition-all active:scale-98"
               >
                 Konfirmasi Tolak
               </button>
