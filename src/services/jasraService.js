@@ -198,6 +198,7 @@ export function getBatchDistributions(
         batchExpiresFormatted: formatJasraDate(batchExpiry),
         officerName: "Admin Paguyuban",
         notes: "Database Anggota LSM PPS",
+        ktpPhoto: m.icPhoto || null,
         createdAt: givenAt,
       });
       existingMemberIds.add(m.id);
@@ -244,6 +245,7 @@ export function getBatchDistributions(
         batchExpiresFormatted: formatJasraDate(batchExpiry),
         officerName: "Admin Paguyuban",
         notes: "Database Jasra Luar Anggota",
+        ktpPhoto: ext.ktpPhoto || null,
         createdAt: givenAt,
       });
       if (hasValidCid) existingCids.add(cid);
@@ -777,6 +779,161 @@ export async function distributeJasraCloud(data, activeBatch) {
   }
 
   return payload;
+}
+
+/**
+ * Update an existing Jasra distribution record (name, CID, voucher counts)
+ * Adjusts batch stock delta atomically and syncs to members / external_jasra collections.
+ */
+export async function updateJasraDistributionCloud(originalDist, updates, batchMetrics = null) {
+  if (!originalDist || !originalDist.id) {
+    throw new Error("Data penyaluran voucher tidak ditemukan.");
+  }
+
+  const recipientName = (updates.recipientName ?? originalDist.recipientName ?? "").trim().toUpperCase();
+  const citizenId = (updates.citizenId ?? originalDist.citizenId ?? "").trim().toUpperCase();
+  const treatmentCount = Math.max(0, Number(updates.treatmentCount ?? originalDist.treatmentCount ?? 0));
+  const pingsanCount = Math.max(0, Number(updates.pingsanCount ?? originalDist.pingsanCount ?? 0));
+
+  if (!recipientName) {
+    throw new Error("Nama penerima wajib diisi.");
+  }
+
+  const oldTreatment = Number(originalDist.treatmentCount) || 0;
+  const oldPingsan = Number(originalDist.pingsanCount) || 0;
+  const deltaTreatment = treatmentCount - oldTreatment;
+  const deltaPingsan = pingsanCount - oldPingsan;
+
+  // Validate stock if increasing voucher allocation
+  if (batchMetrics) {
+    if (deltaTreatment > 0 && deltaTreatment > (batchMetrics.remainingTreatment || 0)) {
+      throw new Error(
+        `Stok voucher Treatment tidak mencukupi untuk penambahan +${deltaTreatment} (sisa ${batchMetrics.remainingTreatment || 0}).`
+      );
+    }
+    if (deltaPingsan > 0 && deltaPingsan > (batchMetrics.remainingPingsan || 0)) {
+      throw new Error(
+        `Stok voucher Pingsan tidak mencukupi untuk penambahan +${deltaPingsan} (sisa ${batchMetrics.remainingPingsan || 0}).`
+      );
+    }
+  }
+
+  const packageLabel = `${treatmentCount} Treatment • ${pingsanCount} Pingsan`;
+  const updatedFields = {
+    recipientName,
+    citizenId,
+    treatmentCount,
+    pingsanCount,
+    totalCount: treatmentCount + pingsanCount,
+    packageLabel,
+    updatedAt: Date.now(),
+  };
+
+  // 1. Update distribution document in jasra_distributions (if it exists or is a native dist doc)
+  const distRef = doc(getJasraDb(), ...JASRA_DISTRIBUTIONS_COL_PATH, originalDist.id);
+  const isSyntheticId = originalDist.id.startsWith("DIST_");
+  let existsInDistCol = !isSyntheticId;
+  if (isSyntheticId) {
+    try {
+      const snap = await getDoc(distRef);
+      existsInDistCol = snap.exists();
+    } catch {
+      existsInDistCol = false;
+    }
+  }
+
+  if (existsInDistCol) {
+    await setDoc(distRef, updatedFields, { merge: true });
+  }
+
+  // 2. Adjust batch remaining/distributed stock if counts changed
+  if ((deltaTreatment !== 0 || deltaPingsan !== 0) && originalDist.batchId) {
+    try {
+      const batchRef = doc(getJasraDb(), ...JASRA_BATCHES_COL_PATH, originalDist.batchId);
+      const batchSnap = await getDoc(batchRef);
+      if (batchSnap.exists()) {
+        const bData = batchSnap.data();
+        await setDoc(
+          batchRef,
+          {
+            remainingTreatment: Math.max(0, (bData.remainingTreatment || 0) - deltaTreatment),
+            remainingPingsan: Math.max(0, (bData.remainingPingsan || 0) - deltaPingsan),
+            distributedTreatment: Math.max(0, (bData.distributedTreatment || 0) + deltaTreatment),
+            distributedPingsan: Math.max(0, (bData.distributedPingsan || 0) + deltaPingsan),
+            updatedAt: Date.now(),
+          },
+          { merge: true }
+        );
+      }
+    } catch (err) {
+      console.warn("Notice: Gagal update stok batch saat edit distribusi:", err);
+    }
+  }
+
+  // 3. Sync changes to members or external_jasra collection
+  if (originalDist.recipientType === "MEMBER") {
+    try {
+      const targetMemberId = originalDist.memberId || (isSyntheticId ? originalDist.id.substring(5) : null);
+      if (targetMemberId) {
+        const memberRef = doc(getJasraDb(), ...MEMBERS_COL_PATH, targetMemberId);
+        const mSnap = await getDoc(memberRef);
+        if (mSnap.exists()) {
+          const mData = mSnap.data();
+          const memberUpdates = {
+            fullName: recipientName,
+            icNumber: citizenId || mData.icNumber || "",
+            lastUpdatedStatusAt: Date.now(),
+          };
+          const sameBatch = !mData.voucherBatchId || !originalDist.batchId || mData.voucherBatchId === originalDist.batchId;
+          if (sameBatch) {
+            memberUpdates.voucherJasraDetail = { treatment: treatmentCount, pingsan: pingsanCount };
+          }
+          await setDoc(memberRef, memberUpdates, { merge: true });
+        }
+      }
+    } catch (err) {
+      console.warn("Notice: Gagal sinkron edit ke data member:", err);
+    }
+  } else {
+    try {
+      const extRawId = isSyntheticId ? originalDist.id.substring(5) : originalDist.id;
+      const extUpdates = {
+        fullName: recipientName,
+        citizenId,
+        packageLabel: `${treatmentCount} Tritmen • ${pingsanCount} Pingsan`,
+        voucherDetail: { treatment: treatmentCount, pingsan: pingsanCount },
+        updatedAt: Date.now(),
+      };
+
+      const directRef = doc(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH, extRawId);
+      const directSnap = await getDoc(directRef);
+      if (directSnap.exists()) {
+        await setDoc(directRef, extUpdates, { merge: true });
+      } else {
+        // Match by old CID or old Name within the same batch
+        const extSnap = await getDocs(collection(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH));
+        const oldCid = (originalDist.citizenId || "").trim().toUpperCase();
+        const oldName = (originalDist.recipientName || "").trim().toUpperCase();
+
+        for (const d of extSnap.docs) {
+          if (d.id === "_meta") continue;
+          const eData = d.data();
+          const sameBatch = !eData.batchId || !originalDist.batchId || eData.batchId === originalDist.batchId;
+          if (!sameBatch) continue;
+          const eCid = (eData.citizenId || "").trim().toUpperCase();
+          const eName = (eData.fullName || "").trim().toUpperCase();
+          if ((oldCid && oldCid !== "-" && !oldCid.includes("TIDAK") && eCid === oldCid) || (oldName && eName === oldName)) {
+            await setDoc(doc(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH, d.id), extUpdates, { merge: true });
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Notice: Gagal sinkron edit ke external_jasra:", err);
+    }
+  }
+
+  return { ...originalDist, ...updatedFields };
 }
 
 /**

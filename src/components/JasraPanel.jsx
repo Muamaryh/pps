@@ -28,6 +28,9 @@ import {
   Loader2,
   Copy,
   ExternalLink,
+  Pencil,
+  Eye,
+  ZoomIn,
 } from "lucide-react";
 import {
   calculateBatchRemaining,
@@ -37,6 +40,7 @@ import {
   saveJasraBatchCloud,
   deleteJasraBatchCloud,
   distributeJasraCloud,
+  updateJasraDistributionCloud,
   deleteJasraDistributionCloud,
   exportJasraDistributionsToExcel,
   syncJasraWithMembersCloud,
@@ -93,6 +97,15 @@ export default function JasraPanel({
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isDistributeModalOpen, setIsDistributeModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [editingDist, setEditingDist] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    recipientName: "",
+    citizenId: "",
+    treatmentCount: DEFAULT_TREATMENT_PER_PERSON,
+    pingsanCount: DEFAULT_PINGSAN_PER_PERSON,
+  });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [ktpLightbox, setKtpLightbox] = useState(null); // { url, title, subtitle }
 
   // Daftar penerima terisolasi pada gelombang yang sedang dilihat (tidak tercampur batch lama)
   const allDistributions = useMemo(() => {
@@ -540,6 +553,66 @@ export default function JasraPanel({
     }
   }
 
+  function handleOpenEditDistribution(dist) {
+    if (!dist) return;
+    setEditingDist(dist);
+    setEditFormData({
+      recipientName: (dist.recipientName || "").toUpperCase(),
+      citizenId: dist.citizenId && dist.citizenId !== "-" ? dist.citizenId.toUpperCase() : "",
+      treatmentCount: Number(dist.treatmentCount) || 0,
+      pingsanCount: Number(dist.pingsanCount) || 0,
+    });
+  }
+
+  async function handleSaveEditDistribution(e) {
+    e.preventDefault();
+    if (!editingDist || isSavingEdit) return;
+    if (!editFormData.recipientName.trim()) {
+      if (onShowToast) onShowToast("Nama penerima wajib diisi!", "warning");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    try {
+      const targetMetrics =
+        viewedBatch && editingDist.batchId === viewedBatch.id
+          ? {
+              remainingTreatment: effectiveRemainingTreatment,
+              remainingPingsan: effectiveRemainingPingsan,
+            }
+          : activeBatch && editingDist.batchId === activeBatch.id
+          ? {
+              remainingTreatment: activeBatchMetrics.remainingTreatment,
+              remainingPingsan: activeBatchMetrics.remainingPingsan,
+            }
+          : null;
+
+      await updateJasraDistributionCloud(
+        editingDist,
+        {
+          recipientName: editFormData.recipientName.trim().toUpperCase(),
+          citizenId: editFormData.citizenId.trim().toUpperCase(),
+          treatmentCount: Number(editFormData.treatmentCount) || 0,
+          pingsanCount: Number(editFormData.pingsanCount) || 0,
+        },
+        targetMetrics
+      );
+
+      if (onShowToast) {
+        onShowToast(
+          `Data penerima "${editFormData.recipientName.trim().toUpperCase()}" berhasil diperbarui!`,
+          "success"
+        );
+      }
+      setEditingDist(null);
+    } catch (err) {
+      console.error("Gagal update distribusi Jasra:", err);
+      if (onShowToast) onShowToast(err.message || "Gagal memperbarui data penerima.", "error");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
+
   async function handleDeleteDistribution(dist) {
     const confirmed = window.confirm(`Batalkan penyaluran voucher untuk "${dist.recipientName}" dan kembalikan kuota (${dist.treatmentCount} Treatment • ${dist.pingsanCount} Pingsan) ke stok batch?`);
     if (!confirmed) return;
@@ -932,14 +1005,40 @@ export default function JasraPanel({
                         {dist.batchName || "-"}
                       </td>
                       <td className="py-2.5 px-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDistribution(dist)}
-                          className="p-1 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 border border-transparent hover:border-red-400 transition-colors cursor-pointer"
-                          title="Batalkan & kembalikan kuota ke batch"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="inline-flex items-center justify-end gap-1">
+                          {dist.ktpPhoto && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setKtpLightbox({
+                                  url: dist.ktpPhoto,
+                                  title: `KTP IC - ${dist.recipientName || "Penerima"}`,
+                                  subtitle: `CID: ${dist.citizenId || "-"}`,
+                                })
+                              }
+                              className="p-1.5 rounded-md text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-transparent hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer"
+                              title="Lihat & perbesar foto KTP IC"
+                            >
+                              <Eye size={14} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditDistribution(dist)}
+                            className="p-1.5 rounded-md text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-transparent hover:border-amber-300 dark:hover:border-amber-700 transition-colors cursor-pointer"
+                            title="Edit nama, CID, atau jatah voucher"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDistribution(dist)}
+                            className="p-1.5 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 border border-transparent hover:border-red-400 transition-colors cursor-pointer"
+                            title="Batalkan & kembalikan kuota ke batch"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1352,35 +1451,71 @@ export default function JasraPanel({
                     </label>
 
                     {distFormData.ktpPhoto ? (
-                      <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-xl border-2 border-dashed border-black/30 dark:border-white/20 bg-slate-50 dark:bg-[#1C202C]">
-                        <div className="relative w-28 h-20 rounded-lg border border-black/20 dark:border-white/15 overflow-hidden bg-slate-900 shrink-0 shadow-xs">
+                      <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-black/15 dark:border-white/15 bg-slate-50 dark:bg-[#1C202C]">
+                        {/* Large Readable KTP Preview (Click to Zoom Full-Screen) */}
+                        <div
+                          onClick={() =>
+                            setKtpLightbox({
+                              url: distFormData.ktpPhoto,
+                              title: `Pratinjau KTP IC${distFormData.recipientName ? ` - ${distFormData.recipientName}` : ""}`,
+                              subtitle: distFormData.citizenId ? `CID Terdeteksi: ${distFormData.citizenId}` : "Klik di luar foto untuk menutup",
+                            })
+                          }
+                          className="relative w-full h-48 sm:h-56 rounded-xl border border-black/15 dark:border-white/15 overflow-hidden bg-slate-950 flex items-center justify-center cursor-pointer group shadow-xs"
+                          title="Klik untuk memperbesar KTP layar penuh"
+                        >
                           <img
                             src={distFormData.ktpPhoto}
                             alt="KTP Preview"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                           />
-                        </div>
-                        <div className="flex-1 flex flex-col gap-1 text-xs">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-heading font-black text-emerald-600 dark:text-emerald-400">
-                              {isScanningOcr
-                                ? `Memindai KTP (${ocrProgress > 0 ? `${ocrProgress}%` : "AI Vision"}...)`
-                                : ocrSource === "gemini-ai"
-                                ? "✓ KTP Terbaca (AI Vision)"
-                                : "✓ Foto KTP Siap Disimpan"}
+                          <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 text-slate-950 font-heading font-black text-xs shadow-md">
+                              <ZoomIn size={14} />
+                              <span>Perbesar KTP</span>
                             </span>
-                            {isScanningOcr && (
-                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                            )}
                           </div>
-                          <p className="text-[11px] text-slate-500">
-                            {isScanningOcr
-                              ? "Membaca First Name, Last Name & Citizen ID secara detail..."
-                              : "Foto tersimpan di database dan tercatat sebagai bukti penyerahan."}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <label className="cursor-pointer px-2.5 py-1 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold text-[10px] border border-black/20 dark:border-white/15">
-                              Ganti Foto
+                        </div>
+
+                        {/* Status & Controls Row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-heading font-black text-emerald-600 dark:text-emerald-400">
+                                {isScanningOcr
+                                  ? `Memindai KTP (${ocrProgress > 0 ? `${ocrProgress}%` : "AI Vision"}...)`
+                                  : ocrSource === "gemini-ai"
+                                  ? "✓ KTP Terbaca (AI Vision)"
+                                  : "✓ Foto KTP Siap Disimpan"}
+                              </span>
+                              {isScanningOcr && (
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500">
+                              {isScanningOcr
+                                ? "Membaca First Name, Last Name & Citizen ID secara detail..."
+                                : "Klik foto KTP di atas untuk perbesar & cocokkan ejaan."}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setKtpLightbox({
+                                  url: distFormData.ktpPhoto,
+                                  title: `Pratinjau KTP IC${distFormData.recipientName ? ` - ${distFormData.recipientName}` : ""}`,
+                                  subtitle: distFormData.citizenId ? `CID Terdeteksi: ${distFormData.citizenId}` : "",
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold text-[10px] border border-blue-300 dark:border-blue-700 cursor-pointer"
+                            >
+                              <ZoomIn size={11} />
+                              <span>Perbesar</span>
+                            </button>
+                            <label className="cursor-pointer px-2.5 py-1 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold text-[10px] border border-black/15 dark:border-white/15">
+                              Ganti
                               <input
                                 type="file"
                                 accept="image/*"
@@ -1410,7 +1545,7 @@ export default function JasraPanel({
                               }}
                               className="px-2.5 py-1 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold text-[10px] cursor-pointer"
                             >
-                              Hapus Foto
+                              Hapus
                             </button>
                           </div>
                         </div>
@@ -1574,6 +1709,245 @@ export default function JasraPanel({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Modal: Edit Data Penerima Voucher Jasra (Nama, CID, Jatah Voucher) */}
+      {editingDist && (
+        <div
+          className="fixed inset-0 z-[130] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150"
+          onClick={() => setEditingDist(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-white dark:bg-[#151824] border border-black/15 dark:border-white/10 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 bg-slate-900 text-white border-b border-black/15 dark:border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Pencil size={18} className="text-[#FACC15]" />
+                <div>
+                  <h4 className="font-heading font-black text-sm sm:text-base uppercase leading-tight">
+                    Edit Penerima Voucher Jasra
+                  </h4>
+                  <span className="text-[10px] font-mono text-slate-300">
+                    {editingDist.recipientType === "MEMBER" ? "Anggota Paguyuban" : "Warga Luar Anggota"} • {editingDist.batchName || "Batch Aktif"}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingDist(null)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditDistribution} className="p-5 overflow-y-auto space-y-4">
+              {/* Saved KTP Preview if available for easy visual comparison */}
+              {editingDist.ktpPhoto && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-heading font-black uppercase text-slate-600 dark:text-slate-400">
+                      Foto KTP Tersimpan (Klik untuk Perbesar)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setKtpLightbox({
+                          url: editingDist.ktpPhoto,
+                          title: `KTP IC - ${editFormData.recipientName || editingDist.recipientName}`,
+                          subtitle: `CID: ${editFormData.citizenId || editingDist.citizenId || "-"}`,
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      <ZoomIn size={12} />
+                      <span>Perbesar Layar Penuh</span>
+                    </button>
+                  </div>
+                  <div
+                    onClick={() =>
+                      setKtpLightbox({
+                        url: editingDist.ktpPhoto,
+                        title: `KTP IC - ${editFormData.recipientName || editingDist.recipientName}`,
+                        subtitle: `CID: ${editFormData.citizenId || editingDist.citizenId || "-"}`,
+                      })
+                    }
+                    className="relative w-full h-44 sm:h-52 rounded-xl border border-black/15 dark:border-white/15 overflow-hidden bg-slate-950 flex items-center justify-center cursor-pointer group"
+                  >
+                    <img
+                      src={editingDist.ktpPhoto}
+                      alt="Foto KTP Penerima"
+                      className="w-full h-full object-contain"
+                    />
+                    <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 text-slate-950 font-heading font-black text-xs shadow-md">
+                        <ZoomIn size={14} />
+                        <span>Perbesar KTP</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Nama Lengkap Penerima <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.recipientName}
+                    onChange={(e) =>
+                      setEditFormData((prev) => ({
+                        ...prev,
+                        recipientName: e.target.value.toUpperCase(),
+                      }))
+                    }
+                    placeholder="Nama lengkap warga / IC..."
+                    className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 rounded-xl"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    No. IC / KTP (CID)
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.citizenId}
+                    onChange={(e) =>
+                      setEditFormData((prev) => ({
+                        ...prev,
+                        citizenId: e.target.value.toUpperCase(),
+                      }))
+                    }
+                    placeholder="Contoh: J0RTP9DO"
+                    className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 rounded-xl"
+                  />
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-black/10 dark:border-white/10">
+                  <div className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 mb-2 flex items-center justify-between">
+                    <span>Jatah Voucher</span>
+                    <span className="text-[10px] font-mono text-slate-500">
+                      Selisih otomatis menyesuaikan stok batch
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#DC2626] uppercase mb-1">
+                        Voucher Treatment
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={editFormData.treatmentCount}
+                        onChange={(e) =>
+                          setEditFormData((prev) => ({
+                            ...prev,
+                            treatmentCount: e.target.value,
+                          }))
+                        }
+                        className="input-field w-full text-sm font-mono font-black py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-amber-600 dark:text-[#FACC15] uppercase mb-1">
+                        Voucher Pingsan
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        required
+                        value={editFormData.pingsanCount}
+                        onChange={(e) =>
+                          setEditFormData((prev) => ({
+                            ...prev,
+                            pingsanCount: e.target.value,
+                          }))
+                        }
+                        className="input-field w-full text-sm font-mono font-black py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-black/10 dark:border-white/10 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingDist(null)}
+                  className="py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10 font-heading font-bold text-xs uppercase cursor-pointer transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="py-2 px-5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border border-amber-400/80 font-heading font-black text-xs uppercase shadow-sm cursor-pointer disabled:opacity-50 transition-all"
+                >
+                  {isSavingEdit ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Full-Screen KTP Lightbox Preview Modal */}
+      {ktpLightbox && (
+        <div
+          className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150"
+          onClick={() => setKtpLightbox(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-4xl bg-white dark:bg-[#161820] border border-black/15 dark:border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3 text-slate-900 dark:text-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-black/10 dark:border-white/10">
+              <div>
+                <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                  {ktpLightbox.title || "Pratinjau KTP IC"}
+                </h4>
+                {ktpLightbox.subtitle && (
+                  <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+                    {ktpLightbox.subtitle}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setKtpLightbox(null)}
+                className="w-8 h-8 rounded-xl border border-black/10 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="max-h-[76vh] overflow-hidden rounded-xl border border-black/10 dark:border-white/10 flex items-center justify-center bg-black">
+              <img
+                src={ktpLightbox.url}
+                alt={ktpLightbox.title || "KTP IC"}
+                className="w-full h-full object-contain max-h-[76vh]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setKtpLightbox(null)}
+                className="py-2 px-4 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 border border-amber-400 font-heading font-black text-xs uppercase shadow-sm cursor-pointer"
+              >
+                Tutup Pratinjau
+              </button>
+            </div>
           </div>
         </div>
       )}
