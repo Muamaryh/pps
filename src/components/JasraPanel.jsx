@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   HeartHandshake,
   Plus,
@@ -51,7 +51,7 @@ import {
   DEFAULT_PINGSAN_PER_PERSON,
   DEFAULT_GOVERNMENT_BATCH,
 } from "../services/jasraService";
-import { scanKtpImage } from "../utils/ktpOcr";
+import { scanKtpImage, resolveGeminiApiKey } from "../utils/ktpOcr";
 import { saveExternalJasraCloud } from "../services/memberService";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistTimePicker from "./BrutalistTimePicker";
@@ -136,6 +136,14 @@ export default function JasraPanel({
   const [memberSearch, setMemberSearch] = useState("");
   const [isMemberDropdownOpen, setIsMemberDropdownOpen] = useState(false);
   const [isScanningOcr, setIsScanningOcr] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrSource, setOcrSource] = useState("");
+  const rawKtpFileRef = useRef(null);
+
+  // Pre-warm Cloud Gemini Vision API key when panel mounts or distribute modal opens
+  useEffect(() => {
+    resolveGeminiApiKey().catch(() => {});
+  }, [isDistributeModalOpen]);
 
   // Form: Distribute Voucher
   const [distFormData, setDistFormData] = useState({
@@ -309,6 +317,9 @@ export default function JasraPanel({
       ktpPhoto: "",
       cidCandidates: [],
     });
+    rawKtpFileRef.current = null;
+    setOcrProgress(0);
+    setOcrSource("");
     setMemberSearch("");
     setIsMemberDropdownOpen(false);
     setIsDistributeModalOpen(true);
@@ -346,9 +357,71 @@ export default function JasraPanel({
     setIsMemberDropdownOpen(false);
   }
 
-  // Handle OCR scanning of KTP photo for non-members
+  // Run high-accuracy focused KTP OCR (First Name, Last Name, Citizen ID only)
+  async function runJasraKtpOcr(imageSource) {
+    if (!imageSource) return;
+    setIsScanningOcr(true);
+    setOcrProgress(0);
+    setOcrSource("");
+    try {
+      const ocrResult = await scanKtpImage(
+        imageSource,
+        (prog) => setOcrProgress(prog),
+        { minimal: true }
+      );
+      const fields = ocrResult?.fields || ocrResult || {};
+      const detectedName = (
+        fields.fullName ||
+        [fields.firstName, fields.lastName].filter(Boolean).join(" ") ||
+        fields.name ||
+        ""
+      )
+        .trim()
+        .toUpperCase();
+      const detectedCid = (
+        fields.citizenId ||
+        (fields.citizenIdCandidates && fields.citizenIdCandidates[0]) ||
+        ""
+      )
+        .trim()
+        .toUpperCase();
+      const candidates =
+        Array.isArray(fields.citizenIdCandidates) && fields.citizenIdCandidates.length > 0
+          ? fields.citizenIdCandidates
+          : detectedCid
+          ? [detectedCid]
+          : [];
+
+      setOcrSource(ocrResult?.source || "");
+
+      if (detectedName || detectedCid) {
+        setDistFormData((prev) => ({
+          ...prev,
+          recipientName: detectedName || prev.recipientName,
+          citizenId: detectedCid || prev.citizenId,
+          cidCandidates: candidates,
+        }));
+        if (onShowToast) {
+          onShowToast(
+            `KTP berhasil dipindai! ${detectedName ? `Nama: ${detectedName}` : ""} ${detectedCid ? `• CID: ${detectedCid}` : ""}`,
+            "success"
+          );
+        }
+      } else {
+        if (onShowToast) onShowToast("Foto KTP diunggah. Silakan lengkapi Nama & CID secara manual.", "info");
+      }
+    } catch (err) {
+      console.warn("OCR scan notice:", err);
+      if (onShowToast) onShowToast("Foto KTP diunggah. Silakan periksa kembali Nama & CID.", "info");
+    } finally {
+      setIsScanningOcr(false);
+    }
+  }
+
+  // Handle OCR scanning of KTP photo for non-members (same high-res pipeline as /daftar)
   async function handleKtpUpload(e) {
     const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
@@ -356,59 +429,46 @@ export default function JasraPanel({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      if (onShowToast) onShowToast("Ukuran gambar maksimal 5MB.", "error");
+    if (file.size > 8 * 1024 * 1024) {
+      if (onShowToast) onShowToast("Ukuran gambar maksimal 8MB.", "error");
       return;
     }
 
+    rawKtpFileRef.current = file;
+
+    // 1. Compress KTP image separately for preview & safe Firestore storage
     const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result;
-      if (!dataUrl) return;
-
-      setDistFormData((prev) => ({
-        ...prev,
-        ktpPhoto: dataUrl,
-      }));
-
-      setIsScanningOcr(true);
-      try {
-        const ocrResult = await scanKtpImage(dataUrl);
-        const fields = ocrResult?.fields || ocrResult || {};
-        const detectedName =
-          fields.fullName ||
-          [fields.firstName, fields.lastName].filter(Boolean).join(" ").trim() ||
-          fields.name ||
-          "";
-        const detectedCid =
-          fields.citizenId ||
-          (fields.citizenIdCandidates && fields.citizenIdCandidates[0]) ||
-          "";
-
-        if (detectedName || detectedCid) {
-          setDistFormData((prev) => ({
-            ...prev,
-            recipientName: detectedName ? detectedName.toUpperCase() : prev.recipientName,
-            citizenId: detectedCid ? detectedCid.toUpperCase() : prev.citizenId,
-            cidCandidates: fields.citizenIdCandidates || [],
-          }));
-          if (onShowToast) {
-            onShowToast(
-              `KTP berhasil dipindai! Terbaca: ${detectedName || "Nama"} (${detectedCid || "CID"})`,
-              "success"
-            );
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 750;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
           }
         } else {
-          if (onShowToast) onShowToast("Foto KTP diunggah. Silakan lengkapi Nama & CID.", "info");
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
         }
-      } catch (err) {
-        console.warn("OCR scan notice:", err);
-        if (onShowToast) onShowToast("Foto KTP diunggah. Silakan periksa kembali Nama & CID.", "info");
-      } finally {
-        setIsScanningOcr(false);
-      }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75);
+        setDistFormData((prev) => ({ ...prev, ktpPhoto: compressedBase64 }));
+      };
+      img.src = ev.target?.result;
     };
     reader.readAsDataURL(file);
+
+    // 2. Run OCR directly on original uncompressed file (matches /daftar accuracy)
+    await runJasraKtpOcr(file);
   }
 
   async function handleSaveDistribution(e) {
@@ -420,17 +480,19 @@ export default function JasraPanel({
       return;
     }
 
+    const isNonMember = distFormData.recipientType === "NON_MEMBER";
+
     try {
       const payload = {
         recipientType: distFormData.recipientType,
-        memberId: distFormData.recipientType === "MEMBER" ? distFormData.selectedMemberId : null,
+        memberId: isNonMember ? null : distFormData.selectedMemberId,
         recipientName: distFormData.recipientName.trim().toUpperCase(),
         citizenId: distFormData.citizenId.trim().toUpperCase(),
-        phone: distFormData.phone.trim(),
+        phone: isNonMember ? "" : distFormData.phone.trim(),
         treatmentCount: Number(distFormData.treatmentCount) || 0,
         pingsanCount: Number(distFormData.pingsanCount) || 0,
         officerName: distFormData.officerName.trim() || "Pengurus LSM PPS",
-        notes: distFormData.notes.trim(),
+        notes: isNonMember ? "" : distFormData.notes.trim(),
         ktpPhoto: distFormData.ktpPhoto || null,
         givenAt: Date.now(),
       };
@@ -446,14 +508,14 @@ export default function JasraPanel({
       await distributeJasraCloud(payload, activeBatchForDist);
 
       // Dual-sync to external_jasra if non-member
-      if (distFormData.recipientType === "NON_MEMBER") {
+      if (isNonMember) {
         try {
           await saveExternalJasraCloud({
             batchId: activeBatch.id,
             fullName: distFormData.recipientName.trim().toUpperCase(),
             citizenId: distFormData.citizenId.trim().toUpperCase(),
-            phone: distFormData.phone.trim(),
-            notes: distFormData.notes.trim(),
+            phone: "",
+            notes: "",
             ktpPhoto: distFormData.ktpPhoto || "",
             status: "ACTIVE",
             packageLabel: `${Number(distFormData.treatmentCount) || 10} Tritmen • ${Number(distFormData.pingsanCount) || 10} Pingsan`,
@@ -1299,9 +1361,13 @@ export default function JasraPanel({
                           />
                         </div>
                         <div className="flex-1 flex flex-col gap-1 text-xs">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-heading font-black text-emerald-600 dark:text-emerald-400">
-                              {isScanningOcr ? "Memindai KTP via OCR..." : "✓ Foto KTP Siap Disimpan"}
+                              {isScanningOcr
+                                ? `Memindai KTP (${ocrProgress > 0 ? `${ocrProgress}%` : "AI Vision"}...)`
+                                : ocrSource === "gemini-ai"
+                                ? "✓ KTP Terbaca (AI Vision)"
+                                : "✓ Foto KTP Siap Disimpan"}
                             </span>
                             {isScanningOcr && (
                               <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
@@ -1309,11 +1375,11 @@ export default function JasraPanel({
                           </div>
                           <p className="text-[11px] text-slate-500">
                             {isScanningOcr
-                              ? "Membaca teks Nama & Citizen ID otomatis..."
+                              ? "Membaca First Name, Last Name & Citizen ID secara detail..."
                               : "Foto tersimpan di database dan tercatat sebagai bukti penyerahan."}
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <label className="cursor-pointer px-2.5 py-1 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold text-[10px] border border-black/30">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <label className="cursor-pointer px-2.5 py-1 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold text-[10px] border border-black/20 dark:border-white/15">
                               Ganti Foto
                               <input
                                 type="file"
@@ -1324,13 +1390,24 @@ export default function JasraPanel({
                             </label>
                             <button
                               type="button"
-                              onClick={() =>
+                              disabled={isScanningOcr}
+                              onClick={() => runJasraKtpOcr(rawKtpFileRef.current || distFormData.ktpPhoto)}
+                              className="px-2.5 py-1 rounded-md bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-bold text-[10px] border border-amber-300 dark:border-amber-700 cursor-pointer disabled:opacity-50"
+                            >
+                              Scan Ulang
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                rawKtpFileRef.current = null;
+                                setOcrSource("");
+                                setOcrProgress(0);
                                 setDistFormData((prev) => ({
                                   ...prev,
                                   ktpPhoto: "",
                                   cidCandidates: [],
-                                }))
-                              }
+                                }));
+                              }}
                               className="px-2.5 py-1 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 font-bold text-[10px] cursor-pointer"
                             >
                               Hapus Foto
@@ -1345,7 +1422,7 @@ export default function JasraPanel({
                           Klik untuk Unggah Foto KTP IC Warga
                         </span>
                         <span className="text-[10px] text-slate-500 mt-0.5">
-                          Sistem otomatis memindai Nama Lengkap &amp; Citizen ID via OCR cerdas
+                          Otomatis memindai First Name, Last Name &amp; Citizen ID via AI Vision
                         </span>
                         <input
                           type="file"
@@ -1374,7 +1451,7 @@ export default function JasraPanel({
                     className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                   />
                 </div>
-                <div>
+                <div className={distFormData.recipientType === "NON_MEMBER" ? "col-span-2" : ""}>
                   <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
                     No. IC / KTP (CID)
                   </label>
@@ -1382,10 +1459,10 @@ export default function JasraPanel({
                     type="text"
                     value={distFormData.citizenId}
                     onChange={(e) => setDistFormData({ ...distFormData, citizenId: e.target.value.toUpperCase() })}
-                    placeholder="Contoh: CID-9021"
+                    placeholder="Contoh: J0RTP9DO"
                     className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
                   />
-                  {distFormData.cidCandidates && distFormData.cidCandidates.length > 0 && (
+                  {distFormData.cidCandidates && distFormData.cidCandidates.length > 1 && (
                     <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                       <span className="text-[10px] text-slate-500 font-mono">Pilihan OCR:</span>
                       {distFormData.cidCandidates.map((cand) => (
@@ -1406,30 +1483,34 @@ export default function JasraPanel({
                     </div>
                   )}
                 </div>
-                <div>
-                  <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Nomor Telepon / HP
-                  </label>
-                  <input
-                    type="text"
-                    value={distFormData.phone}
-                    onChange={(e) => setDistFormData({ ...distFormData, phone: e.target.value })}
-                    placeholder="Contoh: 555-0192"
-                    className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Catatan / Keperluan (Opsional)
-                  </label>
-                  <input
-                    type="text"
-                    value={distFormData.notes}
-                    onChange={(e) => setDistFormData({ ...distFormData, notes: e.target.value })}
-                    placeholder="Contoh: Warga Paleto Bay / Rekomendasi RT..."
-                    className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
-                  />
-                </div>
+                {distFormData.recipientType === "MEMBER" && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Nomor Telepon / HP
+                      </label>
+                      <input
+                        type="text"
+                        value={distFormData.phone}
+                        onChange={(e) => setDistFormData({ ...distFormData, phone: e.target.value })}
+                        placeholder="Contoh: 555-0192"
+                        className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-black text-slate-700 dark:text-slate-300 uppercase mb-1">
+                        Catatan / Keperluan (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={distFormData.notes}
+                        onChange={(e) => setDistFormData({ ...distFormData, notes: e.target.value })}
+                        placeholder="Contoh: Warga Paleto Bay / Rekomendasi RT..."
+                        className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Jatah Voucher yang Diberikan */}

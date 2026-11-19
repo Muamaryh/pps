@@ -859,10 +859,10 @@ function mergeKtpResults(spatial, textParsed) {
  * - Priority 1: Google Gemini Vision AI (resolves Cloud/Local/Env key, 99.9% accurate)
  * - Priority 2: Local Tesseract.js with Spatial Y-Row Alignment (PSM.SINGLE_BLOCK)
  */
-export async function scanKtpImage(imageFileOrUrl, onProgress) {
+export async function scanKtpImage(imageFileOrUrl, onProgress, options = {}) {
   // 1. Try Gemini Vision AI first (resolves key from localStorage, env, or Cloud Firestore)
   try {
-    const geminiRes = await scanKtpWithGemini(imageFileOrUrl);
+    const geminiRes = await scanKtpWithGemini(imageFileOrUrl, null, options);
     if (geminiRes && geminiRes.success && geminiRes.fields) {
       if (typeof onProgress === "function") onProgress(100);
       return {

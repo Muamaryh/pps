@@ -7,11 +7,55 @@ import { loadCloudOcrConfig, saveCloudOcrConfig } from "../services/firebase.js"
 
 const DEFAULT_MODELS = [
   "gemini-3-flash-preview",
-  "gemini-3.5-flash-lite",
-  "gemini-flash-latest",
   "gemini-3.8-flash",
+  "gemini-flash-latest",
+  "gemini-3.5-flash-lite",
   "gemini-flash-lite-latest",
 ];
+
+/**
+ * Calls Gemini generateContent with timeout and 1 automatic retry on transient 503/429 errors
+ * so temporary high-demand spikes do not immediately degrade to weaker lite models.
+ */
+async function callGeminiGenerateContent(model, apiKey, requestBody, { maxRetries = 0, timeoutMs = 16000 } = {}) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  let lastData = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        signal: controller ? controller.signal : undefined,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+      const data = await response.json();
+      lastData = data;
+
+      const errCode = data?.error?.code || response.status;
+      const isTransient = errCode === 503 || errCode === 429;
+      if (data?.error && isTransient && attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 850));
+        continue;
+      }
+      return data;
+    } catch (err) {
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 850));
+        continue;
+      }
+      throw err;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  return lastData;
+}
 
 let cachedCloudGeminiKey = null;
 let cloudKeyPromise = null;
@@ -129,7 +173,7 @@ async function imageToBase64Payload(imageFileOrUrl) {
 /**
  * Scans GTA V / FiveM ID Card (KTP) using Google Gemini Vision AI
  */
-export async function scanKtpWithGemini(imageFileOrUrl, customKey = null) {
+export async function scanKtpWithGemini(imageFileOrUrl, customKey = null, options = {}) {
   const apiKey = await resolveGeminiApiKey(customKey);
   if (!apiKey) {
     return { success: false, error: "NO_API_KEY", message: "Gemini API key tidak ditemukan." };
@@ -142,7 +186,38 @@ export async function scanKtpWithGemini(imageFileOrUrl, customKey = null) {
     return { success: false, error: "IMAGE_CONVERT_FAILED", message: err.message };
   }
 
-  const prompt = `Anda adalah mesin OCR Vision AI berspesialisasi tinggi untuk membaca KTP IC game GTA V / FiveM Roleplay (Los Santos Identity / San Andreas Identity Card).
+  const isMinimal = Boolean(options?.minimal);
+
+  const prompt = isMinimal
+    ? `Anda adalah mesin OCR Vision AI berpresisi tinggi untuk membaca KTP IC game GTA V / FiveM Roleplay (Los Santos Identity / San Andreas Identity Card).
+FOKUS HANYA PADA 3 DATA PENTING: FIRST NAME, LAST NAME, dan CITIZEN ID (abaikan DOB, SEX, NATIONALITY, tanda tangan, dan watermark peta).
+
+CARA BERPIKIR SEBELUM AUTO-FILL (WAJIB DIIKUTI):
+Pada kartu identitas Los Santos Identity, label berada di kolom kiri dan nilainya SEJAJAR LURUS DI SEBELAH KANAN pada baris horizontal yang sama:
+1. Cari label "LAST NAME" -> baca teks yang sejajar lurus di sebelah kanannya pada baris yang sama (contoh: "WAZA"). Itu adalah "lastName". Jangan pernah tertukar dengan FIRST NAME!
+2. Cari label "FIRST NAME" -> baca teks yang sejajar lurus di sebelah kanannya pada baris yang sama (contoh: "KWAZA"). Itu adalah "firstName".
+3. "fullName" adalah gabungan "firstName" diikuti spasi lalu "lastName" (contoh: "KWAZA WAZA"). Pastikan ejaan tiap huruf nama 100% persis seperti di gambar tanpa typo!
+4. Cari label "CITIZEN ID" -> baca kode alfanumerik yang SEJAJAR LURUS DI SEBELAH KANANNYA pada baris yang sama (contoh: "J0RTP9DO" atau "B4500YVP").
+
+ATURAN ANTI-TYPO CITIZEN ID (PERIKSA HURUF DEMI HURUF):
+- Citizen ID umumnya 6 s/d 10 karakter huruf kapital & angka (contoh: J0RTP9DO, ZJ1W71T7, E21J9V03, B4500YVP).
+- Amati bentuk setiap karakter dengan cermat:
+  * Angka 0 (oval ramping/lonjong) vs Huruf O (bulat lebar) - contoh pada "J0RTP9DO": karakter ke-2 adalah angka 0, karakter terakhir adalah huruf O.
+  * Angka 9 vs Huruf S / P / g.
+  * Angka 1 vs Huruf I / L.
+  * Angka 8 vs Huruf B, Angka 5 vs Huruf S, Angka 2 vs Huruf Z, Angka 6 vs Huruf G, Huruf D vs 0/O.
+- DILARANG KERAS mengambil tulisan tanda tangan sambung/kursif di kiri bawah kartu atau gambar latar belakang peta/watermark sebagai nama maupun Citizen ID!
+- Jangan masukkan kata label ("FIRST NAME", "LAST NAME", "CITIZEN ID", "LOS SANTOS") ke dalam isi data.
+
+Tuliskan verifikasi ejaan baris-per-baris Anda terlebih dahulu pada field "reasoning", lalu isi hasil akhirnya secara presisi dalam JSON murni:
+{
+  "reasoning": "Baris LAST NAME sejajar kanan dengan ..., FIRST NAME sejajar kanan dengan ..., CITIZEN ID sejajar kanan dieja huruf-per-huruf: ...",
+  "firstName": "...",
+  "lastName": "...",
+  "fullName": "...",
+  "citizenId": "..."
+}`
+    : `Anda adalah mesin OCR Vision AI berspesialisasi tinggi untuk membaca KTP IC game GTA V / FiveM Roleplay (Los Santos Identity / San Andreas Identity Card).
 
 CARA BERPIKIR SEBELUM AUTO-FILL (WAJIB DIIKUTI):
 Pada kartu identitas Los Santos Identity, label berada di kolom kiri dan nilainya berada SEJAJAR LURUS DI SEBELAH KANAN pada baris horizontal yang sama:
@@ -180,42 +255,39 @@ Tuliskan analisis singkat baris-per-baris Anda terlebih dahulu pada field "reaso
 
   for (const model of DEFAULT_MODELS) {
     try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: payload.mimeType || "image/jpeg",
-                    data: payload.data,
-                  },
+      const requestBody = {
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              {
+                inline_data: {
+                  mime_type: payload.mimeType || "image/jpeg",
+                  data: payload.data,
                 },
-              ],
-            },
-          ],
-          generationConfig: {
-            response_mime_type: "application/json",
-            temperature: 0.0,
-            top_p: 0.1,
+              },
+            ],
           },
-        }),
+        ],
+        generationConfig: {
+          response_mime_type: "application/json",
+          temperature: 0.0,
+          top_p: 0.1,
+        },
+      };
+
+      const data = await callGeminiGenerateContent(model, apiKey, requestBody, {
+        maxRetries: model === "gemini-3-flash-preview" ? 1 : 0,
+        timeoutMs: 16000,
       });
 
-      const data = await response.json();
-      if (data.error) {
+      if (data?.error) {
         lastError = data.error.message || JSON.stringify(data.error);
         console.warn(`[Gemini OCR] Model ${model} returned error:`, data.error);
         continue;
       }
 
-      const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!rawJson) {
         lastError = "AI tidak mengembalikan teks jawaban";
         continue;

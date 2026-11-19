@@ -1521,6 +1521,7 @@ export default function AdminModal({
 
   async function handleExternalKtpUpload(e) {
     const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
@@ -1528,58 +1529,87 @@ export default function AdminModal({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      onShowToast("Ukuran gambar maksimal 5MB.", "error");
+    if (file.size > 8 * 1024 * 1024) {
+      onShowToast("Ukuran gambar maksimal 8MB.", "error");
       return;
     }
 
+    // 1. Kompres foto KTP untuk preview & penyimpanan cloud yang ringan
     const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target?.result;
-      if (!dataUrl) return;
-
-      setEditingExternalJasra((prev) => ({
-        ...prev,
-        ktpPhoto: dataUrl,
-      }));
-
-      // Jalankan auto OCR scan untuk mendeteksi Nama & Citizen ID
-      setIsScanningExternalOcr(true);
-      try {
-        const ocrResult = await scanKtpImage(dataUrl);
-        const fields = ocrResult?.fields || ocrResult || {};
-        const detectedName =
-          fields.fullName ||
-          [fields.firstName, fields.lastName].filter(Boolean).join(" ").trim() ||
-          fields.name ||
-          "";
-        const detectedCid =
-          fields.citizenId ||
-          (fields.citizenIdCandidates && fields.citizenIdCandidates[0]) ||
-          "";
-
-        if (detectedName || detectedCid) {
-          setEditingExternalJasra((prev) => ({
-            ...prev,
-            fullName: detectedName ? detectedName.toUpperCase() : (prev?.fullName || ""),
-            citizenId: detectedCid ? detectedCid.toUpperCase() : (prev?.citizenId || ""),
-            cidCandidates: fields.citizenIdCandidates || [],
-          }));
-          onShowToast(
-            `KTP berhasil dipindai! Terbaca: ${detectedName || "Nama"} (${detectedCid || "CID"})`,
-            "success"
-          );
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 750;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          }
         } else {
-          onShowToast("Foto KTP diunggah. Silakan lengkapi Nama & CID.", "info");
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
         }
-      } catch (err) {
-        console.warn("OCR scan notice:", err);
-        onShowToast("Foto KTP diunggah. Silakan periksa kembali Nama & CID.", "info");
-      } finally {
-        setIsScanningExternalOcr(false);
-      }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.75);
+
+        setEditingExternalJasra((prev) => ({
+          ...prev,
+          ktpPhoto: compressedBase64,
+        }));
+      };
+      img.src = ev.target?.result;
     };
     reader.readAsDataURL(file);
+
+    // 2. Jalankan AI Vision OCR fokus First Name, Last Name & Citizen ID langsung pada file asli
+    setIsScanningExternalOcr(true);
+    try {
+      const ocrResult = await scanKtpImage(file, undefined, { minimal: true });
+      const fields = ocrResult?.fields || ocrResult || {};
+      const detectedName = (
+        fields.fullName ||
+        [fields.firstName, fields.lastName].filter(Boolean).join(" ") ||
+        fields.name ||
+        ""
+      )
+        .trim()
+        .toUpperCase();
+      const detectedCid = (
+        fields.citizenId ||
+        (fields.citizenIdCandidates && fields.citizenIdCandidates[0]) ||
+        ""
+      )
+        .trim()
+        .toUpperCase();
+
+      if (detectedName || detectedCid) {
+        setEditingExternalJasra((prev) => ({
+          ...prev,
+          fullName: detectedName || (prev?.fullName || ""),
+          citizenId: detectedCid || (prev?.citizenId || ""),
+          cidCandidates: fields.citizenIdCandidates || [],
+        }));
+        onShowToast(
+          `KTP berhasil dipindai! Terbaca: ${detectedName || "Nama"} (${detectedCid || "CID"})`,
+          "success"
+        );
+      } else {
+        onShowToast("Foto KTP diunggah. Silakan lengkapi Nama & CID.", "info");
+      }
+    } catch (err) {
+      console.warn("OCR scan notice:", err);
+      onShowToast("Foto KTP diunggah. Silakan periksa kembali Nama & CID.", "info");
+    } finally {
+      setIsScanningExternalOcr(false);
+    }
   }
 
   async function handleSaveExternalJasra(e) {
