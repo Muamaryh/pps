@@ -31,6 +31,7 @@ import {
   Pencil,
   Eye,
   ZoomIn,
+  Database,
 } from "lucide-react";
 import {
   calculateBatchRemaining,
@@ -42,6 +43,7 @@ import {
   distributeJasraCloud,
   updateJasraDistributionCloud,
   deleteJasraDistributionCloud,
+  purgeExpiredBatchKtpPhotosCloud,
   exportJasraDistributionsToExcel,
   syncJasraWithMembersCloud,
   isValidJasraBatch,
@@ -106,11 +108,43 @@ export default function JasraPanel({
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [ktpLightbox, setKtpLightbox] = useState(null); // { url, title, subtitle }
+  const [isPurgingOldKtp, setIsPurgingOldKtp] = useState(false);
 
   // Daftar penerima terisolasi pada gelombang yang sedang dilihat (tidak tercampur batch lama)
   const allDistributions = useMemo(() => {
     return getBatchDistributions(distributions, viewedBatch, membersList, externalJasraList);
   }, [distributions, viewedBatch, membersList, externalJasraList]);
+
+  // Daftar penerima khusus gelombang aktif (untuk validasi anti-duplikat & metrik)
+  const activeBatchDistributions = useMemo(() => {
+    return getBatchDistributions(distributions, activeBatch, membersList, externalJasraList);
+  }, [distributions, activeBatch, membersList, externalJasraList]);
+
+  // Hitung jumlah foto KTP yang masih tersimpan di batch lama/kedaluwarsa
+  const expiredKtpPhotoCount = useMemo(() => {
+    const activeId = activeBatch && !activeBatchRemaining.isExpired ? activeBatch.id : null;
+    const expiredIds = new Set();
+    (validBatches || []).forEach((b) => {
+      if (!b || !b.id || b.id === activeId) return;
+      const rem = calculateBatchRemaining(b);
+      if (rem.isExpired || b.status === "COMPLETED") {
+        expiredIds.add(b.id);
+      }
+    });
+    if (expiredIds.size === 0) return 0;
+
+    let count = 0;
+    (distributions || []).forEach((d) => {
+      if (d.batchId && expiredIds.has(d.batchId) && d.ktpPhoto) count++;
+    });
+    (externalJasraList || []).forEach((ext) => {
+      const isExp =
+        (ext.batchId && expiredIds.has(ext.batchId)) ||
+        (!ext.batchId && expiredIds.has("BATCH_PEMERINTAH_20261102"));
+      if (isExp && ext.ktpPhoto) count++;
+    });
+    return count;
+  }, [validBatches, activeBatch, activeBatchRemaining.isExpired, distributions, externalJasraList]);
 
   // Hitung metrik stok khusus gelombang yang dilihat & gelombang aktif
   const {
@@ -124,9 +158,8 @@ export default function JasraPanel({
   } = useMemo(() => computeBatchMetrics(viewedBatch, allDistributions), [viewedBatch, allDistributions]);
 
   const activeBatchMetrics = useMemo(() => {
-    const activeDists = getBatchDistributions(distributions, activeBatch, membersList, externalJasraList);
-    return computeBatchMetrics(activeBatch, activeDists);
-  }, [distributions, activeBatch, membersList, externalJasraList]);
+    return computeBatchMetrics(activeBatch, activeBatchDistributions);
+  }, [activeBatch, activeBatchDistributions]);
 
   // Filter & Search state for distributions
   const [filterType, setFilterType] = useState("ALL"); // ALL | MEMBER | NON_MEMBER | ACTIVE | EXPIRED
@@ -357,6 +390,36 @@ export default function JasraPanel({
     return membersList.find((m) => m.id === distFormData.selectedMemberId) || null;
   }, [membersList, distFormData.selectedMemberId]);
 
+  // Real-time duplicate detection within the active batch (prevents double grants)
+  const duplicateInActiveBatch = useMemo(() => {
+    if (!activeBatch || activeBatchDistributions.length === 0) return null;
+    const cleanCid = String(distFormData.citizenId || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const cleanName = String(distFormData.recipientName || "").trim().toUpperCase().replace(/\s+/g, " ");
+    const targetMemberId = distFormData.recipientType === "MEMBER" ? distFormData.selectedMemberId : null;
+    const validCid = cleanCid.length >= 4 && !cleanCid.includes("TIDAK");
+
+    if (!targetMemberId && !validCid && cleanName.length < 3) return null;
+
+    return (
+      activeBatchDistributions.find((d) => {
+        const dCid = String(d.citizenId || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+        const dName = String(d.recipientName || "").trim().toUpperCase().replace(/\s+/g, " ");
+        const validDCid = dCid.length >= 4 && !dCid.includes("TIDAK");
+        if (targetMemberId && d.memberId && d.memberId === targetMemberId) return true;
+        if (validCid && validDCid && dCid === cleanCid) return true;
+        if (cleanName.length >= 3 && dName === cleanName) return true;
+        return false;
+      }) || null
+    );
+  }, [
+    activeBatch,
+    activeBatchDistributions,
+    distFormData.citizenId,
+    distFormData.recipientName,
+    distFormData.recipientType,
+    distFormData.selectedMemberId,
+  ]);
+
   function handleSelectMember(member) {
     if (!member) return;
     setDistFormData((prev) => ({
@@ -493,6 +556,16 @@ export default function JasraPanel({
       return;
     }
 
+    if (duplicateInActiveBatch) {
+      if (onShowToast) {
+        onShowToast(
+          `Klaim Ganda Ditolak: "${duplicateInActiveBatch.recipientName}" (CID: ${duplicateInActiveBatch.citizenId || "-"}) sudah menerima voucher pada gelombang ${activeBatch.batchName}!`,
+          "error"
+        );
+      }
+      return;
+    }
+
     const isNonMember = distFormData.recipientType === "NON_MEMBER";
 
     try {
@@ -626,21 +699,57 @@ export default function JasraPanel({
     }
   }
 
-  function handleExportExcel() {
+  async function handleExportExcel() {
     if (allDistributions.length === 0) {
       if (onShowToast) onShowToast("Belum ada data penyaluran voucher pada gelombang ini untuk diunduh.", "warning");
       return;
     }
-    exportJasraDistributionsToExcel(allDistributions, viewedBatch);
-    if (onShowToast) onShowToast("Laporan penyaluran voucher Jasra berhasil diunduh!", "success");
+    try {
+      await exportJasraDistributionsToExcel(allDistributions, viewedBatch);
+      if (onShowToast) onShowToast("Laporan penyaluran voucher Jasra berhasil diunduh!", "success");
+    } catch (err) {
+      console.error("Gagal export Excel Jasra:", err);
+      if (onShowToast) onShowToast("Gagal mengunduh laporan Excel.", "error");
+    }
+  }
+
+  async function handlePurgeExpiredKtpPhotos() {
+    if (isPurgingOldKtp) return;
+    if (expiredKtpPhotoCount === 0) {
+      if (onShowToast) onShowToast("Tidak ada foto KTP pada batch lama/kedaluwarsa yang perlu dibersihkan.", "info");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Bersihkan ${expiredKtpPhotoCount} foto KTP dari gelombang batch Jasra lama/kedaluwarsa untuk menghemat ruang database?\n\nCatatan nama, Citizen ID, jumlah voucher, dan laporan Excel tetap aman dan utuh 100%.`
+    );
+    if (!confirmed) return;
+
+    setIsPurgingOldKtp(true);
+    try {
+      const res = await purgeExpiredBatchKtpPhotosCloud(validBatches);
+      const totalPurged = (res.purgedDistCount || 0) + (res.purgedExtCount || 0);
+      if (onShowToast) {
+        onShowToast(
+          totalPurged > 0
+            ? `Berhasil membersihkan ${totalPurged} foto KTP lama dari ${res.expiredBatchCount} batch kedaluwarsa. Data riwayat tetap utuh!`
+            : "Tidak ada foto KTP lama yang ditemukan di cloud.",
+          "success"
+        );
+      }
+    } catch (err) {
+      console.error("Gagal membersihkan foto KTP batch lama:", err);
+      if (onShowToast) onShowToast("Gagal membersihkan foto KTP lama: " + err.message, "error");
+    } finally {
+      setIsPurgingOldKtp(false);
+    }
   }
 
   return (
     <div className="flex flex-col gap-5">
       {/* 1. Header Card with Actions */}
-      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#DC2626] border border-black/20 dark:border-white/15 flex items-center justify-center text-[#FACC15] shadow-xs shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-[#DC2626] border border-red-700/40 flex items-center justify-center text-[#FACC15] shadow-sm shrink-0">
             <HeartHandshake size={24} />
           </div>
           <div>
@@ -648,7 +757,7 @@ export default function JasraPanel({
               <h3 className="font-heading font-black text-base sm:text-lg uppercase text-slate-900 dark:text-slate-100">
                 Kelola Voucher Jasra
               </h3>
-              <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] border border-black shadow-xs">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
                 SUBSIDI PEMERINTAH KOTA
               </span>
             </div>
@@ -663,20 +772,35 @@ export default function JasraPanel({
             type="button"
             onClick={() => handleSyncWithMembers(true)}
             disabled={isSyncing}
-            className="btn py-2 px-3 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-yellow-500/80 shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-75 transition-all rounded-lg active:translate-y-0.5"
+            className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-slate-200 text-xs font-heading font-bold border border-black/10 dark:border-white/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-60 transition-colors"
             title="Sinkronisasikan data penerima gelombang ini dengan Database Anggota"
           >
             <RotateCcw size={14} className={isSyncing ? "animate-spin text-[#DC2626]" : "text-[#DC2626]"} />
-            <span>{isSyncing ? "Menyinkronkan..." : "Sinkronkan Data"}</span>
+            <span>{isSyncing ? "Menyinkronkan..." : "Sinkronkan"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePurgeExpiredKtpPhotos}
+            disabled={isPurgingOldKtp || expiredKtpPhotoCount === 0}
+            className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-amber-50 dark:bg-white/5 dark:hover:bg-amber-950/30 text-slate-700 hover:text-amber-900 dark:text-slate-300 dark:hover:text-amber-200 text-xs font-heading font-bold border border-black/10 dark:border-white/10 flex items-center gap-1.5 cursor-pointer disabled:opacity-45 transition-colors"
+            title="Hapus foto KTP pada batch lama yang sudah kedaluwarsa untuk menghemat ruang database (data nama/CID/riwayat tetap utuh)"
+          >
+            <Database size={14} className="text-amber-600 dark:text-amber-400" />
+            <span>
+              {isPurgingOldKtp
+                ? "Membersihkan..."
+                : `Bersihkan KTP Lama${expiredKtpPhotoCount > 0 ? ` (${expiredKtpPhotoCount})` : ""}`}
+            </span>
           </button>
 
           <button
             type="button"
             onClick={handleOpenNewBatchModal}
-            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+            className="py-2 px-3.5 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-950 dark:text-amber-200 text-xs font-heading font-black border border-amber-300 dark:border-amber-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Catat penerimaan batch voucher baru dari pemerintah"
           >
-            <Plus size={15} className="text-slate-950 shrink-0" />
+            <Plus size={15} className="shrink-0" />
             <span>Input Batch Baru</span>
           </button>
 
@@ -684,10 +808,10 @@ export default function JasraPanel({
             type="button"
             onClick={handleOpenDistributeModal}
             disabled={!activeBatch || activeBatchRemaining.isExpired}
-            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+            className="py-2 px-3.5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-amber-400/80 shadow-sm flex items-center gap-1.5 disabled:opacity-50 transition-all cursor-pointer active:scale-98"
             title="Catat penyerahan voucher ke anggota atau warga luar pada batch aktif"
           >
-            <Gift size={16} className="text-[#DC2626] shrink-0" />
+            <Gift size={15} className="text-[#DC2626] shrink-0" />
             <span>Serahkan Voucher</span>
           </button>
 
@@ -698,10 +822,10 @@ export default function JasraPanel({
               navigator.clipboard.writeText(url);
               if (onShowToast) onShowToast(`Link laporan Jasra berhasil disalin: ${url}`, "success");
             }}
-            className="btn py-2 px-3.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+            className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-slate-200 text-xs font-heading font-bold border border-black/10 dark:border-white/10 flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Salin URL transparansi Jasra ke clipboard"
           >
-            <Copy size={14} className="text-[#DC2626]" />
+            <Copy size={13} className="text-[#DC2626]" />
             <span>Salin Link</span>
           </button>
         </div>
@@ -709,16 +833,16 @@ export default function JasraPanel({
 
       {/* 2. Viewed Government Batch Highlight Banner */}
       {viewedBatch ? (
-        <div className="card-brutal relative z-20 p-5 bg-[#FFFDF9] dark:bg-[#161822] border-[2.5px] border-black dark:border-[#475569] shadow-md flex flex-col gap-4">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-3 border-b-2 border-black/10 dark:border-white/10">
+        <div className="relative z-20 p-5 rounded-2xl bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 shadow-sm flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-3 border-b border-black/10 dark:border-white/10">
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 {isViewingActiveBatch && !batchRemaining.isExpired ? (
-                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-500">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
                     BATCH AKTIF
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-400">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                     ARSIP BATCH
                   </span>
                 )}
@@ -733,7 +857,7 @@ export default function JasraPanel({
                 <Building2 size={13} className="text-[#DC2626]" />
                 <span>{viewedBatch.source || "Pemerintah Kota San Andreas"}</span>
                 <span>•</span>
-                <Calendar size={13} className="text-[#FACC15]" />
+                <Calendar size={13} className="text-amber-500" />
                 <span>Diterima: {formatJasraDate(viewedBatch.receivedAt)}</span>
               </p>
             </div>
@@ -758,7 +882,7 @@ export default function JasraPanel({
           </div>
 
           {/* Sisa Hari Penjelasan Real-time */}
-          <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-center gap-2">
+          <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-300/80 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-center gap-2">
             <Info size={15} className="text-amber-600 shrink-0" />
             <div className="leading-normal text-[11px] sm:text-xs">
               {isViewingActiveBatch
@@ -770,10 +894,10 @@ export default function JasraPanel({
           {/* 3 Metric Cards: Stok Treatment, Stok Pingsan, & Penyaluran */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
             {/* Treatment Stock */}
-            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border border-black/15 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
+            <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#1C1F2B] border border-black/10 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Stok Treatment</span>
-                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                   {effectiveRemainingTreatment} / {effectiveInitialTreatment} Sisa
                 </span>
               </div>
@@ -798,10 +922,10 @@ export default function JasraPanel({
             </div>
 
             {/* Pingsan Stock */}
-            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border border-black/15 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
+            <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#1C1F2B] border border-black/10 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Stok Pingsan</span>
-                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                   {effectiveRemainingPingsan} / {effectiveInitialPingsan} Sisa
                 </span>
               </div>
@@ -826,10 +950,10 @@ export default function JasraPanel({
             </div>
 
             {/* Penerima Stats */}
-            <div className="card-brutal p-3.5 bg-white dark:bg-[#1C1F2B] border border-black/15 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
+            <div className="p-3.5 rounded-xl bg-slate-50/70 dark:bg-[#1C1F2B] border border-black/10 dark:border-white/10 shadow-xs flex flex-col justify-between gap-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Penerima Manfaat</span>
-                <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-400">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
                   {effectiveDistributedCount} Warga
                 </span>
               </div>
@@ -850,7 +974,7 @@ export default function JasraPanel({
         </div>
       ) : (
         /* Empty State if No Batch */
-        <div className="card-brutal p-8 text-center bg-white dark:bg-[#161822] border border-black/15 dark:border-white/10 shadow-sm">
+        <div className="p-8 text-center rounded-2xl bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 shadow-sm">
           <ShieldAlert size={38} className="mx-auto text-[#DC2626] mb-2" />
           <h4 className="font-heading font-black text-base text-slate-900 dark:text-slate-100 uppercase">
             Belum Ada Gelombang Voucher Jasra dari Pemerintah
@@ -861,16 +985,16 @@ export default function JasraPanel({
           <button
             type="button"
             onClick={handleOpenNewBatchModal}
-            className="btn text-xs py-2 px-4 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-black border border-black/20 dark:border-white/15 mt-3 shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+            className="py-2 px-4 rounded-xl text-xs bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black border border-amber-400/80 mt-3 shadow-sm cursor-pointer inline-flex items-center gap-1.5"
           >
             <Plus size={15} />
-            <span>+ Catat Penerimaan Jasra dari Pemerintah</span>
+            <span>Catat Penerimaan Jasra dari Pemerintah</span>
           </button>
         </div>
       )}
 
       {/* 3. Distribution History Table & Filter Controls */}
-      <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-4">
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 shadow-sm flex flex-col gap-4">
         {/* Search & Filter Bar */}
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Search Box */}
@@ -881,7 +1005,7 @@ export default function JasraPanel({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari nama penerima, No. IC / KTP, nomor HP..."
-              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-black/15 dark:border-white/10 bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 shadow-xs focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-black/15 dark:border-white/10 bg-slate-50 dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
             />
             {searchQuery && (
               <button
@@ -907,10 +1031,10 @@ export default function JasraPanel({
                 key={f.id}
                 type="button"
                 onClick={() => setFilterType(f.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-heading font-black border transition-all cursor-pointer ${
                   filterType === f.id
-                    ? "bg-[#FACC15] text-[#111827] border-black shadow-xs -translate-y-0.5"
-                    : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 border-black/30 dark:border-slate-700 hover:border-black"
+                    ? "bg-[#FACC15] text-slate-950 border-amber-400/80 shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border-black/10 dark:border-white/10"
                 }`}
               >
                 {f.label}
@@ -920,10 +1044,10 @@ export default function JasraPanel({
         </div>
 
         {/* Table of Distributions */}
-        <div className="overflow-x-auto border border-black/15 dark:border-white/10 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto border border-black/10 dark:border-white/10 rounded-xl overflow-hidden">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-900 text-white font-heading font-black uppercase text-[11px] tracking-wider border-b-2 border-black">
+              <tr className="bg-slate-900 text-white font-heading font-black uppercase text-[11px] tracking-wider border-b border-black/20">
                 <th className="py-2.5 px-3">No</th>
                 <th className="py-2.5 px-3">Penerima Manfaat</th>
                 <th className="py-2.5 px-3">No. IC / KTP</th>
@@ -951,11 +1075,11 @@ export default function JasraPanel({
                       <td className="py-2.5 px-3">
                         <div className="flex items-center gap-1.5">
                           {isMember ? (
-                            <span className="w-5 h-5 rounded-md bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0" title="Anggota Resmi LSM PPS">
+                            <span className="w-5 h-5 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center justify-center shrink-0" title="Anggota Resmi LSM PPS">
                               <UserCheck size={12} />
                             </span>
                           ) : (
-                            <span className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-black/30 flex items-center justify-center shrink-0" title="Warga Luar Anggota">
+                            <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-black/10 dark:border-white/10 flex items-center justify-center shrink-0" title="Warga Luar Anggota">
                               <UserX size={12} />
                             </span>
                           )}
@@ -974,7 +1098,7 @@ export default function JasraPanel({
                         {dist.citizenId || "-"}
                       </td>
                       <td className="py-2.5 px-3">
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-400 font-mono text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 font-mono text-[11px] font-bold text-amber-900 dark:text-amber-200">
                           <span>{dist.treatmentCount} Treatment</span>
                           <span>•</span>
                           <span>{dist.pingsanCount} Pingsan</span>
@@ -985,15 +1109,15 @@ export default function JasraPanel({
                       </td>
                       <td className="py-2.5 px-3">
                         {rem.isExpired ? (
-                          <span className="badge-brutal text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-black font-bold">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-bold">
                             Kedaluwarsa
                           </span>
                         ) : rem.daysRemaining <= 2 ? (
-                          <span className="badge-brutal text-[10px] bg-[#DC2626] text-white border border-black font-black animate-pulse">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-red-100 dark:bg-red-950/70 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800 font-black animate-pulse">
                             {rem.label}
                           </span>
                         ) : (
-                          <span className="badge-brutal text-[10px] bg-[#FACC15] text-[#111827] border border-black font-black">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-black">
                             {rem.label}
                           </span>
                         )}
@@ -1058,8 +1182,8 @@ export default function JasraPanel({
       {/* 4. Modal: Catat Batch Jasra dari Pemerintah */}
       {isBatchModalOpen && (
         <div className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="px-5 py-4 bg-[#FACC15] text-[#111827] border-b-2 border-black flex items-center justify-between">
+          <div className="w-full max-w-lg bg-white dark:bg-[#151824] border border-black/15 dark:border-white/10 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="px-5 py-4 bg-[#FACC15] text-slate-950 border-b border-amber-400/70 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 size={20} className="text-[#DC2626]" />
                 <h4 className="font-heading font-black text-sm sm:text-base uppercase">
@@ -1069,7 +1193,7 @@ export default function JasraPanel({
               <button
                 type="button"
                 onClick={() => setIsBatchModalOpen(false)}
-                className="w-7 h-7 rounded-full bg-white text-black border border-black flex items-center justify-center font-bold hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-full bg-black/10 hover:bg-red-500 hover:text-white text-slate-950 flex items-center justify-center font-bold transition-colors cursor-pointer"
               >
                 <X size={15} />
               </button>
@@ -1216,8 +1340,8 @@ export default function JasraPanel({
       {/* 5. Modal: Bagikan Voucher ke Anggota / Warga Luar */}
       {isDistributeModalOpen && (
         <div className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-[var(--card-bg)] border-[3px] border-black dark:border-[#475569] shadow-xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="px-5 py-4 bg-[#DC2626] text-white border-b-2 border-black flex items-center justify-between">
+          <div className="w-full max-w-lg bg-white dark:bg-[#151824] border border-black/15 dark:border-white/10 shadow-2xl rounded-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="px-5 py-4 bg-[#DC2626] text-white border-b border-red-700/60 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Gift size={20} className="text-[#FACC15]" />
                 <h4 className="font-heading font-black text-sm sm:text-base uppercase">
@@ -1227,7 +1351,7 @@ export default function JasraPanel({
               <button
                 type="button"
                 onClick={() => setIsDistributeModalOpen(false)}
-                className="w-7 h-7 rounded-full bg-white text-black border border-black flex items-center justify-center font-bold hover:bg-yellow-400 transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center font-bold transition-colors cursor-pointer"
               >
                 <X size={15} />
               </button>
@@ -1236,15 +1360,15 @@ export default function JasraPanel({
             <form onSubmit={handleSaveDistribution} className="p-5 overflow-y-auto space-y-4">
               {/* Info Active Batch Remaining */}
               {activeBatch && (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-black/20 dark:border-white/15 text-xs flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-300/70 dark:border-amber-700/50 text-xs flex items-center justify-between gap-2">
                   <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase block">Batch Alokasi Aktif</span>
                     <strong className="font-heading font-black text-slate-900 dark:text-slate-100">
                       {activeBatch.batchName}
                     </strong>
                   </div>
-                  <div className="text-right">
-                    <span className="badge-brutal text-[10px] bg-[#FACC15] text-black border border-black font-black">
+                  <div className="text-right shrink-0">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-black">
                       Sisa Masa Berlaku: {activeBatchRemaining.daysRemaining} Hari
                     </span>
                   </div>
@@ -1399,10 +1523,10 @@ export default function JasraPanel({
                                       <img
                                         src={m.profilePhoto || m.photoUrl}
                                         alt=""
-                                        className="w-7 h-7 rounded-full border border-black object-cover shrink-0"
+                                        className="w-7 h-7 rounded-full border border-black/15 dark:border-white/15 object-cover shrink-0"
                                       />
                                     ) : (
-                                      <div className="w-7 h-7 rounded-full border border-black bg-[#FACC15] text-slate-950 flex items-center justify-center font-heading font-black text-[10px] shrink-0">
+                                      <div className="w-7 h-7 rounded-full border border-amber-400/70 bg-[#FACC15] text-slate-950 flex items-center justify-center font-heading font-black text-[10px] shrink-0">
                                         {(m.fullName || "AG").slice(0, 2).toUpperCase()}
                                       </div>
                                     )}
@@ -1688,24 +1812,44 @@ export default function JasraPanel({
                 </div>
               </div>
 
+              {/* Duplicate Claim Warning in Active Batch */}
+              {duplicateInActiveBatch && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-400 dark:border-red-700 text-xs text-red-950 dark:text-red-200 flex items-start gap-2.5">
+                  <AlertTriangle size={16} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 leading-relaxed">
+                    <strong className="block font-heading font-black uppercase text-red-700 dark:text-red-300">
+                      Peringatan: Klaim Ganda Terdeteksi!
+                    </strong>
+                    <span>
+                      <strong>{duplicateInActiveBatch.recipientName}</strong>{" "}
+                      {duplicateInActiveBatch.citizenId && duplicateInActiveBatch.citizenId !== "-"
+                        ? `(CID: ${duplicateInActiveBatch.citizenId})`
+                        : ""}{" "}
+                      sudah menerima jatah <strong>{duplicateInActiveBatch.treatmentCount}T • {duplicateInActiveBatch.pingsanCount}P</strong> pada gelombang aktif ini ({formatJasraShortDate(duplicateInActiveBatch.givenAt)}).
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Dynamic Remaining Warning */}
-              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500 text-xs text-emerald-900 dark:text-emerald-200">
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-400/70 dark:border-emerald-700 text-xs text-emerald-900 dark:text-emerald-200">
                 <strong>Masa Berlaku:</strong> Penerima voucher akan aktif dengan <strong>sisa masa berlaku {activeBatchRemaining.daysRemaining} hari</strong> (berakhir pada {formatJasraShortDate(activeBatchRemaining.expiresAt)} sesuai jadwal batch pemerintah).
               </div>
 
-              <div className="pt-3 border-t-2 border-black/10 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-black/10 dark:border-white/10 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsDistributeModalOpen(false)}
-                  className="btn btn-secondary text-xs py-2 px-4 border border-black/20 dark:border-white/15 font-bold cursor-pointer"
+                  className="py-2 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10 text-xs font-heading font-bold uppercase cursor-pointer transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="btn text-xs py-2 px-5 bg-[#DC2626] hover:bg-red-700 text-white font-black border border-black/20 dark:border-white/15 shadow-xs cursor-pointer"
+                  disabled={Boolean(duplicateInActiveBatch) || isScanningOcr}
+                  className="py-2 px-5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border border-amber-400/80 shadow-sm cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed transition-all"
                 >
-                  Simpan &amp; Serahkan Voucher
+                  {duplicateInActiveBatch ? "Sudah Pernah Klaim" : "Simpan & Serahkan Voucher"}
                 </button>
               </div>
             </form>

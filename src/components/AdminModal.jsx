@@ -43,6 +43,13 @@ import {
 } from "../services/memberService";
 import { scanKtpImage, getGeminiApiKey, resolveGeminiApiKey, setGeminiApiKey } from "../utils/ktpOcr";
 import {
+  DEFAULT_DISCORD_WEBHOOK_CONFIG,
+  getDiscordWebhookConfig,
+  updateDiscordWebhookConfig,
+  sendDiscordNotification,
+  isValidDiscordWebhookUrl,
+} from "../services/discordWebhook";
+import {
   subscribeEventRegistrationsCloud,
   deleteEventRegistrationCloud,
   toggleEventCheckinCloud,
@@ -145,6 +152,13 @@ export default function AdminModal({
   const [geminiKeyInput, setGeminiKeyInput] = useState(() => getGeminiApiKey());
   const [isTestingGemini, setIsTestingGemini] = useState(false);
   const [geminiTestStatus, setGeminiTestStatus] = useState(null);
+
+  // Discord Webhook Notification Config State for Tab Keamanan
+  const [discordWebhookConfig, setDiscordWebhookConfig] = useState(() => ({
+    ...DEFAULT_DISCORD_WEBHOOK_CONFIG,
+  }));
+  const [isSavingWebhook, setIsSavingWebhook] = useState(false);
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
 
   // Tab Navigation Ref & Scroll Helpers for Mobile
   const tabsNavRef = useRef(null);
@@ -406,6 +420,9 @@ export default function AdminModal({
       resolveGeminiApiKey().then((k) => {
         if (k) setGeminiKeyInput(k);
       }).catch(() => {});
+      getDiscordWebhookConfig(true).then((cfg) => {
+        if (cfg) setDiscordWebhookConfig(cfg);
+      }).catch(() => {});
       loadSubmissions().then((data) => setSubmissions(data || []));
       const unsubscribeMembers = subscribeMembersCloud((list) => {
         setMembersList(list || []);
@@ -662,7 +679,7 @@ export default function AdminModal({
   }
 
   // Handler: Export Event Registrations to Excel
-  function handleExportEventExcel() {
+  async function handleExportEventExcel() {
     const listToExport =
       selectedEventFilter === "all"
         ? eventRegistrations
@@ -677,7 +694,7 @@ export default function AdminModal({
       return;
     }
     const currentEvt = eventsList.find((e) => e.id === selectedEventFilter);
-    const success = exportEventRegistrationsToExcel(
+    const success = await exportEventRegistrationsToExcel(
       listToExport,
       currentEvt?.title || "Semua_Event"
     );
@@ -726,7 +743,7 @@ export default function AdminModal({
   }
 
   // Handler: Export Bansos to Excel
-  function handleExportBansosExcel() {
+  async function handleExportBansosExcel() {
     let list = bansosClaims;
     if (bansosStatusFilter === 'unclaimed') {
       list = list.filter((c) => !c.claimed);
@@ -753,7 +770,7 @@ export default function AdminModal({
       return;
     }
 
-    const ok = exportBansosToExcel(list);
+    const ok = await exportBansosToExcel(list);
     if (ok) {
       onShowToast(`Data ${list.length} penerima Bansos berhasil diekspor ke Excel.`, 'success');
     } else {
@@ -787,13 +804,13 @@ export default function AdminModal({
     });
   }
 
-  function handleExportKasExcel() {
+  async function handleExportKasExcel() {
     try {
       if (kasTransactions.length === 0) {
         onShowToast("Belum ada data transaksi kas untuk diekspor.", "warning");
         return;
       }
-      const ok = exportKasLedgerToExcel(kasTransactions, kasSummary);
+      const ok = await exportKasLedgerToExcel(kasTransactions, kasSummary);
       if (ok) {
         onShowToast(`Buku kas (${kasTransactions.length} transaksi) berhasil diekspor ke Excel.`, "success");
       } else {
@@ -1236,12 +1253,12 @@ export default function AdminModal({
     }
   }
 
-  function handleExportExcel() {
+  async function handleExportExcel() {
     if (membersList.length === 0) {
       onShowToast("Tidak ada data anggota untuk diexport.", "error");
       return;
     }
-    const ok = exportMembersToExcel(membersList);
+    const ok = await exportMembersToExcel(membersList);
     if (ok) {
       onShowToast("File Excel data anggota berhasil diunduh!", "success");
     } else {
@@ -1502,12 +1519,12 @@ export default function AdminModal({
     });
   }
 
-  function handleExportDismissedExcel() {
+  async function handleExportDismissedExcel() {
     if (dismissedMembersList.length === 0) {
       onShowToast("Belum ada riwayat anggota yang dikeluarkan untuk diexport.", "error");
       return;
     }
-    const ok = exportDismissedMembersToExcel(dismissedMembersList);
+    const ok = await exportDismissedMembersToExcel(dismissedMembersList);
     if (ok) {
       onShowToast("File Excel riwayat anggota dikeluarkan berhasil diunduh!", "success");
     } else {
@@ -1654,13 +1671,13 @@ export default function AdminModal({
     });
   }
 
-  function handleExportExternalJasraExcel() {
+  async function handleExportExternalJasraExcel() {
     if (!externalJasraList || externalJasraList.length === 0) {
       onShowToast("Tidak ada data penerima Jasra luar untuk diunduh.", "warning");
       return;
     }
     try {
-      const ok = exportExternalJasraToExcel(externalJasraList);
+      const ok = await exportExternalJasraToExcel(externalJasraList);
       if (ok) {
         onShowToast("File Excel penerima Jasra luar anggota berhasil diunduh!", "success");
       }
@@ -2077,6 +2094,54 @@ export default function AdminModal({
       onShowToast("Uji koneksi gagal: " + err.message, "error");
     } finally {
       setIsTestingGemini(false);
+    }
+  }
+
+  // Handle Save Discord Webhook Config to Cloud Firestore
+  async function handleSaveDiscordWebhook() {
+    const cleanUrl = (discordWebhookConfig.webhookUrl || "").trim();
+    if (cleanUrl && !isValidDiscordWebhookUrl(cleanUrl)) {
+      onShowToast("Format URL Webhook Discord tidak valid! Harus diawali https://discord.com/api/webhooks/...", "error");
+      return;
+    }
+    setIsSavingWebhook(true);
+    try {
+      const saved = await updateDiscordWebhookConfig({
+        ...discordWebhookConfig,
+        webhookUrl: cleanUrl,
+      });
+      setDiscordWebhookConfig(saved);
+      onShowToast(
+        cleanUrl
+          ? "Pengaturan Discord Webhook berhasil disimpan ke Cloud!"
+          : "URL Discord Webhook dikosongkan (notifikasi nonaktif).",
+        "success"
+      );
+    } catch (err) {
+      console.error(err);
+      onShowToast("Gagal menyimpan pengaturan Webhook: " + err.message, "error");
+    } finally {
+      setIsSavingWebhook(false);
+    }
+  }
+
+  // Handle Test Discord Webhook Notification
+  async function handleTestDiscordWebhook() {
+    const cleanUrl = (discordWebhookConfig.webhookUrl || "").trim();
+    if (!isValidDiscordWebhookUrl(cleanUrl)) {
+      onShowToast("Masukkan URL Discord Webhook yang valid terlebih dahulu!", "error");
+      return;
+    }
+    setIsTestingWebhook(true);
+    try {
+      const res = await sendDiscordNotification("TEST", {}, cleanUrl);
+      if (res.ok) {
+        onShowToast("Pesan tes berhasil terkirim ke channel Discord pengurus!", "success");
+      } else {
+        onShowToast("Gagal mengirim tes Webhook: " + (res.error || res.reason || "Periksa URL webhook"), "error");
+      }
+    } finally {
+      setIsTestingWebhook(false);
     }
   }
 
@@ -8001,6 +8066,100 @@ export default function AdminModal({
                     </div>
                   </div>
 
+                  {/* Discord Webhook Notification Config Card */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 shadow-sm flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-400/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                          <MessageSquare size={18} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-900 dark:text-slate-100">
+                              Notifikasi Otomatis Discord (Webhook)
+                            </h4>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                isValidDiscordWebhookUrl(discordWebhookConfig.webhookUrl) && discordWebhookConfig.enabled
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-500/40"
+                                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-300 dark:border-slate-700"
+                              }`}
+                            >
+                              {isValidDiscordWebhookUrl(discordWebhookConfig.webhookUrl) && discordWebhookConfig.enabled
+                                ? "Webhook Aktif"
+                                : "Belum Aktif"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                            Kirim laporan embed otomatis ke channel Discord pengurus setiap ada pendaftaran anggota, tiket layanan, atau klaim bansos masuk.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2.5 pt-1">
+                      <label className="text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300">
+                        URL Discord Webhook Channel Pengurus
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="password"
+                          placeholder="https://discord.com/api/webhooks/..."
+                          value={discordWebhookConfig.webhookUrl}
+                          onChange={(e) =>
+                            setDiscordWebhookConfig((prev) => ({ ...prev, webhookUrl: e.target.value }))
+                          }
+                          className="input-field font-mono text-xs flex-1 bg-slate-50 dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-xl"
+                        />
+                        <button
+                          type="button"
+                          disabled={isTestingWebhook}
+                          onClick={handleTestDiscordWebhook}
+                          className="py-2 px-3.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-heading font-bold border border-indigo-600 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
+                        >
+                          {isTestingWebhook ? "Mengirim..." : "Tes Kirim"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSavingWebhook}
+                          onClick={handleSaveDiscordWebhook}
+                          className="py-2 px-3.5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-amber-400/80 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
+                        >
+                          {isSavingWebhook ? "Menyimpan..." : "Simpan Webhook"}
+                        </button>
+                      </div>
+
+                      {/* Event Toggles */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        {[
+                          { key: "enabled", label: "Aktifkan Notifikasi Discord" },
+                          { key: "notifyMemberReg", label: "Pendaftaran Anggota Baru (/daftar)" },
+                          { key: "notifyServiceUmkm", label: "Pengajuan Lapak UMKM" },
+                          { key: "notifyServiceMeeting", label: "Permintaan Jadwal Meeting" },
+                          { key: "notifyBansos", label: "Klaim Bantuan Sosial (Bansos)" },
+                        ].map((item) => (
+                          <label
+                            key={item.key}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1A1D27] border border-black/10 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(discordWebhookConfig[item.key])}
+                              onChange={(e) =>
+                                setDiscordWebhookConfig((prev) => ({
+                                  ...prev,
+                                  [item.key]: e.target.checked,
+                                }))
+                              }
+                              className="w-4 h-4 accent-[#DC2626] rounded cursor-pointer"
+                            />
+                            <span className="font-semibold text-[11px]">{item.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Browser Session Card */}
                   <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
@@ -8111,7 +8270,7 @@ export default function AdminModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="p-4 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-3xl w-full rounded-xl overflow-hidden flex flex-col gap-3 shadow-2xl max-h-[92vh]"
+            className="p-4 bg-white dark:bg-[#1E212B] border border-black/15 dark:border-white/10 max-w-3xl w-full rounded-xl overflow-hidden flex flex-col gap-3 shadow-2xl max-h-[92vh]"
           >
             {/* Header Modal Lightbox */}
             <div className="flex items-center justify-between w-full pb-2 border-b-2 border-black/15 dark:border-white/15">
@@ -8343,7 +8502,7 @@ export default function AdminModal({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border-[3px] border-black shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
+          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border border-black/15 dark:border-white/10 shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
             {/* Header Modal */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#FACC15] text-slate-950">
               <div className="flex items-center gap-2">
@@ -8637,7 +8796,7 @@ export default function AdminModal({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border-[3px] border-black shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
+          <div className="w-full max-w-xl max-h-[92vh] rounded-xl border border-black/15 dark:border-white/10 shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
             {/* Header Modal */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#FACC15] text-slate-950">
               <div className="flex items-center gap-2">
@@ -9390,7 +9549,7 @@ export default function AdminModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="p-4 sm:p-5 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-lg w-full rounded-xl overflow-hidden flex flex-col gap-4 shadow-2xl max-h-[92vh] overflow-y-auto"
+            className="p-4 sm:p-5 bg-white dark:bg-[#1E212B] border border-black/15 dark:border-white/10 max-w-lg w-full rounded-xl overflow-hidden flex flex-col gap-4 shadow-2xl max-h-[92vh] overflow-y-auto"
           >
             {/* Header Modal */}
             <div className="flex items-center justify-between w-full pb-3 border-b-2 border-black/15 dark:border-white/15">

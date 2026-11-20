@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { flushSync } from "react-dom";
 import { loadCloudData, defaultData, mergeWithDefaults, sanitizeSandyShores } from "./services/firebase";
 import Navbar from "./components/Navbar";
@@ -10,14 +10,6 @@ import StructurePage from "./components/StructurePage";
 import GalleryPage from "./components/GalleryPage";
 import Footer from "./components/Footer";
 import LightboxModal from "./components/LightboxModal";
-import AdminModal from "./components/AdminModal";
-import ServicePortalModal from "./components/ServicePortalModal";
-import MemberRegistrationModal from "./components/MemberRegistrationModal";
-import MembersDirectoryModal from "./components/MembersDirectoryModal";
-import EventRegistrationModal from "./components/EventRegistrationModal";
-import BansosModal from "./components/BansosModal";
-import PermitModal from "./components/PermitModal";
-import TransparencyModal from "./components/TransparencyModal";
 import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
 import FloatingActions from "./components/FloatingActions";
@@ -27,7 +19,6 @@ import { Users, Camera, ArrowRight, Ticket, Dices } from "lucide-react";
 import { subscribeMembersCloud } from "./services/memberService";
 import { subscribeEventsCloud } from "./services/eventService";
 import { subscribeBansosProgramsCloud } from "./services/bansosService";
-import DoorprizeModal from "./components/DoorprizeModal";
 import {
   subscribeDoorprizeConfigCloud,
   subscribeDoorprizeTicketsCloud,
@@ -36,6 +27,17 @@ import {
   formatTicketNumber,
 } from "./services/doorprizeService";
 import { recordVisitorHitCloud } from "./services/visitorService";
+
+// Lazy-loaded heavy modals for faster initial page load
+const AdminModal = lazy(() => import("./components/AdminModal"));
+const ServicePortalModal = lazy(() => import("./components/ServicePortalModal"));
+const MemberRegistrationModal = lazy(() => import("./components/MemberRegistrationModal"));
+const MembersDirectoryModal = lazy(() => import("./components/MembersDirectoryModal"));
+const EventRegistrationModal = lazy(() => import("./components/EventRegistrationModal"));
+const BansosModal = lazy(() => import("./components/BansosModal"));
+const PermitModal = lazy(() => import("./components/PermitModal"));
+const TransparencyModal = lazy(() => import("./components/TransparencyModal"));
+const DoorprizeModal = lazy(() => import("./components/DoorprizeModal"));
 
 export default function App() {
   const [memberCount, setMemberCount] = useState(0);
@@ -1181,84 +1183,104 @@ export default function App() {
         onClose={handleCloseLightbox}
       />
 
-      {/* Direktori Publik Anggota Terdaftar (/anggota) */}
-      <MembersDirectoryModal
-        isOpen={membersDirectoryOpen}
-        onClose={handleCloseMembersDirectory}
-        onOpenRegister={handleOpenRegister}
-      />
+      <Suspense fallback={null}>
+        {/* Direktori Publik Anggota Terdaftar (/anggota) */}
+        {membersDirectoryOpen && (
+          <MembersDirectoryModal
+            isOpen={membersDirectoryOpen}
+            onClose={handleCloseMembersDirectory}
+            onOpenRegister={handleOpenRegister}
+          />
+        )}
 
-      {/* Modal Pendaftaran Event Akbar LSM PPS (/event) */}
-      <EventRegistrationModal
-        isOpen={eventModalOpen}
-        onClose={handleCloseEventModal}
-        event={selectedEventForModal || activeEvent}
-      />
+        {/* Modal Pendaftaran Event Akbar LSM PPS (/event) */}
+        {eventModalOpen && (
+          <EventRegistrationModal
+            isOpen={eventModalOpen}
+            onClose={handleCloseEventModal}
+            event={selectedEventForModal || activeEvent}
+          />
+        )}
 
-      {/* Modal Khusus Bantuan Sosial Warga (/bansos) - Dynamic Programs */}
-      <BansosModal
-        isOpen={bansosModalOpen}
-        onClose={handleCloseBansosModal}
-        onShowToast={showToast}
-        activeProgram={selectedBansosProgramForModal || activeBansosProgram}
-        bansosPrograms={bansosPrograms}
-      />
+        {/* Modal Khusus Bantuan Sosial Warga (/bansos) - Dynamic Programs */}
+        {bansosModalOpen && (
+          <BansosModal
+            isOpen={bansosModalOpen}
+            onClose={handleCloseBansosModal}
+            onShowToast={showToast}
+            activeProgram={selectedBansosProgramForModal || activeBansosProgram}
+            bansosPrograms={bansosPrograms}
+          />
+        )}
 
-      {/* Modal Khusus Pendaftaran Anggota LSM PPS (Dengan OCR KTP Otomatis) */}
-      <MemberRegistrationModal
-        isOpen={memberModalOpen}
-        onClose={handleCloseRegister}
-        onShowToast={showToast}
-        discordUrl={discordUrl}
-      />
+        {/* Modal Khusus Pendaftaran Anggota LSM PPS (Dengan OCR KTP Otomatis) */}
+        {memberModalOpen && (
+          <MemberRegistrationModal
+            isOpen={memberModalOpen}
+            onClose={handleCloseRegister}
+            onShowToast={showToast}
+            discordUrl={discordUrl}
+          />
+        )}
 
-      {/* Portal Layanan Warga: Lapak UMKM, Request Meeting & Lacak Tiket (GTA V IME Roleplay) */}
-      <ServicePortalModal
-        isOpen={servicePortalOpen}
-        onClose={handleCloseServicePortal}
-        onShowToast={showToast}
-        initialTab={servicePortalTab}
-        discordUrl={discordUrl}
-        discordVisitorUrl={discordVisitorUrl}
-      />
+        {/* Portal Layanan Warga: Lapak UMKM, Request Meeting & Lacak Tiket (GTA V IME Roleplay) */}
+        {servicePortalOpen && (
+          <ServicePortalModal
+            isOpen={servicePortalOpen}
+            onClose={handleCloseServicePortal}
+            onShowToast={showToast}
+            initialTab={servicePortalTab}
+            discordUrl={discordUrl}
+            discordVisitorUrl={discordVisitorUrl}
+          />
+        )}
 
-      {/* Admin CMS Modal */}
-      <AdminModal
-        isOpen={adminModalOpen}
-        onClose={handleCloseAdminModal}
-        initialData={data}
-        isCloudLoading={loading}
-        eventsList={eventsList}
-        bansosPrograms={bansosPrograms}
-        doorprizeTickets={doorprizeTickets}
-        onDataSaved={(newData) => setData(newData)}
-        onShowToast={showToast}
-        onOpenTransparency={handleOpenTransparency}
-      />
+        {/* Admin CMS Modal */}
+        {adminModalOpen && (
+          <AdminModal
+            isOpen={adminModalOpen}
+            onClose={handleCloseAdminModal}
+            initialData={data}
+            isCloudLoading={loading}
+            eventsList={eventsList}
+            bansosPrograms={bansosPrograms}
+            doorprizeTickets={doorprizeTickets}
+            onDataSaved={(newData) => setData(newData)}
+            onShowToast={showToast}
+            onOpenTransparency={handleOpenTransparency}
+          />
+        )}
 
-      {/* Modal Surat Izin Komunitas Pemerintah San Andreas */}
-      <PermitModal
-        isOpen={isPermitModalOpen}
-        onClose={() => setIsPermitModalOpen(false)}
-        onShowToast={showToast}
-      />
+        {/* Modal Surat Izin Komunitas Pemerintah San Andreas */}
+        {isPermitModalOpen && (
+          <PermitModal
+            isOpen={isPermitModalOpen}
+            onClose={() => setIsPermitModalOpen(false)}
+            onShowToast={showToast}
+          />
+        )}
 
-      {/* Modal Portal Transparansi & Laporan Resmi Pemerintah (/transparansi) */}
-      <TransparencyModal
-        isOpen={transparencyModalOpen}
-        onClose={handleCloseTransparency}
-        onShowToast={showToast}
-        initialTab={transparencyInitialTab}
-      />
+        {/* Modal Portal Transparansi & Laporan Resmi Pemerintah (/transparansi) */}
+        {transparencyModalOpen && (
+          <TransparencyModal
+            isOpen={transparencyModalOpen}
+            onClose={handleCloseTransparency}
+            onShowToast={showToast}
+            initialTab={transparencyInitialTab}
+          />
+        )}
 
-      {/* Modal Undian Doorprize Senam Sehat Bersama LSM PPS */}
-      <DoorprizeModal
-        isOpen={doorprizeModalOpen}
-        onClose={handleCloseDoorprizeModal}
-        config={doorprizeConfig}
-        tickets={doorprizeTickets}
-        onShowToast={showToast}
-      />
+        {/* Modal Undian Doorprize Senam Sehat Bersama LSM PPS */}
+        {doorprizeModalOpen && (
+          <DoorprizeModal
+            isOpen={doorprizeModalOpen}
+            onClose={handleCloseDoorprizeModal}
+            config={doorprizeConfig}
+            tickets={doorprizeTickets}
+            onShowToast={showToast}
+          />
+        )}
+      </Suspense>
 
       {/* Floating Tombol Cepat Ambil / Cek Nomor Doorprize Senam Sehat */}
       {!adminModalOpen &&

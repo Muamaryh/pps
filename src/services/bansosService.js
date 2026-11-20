@@ -14,7 +14,6 @@ import {
   deleteDoc,
   onSnapshot,
 } from "firebase/firestore";
-import * as XLSX from "xlsx";
 
 const memberFirebaseConfig = {
   apiKey: "AIzaSyDB7TFVRDRvgMI4q_XtwnxSqOhCKZ2xAe8",
@@ -620,10 +619,11 @@ export async function deleteBansosClaimCloud(claimId) {
 /**
  * Export bansos claims to XLSX file
  */
-export function exportBansosToExcel(claimsList = []) {
+export async function exportBansosToExcel(claimsList = []) {
   if (!Array.isArray(claimsList) || claimsList.length === 0) {
     throw new Error("Tidak ada data bansos untuk diekspor.");
   }
+  const XLSX = await import("xlsx");
 
   const rows = claimsList.map((c, idx) => ({
     NO: idx + 1,

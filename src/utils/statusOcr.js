@@ -1,5 +1,9 @@
-import Tesseract from "tesseract.js";
 import { scanStatusWithGemini } from "./geminiOcr.js";
+
+async function loadTesseract() {
+  const mod = await import("tesseract.js");
+  return mod.default || mod;
+}
 
 /**
  * Preprocesses a status HUD screenshot via canvas for optimal OCR readability
@@ -347,6 +351,7 @@ export async function scanStatusImage(imageFileOrUrl, onProgress = null) {
   // 2. Fallback to local Tesseract OCR with PSM 6 (SINGLE_BLOCK) + Bounding Boxes
   let worker = null;
   try {
+    const Tesseract = await loadTesseract();
     if (typeof onProgress === "function") onProgress(50);
     const preprocessed = await preprocessStatusImage(imageFileOrUrl);
     if (typeof onProgress === "function") onProgress(65);

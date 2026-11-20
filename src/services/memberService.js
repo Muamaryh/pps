@@ -14,8 +14,6 @@ import {
   deleteDoc,
   onSnapshot,
 } from "firebase/firestore";
-import * as XLSX from "xlsx";
-import JSZip from "jszip";
 
 const memberFirebaseConfig = {
   apiKey: "AIzaSyDB7TFVRDRvgMI4q_XtwnxSqOhCKZ2xAe8",
@@ -197,8 +195,9 @@ export async function deleteExternalJasraCloud(id) {
 /**
  * Export external Jasra recipients to Excel
  */
-export function exportExternalJasraToExcel(list = []) {
+export async function exportExternalJasraToExcel(list = []) {
   if (!Array.isArray(list) || list.length === 0) return false;
+  const XLSX = await import("xlsx");
 
   const rows = list.map((item, index) => ({
     No: index + 1,
@@ -733,8 +732,9 @@ export async function deleteDismissedMemberPermanentlyCloud(id) {
 /**
  * Export dismissed members archive to Excel (.xlsx)
  */
-export function exportDismissedMembersToExcel(list = []) {
+export async function exportDismissedMembersToExcel(list = []) {
   if (!Array.isArray(list) || list.length === 0) return false;
+  const XLSX = await import("xlsx");
 
   const rows = list.map((item, index) => ({
     No: index + 1,
@@ -1246,8 +1246,9 @@ export async function resetAllMembersVouchersCloud(membersList = []) {
 /**
  * Export members to formatted Excel (.xlsx) file
  */
-export function exportMembersToExcel(members) {
+export async function exportMembersToExcel(members) {
   if (!members || members.length === 0) return false;
+  const XLSX = await import("xlsx");
 
   const excelRows = members.map((m, index) => {
     const kasSub = getMemberKasSubscription(m);
@@ -1322,6 +1323,7 @@ function base64ToUint8Array(base64) {
 export async function exportMembersToZip(members) {
   if (!members || members.length === 0) return false;
 
+  const [{ default: JSZip }, XLSX] = await Promise.all([import("jszip"), import("xlsx")]);
   const zip = new JSZip();
   const folderProfil = zip.folder("Foto_Profil_Anggota");
   const folderIC = zip.folder("Foto_KTP_IC");

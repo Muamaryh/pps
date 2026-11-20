@@ -607,3 +607,29 @@ export async function saveCloudOcrConfig(geminiApiKey) {
   );
   return cleanKey;
 }
+
+export async function loadDiscordWebhookConfig() {
+  try {
+    const snap = await getDoc(doc(db, "pps_website", "discord_webhook_config"));
+    if (snap.exists()) {
+      return snap.data() || {};
+    }
+  } catch (err) {
+    console.warn("Notice loading Discord webhook config:", err);
+  }
+  return {};
+}
+
+export async function saveDiscordWebhookConfig(config = {}) {
+  const payload = {
+    webhookUrl: String(config.webhookUrl || "").trim(),
+    enabled: config.enabled !== false,
+    notifyMemberReg: config.notifyMemberReg !== false,
+    notifyServiceUmkm: config.notifyServiceUmkm !== false,
+    notifyServiceMeeting: config.notifyServiceMeeting !== false,
+    notifyBansos: config.notifyBansos !== false,
+    updatedAt: new Date().toISOString(),
+  };
+  await setDoc(doc(db, "pps_website", "discord_webhook_config"), payload, { merge: true });
+  return payload;
+}

@@ -99,12 +99,12 @@ export default function KasLedgerModal({
     }
   }
 
-  function handleExport() {
+  async function handleExport() {
     if (transactions.length === 0) {
       if (onShowToast) onShowToast("Belum ada data transaksi kas untuk diunduh.", "warning");
       return;
     }
-    const success = exportKasLedgerToExcel(transactions, summary);
+    const success = await exportKasLedgerToExcel(transactions, summary);
     if (success && onShowToast) {
       onShowToast("File Excel Buku Kas berhasil diunduh.", "success");
     }

@@ -15,7 +15,6 @@ import {
   deleteDoc,
   onSnapshot,
 } from "firebase/firestore";
-import * as XLSX from "xlsx";
 
 const memberFirebaseConfig = {
   apiKey: "AIzaSyDB7TFVRDRvgMI4q_XtwnxSqOhCKZ2xAe8",
@@ -703,6 +702,46 @@ export async function distributeJasraCloud(data, activeBatch) {
     throw new Error(`Stok voucher Pingsan tidak mencukupi (sisa ${activeBatch.remainingPingsan || 0}).`);
   }
 
+  // Prevent duplicate claims within the same active batch (by memberId, CID, or normalized full name)
+  const cleanCid = String(data.citizenId || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+  const cleanName = String(data.recipientName || "").trim().toUpperCase().replace(/\s+/g, " ");
+  const targetMemberId = data.recipientType === "MEMBER" ? (data.memberId || null) : null;
+
+  try {
+    const existingSnap = await getDocs(collection(getJasraDb(), ...JASRA_DISTRIBUTIONS_COL_PATH));
+    let duplicateMatch = null;
+    existingSnap.forEach((d) => {
+      if (d.id === "_meta" || duplicateMatch) return;
+      const item = d.data();
+      if (item.batchId !== activeBatch.id) return;
+
+      const itemCid = String(item.citizenId || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+      const itemName = String(item.recipientName || "").trim().toUpperCase().replace(/\s+/g, " ");
+      const validCid = cleanCid && cleanCid.length >= 4 && !cleanCid.includes("TIDAK");
+      const validItemCid = itemCid && itemCid.length >= 4 && !itemCid.includes("TIDAK");
+
+      if (
+        (targetMemberId && item.memberId && item.memberId === targetMemberId) ||
+        (validCid && validItemCid && itemCid === cleanCid) ||
+        (cleanName && cleanName.length >= 3 && itemName === cleanName)
+      ) {
+        duplicateMatch = { id: d.id, ...item };
+      }
+    });
+
+    if (duplicateMatch) {
+      const err = new Error(
+        `Klaim Ganda Ditolak: "${duplicateMatch.recipientName || cleanName}" (CID: ${duplicateMatch.citizenId || cleanCid || "-"}) sudah menerima voucher (${duplicateMatch.treatmentCount || 0}T • ${duplicateMatch.pingsanCount || 0}P) pada gelombang ${activeBatch.batchName}!`
+      );
+      err.code = "DUPLICATE_IN_BATCH";
+      err.existingDistribution = duplicateMatch;
+      throw err;
+    }
+  } catch (dupErr) {
+    if (dupErr.code === "DUPLICATE_IN_BATCH") throw dupErr;
+    console.warn("Notice checking duplicate Jasra distribution:", dupErr);
+  }
+
   const docId = data.id || "JASRA_DIST_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
   const distRef = doc(getJasraDb(), ...JASRA_DISTRIBUTIONS_COL_PATH, docId);
 
@@ -1085,9 +1124,10 @@ export async function deleteJasraDistributionCloud(distribution, restoreStock = 
 }
 
 /**
- * Export Jasra Distributions to Excel (.xlsx)
+ * Export Jasra Distributions to Excel (.xlsx) - loads XLSX dynamically on demand
  */
-export function exportJasraDistributionsToExcel(distributions = [], batch = null) {
+export async function exportJasraDistributionsToExcel(distributions = [], batch = null) {
+  const XLSX = await import("xlsx");
   const rows = distributions.map((item, idx) => {
     const rem = calculateRecipientRemaining(item, batch);
     return {
@@ -1246,4 +1286,78 @@ export async function syncJasraWithMembersCloud(membersList = [], externalJasraL
   );
 
   return { syncedCount, totalDistributedCount, totalDistributedTreatment, totalDistributedPingsan };
+}
+
+/**
+ * Purge stored KTP Base64 photos ONLY from expired/completed Jasra batches
+ * to save Firestore storage while preserving 100% of recipient names, CIDs, counts, and history.
+ */
+export async function purgeExpiredBatchKtpPhotosCloud(batches = []) {
+  const activeBatch = getActiveJasraBatch(batches);
+  const activeId = activeBatch && !calculateBatchRemaining(activeBatch).isExpired ? activeBatch.id : null;
+
+  const expiredBatchIds = new Set();
+  (batches || []).forEach((b) => {
+    if (!b || !b.id) return;
+    if (b.id === activeId) return;
+    const rem = calculateBatchRemaining(b);
+    if (rem.isExpired || b.status === "COMPLETED") {
+      expiredBatchIds.add(b.id);
+    }
+  });
+
+  if (expiredBatchIds.size === 0) {
+    return { purgedDistCount: 0, purgedExtCount: 0, expiredBatchCount: 0 };
+  }
+
+  let purgedDistCount = 0;
+  let purgedExtCount = 0;
+  const tasks = [];
+
+  // 1. Clean ktpPhoto in jasra_distributions for expired batches
+  const distSnap = await getDocs(collection(getJasraDb(), ...JASRA_DISTRIBUTIONS_COL_PATH));
+  distSnap.forEach((d) => {
+    if (d.id === "_meta") return;
+    const data = d.data();
+    if (data.batchId && expiredBatchIds.has(data.batchId) && data.ktpPhoto) {
+      purgedDistCount++;
+      tasks.push(
+        setDoc(
+          doc(getJasraDb(), ...JASRA_DISTRIBUTIONS_COL_PATH, d.id),
+          { ktpPhoto: null, ktpPurgedAt: Date.now() },
+          { merge: true }
+        )
+      );
+    }
+  });
+
+  // 2. Clean ktpPhoto in external_jasra for expired batches
+  const extSnap = await getDocs(collection(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH));
+  extSnap.forEach((d) => {
+    if (d.id === "_meta") return;
+    const data = d.data();
+    const isExpiredBatch =
+      (data.batchId && expiredBatchIds.has(data.batchId)) ||
+      (!data.batchId && expiredBatchIds.has("BATCH_PEMERINTAH_20261102"));
+    if (isExpiredBatch && data.ktpPhoto) {
+      purgedExtCount++;
+      tasks.push(
+        setDoc(
+          doc(getJasraDb(), ...EXTERNAL_JASRA_COL_PATH, d.id),
+          { ktpPhoto: "", ktpPurgedAt: Date.now() },
+          { merge: true }
+        )
+      );
+    }
+  });
+
+  if (tasks.length > 0) {
+    await Promise.all(tasks);
+  }
+
+  return {
+    purgedDistCount,
+    purgedExtCount,
+    expiredBatchCount: expiredBatchIds.size,
+  };
 }

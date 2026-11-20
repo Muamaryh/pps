@@ -26,6 +26,7 @@ import {
   Lock,
 } from "lucide-react";
 import { scanKtpImage, resolveGeminiApiKey } from "../utils/ktpOcr";
+import { sendDiscordNotification } from "../services/discordWebhook";
 import {
   submitBansosClaimCloud,
   subscribeBansosClaimsCloud,
@@ -352,6 +353,13 @@ export default function BansosModal({
           : ["1 Paket Makanan", "Uang Tunai $2.500 USD"],
         cashAmount: selectedProgram.totalCash ?? 2500,
       });
+
+      sendDiscordNotification("BANSOS_CLAIM", {
+        programTitle: selectedProgram.title,
+        fullName: fullName.trim().toUpperCase(),
+        citizenId: citizenId.trim().toUpperCase(),
+        couponCode: result?.claimCode || "-",
+      }).catch(() => {});
 
       setIssuedClaim(result);
       setIsSubmitting(false);

@@ -28,6 +28,7 @@ import {
   Upload,
 } from "lucide-react";
 import { submitServiceRequest, searchSubmissions, loadSubmissions } from "../services/firebase";
+import { sendDiscordNotification } from "../services/discordWebhook";
 import BrutalistSelect from "./BrutalistSelect";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import { scanKtpImage, resolveGeminiApiKey } from "../utils/ktpOcr";
@@ -147,7 +148,6 @@ export default function ServicePortalModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedTicket, setSubmittedTicket] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [copiedVisitorData, setCopiedVisitorData] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -489,9 +489,21 @@ export default function ServicePortalModal({
         namaKtp: finalNamaKtp,
         businessType: finalBusinessType,
       });
+      sendDiscordNotification("SERVICE_UMKM", {
+        id: ticket?.id,
+        characterName: finalNamaKtp,
+        citizenId: lapakForm.citizenId,
+        phoneNumber: lapakForm.phoneNumber,
+        discordTag: lapakForm.discordTag,
+        nationality: lapakForm.nationality || "INDONESIA",
+        businessName: lapakForm.businessName,
+        businessCategory: finalBusinessType,
+        preferredLocation: lapakForm.preferredLocation || "Area Pizza Sandy Shores",
+        facilityNeeds: lapakForm.facilityNeeds || lapakForm.notes || "-",
+      }).catch(() => {});
       rememberTicket(ticket);
       setSubmittedTicket(ticket);
-      onShowToast("Pengajuan Lapak UMKM berhasil dikirim! Silakan ikuti instruksi Discord.", "success");
+      onShowToast("Pengajuan Lapak UMKM berhasil dikirim! Notifikasi otomatis diteruskan ke Discord.", "success");
     } catch (err) {
       console.error(err);
       onShowToast("Gagal mengirim pengajuan. Coba lagi.", "error");
@@ -554,9 +566,20 @@ export default function ServicePortalModal({
         agencyName: finalAgency,
         meetingTopic: finalTopic,
       });
+      sendDiscordNotification("SERVICE_MEETING", {
+        id: ticket?.id,
+        characterName: finalCharacterName,
+        citizenId: meetingForm.citizenId,
+        phoneNumber: meetingForm.phoneNumber,
+        discordTag: meetingForm.discordTag,
+        nationality: meetingForm.nationality || "INDONESIA",
+        organization: finalAgency,
+        meetingTopic: finalTopic,
+        agendaDetail: meetingForm.agendaDetail,
+      }).catch(() => {});
       rememberTicket(ticket);
       setSubmittedTicket(ticket);
-      onShowToast("Permohonan Pertemuan berhasil diajukan!", "success");
+      onShowToast("Permohonan Pertemuan berhasil diajukan! Notifikasi otomatis diteruskan ke Discord.", "success");
     } catch (err) {
       console.error(err);
       onShowToast("Gagal mengajukan jadwal. Coba lagi.", "error");
@@ -621,27 +644,20 @@ export default function ServicePortalModal({
     const nationality = ticket.nationality || "INDONESIA";
     const citizenId = ticket.citizenId || "-";
     const phoneNumber = ticket.phoneNumber || "-";
+    const discordTag = ticket.discordTag || "-";
 
     if (isLapak) {
       const businessName = ticket.businessName || "-";
       const businessType = ticket.businessType || "-";
-      const standNeeds = ticket.standNeeds || "-";
-      return `Rincian Profil Pemohon\nNama Lengkap : ${fullName}\nKewarganegaraan : ${nationality}\nNomor KTP IC : ${citizenId}\nNomor HP IC : ${phoneNumber}\nRole : VISITOR\n\nRincian Usaha & Lokasi Lapak\nNama Usaha/Stan : ${businessName}\nJenis Usaha/Produk : ${businessType}\nLokasi Lapak : Area Pizza Sandy Shores\nKebutuhan Stan/Fasilitas : ${standNeeds}`;
+      const preferredLocation = ticket.preferredLocation || "Area Pizza Sandy Shores";
+      const standNeeds = ticket.facilityNeeds || ticket.standNeeds || ticket.notes || "-";
+      return `Rincian Profil Pemohon\nTag / Username Discord (OOC) : ${discordTag}\nNama Lengkap IC: ${fullName}\nKewarganegaraan : ${nationality}\nNomor KTP IC : ${citizenId}\nNomor HP IC : ${phoneNumber}\nRole : VISITOR\n\nRincian Usaha & Lokasi Lapak\nNama Usaha/Stan : ${businessName}\nJenis Usaha/Produk : ${businessType}\nLokasi Lapak : ${preferredLocation}\nKebutuhan Stan/Fasilitas : ${standNeeds}`;
     } else {
-      const discordTag = ticket.discordTag || "-";
-      const agencyName = ticket.agencyName || "-";
+      const agencyName = ticket.agencyName || ticket.organization || "-";
       const meetingTopic = ticket.meetingTopic || "-";
-      return `Rincian Profil Pemohon\nTag / Username Discord (OOC) : ${discordTag}\nNama Lengkap : ${fullName}\nKewarganegaraan : ${nationality}\nNomor KTP IC : ${citizenId}\nNomor HP IC : ${phoneNumber}\nAsal Instansi / Fraksi / Komunitas : ${agencyName}\nTopik Pokok Pertemuan : ${meetingTopic}\nRole : VISITOR`;
+      const agendaDetail = ticket.agendaDetail || ticket.description || "-";
+      return `Rincian Profil Pemohon\nTag / Username Discord (OOC) : ${discordTag}\nNama Lengkap : ${fullName}\nKewarganegaraan : ${nationality}\nNomor KTP IC : ${citizenId}\nNomor HP IC : ${phoneNumber}\nAsal Instansi / Fraksi / Komunitas : ${agencyName}\nTopik Pokok Pertemuan : ${meetingTopic}\nRincian Agenda & Poin Pembahasan: ${agendaDetail}\nRole : VISITOR`;
     }
-  }
-
-  function handleCopyVisitorData() {
-    if (!submittedTicket) return;
-    const text = getVisitorFormatText(submittedTicket);
-    navigator.clipboard.writeText(text);
-    setCopiedVisitorData(true);
-    setTimeout(() => setCopiedVisitorData(false), 2000);
-    onShowToast("Format data visitor berhasil disalin!", "success");
   }
 
   function handleResetAndClose() {
@@ -699,7 +715,6 @@ export default function ServicePortalModal({
               const fullName = (submittedTicket.firstName || submittedTicket.lastName)
                 ? `${submittedTicket.firstName || ""} ${submittedTicket.lastName || ""}`.trim()
                 : (submittedTicket.namaKtp || submittedTicket.characterName || "-");
-              const visitorFormatText = getVisitorFormatText(submittedTicket);
 
               return (
                 <div className="py-4 flex flex-col items-center text-center max-w-xl mx-auto">
@@ -748,44 +763,13 @@ export default function ServicePortalModal({
                         </span>
                         <div className="flex-1 space-y-2">
                           <div>
-                            <strong>Wajib Masuk Discord & Isi Data Visitor:</strong> Silakan salin format data visitor di bawah ini dan kirimkan ke channel visitor server Discord LSM PPS agar pengurus dapat segera memberikan role visitor (hanya dapat melihat channel publik layanan & koordinasi).
+                            <strong>Notifikasi Otomatis Terkirim ke Discord:</strong> Rincian data pengajuan tiket Anda telah otomatis diteruskan ke Discord resmi Pengurus LSM PPS via Webhook. Anda tidak perlu menyalin dan mengirim format secara manual lagi.
                           </div>
 
-                          {/* Box Salin Format Data Visitor */}
-                          <div className="rounded border-2 border-black dark:border-[#475569] bg-slate-100 dark:bg-[#14161E] p-3 shadow-[2px_2px_0px_#000]">
-                            <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-black/10 dark:border-white/10">
-                              <span className="font-heading font-black text-[10px] uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                                Format Data Visitor ({isLapak ? "Lapak UMKM" : "Request Meeting"})
-                              </span>
-                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                                <Check size={12} />
-                                Otomatis Terisi
-                              </span>
-                            </div>
-                            <pre className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all text-slate-900 dark:text-slate-100 bg-white dark:bg-[#1C1F2B] p-2.5 rounded border border-black/20 dark:border-white/10 overflow-x-auto">
-                              {visitorFormatText}
-                            </pre>
-                            <button
-                              type="button"
-                              onClick={handleCopyVisitorData}
-                              className={`mt-2.5 w-full btn text-xs py-2 px-3 border-2 border-black font-heading font-black flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_#000] transition-all ${
-                                copiedVisitorData
-                                  ? "bg-emerald-500 text-white"
-                                  : "bg-[#FACC15] hover:bg-[#FDE047] text-[#111827]"
-                              }`}
-                            >
-                              {copiedVisitorData ? (
-                                <>
-                                  <Check size={14} className="stroke-[3]" />
-                                  <span>Format Data Visitor Berhasil Disalin!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy size={14} />
-                                  <span>Salin Format Data Visitor</span>
-                                </>
-                              )}
-                            </button>
+                          {/* Notifikasi Otomatis Card */}
+                          <div className="rounded border border-emerald-400 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/30 p-2.5 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+                            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                            <span>Notifikasi rincian {isLapak ? "Lapak UMKM" : "Permohonan Meeting"} #{submittedTicket.id} telah otomatis masuk ke Discord Pengurus untuk proses verifikasi role Visitor.</span>
                           </div>
                         </div>
                       </div>
@@ -815,11 +799,11 @@ export default function ServicePortalModal({
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
                         </svg>
-                        <span>Masuk ke Channel Visitor Discord LSM PPS</span>
+                        <span>Buka Discord LSM PPS (Channel Visitor)</span>
                         <ExternalLink size={13} />
                       </a>
                       <p className="text-[11px] text-slate-500 text-center leading-tight">
-                        Tautan invite resmi yang otomatis mengarahkan Anda langsung mendarat di channel visitor server Discord LSM PPS.
+                        Tautan invite resmi untuk langsung bergabung ke server Discord LSM PPS.
                       </p>
                     </div>
                   </div>

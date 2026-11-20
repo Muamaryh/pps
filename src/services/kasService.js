@@ -14,7 +14,6 @@ import {
   deleteDoc,
   onSnapshot,
 } from "firebase/firestore";
-import * as XLSX from "xlsx";
 
 const memberFirebaseConfig = {
   apiKey: "AIzaSyDB7TFVRDRvgMI4q_XtwnxSqOhCKZ2xAe8",
@@ -544,8 +543,9 @@ export function computeKasRunningBalances(transactions = []) {
 /**
  * Ekspor Buku Kas ke File Excel (.xlsx)
  */
-export function exportKasLedgerToExcel(transactions = [], summary = null) {
+export async function exportKasLedgerToExcel(transactions = [], summary = null) {
   try {
+    const XLSX = await import("xlsx");
     const txList = transactions.length > 0 ? transactions : INITIAL_KAS_TRANSACTIONS;
     const sum = summary || getKasSummary(txList);
 

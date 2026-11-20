@@ -13,7 +13,6 @@ import {
   deleteDoc,
   onSnapshot,
 } from "firebase/firestore";
-import * as XLSX from "xlsx";
 
 const memberFirebaseConfig = {
   apiKey: "AIzaSyDB7TFVRDRvgMI4q_XtwnxSqOhCKZ2xAe8",
@@ -496,8 +495,9 @@ export async function toggleEventFeePaymentCloud(id, currentStatus) {
 /**
  * Export event registrations to Excel
  */
-export function exportEventRegistrationsToExcel(registrations, eventTitle = "Pizzarena") {
+export async function exportEventRegistrationsToExcel(registrations, eventTitle = "Pizzarena") {
   if (!registrations || registrations.length === 0) return false;
+  const XLSX = await import("xlsx");
 
   const excelRows = registrations.map((r, index) => ({
     No: index + 1,

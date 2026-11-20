@@ -1,7 +1,11 @@
-import Tesseract from "tesseract.js";
 import { scanKtpWithGemini, scanCombinedEventWithGemini, getGeminiApiKey, resolveGeminiApiKey, setGeminiApiKey } from "./geminiOcr.js";
 
 export { scanKtpWithGemini, scanCombinedEventWithGemini, getGeminiApiKey, resolveGeminiApiKey, setGeminiApiKey };
+
+async function loadTesseract() {
+  const mod = await import("tesseract.js");
+  return mod.default || mod;
+}
 
 // Blacklist of common card labels and dictionary words that must NEVER be treated as Citizen IDs or names
 const BLACKLIST_WORDS = new Set([
@@ -880,6 +884,7 @@ export async function scanKtpImage(imageFileOrUrl, onProgress, options = {}) {
 
   let worker = null;
   try {
+    const Tesseract = await loadTesseract();
     // Pass 1: Upscale image smoothly with bicubic interpolation
     const preprocessed = await preprocessImageForOcr(imageFileOrUrl, { binarize: false });
     
@@ -1265,6 +1270,7 @@ export async function scanUfcScreenshotImage(imageFileOrUrl, onProgress, options
   // 2. Priority 2: Spatial Tesseract Fallback (PSM 6 + Bounding Boxes)
   let worker = null;
   try {
+    const Tesseract = await loadTesseract();
     const preprocessed = await preprocessImageForOcr(imageFileOrUrl);
     let data;
     if (typeof Tesseract.createWorker === "function") {
