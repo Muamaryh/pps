@@ -57,7 +57,7 @@ function getAdminPortalUrl() {
   if (typeof window !== "undefined" && window.location?.origin) {
     return `${window.location.origin}/admin`;
   }
-  return "https://lsm-pps.netlify.app/admin";
+  return "https://lsmpps.my.id/admin";
 }
 
 function buildEmbed(eventType, data = {}) {
