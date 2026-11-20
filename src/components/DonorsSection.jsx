@@ -329,7 +329,7 @@ export default function DonorsSection({
           <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 sm:w-14 bg-gradient-to-l from-[#FAF7EE] dark:from-[#07090E] to-transparent z-10 transition-colors" />
 
           {/* Running Track */}
-          <div className="animate-marquee hover:[animation-play-state:paused] flex items-center">
+          <div className="animate-marquee flex items-center">
             {currentMonthDonors.length > 0 ? (
               <>
                 {/* Set 1 */}
