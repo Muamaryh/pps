@@ -813,6 +813,32 @@ export default function MembersDirectoryModal({
                             {member.phone || "-"}
                           </span>
                         </div>
+                        {(member.statusJob || member.statusGang) && (
+                          <>
+                            <div className="pt-1.5 border-t border-black/5 dark:border-white/5">
+                              <span className="text-[9px] text-slate-400 font-sans font-bold block">
+                                PEKERJAAN (JOB):
+                              </span>
+                              <span
+                                className="text-slate-800 dark:text-slate-200 truncate block text-[11px] font-sans font-semibold"
+                                title={member.statusJob || "-"}
+                              >
+                                {member.statusJob || "-"}
+                              </span>
+                            </div>
+                            <div className="pt-1.5 border-t border-black/5 dark:border-white/5">
+                              <span className="text-[9px] text-slate-400 font-sans font-bold block">
+                                AFILIASI / GANG:
+                              </span>
+                              <span
+                                className="text-emerald-700 dark:text-emerald-400 truncate block text-[11px] font-sans font-semibold"
+                                title={member.statusGang || "-"}
+                              >
+                                {member.statusGang || "-"}
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Status Kas & Voucher Jasra */}

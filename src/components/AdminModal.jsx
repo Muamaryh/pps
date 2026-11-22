@@ -507,6 +507,8 @@ export default function AdminModal({
     fullName: "",
     icNumber: "",
     phone: "",
+    statusJob: "",
+    statusGang: "",
     profilePhoto: "",
     icPhoto: "",
     isSubmitting: false,
@@ -1484,6 +1486,8 @@ export default function AdminModal({
       fullName: member.fullName || "",
       icNumber: member.icNumber || "",
       phone: member.phone || "",
+      statusJob: member.statusJob || "",
+      statusGang: member.statusGang || "",
       profilePhoto: member.profilePhoto || "",
       icPhoto: member.icPhoto || "",
       isSubmitting: false,
@@ -1573,6 +1577,8 @@ export default function AdminModal({
         fullName: cleanName,
         icNumber: cleanCid,
         phone: cleanPhone,
+        statusJob: (editMemberModal.statusJob || "").trim(),
+        statusGang: (editMemberModal.statusGang || "").trim(),
         profilePhoto: editMemberModal.profilePhoto,
         icPhoto: editMemberModal.icPhoto,
       };
@@ -1592,6 +1598,8 @@ export default function AdminModal({
         fullName: "",
         icNumber: "",
         phone: "",
+        statusJob: "",
+        statusGang: "",
         profilePhoto: "",
         icPhoto: "",
         isSubmitting: false,
@@ -3106,7 +3114,16 @@ export default function AdminModal({
       const ic = (m.icNumber || "").toLowerCase();
       const phone = (m.phone || "").toLowerCase();
       const discord = (m.discordTag || "").toLowerCase();
-      if (!name.includes(q) && !ic.includes(q) && !phone.includes(q) && !discord.includes(q)) {
+      const job = (m.statusJob || "").toLowerCase();
+      const gang = (m.statusGang || "").toLowerCase();
+      if (
+        !name.includes(q) &&
+        !ic.includes(q) &&
+        !phone.includes(q) &&
+        !discord.includes(q) &&
+        !job.includes(q) &&
+        !gang.includes(q)
+      ) {
         return false;
       }
     }
@@ -5918,6 +5935,22 @@ export default function AdminModal({
                                   {member.phone || "-"}
                                 </span>
                               </div>
+                              {(member.statusJob || member.statusGang) && (
+                                <>
+                                  <div className="pt-1.5 border-t border-black/5 dark:border-white/5">
+                                    <span className="text-[9px] text-slate-400 font-sans font-bold block">PEKERJAAN (JOB):</span>
+                                    <span className="text-slate-800 dark:text-slate-200 truncate block text-[11px] font-sans font-semibold" title={member.statusJob || "-"}>
+                                      {member.statusJob || "-"}
+                                    </span>
+                                  </div>
+                                  <div className="pt-1.5 border-t border-black/5 dark:border-white/5">
+                                    <span className="text-[9px] text-slate-400 font-sans font-bold block">AFILIASI / GANG:</span>
+                                    <span className="text-emerald-700 dark:text-emerald-400 truncate block text-[11px] font-sans font-semibold" title={member.statusGang || "-"}>
+                                      {member.statusGang || "-"}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
                             </div>
 
                             {/* Admin Controls: Status Kas (30 Hari) & Voucher Jasra (7 Hari) */}
@@ -10327,6 +10360,34 @@ export default function AdminModal({
                     onChange={(e) => setEditMemberModal((prev) => ({ ...prev, phone: e.target.value }))}
                     placeholder="Contoh: 88919658"
                     className="input-field w-full pl-9 pr-3 py-2 text-xs font-mono bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Pekerjaan (Job) & Afiliasi / Gang */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Pekerjaan (Job IC)
+                  </label>
+                  <input
+                    type="text"
+                    value={editMemberModal.statusJob || ""}
+                    onChange={(e) => setEditMemberModal((prev) => ({ ...prev, statusJob: e.target.value }))}
+                    placeholder="Contoh: Civilian - Freelancer"
+                    className="input-field w-full px-3 py-2 text-xs bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-heading font-black uppercase text-slate-700 dark:text-slate-300 mb-1">
+                    Afiliasi / Gang
+                  </label>
+                  <input
+                    type="text"
+                    value={editMemberModal.statusGang || ""}
+                    onChange={(e) => setEditMemberModal((prev) => ({ ...prev, statusGang: e.target.value }))}
+                    placeholder="Contoh: No Gang - Unaffiliated"
+                    className="input-field w-full px-3 py-2 text-xs bg-white dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-lg shadow-xs"
                   />
                 </div>
               </div>

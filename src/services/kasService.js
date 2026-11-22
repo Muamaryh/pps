@@ -333,7 +333,7 @@ export function subscribeKasLedger(callback) {
 
 async function dispatchKasWebhook(eventType, payload) {
   try {
-    const allTx = await loadKasTransactionsCloud();
+    const allTx = await loadKasLedgerCloud();
     const summary = getKasSummary(allTx);
     const isDarren = payload.wallet === "Darren";
     await sendDiscordNotification(eventType, {
@@ -393,7 +393,7 @@ export async function recordKasIncomeCloud({
 
   const docRef = doc(getKasDb(), ...KAS_LEDGER_COL_PATH, newId);
   await setDoc(docRef, payload);
-  dispatchKasWebhook("KAS_INCOME", payload);
+  await dispatchKasWebhook("KAS_INCOME", payload);
   return { id: newId, ...payload };
 }
 
@@ -434,7 +434,7 @@ export async function recordKasExpenseCloud({
 
   const docRef = doc(getKasDb(), ...KAS_LEDGER_COL_PATH, newId);
   await setDoc(docRef, payload);
-  dispatchKasWebhook("KAS_EXPENSE", payload);
+  await dispatchKasWebhook("KAS_EXPENSE", payload);
   return { id: newId, ...payload };
 }
 
@@ -482,7 +482,7 @@ export async function recordKasTransferCloud({
 
   const docRef = doc(getKasDb(), ...KAS_LEDGER_COL_PATH, newId);
   await setDoc(docRef, payload);
-  dispatchKasWebhook("KAS_TRANSFER", payload);
+  await dispatchKasWebhook("KAS_TRANSFER", payload);
   return { id: newId, ...payload };
 }
 
