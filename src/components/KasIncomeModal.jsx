@@ -22,6 +22,7 @@ export default function KasIncomeModal({
   darrenBalance = 0,
   onSuccess,
   onShowToast,
+  adminName = "Admin",
 }) {
   const [wallet, setWallet] = useState("Oita"); // "Oita" | "Darren"
   const [title, setTitle] = useState("");
@@ -65,7 +66,7 @@ export default function KasIncomeModal({
         customDate,
         notes: notes.trim(),
         allocationMode: "GENERAL_INCOME",
-        recordedBy: "Admin",
+        recordedBy: adminName || "Admin",
       });
 
       if (onShowToast) {

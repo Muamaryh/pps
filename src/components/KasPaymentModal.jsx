@@ -61,6 +61,7 @@ export default function KasPaymentModal({
   member,
   onSuccess,
   onShowToast,
+  adminName = "Admin",
 }) {
   // Cek apakah anggota sebelumnya punya komitmen donatur khusus
   const hasPreviousCustomRate = Boolean(
@@ -179,7 +180,7 @@ export default function KasPaymentModal({
           allocationMode: isCustomMode ? allocationMode : "STANDARD_PRESET",
           durationDays,
           notes: notes.trim(),
-          recordedBy: "Admin",
+          recordedBy: adminName || "Admin",
         });
       }
 

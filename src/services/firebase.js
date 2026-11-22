@@ -636,3 +636,34 @@ export async function saveDiscordWebhookConfig(config = {}) {
   await setDoc(doc(db, "pps_website", "discord_webhook_config"), payload, { merge: true });
   return payload;
 }
+
+export async function loadAdminAccountsConfig() {
+  try {
+    const snap = await getDoc(doc(db, "pps_website", "admin_accounts"));
+    if (snap.exists()) {
+      const data = snap.data() || {};
+      return {
+        accounts: Array.isArray(data.accounts) ? data.accounts : [],
+        allowMasterOnboarding: data.allowMasterOnboarding !== false,
+        updatedAt: data.updatedAt || null,
+      };
+    }
+  } catch (err) {
+    console.warn("Notice loading admin accounts config:", err);
+  }
+  return {
+    accounts: [],
+    allowMasterOnboarding: true,
+    updatedAt: null,
+  };
+}
+
+export async function saveAdminAccountsConfig(config = {}) {
+  const payload = {
+    accounts: Array.isArray(config.accounts) ? config.accounts : [],
+    allowMasterOnboarding: config.allowMasterOnboarding !== false,
+    updatedAt: new Date().toISOString(),
+  };
+  await setDoc(doc(db, "pps_website", "admin_accounts"), payload, { merge: true });
+  return payload;
+}

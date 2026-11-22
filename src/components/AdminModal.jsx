@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight } from "lucide-react";
-import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, EyeOff, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, UserPlus, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight } from "lucide-react";
+import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions, loadAdminAccountsConfig, saveAdminAccountsConfig } from "../services/firebase";
 import {
   subscribeMembersCloud,
   deleteMemberCloud,
@@ -75,7 +75,7 @@ import {
   toggleBansosProgramStatusCloud,
   DEFAULT_BANSOS_PROGRAM,
 } from "../services/bansosService";
-import { hashPassword, verifyPassword, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, DEFAULT_ADMIN_PIN, DEFAULT_PIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
+import { hashPassword, verifyPassword, verifyPersonalCredential, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, DEFAULT_ADMIN_PIN, DEFAULT_PIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistConfirmModal from "./BrutalistConfirmModal";
 import KasPaymentModal from "./KasPaymentModal";
@@ -111,7 +111,62 @@ import {
   INCOME_CATEGORIES,
 } from "../services/kasService";
 
-const ADMIN_STORAGE_KEY = "pps_admin_session";
+const LEGACY_ADMIN_STORAGE_KEY = "pps_admin_session";
+const ADMIN_ACCOUNT_SESSION_KEY = "pps_admin_account_session_v2";
+const LAST_ADMIN_ACCOUNT_ID_KEY = "pps_admin_last_account_id";
+
+function readStoredAdminSession() {
+  if (typeof window === "undefined") return null;
+  try {
+    // Purge legacy shared-password sessions so every pengurus activates their personal IC account
+    localStorage.removeItem(LEGACY_ADMIN_STORAGE_KEY);
+    sessionStorage.removeItem(LEGACY_ADMIN_STORAGE_KEY);
+    const raw =
+      localStorage.getItem(ADMIN_ACCOUNT_SESSION_KEY) ||
+      sessionStorage.getItem(ADMIN_ACCOUNT_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.accountId && parsed.name && parsed.tokenHash) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function writeStoredAdminSession(sessionObj, persist = true) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(LEGACY_ADMIN_STORAGE_KEY);
+    sessionStorage.removeItem(LEGACY_ADMIN_STORAGE_KEY);
+    const raw = JSON.stringify(sessionObj);
+    if (persist) {
+      localStorage.setItem(ADMIN_ACCOUNT_SESSION_KEY, raw);
+      sessionStorage.removeItem(ADMIN_ACCOUNT_SESSION_KEY);
+    } else {
+      sessionStorage.setItem(ADMIN_ACCOUNT_SESSION_KEY, raw);
+      localStorage.removeItem(ADMIN_ACCOUNT_SESSION_KEY);
+    }
+    if (sessionObj?.accountId) {
+      localStorage.setItem(LAST_ADMIN_ACCOUNT_ID_KEY, sessionObj.accountId);
+    }
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+function clearStoredAdminSession() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(LEGACY_ADMIN_STORAGE_KEY);
+    sessionStorage.removeItem(LEGACY_ADMIN_STORAGE_KEY);
+    localStorage.removeItem(ADMIN_ACCOUNT_SESSION_KEY);
+    sessionStorage.removeItem(ADMIN_ACCOUNT_SESSION_KEY);
+  } catch {
+    // Ignore
+  }
+}
 
 export default function AdminModal({
   isOpen,
@@ -125,17 +180,46 @@ export default function AdminModal({
   doorprizeTickets = [],
   onOpenTransparency,
 }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+  const [currentAdmin, setCurrentAdmin] = useState(() => {
+    const sess = readStoredAdminSession();
+    return sess ? { id: sess.accountId, name: sess.name, role: sess.role || "Pengurus LSM" } : null;
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(readStoredAdminSession()));
+  const [adminAccounts, setAdminAccounts] = useState([]);
+  const [allowMasterOnboarding, setAllowMasterOnboarding] = useState(true);
+  const [isAdminAccountsLoaded, setIsAdminAccountsLoaded] = useState(false);
+  const [selectedLoginAccountId, setSelectedLoginAccountId] = useState(() => {
     try {
-      const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
-      return Boolean(savedHash);
+      return localStorage.getItem(LAST_ADMIN_ACCOUNT_ID_KEY) || "";
     } catch {
-      return false;
+      return "";
     }
   });
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+  const accountDropdownRef = useRef(null);
+  const [loginStep, setLoginStep] = useState("login"); // "login" | "onboarding"
+  const [onboardingForm, setOnboardingForm] = useState({
+    name: "",
+    role: "",
+    password: "",
+    pin: "",
+  });
+  const [showOnboardingPassword, setShowOnboardingPassword] = useState(false);
+  const [showOnboardingPin, setShowOnboardingPin] = useState(false);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [showSelfCredForm, setShowSelfCredForm] = useState(false);
+  const [selfCredForm, setSelfCredForm] = useState({
+    currentSecret: "",
+    newPassword: "",
+    newPin: "",
+  });
+  const [isSavingSelfCred, setIsSavingSelfCred] = useState(false);
+  const [adminAccountAction, setAdminAccountAction] = useState(null);
+  const [isProcessingAccountAction, setIsProcessingAccountAction] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [loginMode, setLoginMode] = useState("password"); // "password" (default) | "pin"
   const [rememberMe, setRememberMe] = useState(true);
+  const activeAdminName = currentAdmin?.name || "Admin LSM PPS";
 
   const ADMIN_ACTIVE_TAB_KEY = "pps_admin_active_tab";
   const ADMIN_MEMBER_SUBTAB_KEY = "pps_admin_member_subtab";
@@ -830,7 +914,7 @@ export default function AdminModal({
   // Handler: Toggle Status Bansos Warga (Belum Diambil <-> Sudah Diambil)
   async function handleToggleBansos(claim) {
     try {
-      const nextStatus = await toggleBansosStatusCloud(claim.id, claim.claimed, 'Admin LSM');
+      const nextStatus = await toggleBansosStatusCloud(claim.id, claim.claimed, activeAdminName);
       onShowToast(
         nextStatus
           ? `Bansos untuk ${claim.fullName} (${claim.claimCode}) berhasil diserahkan (SUDAH DIAMBIL).`
@@ -1328,12 +1412,12 @@ export default function AdminModal({
     if (!member || !member.id) return;
     setIsProcessingRegAction(true);
     try {
-      await approveMemberCloud(member.id, "Admin LSM PPS");
+      await approveMemberCloud(member.id, activeAdminName);
       sendDiscordNotification("MEMBER_APPROVED", {
         fullName: member.fullName || "-",
         icNumber: member.icNumber || "-",
         discordTag: member.discordTag || "-",
-        verifiedBy: "Admin LSM PPS",
+        verifiedBy: activeAdminName,
       }).catch(() => {});
       onShowToast(`Pendaftaran ${member.fullName || "Anggota"} berhasil DISETUJUI menjadi Anggota Resmi!`, "success");
     } catch (err) {
@@ -1354,13 +1438,13 @@ export default function AdminModal({
     const reason = (rejectionReasonInput || "").trim() || "Berkas tidak memenuhi syarat verifikasi LSM PPS.";
     setIsProcessingRegAction(true);
     try {
-      await rejectMemberCloud(rejectTargetMember.id, reason, "Admin LSM PPS");
+      await rejectMemberCloud(rejectTargetMember.id, reason, activeAdminName);
       sendDiscordNotification("MEMBER_REJECTED", {
         fullName: rejectTargetMember.fullName || "-",
         icNumber: rejectTargetMember.icNumber || "-",
         discordTag: rejectTargetMember.discordTag || "-",
         reason,
-        rejectedBy: "Admin LSM PPS",
+        rejectedBy: activeAdminName,
       }).catch(() => {});
       onShowToast(`Pendaftaran ${rejectTargetMember.fullName || "Calon Anggota"} DITOLAK.`, "info");
       setRejectTargetMember(null);
@@ -1377,7 +1461,7 @@ export default function AdminModal({
     if (!member || !member.id) return;
     setIsProcessingRegAction(true);
     try {
-      await revertMemberToPendingCloud(member.id, "Admin LSM PPS");
+      await revertMemberToPendingCloud(member.id, activeAdminName);
       onShowToast(`Status ${member.fullName || "Calon Anggota"} dikembalikan ke Tahap Menunggu Verifikasi.`, "info");
     } catch (err) {
       console.error("Gagal mengembalikan status anggota:", err);
@@ -2002,59 +2086,117 @@ export default function AdminModal({
     return () => clearInterval(timer);
   }, []);
 
-  // Auto-login from localStorage / sessionStorage if remembered
+  // Load registered pengurus accounts from Firestore & validate personal v2 session
   useEffect(() => {
-    async function checkAutoLogin() {
+    let active = true;
+    async function loadAccountsAndValidateSession() {
       if (!isOpen) return;
-      const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
-      if (!savedHash) {
-        setIsAuthenticated(false);
-        return;
-      }
+      const storedSession = readStoredAdminSession();
+      try {
+        const cfg = await loadAdminAccountsConfig();
+        if (!active) return;
+        const accounts = Array.isArray(cfg.accounts) ? cfg.accounts : [];
+        setAdminAccounts(accounts);
+        setAllowMasterOnboarding(cfg.allowMasterOnboarding !== false);
+        setIsAdminAccountsLoaded(true);
 
-      // Sangat Penting: Jika data cloud masih dalam proses loading, JANGAN hapus sesi!
-      // Karena initialData kemungkinan masih berupa fallback sebelum sinkronisasi cloud selesai.
-      if (isCloudLoading) return;
+        // Pre-select last used account or first registered account on login form
+        setSelectedLoginAccountId((prev) => {
+          if (prev === "__NEW__") return prev;
+          if (prev && accounts.some((a) => a.id === prev)) return prev;
+          return accounts.length > 0 ? accounts[0].id : "__NEW__";
+        });
 
-      const targetCredential = initialData?.adminPassHash || initialData?.adminPass || DEFAULT_ADMIN_HASH;
-      let targetHash = targetCredential;
-      if (typeof targetCredential === "string" && (targetCredential.length !== 64 || !/^[0-9a-fA-F]+$/.test(targetCredential))) {
-        targetHash = await hashPassword(targetCredential);
-      }
+        if (!storedSession) {
+          setCurrentAdmin(null);
+          setIsAuthenticated(false);
+          return;
+        }
 
-      if (
-        savedHash.toLowerCase() === targetHash.toLowerCase() ||
-        savedHash === DEFAULT_ADMIN_HASH ||
-        savedHash === DEFAULT_PIN_HASH
-      ) {
-        setIsAuthenticated(true);
-      } else {
-        // Password telah diubah secara resmi di cloud database! Hapus token sesi lama di perangkat ini
-        localStorage.removeItem(ADMIN_STORAGE_KEY);
-        sessionStorage.removeItem(ADMIN_STORAGE_KEY);
-        setIsAuthenticated(false);
+        const matchedAcc = accounts.find((a) => a.id === storedSession.accountId);
+        const tokenHash = String(storedSession.tokenHash || "").toLowerCase();
+        const isValidSession =
+          matchedAcc &&
+          ((matchedAcc.passwordHash && matchedAcc.passwordHash.toLowerCase() === tokenHash) ||
+            (matchedAcc.pinHash && matchedAcc.pinHash.toLowerCase() === tokenHash));
+
+        if (isValidSession) {
+          setCurrentAdmin({
+            id: matchedAcc.id,
+            name: matchedAcc.name,
+            role: matchedAcc.role || "Pengurus LSM",
+          });
+          setIsAuthenticated(true);
+        } else {
+          // Account was removed or credentials were reset -> force logout
+          clearStoredAdminSession();
+          setCurrentAdmin(null);
+          setIsAuthenticated(false);
+        }
+      } catch (err) {
+        console.warn("Notice validating admin account session:", err);
+        if (!active) return;
+        setIsAdminAccountsLoaded(true);
+        if (!storedSession) {
+          setCurrentAdmin(null);
+          setIsAuthenticated(false);
+        }
       }
     }
-    checkAutoLogin();
-  }, [initialData, isOpen, isCloudLoading]);
+    loadAccountsAndValidateSession();
+    return () => {
+      active = false;
+    };
+  }, [isOpen, isCloudLoading]);
 
   useEffect(() => {
     if (!isOpen) {
       setPasswordInput("");
-      const savedHash = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
-      if (!savedHash) {
+      setLoginStep("login");
+      setIsAccountDropdownOpen(false);
+      const storedSession = readStoredAdminSession();
+      if (!storedSession) {
+        setCurrentAdmin(null);
         setIsAuthenticated(false);
       }
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isAccountDropdownOpen) return;
+    function handleOutsideClick(e) {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(e.target)) {
+        setIsAccountDropdownOpen(false);
+      }
+    }
+    function handleEscKey(e) {
+      if (e.key === "Escape") setIsAccountDropdownOpen(false);
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("touchstart", handleOutsideClick);
+    document.addEventListener("keydown", handleEscKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("touchstart", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscKey);
+    };
+  }, [isAccountDropdownOpen]);
+
   if (!isOpen || !formData) return null;
 
-  // Handle Login with SHA-256 and brute-force lockout
+  // Handle Login: personal account (Password or PIN) OR auto-detect Master Password/PIN for onboarding
   async function handleLogin(e) {
     e?.preventDefault();
 
-    // Check if locked out
     const currentLockout = getLockoutState();
     if (currentLockout.isLocked) {
       onShowToast(`Sistem terkunci sementara! Tunggu ${currentLockout.remainingSeconds} detik lagi.`, "error");
@@ -2063,58 +2205,421 @@ export default function AdminModal({
 
     const input = passwordInput.trim();
     if (!input) {
-      onShowToast("Masukkan password terlebih dahulu!", "error");
+      onShowToast(loginMode === "pin" ? "Masukkan PIN terlebih dahulu!" : "Masukkan password terlebih dahulu!", "error");
       return;
     }
 
-    let credentialSource = initialData;
-    // Selalu ambil fresh data dari Firestore untuk memastikan password terbaru selalu valid
+    setIsSubmittingAuth(true);
     try {
-      const fresh = await loadCloudData();
-      if (fresh) credentialSource = fresh;
-    } catch (err) {
-      console.warn("Could not fetch fresh cloud data for login verification:", err);
-    }
-
-    const targetCredential = credentialSource?.adminPassHash || credentialSource?.adminPass || DEFAULT_ADMIN_HASH;
-    const isValid = await verifyPassword(input, targetCredential);
-
-    if (isValid) {
-      resetLockoutState();
-      setLockoutState(getLockoutState());
-      setIsAuthenticated(true);
-
-      const computedHash = await hashPassword(input);
-      if (rememberMe) {
-        localStorage.setItem(ADMIN_STORAGE_KEY, computedHash);
-        sessionStorage.removeItem(ADMIN_STORAGE_KEY);
-      } else {
-        sessionStorage.setItem(ADMIN_STORAGE_KEY, computedHash);
-        localStorage.removeItem(ADMIN_STORAGE_KEY);
+      let credentialSource = initialData;
+      try {
+        const fresh = await loadCloudData();
+        if (fresh) credentialSource = fresh;
+      } catch (err) {
+        console.warn("Could not fetch fresh cloud data for login verification:", err);
       }
-      onShowToast("Akses Admin Terverifikasi!", "success");
-    } else {
+
+      const freshAccountsCfg = await loadAdminAccountsConfig();
+      const freshAccounts = Array.isArray(freshAccountsCfg.accounts) ? freshAccountsCfg.accounts : [];
+      const freshAllowOnboarding = freshAccountsCfg.allowMasterOnboarding !== false;
+      setAdminAccounts(freshAccounts);
+      setAllowMasterOnboarding(freshAllowOnboarding);
+      setIsAdminAccountsLoaded(true);
+
+      const masterCredential = credentialSource?.adminPassHash || credentialSource?.adminPass || DEFAULT_ADMIN_HASH;
+      const isRegisterSelection = freshAccounts.length === 0 || selectedLoginAccountId === "__NEW__";
+      const targetAccount = !isRegisterSelection
+        ? freshAccounts.find((a) => a.id === selectedLoginAccountId) || null
+        : null;
+
+      // 1. Check personal account credentials first when a registered pengurus is selected
+      if (targetAccount) {
+        const matchPass = await verifyPersonalCredential(input, targetAccount.passwordHash);
+        const matchPin = !matchPass && (await verifyPersonalCredential(input, targetAccount.pinHash));
+        if (matchPass || matchPin) {
+          resetLockoutState();
+          setLockoutState(getLockoutState());
+
+          const matchedTokenHash = matchPass ? targetAccount.passwordHash : targetAccount.pinHash;
+          writeStoredAdminSession(
+            {
+              accountId: targetAccount.id,
+              name: targetAccount.name,
+              role: targetAccount.role || "Pengurus LSM",
+              tokenHash: matchedTokenHash,
+            },
+            rememberMe
+          );
+          setCurrentAdmin({
+            id: targetAccount.id,
+            name: targetAccount.name,
+            role: targetAccount.role || "Pengurus LSM",
+          });
+          setIsAuthenticated(true);
+          setPasswordInput("");
+
+          // Update lastLoginAt in background
+          const updatedAccounts = freshAccounts.map((a) =>
+            a.id === targetAccount.id ? { ...a, lastLoginAt: Date.now() } : a
+          );
+          setAdminAccounts(updatedAccounts);
+          saveAdminAccountsConfig({
+            accounts: updatedAccounts,
+            allowMasterOnboarding: freshAllowOnboarding,
+          }).catch(() => {});
+
+          onShowToast(`Selamat datang kembali, ${targetAccount.name}!`, "success");
+          return;
+        }
+      }
+
+      // 2. Check Master Password / PIN -> automatically open Pengurus Onboarding form
+      const isMasterValid = await verifyPassword(input, masterCredential);
+      if (isMasterValid) {
+        if (freshAllowOnboarding || freshAccounts.length === 0) {
+          resetLockoutState();
+          setLockoutState(getLockoutState());
+          setPasswordInput("");
+          setOnboardingForm({ name: "", role: "", password: "", pin: "" });
+          setShowOnboardingPassword(false);
+          setShowOnboardingPin(false);
+          setLoginStep("onboarding");
+          onShowToast(
+            "Kode Akses Utama terverifikasi! Silakan isi Nama IC, Password, dan PIN pribadi Anda.",
+            "info"
+          );
+          return;
+        } else {
+          onShowToast(
+            "Aktivasi pengurus baru sedang ditutup. Silakan pilih akun Anda dan masuk dengan Password/PIN pribadi.",
+            "warning"
+          );
+          return;
+        }
+      }
+
+      // 3. Invalid credentials
       const nextLockout = recordFailedAttempt();
       setLockoutState(nextLockout);
       if (nextLockout.isLocked) {
         onShowToast(`Percobaan salah 5x! Akses terkunci selama ${LOCKOUT_DURATION_SECONDS} detik.`, "error");
       } else {
         const remaining = MAX_ATTEMPTS - nextLockout.attempts;
-        onShowToast(`Password salah! Sisa percobaan: ${remaining}x lagi.`, "error");
+        onShowToast(
+          `${loginMode === "pin" ? "PIN" : "Password"} salah! Sisa percobaan: ${remaining}x lagi.`,
+          "error"
+        );
       }
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  }
+
+  // Handle First-Time Pengurus Account Activation (after Master Password/PIN verified)
+  async function handleCompleteOnboarding(e) {
+    e?.preventDefault();
+    const cleanName = (onboardingForm.name || "").trim();
+    const cleanRole = (onboardingForm.role || "").trim() || "Pengurus LSM";
+    const cleanPassword = (onboardingForm.password || "").trim();
+    const cleanPin = (onboardingForm.pin || "").replace(/\D/g, "").trim();
+
+    if (cleanName.length < 2) {
+      onShowToast("Nama IC pengurus wajib diisi (minimal 2 huruf).", "warning");
+      return;
+    }
+    if (cleanPassword.length < 4) {
+      onShowToast("Password pribadi minimal 4 karakter.", "warning");
+      return;
+    }
+    if (!/^\d{4,6}$/.test(cleanPin)) {
+      onShowToast("PIN pribadi wajib 4 sampai 6 digit angka.", "warning");
+      return;
+    }
+
+    setIsSubmittingAuth(true);
+    try {
+      const freshCfg = await loadAdminAccountsConfig();
+      const freshAccounts = Array.isArray(freshCfg.accounts) ? freshCfg.accounts : [];
+      if (!freshCfg.allowMasterOnboarding && freshAccounts.length > 0) {
+        onShowToast("Aktivasi pengurus baru baru saja ditutup oleh admin.", "error");
+        setLoginStep("login");
+        return;
+      }
+
+      const duplicate = freshAccounts.find(
+        (a) => String(a.name || "").trim().toLowerCase() === cleanName.toLowerCase()
+      );
+      if (duplicate) {
+        onShowToast(
+          `Nama IC "${duplicate.name}" sudah terdaftar! Silakan kembali ke Login dan masuk pakai akun tersebut.`,
+          "warning"
+        );
+        return;
+      }
+
+      const passwordHash = await hashPassword(cleanPassword);
+      const pinHash = await hashPassword(cleanPin);
+      const now = Date.now();
+      const newAccount = {
+        id: `adm-${now}-${Math.random().toString(36).slice(2, 6)}`,
+        name: cleanName,
+        role: cleanRole,
+        passwordHash,
+        pinHash,
+        createdAt: now,
+        lastLoginAt: now,
+      };
+
+      const nextAccounts = [...freshAccounts, newAccount];
+      await saveAdminAccountsConfig({
+        accounts: nextAccounts,
+        allowMasterOnboarding: freshCfg.allowMasterOnboarding !== false,
+      });
+
+      setAdminAccounts(nextAccounts);
+      setAllowMasterOnboarding(freshCfg.allowMasterOnboarding !== false);
+      setSelectedLoginAccountId(newAccount.id);
+
+      writeStoredAdminSession(
+        {
+          accountId: newAccount.id,
+          name: newAccount.name,
+          role: newAccount.role,
+          tokenHash: passwordHash,
+        },
+        rememberMe
+      );
+      setCurrentAdmin({
+        id: newAccount.id,
+        name: newAccount.name,
+        role: newAccount.role,
+      });
+      setIsAuthenticated(true);
+      setLoginStep("login");
+      setOnboardingForm({ name: "", role: "", password: "", pin: "" });
+      onShowToast(`Akun pengurus ${newAccount.name} berhasil dibuat! Selamat datang.`, "success");
+    } catch (err) {
+      console.error("Gagal membuat akun pengurus:", err);
+      onShowToast("Gagal menyimpan akun pengurus ke database. Coba lagi.", "error");
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  }
+
+  // Handle self password/PIN update inside Security tab
+  async function handleUpdateSelfCredentials(e) {
+    e?.preventDefault();
+    if (!currentAdmin?.id) return;
+    const currentSecret = (selfCredForm.currentSecret || "").trim();
+    const nextPass = (selfCredForm.newPassword || "").trim();
+    const nextPin = (selfCredForm.newPin || "").replace(/\D/g, "").trim();
+
+    if (!currentSecret) {
+      onShowToast("Masukkan Password atau PIN Anda saat ini untuk konfirmasi.", "warning");
+      return;
+    }
+    if (!nextPass && !nextPin) {
+      onShowToast("Isi Password baru atau PIN baru yang ingin diubah.", "warning");
+      return;
+    }
+    if (nextPass && nextPass.length < 4) {
+      onShowToast("Password baru minimal 4 karakter.", "warning");
+      return;
+    }
+    if (nextPin && !/^\d{4,6}$/.test(nextPin)) {
+      onShowToast("PIN baru wajib 4 sampai 6 digit angka.", "warning");
+      return;
+    }
+
+    setIsSavingSelfCred(true);
+    try {
+      const freshCfg = await loadAdminAccountsConfig();
+      const freshAccounts = Array.isArray(freshCfg.accounts) ? freshCfg.accounts : [];
+      const me = freshAccounts.find((a) => a.id === currentAdmin.id);
+      if (!me) {
+        clearStoredAdminSession();
+        setCurrentAdmin(null);
+        setIsAuthenticated(false);
+        onShowToast("Akun Anda tidak ditemukan. Silakan login ulang.", "error");
+        return;
+      }
+
+      const validPass = await verifyPersonalCredential(currentSecret, me.passwordHash);
+      const validPin = !validPass && (await verifyPersonalCredential(currentSecret, me.pinHash));
+      if (!validPass && !validPin) {
+        onShowToast("Password / PIN saat ini salah.", "error");
+        return;
+      }
+
+      const updatedPassHash = nextPass ? await hashPassword(nextPass) : me.passwordHash;
+      const updatedPinHash = nextPin ? await hashPassword(nextPin) : me.pinHash;
+
+      const updatedAccounts = freshAccounts.map((a) =>
+        a.id === me.id
+          ? { ...a, passwordHash: updatedPassHash, pinHash: updatedPinHash, updatedAt: Date.now() }
+          : a
+      );
+
+      await saveAdminAccountsConfig({
+        accounts: updatedAccounts,
+        allowMasterOnboarding: freshCfg.allowMasterOnboarding !== false,
+      });
+
+      setAdminAccounts(updatedAccounts);
+      const persist = Boolean(localStorage.getItem(ADMIN_ACCOUNT_SESSION_KEY));
+      writeStoredAdminSession(
+        {
+          accountId: me.id,
+          name: me.name,
+          role: me.role || "Pengurus LSM",
+          tokenHash: updatedPassHash,
+        },
+        persist
+      );
+
+      setSelfCredForm({ currentSecret: "", newPassword: "", newPin: "" });
+      setShowSelfCredForm(false);
+      onShowToast("Password / PIN akun Anda berhasil diperbarui!", "success");
+    } catch (err) {
+      console.error("Gagal ubah kredensial akun:", err);
+      onShowToast("Gagal menyimpan perubahan password/PIN.", "error");
+    } finally {
+      setIsSavingSelfCred(false);
+    }
+  }
+
+  // Handle Master-Password-protected admin account actions (delete, reset, toggle onboarding)
+  async function handleExecuteAdminAccountAction(e) {
+    e?.preventDefault();
+    if (!adminAccountAction) return;
+
+    const masterInput = (adminAccountAction.masterInput || "").trim();
+    if (!masterInput) {
+      onShowToast("Masukkan Kode Akses Utama (Master Password) untuk konfirmasi.", "warning");
+      return;
+    }
+
+    setIsProcessingAccountAction(true);
+    try {
+      let credentialSource = formData || initialData;
+      try {
+        const fresh = await loadCloudData();
+        if (fresh) credentialSource = fresh;
+      } catch {}
+
+      const masterCred = credentialSource?.adminPassHash || credentialSource?.adminPass || DEFAULT_ADMIN_HASH;
+      const isMasterOk = await verifyPassword(masterInput, masterCred);
+      if (!isMasterOk) {
+        onShowToast("Kode Akses Utama salah! Aksi dibatalkan.", "error");
+        return;
+      }
+
+      const freshCfg = await loadAdminAccountsConfig();
+      const freshAccounts = Array.isArray(freshCfg.accounts) ? freshCfg.accounts : [];
+
+      if (adminAccountAction.type === "toggle_onboarding") {
+        const nextAllow = !freshCfg.allowMasterOnboarding;
+        await saveAdminAccountsConfig({
+          accounts: freshAccounts,
+          allowMasterOnboarding: nextAllow,
+        });
+        setAdminAccounts(freshAccounts);
+        setAllowMasterOnboarding(nextAllow);
+        setAdminAccountAction(null);
+        onShowToast(
+          nextAllow
+            ? "Aktivasi pengurus baru via Kode Akses Utama DIBUKA."
+            : "Aktivasi pengurus baru via Kode Akses Utama DITUTUP.",
+          "success"
+        );
+        return;
+      }
+
+      if (adminAccountAction.type === "delete" && adminAccountAction.account) {
+        const target = adminAccountAction.account;
+        const nextAccounts = freshAccounts.filter((a) => a.id !== target.id);
+        await saveAdminAccountsConfig({
+          accounts: nextAccounts,
+          allowMasterOnboarding:
+            nextAccounts.length === 0 ? true : freshCfg.allowMasterOnboarding !== false,
+        });
+        setAdminAccounts(nextAccounts);
+        if (nextAccounts.length === 0) setAllowMasterOnboarding(true);
+        setAdminAccountAction(null);
+
+        if (currentAdmin?.id === target.id) {
+          clearStoredAdminSession();
+          setCurrentAdmin(null);
+          setIsAuthenticated(false);
+          onShowToast(`Akun ${target.name} dicabut. Anda telah keluar dari panel.`, "info");
+        } else {
+          onShowToast(`Akses pengurus ${target.name} berhasil dicabut & otomatis ter-logout.`, "success");
+        }
+        return;
+      }
+
+      if (adminAccountAction.type === "reset" && adminAccountAction.account) {
+        const target = adminAccountAction.account;
+        const nextPass = (adminAccountAction.newPassword || "").trim();
+        const nextPin = (adminAccountAction.newPin || "").replace(/\D/g, "").trim();
+        if (nextPass.length < 4) {
+          onShowToast("Password baru minimal 4 karakter.", "warning");
+          return;
+        }
+        if (!/^\d{4,6}$/.test(nextPin)) {
+          onShowToast("PIN baru wajib 4 sampai 6 digit angka.", "warning");
+          return;
+        }
+
+        const passwordHash = await hashPassword(nextPass);
+        const pinHash = await hashPassword(nextPin);
+        const nextAccounts = freshAccounts.map((a) =>
+          a.id === target.id ? { ...a, passwordHash, pinHash, updatedAt: Date.now() } : a
+        );
+        await saveAdminAccountsConfig({
+          accounts: nextAccounts,
+          allowMasterOnboarding: freshCfg.allowMasterOnboarding !== false,
+        });
+        setAdminAccounts(nextAccounts);
+        setAdminAccountAction(null);
+
+        if (currentAdmin?.id === target.id) {
+          const persist = Boolean(localStorage.getItem(ADMIN_ACCOUNT_SESSION_KEY));
+          writeStoredAdminSession(
+            {
+              accountId: target.id,
+              name: target.name,
+              role: target.role || "Pengurus LSM",
+              tokenHash: passwordHash,
+            },
+            persist
+          );
+        }
+
+        onShowToast(
+          `Password & PIN untuk ${target.name} berhasil direset! Sesi lama di perangkat lain otomatis keluar.`,
+          "success"
+        );
+      }
+    } catch (err) {
+      console.error("Gagal memproses aksi akun pengurus:", err);
+      onShowToast("Gagal memproses perubahan akun pengurus.", "error");
+    } finally {
+      setIsProcessingAccountAction(false);
     }
   }
 
   // Handle Logout
   function handleLogout() {
-    localStorage.removeItem(ADMIN_STORAGE_KEY);
-    sessionStorage.removeItem(ADMIN_STORAGE_KEY);
+    clearStoredAdminSession();
+    setCurrentAdmin(null);
     setIsAuthenticated(false);
     setPasswordInput("");
+    setLoginStep("login");
     onShowToast("Berhasil keluar dari sesi admin.", "info");
   }
 
-  // Handle apply new password in Tab Keamanan
+  // Handle apply new Master Password in Tab Keamanan
   async function handleApplyNewPassword() {
     if (!newPassword) {
       onShowToast("Masukkan password baru!", "error");
@@ -2138,23 +2643,15 @@ export default function AdminModal({
       };
       delete updatedFormData.adminPass;
 
-      // Langsung simpan ke Database terpusat secara otomatis!
       await saveCloudData(updatedFormData);
 
       setFormData(updatedFormData);
       onDataSaved(updatedFormData);
 
-      // Update current session with new hash so current admin stays logged in
-      if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
-        localStorage.setItem(ADMIN_STORAGE_KEY, newHash);
-      } else {
-        sessionStorage.setItem(ADMIN_STORAGE_KEY, newHash);
-      }
-
       setNewPassword("");
       setConfirmPassword("");
       setShowPasswordForm(false);
-      onShowToast("Password baru berhasil disimpan ke Database! Seluruh rekan admin bisa login dengan password ini.", "success");
+      onShowToast("Kode Akses Utama baru berhasil disimpan ke Database!", "success");
     } catch (err) {
       console.error(err);
       onShowToast("Gagal menyimpan password ke database: " + (err?.message || ""), "error");
@@ -2163,12 +2660,12 @@ export default function AdminModal({
     }
   }
 
-  // Handle reset password to default "@adminpps22h6"
+  // Handle reset Master Password to default "@adminpps22h6"
   function handleResetPasswordToDefault() {
     setConfirmModal({
       isOpen: true,
-      title: "Reset Password ke Default?",
-      message: "Kode akses admin akan dikembalikan ke password default: '@adminpps22h6'. Anda dan seluruh rekan admin bisa langsung masuk menggunakan password tersebut.",
+      title: "Reset Kode Akses Utama ke Default?",
+      message: "Kode Akses Utama (Master Password) akan dikembalikan ke default: '@adminpps22h6'. Akun pribadi pengurus yang sudah terdaftar tetap aktif.",
       confirmText: "Ya, Kembalikan ke @adminpps22h6",
       cancelText: "Batal",
       variant: "danger",
@@ -2183,13 +2680,8 @@ export default function AdminModal({
           await saveCloudData(updatedFormData);
           setFormData(updatedFormData);
           onDataSaved(updatedFormData);
-          if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
-            localStorage.setItem(ADMIN_STORAGE_KEY, DEFAULT_ADMIN_HASH);
-          } else {
-            sessionStorage.setItem(ADMIN_STORAGE_KEY, DEFAULT_ADMIN_HASH);
-          }
           setShowPasswordForm(false);
-          onShowToast("Password admin berhasil dikembalikan ke default (@adminpps22h6)", "success");
+          onShowToast("Kode Akses Utama berhasil dikembalikan ke default (@adminpps22h6)", "success");
         } catch (err) {
           console.error("Gagal reset password:", err);
           onShowToast("Gagal mengembalikan password ke default.", "error");
@@ -2200,12 +2692,12 @@ export default function AdminModal({
     });
   }
 
-  // Handle reset PIN to default "114123"
+  // Handle reset Master PIN to default "114123"
   function handleResetPinToDefault() {
     setConfirmModal({
       isOpen: true,
-      title: "Reset ke PIN 114123?",
-      message: "Kode akses admin akan diatur ke 6-digit PIN default: '114123'. Rekan admin dapat langsung masuk menggunakan PIN tersebut dari HP maupun PC.",
+      title: "Reset Kode Akses Utama ke PIN 114123?",
+      message: "Kode Akses Utama akan diatur ke 6-digit PIN default: '114123'. Akun pribadi pengurus yang sudah terdaftar tetap aktif.",
       confirmText: "Ya, Atur PIN ke 114123",
       cancelText: "Batal",
       variant: "danger",
@@ -2220,13 +2712,8 @@ export default function AdminModal({
           await saveCloudData(updatedFormData);
           setFormData(updatedFormData);
           onDataSaved(updatedFormData);
-          if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
-            localStorage.setItem(ADMIN_STORAGE_KEY, DEFAULT_PIN_HASH);
-          } else {
-            sessionStorage.setItem(ADMIN_STORAGE_KEY, DEFAULT_PIN_HASH);
-          }
           setShowPasswordForm(false);
-          onShowToast("PIN admin berhasil diatur ke: 114123", "success");
+          onShowToast("Kode Akses Utama berhasil diatur ke PIN: 114123", "success");
         } catch (err) {
           console.error("Gagal reset PIN:", err);
           onShowToast("Gagal mengatur PIN ke default.", "error");
@@ -2880,13 +3367,6 @@ export default function AdminModal({
     setIsSaving(true);
     try {
       await saveCloudData(formData);
-      // Synchronize session storage with active password hash
-      const activeHash = formData.adminPassHash || DEFAULT_ADMIN_HASH;
-      if (localStorage.getItem(ADMIN_STORAGE_KEY)) {
-        localStorage.setItem(ADMIN_STORAGE_KEY, activeHash);
-      } else if (sessionStorage.getItem(ADMIN_STORAGE_KEY)) {
-        sessionStorage.setItem(ADMIN_STORAGE_KEY, activeHash);
-      }
       const savedSnapshot = JSON.parse(JSON.stringify(formData));
       setLastSavedData(savedSnapshot);
       onDataSaved(savedSnapshot);
@@ -2914,8 +3394,9 @@ export default function AdminModal({
           setFormData(resetData);
           setLastSavedData(JSON.parse(JSON.stringify(resetData)));
           onDataSaved(resetData);
-          localStorage.removeItem(ADMIN_STORAGE_KEY);
-          sessionStorage.removeItem(ADMIN_STORAGE_KEY);
+          clearStoredAdminSession();
+          setCurrentAdmin(null);
+          setIsAuthenticated(false);
           onShowToast("Data berhasil direset ke pengaturan awal!", "success");
           onClose();
         } catch {
@@ -3218,15 +3699,15 @@ export default function AdminModal({
       className="fixed inset-0 z-[100] w-full h-full bg-[#F3F4F6] dark:bg-[#0D0F17] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100 select-text"
     >
       {/* Header Panel Administrator (Full Width Bar) */}
-      <header className="shrink-0 flex items-center justify-between px-3.5 sm:px-8 py-2.5 sm:py-3.5 border-b-2 border-black dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1A1D26] shadow-[0_2px_0px_#000]/10">
+      <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-8 py-2.5 sm:py-3.5 border-b-2 border-black dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1A1D26] shadow-[0_2px_0px_#000]/10">
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded bg-[#DC2626] border border-black/20 dark:border-white/15 flex items-center justify-center text-white shadow-xs shrink-0">
-            <Shield size={16} />
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#DC2626] border border-black/20 dark:border-white/15 flex items-center justify-center text-white shadow-xs shrink-0">
+            <Shield size={15} />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-heading font-black text-xs sm:text-base uppercase tracking-tight text-slate-950 dark:text-slate-100 truncate">
-                <span className="sm:hidden">Admin Panel PPS</span>
+                <span className="sm:hidden">Admin PPS</span>
                 <span className="hidden sm:inline">Panel Kontrol Administrator</span>
               </span>
               <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-400 shrink-0">
@@ -3245,25 +3726,35 @@ export default function AdminModal({
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {isAuthenticated && (
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Keluar dari sesi admin"
-              className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-heading font-black bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/80 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded border border-black/20 dark:border-white/15 dark:border-rose-500 shadow-xs transition-all active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
-            >
-              <LogOut size={13} className="text-rose-600 dark:text-rose-300" />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
+            <>
+              <div
+                className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-black/20 dark:border-amber-700/60 text-[11px] sm:text-xs font-heading font-black text-slate-900 dark:text-amber-200 max-w-[115px] sm:max-w-[210px] min-h-[36px]"
+                title={`Masuk sebagai: ${activeAdminName}${currentAdmin?.role ? ` (${currentAdmin.role})` : ""}`}
+              >
+                <User size={13} className="text-[#DC2626] dark:text-[#FACC15] shrink-0" />
+                <span className="truncate">{activeAdminName}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Keluar dari sesi admin"
+                aria-label="Logout"
+                className="flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1.5 min-h-[36px] min-w-[36px] text-xs font-heading font-black bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/80 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 rounded-lg border border-black/20 dark:border-rose-500/60 shadow-xs transition-all active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+              >
+                <LogOut size={14} className="text-rose-600 dark:text-rose-300" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </>
           )}
           <button
             type="button"
             onClick={onClose}
-            className="py-1.5 px-2.5 sm:px-3 bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-900 dark:text-red-200 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer rounded"
+            aria-label="Tutup Panel"
+            className="py-1.5 px-2.5 sm:px-3 min-h-[36px] min-w-[36px] bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-900 dark:text-red-200 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center justify-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer rounded-lg"
             title="Tutup Panel Admin dan kembali ke website utama"
           >
             <span className="hidden sm:inline">Tutup Panel</span>
-            <span className="sm:hidden">Tutup</span>
-            <X size={14} />
+            <X size={15} />
           </button>
         </div>
       </header>
@@ -3271,111 +3762,435 @@ export default function AdminModal({
       {/* Main Full Viewport Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
           {!isAuthenticated ? (
-            /* Login Screen Full Center */
-            <div className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
-              <div className="card-brutal p-6 sm:p-8 bg-white dark:bg-[#1A1D26] border border-black/20 dark:border-white/15 max-w-sm w-full rounded text-center flex flex-col items-center shadow-xl">
+            /* Login & Pengurus Onboarding Screen (Safe scroll on mobile & keyboard open) */
+            <div className="flex-1 overflow-y-auto px-3.5 py-5 sm:p-6 flex flex-col items-center">
+              <div className="my-auto card-brutal p-5 sm:p-7 bg-white dark:bg-[#1A1D26] border border-black/20 dark:border-white/15 max-w-sm w-full rounded-2xl text-center flex flex-col items-center shadow-xl">
                 <div className="w-12 h-12 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-[#111827] mb-3 shadow-sm">
-                  <Lock size={22} className="text-[#DC2626]" />
+                  {loginStep === "onboarding" ? (
+                    <UserPlus size={22} className="text-[#DC2626]" />
+                  ) : (
+                    <Lock size={22} className="text-[#DC2626]" />
+                  )}
                 </div>
-                <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-100 mb-1">
-                  Autentikasi Pengelola Portal
-                </h3>
-                <p className="text-xs text-slate-700 dark:text-slate-300 mb-4">
-                  Masukkan password admin untuk mengelola isi website.
-                </p>
 
-                {/* Anti Brute-Force Lockout Warning */}
-                {lockoutState.isLocked && (
-                  <div className="w-full mb-4 p-3 bg-red-100 dark:bg-red-950/70 border-2 border-red-600 rounded text-red-900 dark:text-red-200 text-xs flex items-center gap-2.5 text-left shadow-[2px_2px_0px_#DC2626] animate-pulse">
-                    <ShieldAlert size={22} className="text-red-600 shrink-0" />
-                    <div>
-                      <div className="font-heading font-black">AKSES TERKUNCI SEMENTARA!</div>
-                      <div className="text-[11px] mt-0.5">
-                        Terlalu banyak percobaan gagal. Tunggu <span className="font-mono font-bold underline">{lockoutState.remainingSeconds} detik</span> lagi.
+                {loginStep === "onboarding" ? (
+                  <>
+                    <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-100 mb-1">
+                      Aktivasi Akun Pengurus
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
+                      Kode Akses Utama cocok. Buat akun IC pribadi Anda agar setiap ACC, kas, dan verifikasi tercatat atas nama Anda.
+                    </p>
+
+                    <form onSubmit={handleCompleteOnboarding} className="w-full flex flex-col gap-3 text-left">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                          Nama IC Pengurus <span className="text-[#DC2626]">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={onboardingForm.name}
+                          onChange={(e) => setOnboardingForm((prev) => ({ ...prev, name: e.target.value }))}
+                          placeholder="Contoh: Oita, Darren, Ray Fullbuster"
+                          autoFocus
+                          required
+                          className="input-field text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                        />
                       </div>
-                    </div>
-                  </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                          Jabatan <span className="text-slate-400 font-normal normal-case">(Opsional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={onboardingForm.role}
+                          onChange={(e) => setOnboardingForm((prev) => ({ ...prev, role: e.target.value }))}
+                          placeholder="Contoh: Ketua, Bendahara, Humas"
+                          className="input-field text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                          Password Pribadi <span className="text-[#DC2626]">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showOnboardingPassword ? "text" : "password"}
+                            value={onboardingForm.password}
+                            onChange={(e) => setOnboardingForm((prev) => ({ ...prev, password: e.target.value }))}
+                            placeholder="Minimal 4 karakter..."
+                            required
+                            className="input-field w-full pr-9 font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowOnboardingPassword((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                            aria-label={showOnboardingPassword ? "Sembunyikan password" : "Lihat password"}
+                          >
+                            {showOnboardingPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                          PIN Pribadi (4-6 Digit Angka) <span className="text-[#DC2626]">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showOnboardingPin ? "text" : "password"}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={onboardingForm.pin}
+                            onChange={(e) =>
+                              setOnboardingForm((prev) => ({
+                                ...prev,
+                                pin: e.target.value.replace(/\D/g, "").slice(0, 6),
+                              }))
+                            }
+                            placeholder="Contoh: 123456"
+                            required
+                            className="input-field w-full pr-9 font-mono text-sm tracking-widest bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowOnboardingPin((v) => !v)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                            aria-label={showOnboardingPin ? "Sembunyikan PIN" : "Lihat PIN"}
+                          >
+                            {showOnboardingPin ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none pt-0.5">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="w-4 h-4 rounded border border-black/20 dark:border-white/15 accent-[#DC2626] cursor-pointer"
+                        />
+                        <span>Ingat saya di browser ini</span>
+                      </label>
+
+                      <button
+                        type="submit"
+                        disabled={isSubmittingAuth}
+                        className="btn w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white border border-black/20 dark:border-white/15 font-black shadow-sm mt-1"
+                      >
+                        {isSubmittingAuth ? "Menyimpan Akun..." : "Buat Akun & Masuk Panel"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoginStep("login");
+                          setPasswordInput("");
+                        }}
+                        className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:underline text-center py-1 cursor-pointer"
+                      >
+                        Kembali ke Login
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-100 mb-1">
+                      Autentikasi Pengelola Portal
+                    </h3>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 mb-4">
+                      {adminAccounts.length === 0 || selectedLoginAccountId === "__NEW__"
+                        ? "Masukkan Password atau PIN Utama untuk aktivasi akun IC pengurus Anda."
+                        : "Pilih akun pengurus lalu masukkan Password atau PIN pribadi Anda."}
+                    </p>
+
+                    {isAdminAccountsLoaded && adminAccounts.length === 0 && (
+                      <div className="w-full mb-3.5 p-2.5 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-400/70 text-left text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed">
+                        <strong className="font-heading block text-xs mb-0.5">Sistem Akun Pengurus Baru</strong>
+                        Masukkan Password/PIN admin lama (1-untuk-semua) di bawah, lalu Anda akan diarahkan membuat akun IC pribadi.
+                      </div>
+                    )}
+
+                    {/* Anti Brute-Force Lockout Warning */}
+                    {lockoutState.isLocked && (
+                      <div className="w-full mb-4 p-3 bg-red-100 dark:bg-red-950/70 border-2 border-red-600 rounded text-red-900 dark:text-red-200 text-xs flex items-center gap-2.5 text-left shadow-[2px_2px_0px_#DC2626] animate-pulse">
+                        <ShieldAlert size={22} className="text-red-600 shrink-0" />
+                        <div>
+                          <div className="font-heading font-black">AKSES TERKUNCI SEMENTARA!</div>
+                          <div className="text-[11px] mt-0.5">
+                            Terlalu banyak percobaan gagal. Tunggu <span className="font-mono font-bold underline">{lockoutState.remainingSeconds} detik</span> lagi.
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!lockoutState.isLocked && lockoutState.attempts > 0 && (
+                      <div className="w-full mb-3 p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-500 rounded text-amber-900 dark:text-amber-200 text-[11px] flex items-center justify-center gap-1.5 font-bold">
+                        <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                        <span>Percobaan gagal: {lockoutState.attempts}/{MAX_ATTEMPTS} (Tersisa {MAX_ATTEMPTS - lockoutState.attempts}x)</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleLogin} className="w-full flex flex-col gap-3.5">
+                      {adminAccounts.length > 0 && (() => {
+                        const activeValue = selectedLoginAccountId || (adminAccounts[0]?.id || "__NEW__");
+                        const activeAcc =
+                          activeValue === "__NEW__"
+                            ? null
+                            : adminAccounts.find((a) => a.id === activeValue) || adminAccounts[0];
+                        return (
+                          <div className="flex flex-col gap-1 text-left" ref={accountDropdownRef}>
+                            <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                              Akun Pengurus
+                            </label>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                disabled={lockoutState.isLocked}
+                                onClick={() => setIsAccountDropdownOpen((v) => !v)}
+                                aria-haspopup="listbox"
+                                aria-expanded={isAccountDropdownOpen}
+                                className={`w-full min-h-[44px] flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl text-left bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border transition-all cursor-pointer disabled:opacity-50 ${
+                                  isAccountDropdownOpen
+                                    ? "border-[#FACC15] ring-3 ring-[#FACC15]/25 shadow-sm"
+                                    : "border-black/15 dark:border-white/15 hover:border-amber-400/80 shadow-xs"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  {activeValue === "__NEW__" ? (
+                                    <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-400/50 flex items-center justify-center shrink-0">
+                                      <UserPlus size={14} />
+                                    </span>
+                                  ) : (
+                                    <span className="w-7 h-7 rounded-lg bg-[#FACC15]/90 text-slate-950 border border-amber-500/50 flex items-center justify-center font-heading font-black text-xs shrink-0">
+                                      {(activeAcc?.name || "A").slice(0, 1).toUpperCase()}
+                                    </span>
+                                  )}
+                                  <div className="min-w-0">
+                                    <div className="text-xs sm:text-sm font-bold truncate leading-tight">
+                                      {activeValue === "__NEW__"
+                                        ? "Aktivasi Pengurus Baru"
+                                        : activeAcc?.name || "Pilih Akun"}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
+                                      {activeValue === "__NEW__"
+                                        ? "Pakai Kode Akses Utama"
+                                        : activeAcc?.role || "Pengurus LSM"}
+                                    </div>
+                                  </div>
+                                </div>
+                                <span
+                                  className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 ${
+                                    isAccountDropdownOpen
+                                      ? "rotate-180 bg-[#FACC15] text-slate-950"
+                                      : "bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300"
+                                  }`}
+                                >
+                                  <ChevronDown size={14} strokeWidth={2.5} />
+                                </span>
+                              </button>
+
+                              {isAccountDropdownOpen && (
+                                <div
+                                  role="listbox"
+                                  className="absolute left-0 top-full mt-1.5 w-full z-50 rounded-xl bg-white dark:bg-[#1B1E29] border border-amber-400/80 dark:border-amber-500/40 shadow-xl overflow-hidden max-h-60 overflow-y-auto"
+                                >
+                                  {adminAccounts.map((acc) => {
+                                    const isSelected = activeValue === acc.id;
+                                    return (
+                                      <button
+                                        key={acc.id}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={isSelected}
+                                        onClick={() => {
+                                          setSelectedLoginAccountId(acc.id);
+                                          setPasswordInput("");
+                                          setIsAccountDropdownOpen(false);
+                                        }}
+                                        className={`w-full min-h-[44px] flex items-center justify-between gap-2.5 px-3 py-2 text-left border-b border-black/5 dark:border-white/5 last:border-b-0 transition-colors cursor-pointer ${
+                                          isSelected
+                                            ? "bg-amber-50 dark:bg-amber-500/15 text-slate-950 dark:text-amber-200"
+                                            : "text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                          <span
+                                            className={`w-7 h-7 rounded-lg flex items-center justify-center font-heading font-black text-xs shrink-0 ${
+                                              isSelected
+                                                ? "bg-[#FACC15] text-slate-950 border border-amber-500/60"
+                                                : "bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300"
+                                            }`}
+                                          >
+                                            {(acc.name || "A").slice(0, 1).toUpperCase()}
+                                          </span>
+                                          <div className="min-w-0">
+                                            <div className="text-xs font-bold truncate leading-tight">
+                                              {acc.name}
+                                            </div>
+                                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight mt-0.5">
+                                              {acc.role || "Pengurus LSM"}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {isSelected && (
+                                          <span className="w-5 h-5 rounded-full bg-[#FACC15] text-slate-950 flex items-center justify-center shrink-0">
+                                            <Check size={12} strokeWidth={3} />
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+
+                                  {allowMasterOnboarding && (
+                                    <button
+                                      type="button"
+                                      role="option"
+                                      aria-selected={activeValue === "__NEW__"}
+                                      onClick={() => {
+                                        setSelectedLoginAccountId("__NEW__");
+                                        setPasswordInput("");
+                                        setIsAccountDropdownOpen(false);
+                                      }}
+                                      className={`w-full min-h-[44px] flex items-center justify-between gap-2.5 px-3 py-2 text-left border-t border-black/10 dark:border-white/10 transition-colors cursor-pointer ${
+                                        activeValue === "__NEW__"
+                                          ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200"
+                                          : "bg-slate-50/70 dark:bg-white/[0.03] text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/40"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <span className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-400/50 flex items-center justify-center shrink-0">
+                                          <UserPlus size={14} />
+                                        </span>
+                                        <div className="min-w-0">
+                                          <div className="text-xs font-bold truncate leading-tight">
+                                            Aktivasi Pengurus Baru
+                                          </div>
+                                          <div className="text-[10px] opacity-80 truncate leading-tight mt-0.5">
+                                            Daftar pakai Kode Akses Utama
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {activeValue === "__NEW__" && (
+                                        <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                                          <Check size={12} strokeWidth={3} />
+                                        </span>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <div className="flex flex-col gap-1 text-left">
+                        <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                          {adminAccounts.length === 0 || selectedLoginAccountId === "__NEW__"
+                            ? loginMode === "pin"
+                              ? "PIN Utama (Aktivasi)"
+                              : "Password Utama (Aktivasi)"
+                            : loginMode === "pin"
+                            ? "Kode PIN Pribadi"
+                            : "Password Pribadi"}
+                        </label>
+                        <input
+                          type="password"
+                          inputMode={loginMode === "pin" ? "numeric" : "text"}
+                          pattern={loginMode === "pin" ? "[0-9]*" : undefined}
+                          value={passwordInput}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (loginMode === "pin") {
+                              setPasswordInput(val.replace(/\D/g, "").slice(0, 10));
+                            } else {
+                              setPasswordInput(val);
+                            }
+                          }}
+                          placeholder={
+                            adminAccounts.length === 0 || selectedLoginAccountId === "__NEW__"
+                              ? loginMode === "pin"
+                                ? "Masukkan PIN admin lama..."
+                                : "Masukkan password admin lama..."
+                              : loginMode === "pin"
+                              ? "Masukkan 4-6 digit PIN Anda..."
+                              : "Masukkan password pribadi..."
+                          }
+                          disabled={lockoutState.isLocked}
+                          autoFocus
+                          className="input-field text-center font-mono text-sm tracking-widest bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 shadow-xs disabled:opacity-50 disabled:bg-slate-200 dark:disabled:bg-slate-800"
+                        />
+                      </div>
+
+                      <label className="flex items-center justify-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none py-0.5">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          disabled={lockoutState.isLocked}
+                          className="w-4 h-4 rounded border border-black/20 dark:border-white/15 accent-[#DC2626] cursor-pointer"
+                        />
+                        <span>Ingat saya di browser ini</span>
+                      </label>
+
+                      <button
+                        type="submit"
+                        disabled={lockoutState.isLocked || isSubmittingAuth}
+                        className="btn w-full py-2.5 bg-[#FACC15] disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-[#111827] border border-black/20 dark:border-white/15 font-black shadow-sm"
+                      >
+                        {lockoutState.isLocked
+                          ? `Terkunci (${lockoutState.remainingSeconds}s)`
+                          : isSubmittingAuth
+                          ? "Memverifikasi..."
+                          : adminAccounts.length === 0 || selectedLoginAccountId === "__NEW__"
+                          ? "Lanjut Aktivasi Akun"
+                          : "Masuk ke Panel"}
+                      </button>
+
+                      {/* Toggle Link below: Login menggunakan PIN / Login menggunakan Password */}
+                      <div className="pt-2 border-t border-black/10 dark:border-white/10 flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoginMode(loginMode === "pin" ? "password" : "pin");
+                            setPasswordInput("");
+                          }}
+                          className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:underline flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded transition-colors"
+                        >
+                          {loginMode === "pin" ? (
+                            <>
+                              <KeyRound size={13} className="text-[#DC2626] dark:text-[#FACC15]" />
+                              <span>Login menggunakan Password</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck size={13} className="text-[#DC2626] dark:text-[#FACC15]" />
+                              <span>Login menggunakan PIN</span>
+                            </>
+                          )}
+                        </button>
+
+                        {allowMasterOnboarding && adminAccounts.length > 0 && selectedLoginAccountId !== "__NEW__" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedLoginAccountId("__NEW__");
+                              setPasswordInput("");
+                            }}
+                            className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer py-0.5"
+                          >
+                            <UserPlus size={12} />
+                            <span>Pengurus baru? Aktivasi pakai Kode Utama</span>
+                          </button>
+                        )}
+                      </div>
+                    </form>
+                  </>
                 )}
-
-                {!lockoutState.isLocked && lockoutState.attempts > 0 && (
-                  <div className="w-full mb-3 p-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-500 rounded text-amber-900 dark:text-amber-200 text-[11px] flex items-center justify-center gap-1.5 font-bold">
-                    <AlertTriangle size={13} className="text-amber-600 shrink-0" />
-                    <span>Percobaan gagal: {lockoutState.attempts}/{MAX_ATTEMPTS} (Tersisa {MAX_ATTEMPTS - lockoutState.attempts}x)</span>
-                  </div>
-                )}
-
-                <form onSubmit={handleLogin} className="w-full flex flex-col gap-3.5">
-                  <div className="flex flex-col gap-1 text-left">
-                    <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                      {loginMode === "pin" ? "Kode PIN Admin" : "Password Admin"}
-                    </label>
-                    <input
-                      type="password"
-                      inputMode={loginMode === "pin" ? "numeric" : "text"}
-                      pattern={loginMode === "pin" ? "[0-9]*" : undefined}
-                      value={passwordInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (loginMode === "pin") {
-                          setPasswordInput(val.replace(/\D/g, "").slice(0, 10));
-                        } else {
-                          setPasswordInput(val);
-                        }
-                      }}
-                      placeholder={
-                        loginMode === "pin"
-                          ? "Masukkan 6-digit PIN..."
-                          : "Masukkan password admin..."
-                      }
-                      disabled={lockoutState.isLocked}
-                      autoFocus
-                      className="input-field text-center font-mono text-sm tracking-widest bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 shadow-xs disabled:opacity-50 disabled:bg-slate-200 dark:disabled:bg-slate-800"
-                    />
-                  </div>
-
-                  <label className="flex items-center justify-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none py-0.5">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      disabled={lockoutState.isLocked}
-                      className="w-4 h-4 rounded border border-black/20 dark:border-white/15 accent-[#DC2626] cursor-pointer"
-                    />
-                    <span>Ingat saya di browser ini</span>
-                  </label>
-
-                  <button
-                    type="submit"
-                    disabled={lockoutState.isLocked}
-                    className="btn w-full py-2.5 bg-[#FACC15] disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-[#111827] border border-black/20 dark:border-white/15 font-black shadow-sm"
-                  >
-                    {lockoutState.isLocked ? `Terkunci (${lockoutState.remainingSeconds}s)` : "Masuk ke Panel"}
-                  </button>
-
-                  {/* Toggle Link below: Login menggunakan PIN / Login menggunakan Password */}
-                  <div className="pt-2 border-t border-black/10 dark:border-white/10 flex justify-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginMode(loginMode === "pin" ? "password" : "pin");
-                        setPasswordInput("");
-                      }}
-                      className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-[#DC2626] dark:hover:text-[#FACC15] hover:underline flex items-center gap-1.5 cursor-pointer py-1 px-2 rounded transition-colors"
-                    >
-                      {loginMode === "pin" ? (
-                        <>
-                          <KeyRound size={13} className="text-[#DC2626] dark:text-[#FACC15]" />
-                          <span>Login menggunakan Password</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck size={13} className="text-[#DC2626] dark:text-[#FACC15]" />
-                          <span>Login menggunakan PIN</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
               </div>
             </div>
           ) : (
@@ -3535,8 +4350,8 @@ export default function AdminModal({
                   </div>
 
                   {/* Main Scrollable Content Area */}
-                  <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6">
+                <div className="max-w-7xl mx-auto w-full min-w-0 flex flex-col gap-4 sm:gap-6">
 
                   {/* Tab 1: Identity */}
                   {activeTab === "identity" && (
@@ -3572,8 +4387,8 @@ export default function AdminModal({
 
                         {/* Input 1: Discord Utama / Resmi */}
                         <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center justify-between">
-                            <label className="card-label text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                            <label className="card-label text-slate-800 dark:text-slate-200 flex flex-wrap items-center gap-1.5">
                               <span>1. Link Discord Resmi / Utama PPS</span>
                               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#5865F2]/15 text-[#5865F2] dark:text-[#8ea1ff] font-bold border border-[#5865F2]/30">
                                 Redirect /discord • Anggota • Footer
@@ -3605,8 +4420,8 @@ export default function AdminModal({
 
                         {/* Input 2: Discord Visitor / Layanan Lapak & Audiensi */}
                         <div className="flex flex-col gap-1.5 pt-3 border-t border-black/10 dark:border-white/10">
-                          <div className="flex items-center justify-between">
-                            <label className="card-label text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                            <label className="card-label text-slate-800 dark:text-slate-200 flex flex-wrap items-center gap-1.5">
                               <span>2. Link Discord Visitor (Layanan Stan Lapak & Audiensi)</span>
                               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/30">
                                 Portal Layanan • Tracking Tiket • Visitor
@@ -5527,64 +6342,64 @@ export default function AdminModal({
                     </div>
 
                     {/* Export & Maintenance Actions: Excel, ZIP, Duplikat, Bersihkan HUD */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full md:w-auto">
                       <button
                         type="button"
                         onClick={handleExportExcel}
                         disabled={membersList.length === 0}
-                        className="btn py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        className="btn py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
                         title="Download seluruh data anggota dalam format Excel (.xlsx)"
                       >
-                        <FileSpreadsheet size={15} />
-                        <span>Unduh Excel</span>
+                        <FileSpreadsheet size={15} className="shrink-0" />
+                        <span className="truncate">Unduh Excel</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={handleExportZip}
                         disabled={isExportingZip || membersList.length === 0}
-                        className="btn py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        className="btn py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[11px] sm:text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
                         title="Download arsip ZIP lengkap (Excel + seluruh folder Foto Profil & Foto KTP)"
                       >
-                        <Archive size={15} />
-                        <span>{isExportingZip ? "Membuat ZIP..." : "Backup ZIP (+ Foto)"}</span>
+                        <Archive size={15} className="shrink-0" />
+                        <span className="truncate">{isExportingZip ? "Membuat ZIP..." : "Backup ZIP (+ Foto)"}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={handleAuditAndCleanDuplicates}
                         disabled={isCleaningDuplicates || membersList.length === 0}
-                        className="btn py-2 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-heading font-black border border-amber-600/70 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        className="btn py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] sm:text-xs font-heading font-black border border-amber-600/70 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
                         title="Audit database dan hapus data anggota duplikat secara otomatis"
                       >
-                        <ShieldAlert size={15} className="text-slate-950" />
-                        <span>{isCleaningDuplicates ? "Memeriksa..." : "Bersihkan Duplikat"}</span>
+                        <ShieldAlert size={15} className="text-slate-950 shrink-0" />
+                        <span className="truncate">{isCleaningDuplicates ? "Memeriksa..." : "Bersihkan Duplikat"}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={handlePurgeApprovedHudPhotos}
                         disabled={isPurgingHudPhotos || approvedHudPhotosCount === 0}
-                        className="btn py-2 px-3.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-heading font-black border border-black/30 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        className="btn py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-[11px] sm:text-xs font-heading font-black border border-black/30 dark:border-white/15 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
                         title="Hapus screenshot Status HUD milik anggota yang sudah disetujui agar database lebih ringan (Foto Profil & KTP tetap aman)"
                       >
-                        <Trash2 size={14} />
-                        <span>
+                        <Trash2 size={14} className="shrink-0" />
+                        <span className="truncate">
                           {isPurgingHudPhotos
                             ? "Membersihkan..."
-                            : `Bersihkan Foto HUD (${approvedHudPhotosCount})`}
+                            : `Bersihkan HUD (${approvedHudPhotosCount})`}
                         </span>
                       </button>
                     </div>
                   </div>
 
                   {/* Sub-Tab Navigation: Anggota Aktif vs Menunggu Verifikasi vs Riwayat Dikeluarkan */}
-                  <div className="flex items-center justify-between flex-wrap gap-2 p-1.5 bg-slate-100 dark:bg-[#15171E] border border-black/15 dark:border-white/10 rounded-lg shadow-xs">
-                    <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-1.5 bg-slate-100 dark:bg-[#15171E] border border-black/15 dark:border-white/10 rounded-lg shadow-xs">
+                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0 sm:flex-wrap">
                       <button
                         type="button"
                         onClick={() => setMemberSubTab("active")}
-                        className={`flex items-center gap-2 py-2 px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                        className={`flex items-center gap-1.5 sm:gap-2 py-2 px-3 sm:px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                           memberSubTab === "active"
                             ? "bg-[#FACC15] text-slate-950 border-yellow-500/80 shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-black"
@@ -5597,7 +6412,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setMemberSubTab("pending")}
-                        className={`flex items-center gap-2 py-2 px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                        className={`flex items-center gap-1.5 sm:gap-2 py-2 px-3 sm:px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                           memberSubTab === "pending"
                             ? "bg-amber-500 text-slate-950 border-amber-600/80 shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-black"
@@ -5610,7 +6425,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setMemberSubTab("dismissed")}
-                        className={`flex items-center gap-2 py-2 px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                        className={`flex items-center gap-1.5 sm:gap-2 py-2 px-3 sm:px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                           memberSubTab === "dismissed"
                             ? "bg-[#DC2626] text-white border-red-500/80 shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-black"
@@ -6847,66 +7662,66 @@ export default function AdminModal({
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full md:w-auto">
                       <button
                         type="button"
                         onClick={() => setActiveTab("member_kas")}
-                        className="py-2 px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] sm:text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Buka menu khusus pencatatan iuran kas anggota LSM"
                       >
-                        <DollarSign size={15} />
-                        <span>Catat Kas Anggota</span>
+                        <DollarSign size={15} className="shrink-0" />
+                        <span className="truncate">Catat Kas Anggota</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setIsKasIncomeModalOpen(true)}
-                        className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Catat dana masuk baru (donasi warga, sponsorship, hasil UMKM, dll)"
                       >
-                        <Plus size={15} />
-                        <span>Catat Pemasukan</span>
+                        <Plus size={15} className="shrink-0" />
+                        <span className="truncate">Catat Pemasukan</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setIsKasExpenseModalOpen(true)}
-                        className="py-2 px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[11px] sm:text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Catat pengeluaran baru kas LSM"
                       >
-                        <TrendingDown size={15} />
-                        <span>Catat Pengeluaran</span>
+                        <TrendingDown size={15} className="shrink-0" />
+                        <span className="truncate">Catat Pengeluaran</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setIsKasTransferModalOpen(true)}
-                        className="py-2 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-heading font-black border border-indigo-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-heading font-black border border-indigo-500/80 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Pindahkan saldo antar bendahara (Kas Oita <-> Kas Darren) tanpa masuk pengeluaran"
                       >
-                        <ArrowLeftRight size={15} />
-                        <span>Pindah Kas</span>
+                        <ArrowLeftRight size={15} className="shrink-0" />
+                        <span className="truncate">Pindah Kas</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={handleExportKasExcel}
                         disabled={kasTransactions.length === 0}
-                        className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded"
+                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded"
                         title="Download seluruh mutasi kas dalam format Excel (.xlsx)"
                       >
-                        <FileSpreadsheet size={15} />
-                        <span>Ekspor Excel</span>
+                        <FileSpreadsheet size={15} className="shrink-0" />
+                        <span className="truncate">Ekspor Excel</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setIsKasCopyModalOpen(true)}
-                        className="py-2 px-3.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-heading font-black border border-indigo-400/70 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-[11px] sm:text-xs font-heading font-black border border-indigo-400/70 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
                         title="Teruskan laporan lengkap atau ringkasan saldo kas langsung ke Discord Keuangan"
                       >
-                        <Send size={14} />
-                        <span>Teruskan ke Discord</span>
+                        <Send size={14} className="shrink-0" />
+                        <span className="truncate">Kirim ke Discord</span>
                       </button>
                     </div>
                   </div>
@@ -7011,11 +7826,11 @@ export default function AdminModal({
                     </div>
 
                     {/* Filter pills */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0 sm:flex-wrap sm:overflow-visible">
                       <button
                         type="button"
                         onClick={() => setKasFilterType("ALL")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
                           kasFilterType === "ALL"
                             ? "bg-slate-900 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
@@ -7026,7 +7841,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("INCOME")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
                           kasFilterType === "INCOME"
                             ? "bg-emerald-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-emerald-50"
@@ -7037,7 +7852,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("EXPENSE")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
                           kasFilterType === "EXPENSE"
                             ? "bg-rose-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-rose-50"
@@ -7048,7 +7863,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("TRANSFER")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
                           kasFilterType === "TRANSFER"
                             ? "bg-indigo-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-indigo-50"
@@ -7059,7 +7874,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("OITA")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
                           kasFilterType === "OITA"
                             ? "bg-amber-500 text-slate-950 shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-amber-50"
@@ -7070,7 +7885,7 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setKasFilterType("DARREN")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
                           kasFilterType === "DARREN"
                             ? "bg-indigo-600 text-white shadow-xs"
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-indigo-50"
@@ -8377,10 +9192,339 @@ export default function AdminModal({
               {/* Tab 5: Security */}
               {activeTab === "security" && (
                 <div className="flex flex-col gap-5">
+                  {/* Pengurus Accounts Management Card */}
+                  <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded bg-amber-500/15 border-2 border-amber-500 flex items-center justify-center text-amber-700 dark:text-amber-300 shadow-[2px_2px_0px_#d97706] shrink-0">
+                          <Users size={20} />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                            Akun Pengurus & Audit Akses
+                          </h4>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                            Setiap pengurus login pakai akun IC pribadi agar ACC, kas, dan bansos tercatat otomatis
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAdminAccountAction({
+                            type: "toggle_onboarding",
+                            masterInput: "",
+                            newPassword: "",
+                            newPin: "",
+                          })
+                        }
+                        className={`btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 font-black border border-black/20 dark:border-white/15 shadow-xs cursor-pointer ${
+                          allowMasterOnboarding
+                            ? "bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300"
+                            : "bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 text-slate-800 dark:text-slate-300"
+                        }`}
+                      >
+                        {allowMasterOnboarding ? "Aktivasi Pengurus Baru: DIBUKA" : "Aktivasi Pengurus Baru: DITUTUP"}
+                      </button>
+                    </div>
+
+                    {/* Active Logged-in Pengurus Info + Self Update */}
+                    <div className="p-3.5 rounded bg-amber-50/70 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60 flex flex-col gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-full bg-[#FACC15] border border-black/20 flex items-center justify-center font-heading font-black text-sm text-slate-950 shrink-0">
+                            {activeAdminName.slice(0, 1).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                              <span>{activeAdminName}</span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40">
+                                Sedang Login
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                              Jabatan: <strong>{currentAdmin?.role || "Pengurus LSM"}</strong>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSelfCredForm((v) => !v);
+                            setSelfCredForm({ currentSecret: "", newPassword: "", newPin: "" });
+                          }}
+                          className="btn text-xs py-1.5 px-3 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15 font-bold shadow-xs cursor-pointer"
+                        >
+                          {showSelfCredForm ? "Tutup Form" : "Ubah Password / PIN Saya"}
+                        </button>
+                      </div>
+
+                      {showSelfCredForm && (
+                        <form
+                          onSubmit={handleUpdateSelfCredentials}
+                          className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-amber-300/60 dark:border-amber-800/50"
+                        >
+                          <div>
+                            <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                              Password / PIN Saat Ini *
+                            </label>
+                            <input
+                              type="password"
+                              value={selfCredForm.currentSecret}
+                              onChange={(e) =>
+                                setSelfCredForm((prev) => ({ ...prev, currentSecret: e.target.value }))
+                              }
+                              placeholder="Password atau PIN lama..."
+                              required
+                              className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                              Password Baru (Opsional)
+                            </label>
+                            <input
+                              type="password"
+                              value={selfCredForm.newPassword}
+                              onChange={(e) =>
+                                setSelfCredForm((prev) => ({ ...prev, newPassword: e.target.value }))
+                              }
+                              placeholder="Min. 4 karakter..."
+                              className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                              PIN Baru 4-6 Digit (Opsional)
+                            </label>
+                            <input
+                              type="password"
+                              inputMode="numeric"
+                              value={selfCredForm.newPin}
+                              onChange={(e) =>
+                                setSelfCredForm((prev) => ({
+                                  ...prev,
+                                  newPin: e.target.value.replace(/\D/g, "").slice(0, 6),
+                                }))
+                              }
+                              placeholder="Contoh: 123456"
+                              className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
+                            />
+                          </div>
+                          <div className="sm:col-span-3 flex items-center gap-2 pt-1">
+                            <button
+                              type="submit"
+                              disabled={isSavingSelfCred}
+                              className="btn text-xs py-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black border border-black/20 shadow-xs disabled:opacity-50"
+                            >
+                              {isSavingSelfCred ? "Menyimpan..." : "Simpan Perubahan"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowSelfCredForm(false)}
+                              className="btn btn-secondary text-xs py-1.5 px-3 border border-black/15 dark:border-white/10"
+                            >
+                              Batal
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+
+                    {/* Inline Master Confirmation Panel for Sensitive Account Actions */}
+                    {adminAccountAction && (
+                      <form
+                        onSubmit={handleExecuteAdminAccountAction}
+                        className="p-4 rounded bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500/70 flex flex-col gap-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-heading font-black text-xs uppercase text-rose-900 dark:text-rose-200">
+                              {adminAccountAction.type === "toggle_onboarding"
+                                ? allowMasterOnboarding
+                                  ? "Konfirmasi Tutup Aktivasi Pengurus Baru"
+                                  : "Konfirmasi Buka Aktivasi Pengurus Baru"
+                                : adminAccountAction.type === "delete"
+                                ? `Konfirmasi Cabut Akses: ${adminAccountAction.account?.name}`
+                                : `Reset Password & PIN: ${adminAccountAction.account?.name}`}
+                            </div>
+                            <p className="text-[11px] text-rose-800/90 dark:text-rose-300 mt-0.5">
+                              {adminAccountAction.type === "toggle_onboarding"
+                                ? "Masukkan Kode Akses Utama (Master Password/PIN) untuk mengubah status aktivasi pengurus baru."
+                                : adminAccountAction.type === "delete"
+                                ? "Akun ini akan dihapus dan otomatis keluar dari semua browser yang sedang login."
+                                : "Tentukan Password & PIN sementara baru untuk pengurus ini, lalu konfirmasi pakai Kode Akses Utama."}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setAdminAccountAction(null)}
+                            className="p-1 rounded hover:bg-rose-200/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 cursor-pointer"
+                          >
+                            <X size={15} />
+                          </button>
+                        </div>
+
+                        {adminAccountAction.type === "reset" && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                                Password Sementara Baru *
+                              </label>
+                              <input
+                                type="text"
+                                value={adminAccountAction.newPassword}
+                                onChange={(e) =>
+                                  setAdminAccountAction((prev) => ({ ...prev, newPassword: e.target.value }))
+                                }
+                                placeholder="Minimal 4 karakter..."
+                                required
+                                className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                                PIN Sementara Baru (4-6 Digit) *
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={adminAccountAction.newPin}
+                                onChange={(e) =>
+                                  setAdminAccountAction((prev) => ({
+                                    ...prev,
+                                    newPin: e.target.value.replace(/\D/g, "").slice(0, 6),
+                                  }))
+                                }
+                                placeholder="Contoh: 123456"
+                                required
+                                className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="password"
+                            value={adminAccountAction.masterInput}
+                            onChange={(e) =>
+                              setAdminAccountAction((prev) => ({ ...prev, masterInput: e.target.value }))
+                            }
+                            placeholder="Masukkan Kode Akses Utama (Master Password / PIN)..."
+                            autoFocus
+                            required
+                            className="input-field font-mono text-xs flex-1 bg-white dark:bg-[#1A1D26] border border-black/20 dark:border-white/15"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isProcessingAccountAction}
+                            className="btn text-xs py-2 px-4 bg-[#DC2626] hover:bg-red-700 text-white font-black border border-black/20 shadow-xs disabled:opacity-50"
+                          >
+                            {isProcessingAccountAction ? "Memproses..." : "Konfirmasi & Terapkan"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAdminAccountAction(null)}
+                            className="btn btn-secondary text-xs py-2 px-3 border border-black/15 dark:border-white/10"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Registered Pengurus Accounts List */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between text-[11px] font-heading font-black uppercase text-slate-600 dark:text-slate-400">
+                        <span>Daftar Pengurus Terdaftar ({adminAccounts.length})</span>
+                      </div>
+                      {adminAccounts.length === 0 ? (
+                        <div className="p-3 rounded bg-slate-50 dark:bg-[#1E222D] border border-black/10 dark:border-white/10 text-xs text-slate-500">
+                          Belum ada akun pengurus tersimpan.
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-black/10 dark:divide-white/10 border border-black/15 dark:border-white/10 rounded overflow-hidden">
+                          {adminAccounts.map((acc) => {
+                            const isMe = currentAdmin?.id === acc.id;
+                            return (
+                              <div
+                                key={acc.id}
+                                className="p-3 bg-white dark:bg-[#1A1D26] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-heading font-black text-xs text-slate-900 dark:text-slate-100">
+                                      {acc.name}
+                                    </span>
+                                    {acc.role && (
+                                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10">
+                                        {acc.role}
+                                      </span>
+                                    )}
+                                    {isMe && (
+                                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-400/60">
+                                        ANDA
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                                    Daftar: {acc.createdAt ? new Date(acc.createdAt).toLocaleDateString("id-ID") : "-"} • Terakhir login:{" "}
+                                    {acc.lastLoginAt
+                                      ? new Date(acc.lastLoginAt).toLocaleString("id-ID", {
+                                          day: "numeric",
+                                          month: "short",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : "-"}
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full sm:w-auto shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setAdminAccountAction({
+                                        type: "reset",
+                                        account: acc,
+                                        masterInput: "",
+                                        newPassword: "",
+                                        newPin: "",
+                                      })
+                                    }
+                                    className="px-2.5 py-2 sm:py-1 rounded text-[11px] font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-300 border border-amber-400/70 cursor-pointer text-center"
+                                  >
+                                    Reset Akses
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setAdminAccountAction({
+                                        type: "delete",
+                                        account: acc,
+                                        masterInput: "",
+                                        newPassword: "",
+                                        newPin: "",
+                                      })
+                                    }
+                                    className="px-2.5 py-2 sm:py-1 rounded text-[11px] font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-400/70 cursor-pointer text-center"
+                                  >
+                                    Cabut Akses
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Security Architecture Card */}
-                  <div className="card-brutal p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
+                  <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
                     <div className="flex items-center gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
-                      <div className="w-10 h-10 rounded bg-emerald-500/10 border-2 border-emerald-600 flex items-center justify-center text-emerald-600 shadow-[2px_2px_0px_#059669]">
+                      <div className="w-10 h-10 rounded bg-emerald-500/10 border-2 border-emerald-600 flex items-center justify-center text-emerald-600 shadow-[2px_2px_0px_#059669] shrink-0">
                         <ShieldCheck size={20} />
                       </div>
                       <div>
@@ -8402,7 +9546,7 @@ export default function AdminModal({
                           <CheckCircle2 size={14} /> SHA-256 Cryptographic Hash
                         </div>
                         <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
-                          Password dienkripsi satu arah sebelum disimpan ke database.
+                          Password & PIN pribadi dienkripsi satu arah sebelum disimpan ke database.
                         </div>
                       </div>
 
@@ -8422,7 +9566,7 @@ export default function AdminModal({
                     {/* Hash fingerprint info */}
                     <div className="p-3 bg-slate-100 dark:bg-[#181A22] border border-black/20 dark:border-white/15/20 dark:border-white/15 rounded flex flex-col gap-1">
                       <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">
-                        Fingerprint Hash Aktif (SHA-256):
+                        Fingerprint Hash Kode Akses Utama (SHA-256):
                       </span>
                       <code className="text-[11px] font-mono break-all text-slate-800 dark:text-slate-200 bg-white dark:bg-[#111319] p-2 border border-black/10 dark:border-white/10 rounded select-all">
                         {formData.adminPassHash || DEFAULT_ADMIN_HASH}
@@ -8430,33 +9574,33 @@ export default function AdminModal({
                     </div>
                   </div>
 
-                  {/* Change Password Card */}
-                  <div className="card-brutal p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
-                    <div className="flex items-center justify-between border-b-2 border-black/10 dark:border-white/10 pb-3">
+                  {/* Change Master Password Card */}
+                  <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
                       <div className="flex items-center gap-2.5">
-                        <KeyRound size={18} className="text-[#DC2626]" />
-                        <div>
+                        <KeyRound size={18} className="text-[#DC2626] shrink-0" />
+                        <div className="min-w-0">
                           <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
-                            Ganti Kode Sandi Admin
+                            Kode Akses Utama (Master Aktivasi)
                           </h4>
                           <p className="text-xs text-slate-600 dark:text-slate-400">
-                            Ubah password akses untuk mengunci panel pengelola
+                            Dipakai untuk aktivasi akun pengurus baru & konfirmasi hapus/reset akun
                           </p>
                         </div>
                       </div>
                       {!showPasswordForm && (
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="grid grid-cols-1 sm:flex sm:items-center gap-2 sm:flex-wrap w-full sm:w-auto">
                           <button
                             type="button"
                             onClick={() => setShowPasswordForm(true)}
-                            className="btn text-xs py-1.5 px-3 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 font-black shadow-xs active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 font-black shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                           >
                             Ubah PIN / Password
                           </button>
                           <button
                             type="button"
                             onClick={handleResetPinToDefault}
-                            className="btn text-xs py-1.5 px-3 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-black/20 dark:border-white/15 font-bold shadow-xs active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-black/20 dark:border-white/15 font-bold shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                             title="Atur kode akses admin ke PIN default: 114123"
                           >
                             Reset ke PIN 114123
@@ -8464,7 +9608,7 @@ export default function AdminModal({
                           <button
                             type="button"
                             onClick={handleResetPasswordToDefault}
-                            className="btn text-xs py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold shadow-xs active:translate-x-0.5 active:translate-y-0.5"
+                            className="btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold shadow-xs active:translate-x-0.5 active:translate-y-0.5"
                             title="Kembalikan password ke default: @adminpps22h6"
                           >
                             Reset ke Password Default
@@ -8757,18 +9901,18 @@ export default function AdminModal({
 
               {/* Bottom Actions (Fixed Bar at Bottom) - Kondisional: Hanya muncul di tab pengeditan form umum & konten */}
               {isContentConfigTab && (
-                <div className="shrink-0 border-t-2 border-[#1A1A1A]/15 dark:border-slate-700/60 bg-white/95 dark:bg-[#1F222C]/95 backdrop-blur-sm px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3 shadow-[0_-2px_0_#000]/5 animate-fadeIn">
+                <div className="shrink-0 border-t-2 border-[#1A1A1A]/15 dark:border-slate-700/60 bg-white/95 dark:bg-[#1F222C]/95 backdrop-blur-sm px-3.5 sm:px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-[0_-2px_0_#000]/5 animate-fadeIn">
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="text-xs font-heading font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1.5 cursor-pointer"
+                    className="text-xs font-heading font-bold text-red-600 dark:text-red-400 hover:underline flex items-center justify-center sm:justify-start gap-1.5 cursor-pointer py-1"
                     title="Reset konfigurasi website ke pengaturan bawaan awal"
                   >
                     <RotateCcw size={13} />
                     <span>Reset Konfigurasi Awal</span>
                   </button>
 
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-end gap-2 w-full sm:w-auto flex-wrap">
                     {isDirty && (
                       <button
                         type="button"
@@ -9646,6 +10790,7 @@ export default function AdminModal({
       <KasPaymentModal
         isOpen={isKasPaymentModalOpen}
         member={selectedKasMember}
+        adminName={activeAdminName}
         onClose={() => {
           setIsKasPaymentModalOpen(false);
           setSelectedKasMember(null);
@@ -9669,6 +10814,7 @@ export default function AdminModal({
         currentBalance={kasSummary.netBalance}
         oitaBalance={kasSummary.oitaBalance}
         darrenBalance={kasSummary.darrenBalance}
+        adminName={activeAdminName}
         onClose={() => setIsKasExpenseModalOpen(false)}
         onShowToast={onShowToast}
         onSuccess={(updatedMember) => {
@@ -9689,6 +10835,7 @@ export default function AdminModal({
         currentBalance={kasSummary.netBalance}
         oitaBalance={kasSummary.oitaBalance}
         darrenBalance={kasSummary.darrenBalance}
+        adminName={activeAdminName}
         onClose={() => setIsKasIncomeModalOpen(false)}
         onShowToast={onShowToast}
         onSuccess={(updatedMember) => {
@@ -9709,6 +10856,7 @@ export default function AdminModal({
         currentBalance={kasSummary.netBalance}
         oitaBalance={kasSummary.oitaBalance}
         darrenBalance={kasSummary.darrenBalance}
+        adminName={activeAdminName}
         onClose={() => setIsKasTransferModalOpen(false)}
         onShowToast={onShowToast}
         onSuccess={() => {
@@ -10023,7 +11171,7 @@ export default function AdminModal({
                     Navigasi Menu Admin
                   </h4>
                   <p className="text-[10px] text-slate-500 font-mono">
-                    4 Kategori Sistem ({tabs.length} Menu)
+                    {activeAdminName} • {tabs.length} Menu
                   </p>
                 </div>
               </div>

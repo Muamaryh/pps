@@ -22,6 +22,7 @@ export default function KasTransferModal({
   darrenBalance = 0,
   onSuccess,
   onShowToast,
+  adminName = "Admin",
 }) {
   const [fromWallet, setFromWallet] = useState("Oita"); // "Oita" | "Darren"
   const [amount, setAmount] = useState("");
@@ -65,7 +66,7 @@ export default function KasTransferModal({
         responsible: responsible.trim() || `${fromWallet} -> ${toWallet}`,
         customDate,
         notes: notes.trim(),
-        recordedBy: "Admin",
+        recordedBy: adminName || "Admin",
       });
 
       if (onShowToast) {

@@ -78,6 +78,33 @@ export async function verifyPassword(inputPassword, storedHashOrPlain) {
   return inputHash === DEFAULT_ADMIN_HASH;
 }
 
+/**
+ * Strict SHA-256 verification for personal pengurus account credentials (password or PIN).
+ * Does NOT accept master fallback credentials.
+ * @param {string} input
+ * @param {string} storedHash
+ * @returns {Promise<boolean>}
+ */
+export async function verifyPersonalCredential(input, storedHash) {
+  if (!input || typeof input !== "string" || !storedHash || typeof storedHash !== "string") {
+    return false;
+  }
+  const cleanStored = storedHash.trim().toLowerCase();
+  if (cleanStored.length !== 64 || !/^[0-9a-f]+$/.test(cleanStored)) {
+    return false;
+  }
+  const trimmed = input.trim();
+  if (!trimmed) return false;
+  const exactHash = await hashPassword(trimmed);
+  if (exactHash.toLowerCase() === cleanStored) return true;
+  // Handle mobile auto-capitalization for non-numeric passwords
+  if (!/^\d+$/.test(trimmed)) {
+    const lowerHash = await hashPassword(trimmed.toLowerCase());
+    if (lowerHash.toLowerCase() === cleanStored) return true;
+  }
+  return false;
+}
+
 const LOCKOUT_KEY = "pps_admin_lockout";
 export const MAX_ATTEMPTS = 5;
 export const LOCKOUT_DURATION_SECONDS = 60;

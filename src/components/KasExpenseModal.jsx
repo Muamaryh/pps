@@ -21,6 +21,7 @@ export default function KasExpenseModal({
   darrenBalance = 0,
   onSuccess,
   onShowToast,
+  adminName = "Admin",
 }) {
   const [wallet, setWallet] = useState("Oita"); // "Oita" | "Darren"
   const [title, setTitle] = useState("");
@@ -57,7 +58,7 @@ export default function KasExpenseModal({
         responsible: responsible.trim() || `Kas ${wallet}`,
         customDate,
         notes: notes.trim(),
-        recordedBy: "Admin",
+        recordedBy: adminName || "Admin",
       });
 
       if (onShowToast) {
