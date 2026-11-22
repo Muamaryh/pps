@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, Briefcase, AlertCircle, Upload, Loader2, Layers } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -8,6 +8,7 @@ import {
   approveMemberCloud,
   rejectMemberCloud,
   revertMemberToPendingCloud,
+  purgeApprovedHudPhotosCloud,
   exportMembersToExcel,
   exportMembersToZip,
   updateMemberKasAndVoucherCloud,
@@ -80,6 +81,7 @@ import BrutalistConfirmModal from "./BrutalistConfirmModal";
 import KasPaymentModal from "./KasPaymentModal";
 import KasExpenseModal from "./KasExpenseModal";
 import KasIncomeModal from "./KasIncomeModal";
+import KasTransferModal from "./KasTransferModal";
 import KasLedgerModal from "./KasLedgerModal";
 import KasCopyModal from "./KasCopyModal";
 import JasraPanel from "./JasraPanel";
@@ -134,7 +136,109 @@ export default function AdminModal({
   const [passwordInput, setPasswordInput] = useState("");
   const [loginMode, setLoginMode] = useState("password"); // "password" (default) | "pin"
   const [rememberMe, setRememberMe] = useState(true);
-  const [activeTab, setActiveTab] = useState("identity");
+
+  const ADMIN_ACTIVE_TAB_KEY = "pps_admin_active_tab";
+  const ADMIN_MEMBER_SUBTAB_KEY = "pps_admin_member_subtab";
+
+  function resolveAdminTabFromQuery() {
+    if (typeof window === "undefined") return null;
+    try {
+      const rawTab = new URLSearchParams(window.location.search).get("tab");
+      if (!rawTab) return null;
+      const key = rawTab.trim().toLowerCase();
+      const aliasMap = {
+        verifikasi: "member_registrations",
+        member_registrations: "member_registrations",
+        anggota: "members_db",
+        members_db: "members_db",
+        layanan: "submissions",
+        submissions: "submissions",
+        bansos: "bansos_db",
+        bansos_db: "bansos_db",
+        kas: "kas_db",
+        keuangan: "kas_db",
+        kas_db: "kas_db",
+        member_kas: "member_kas",
+        jasra: "jasra_panel",
+        jasra_panel: "jasra_panel",
+        event: "event_db",
+        event_db: "event_db",
+        doorprize: "doorprize_db",
+        doorprize_db: "doorprize_db",
+        keamanan: "security",
+        security: "security",
+        identity: "identity",
+        hero: "hero",
+        about: "about",
+        org: "org",
+        gallery: "gallery",
+      };
+      return aliasMap[key] || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function resolveSavedAdminTab() {
+    if (typeof window === "undefined") return null;
+    try {
+      const saved = sessionStorage.getItem(ADMIN_ACTIVE_TAB_KEY);
+      if (!saved) return null;
+      const validTabs = new Set([
+        "identity",
+        "hero",
+        "about",
+        "org",
+        "gallery",
+        "submissions",
+        "member_registrations",
+        "members_db",
+        "member_kas",
+        "jasra_panel",
+        "kas_db",
+        "event_db",
+        "bansos_db",
+        "doorprize_db",
+        "security",
+      ]);
+      return validTabs.has(saved) ? saved : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const [activeTab, setActiveTab] = useState(
+    () => resolveAdminTabFromQuery() || resolveSavedAdminTab() || "identity"
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const requestedTab = resolveAdminTabFromQuery();
+    if (requestedTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [isOpen]);
+
+  // Keep active admin tab standby across page refresh (sync to sessionStorage + URL ?tab=...)
+  useEffect(() => {
+    if (!isOpen || !activeTab) return;
+    try {
+      sessionStorage.setItem(ADMIN_ACTIVE_TAB_KEY, activeTab);
+    } catch {}
+    if (typeof window !== "undefined") {
+      try {
+        const path = window.location.pathname.toLowerCase();
+        if (path === "/admin" || path.endsWith("/admin")) {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get("tab") !== activeTab) {
+            params.set("tab", activeTab);
+            const nextUrl = `${window.location.pathname}?${params.toString()}${window.location.hash || ""}`;
+            window.history.replaceState(null, "", nextUrl);
+          }
+        }
+      } catch {}
+    }
+  }, [isOpen, activeTab]);
   const [jasraInitialDistributeType, setJasraInitialDistributeType] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -288,6 +392,7 @@ export default function AdminModal({
   const [isExportingZip, setIsExportingZip] = useState(false);
   const [filterKas, setFilterKas] = useState("all"); // 'all' | 'paid' | 'unpaid'
   const [filterVoucher, setFilterVoucher] = useState("all"); // 'all' | 'received' | 'unreceived'
+  const [isPurgingHudPhotos, setIsPurgingHudPhotos] = useState(false);
 
   // Member Registration Verification State (Verifikasi Anggota Baru)
   const [memberRegFilterTab, setMemberRegFilterTab] = useState("PENDING"); // 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'
@@ -354,6 +459,7 @@ export default function AdminModal({
   const [selectedKasMember, setSelectedKasMember] = useState(null);
   const [isKasExpenseModalOpen, setIsKasExpenseModalOpen] = useState(false);
   const [isKasIncomeModalOpen, setIsKasIncomeModalOpen] = useState(false);
+  const [isKasTransferModalOpen, setIsKasTransferModalOpen] = useState(false);
   const [isKasLedgerModalOpen, setIsKasLedgerModalOpen] = useState(false);
   const [isKasCopyModalOpen, setIsKasCopyModalOpen] = useState(false);
   const [kasFilterType, setKasFilterType] = useState("ALL"); // 'ALL' | 'INCOME' | 'EXPENSE'
@@ -371,7 +477,20 @@ export default function AdminModal({
   });
   // Dismissed Members State (Arsip Riwayat Pengeluaran Anggota)
   const [dismissedMembersList, setDismissedMembersList] = useState([]);
-  const [memberSubTab, setMemberSubTab] = useState("active"); // 'active' | 'dismissed'
+  const [memberSubTab, setMemberSubTab] = useState(() => {
+    if (typeof window === "undefined") return "active";
+    try {
+      const saved = sessionStorage.getItem(ADMIN_MEMBER_SUBTAB_KEY);
+      if (saved === "active" || saved === "pending" || saved === "dismissed") return saved;
+    } catch {}
+    return "active";
+  }); // 'active' | 'pending' | 'dismissed'
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(ADMIN_MEMBER_SUBTAB_KEY, memberSubTab);
+    } catch {}
+  }, [memberSubTab]);
   const [dismissedSearchQuery, setDismissedSearchQuery] = useState("");
   const [dismissModal, setDismissModal] = useState({
     isOpen: false,
@@ -1208,6 +1327,12 @@ export default function AdminModal({
     setIsProcessingRegAction(true);
     try {
       await approveMemberCloud(member.id, "Admin LSM PPS");
+      sendDiscordNotification("MEMBER_APPROVED", {
+        fullName: member.fullName || "-",
+        icNumber: member.icNumber || "-",
+        discordTag: member.discordTag || "-",
+        verifiedBy: "Admin LSM PPS",
+      }).catch(() => {});
       onShowToast(`Pendaftaran ${member.fullName || "Anggota"} berhasil DISETUJUI menjadi Anggota Resmi!`, "success");
     } catch (err) {
       console.error("Gagal menyetujui pendaftaran anggota:", err);
@@ -1228,6 +1353,13 @@ export default function AdminModal({
     setIsProcessingRegAction(true);
     try {
       await rejectMemberCloud(rejectTargetMember.id, reason, "Admin LSM PPS");
+      sendDiscordNotification("MEMBER_REJECTED", {
+        fullName: rejectTargetMember.fullName || "-",
+        icNumber: rejectTargetMember.icNumber || "-",
+        discordTag: rejectTargetMember.discordTag || "-",
+        reason,
+        rejectedBy: "Admin LSM PPS",
+      }).catch(() => {});
       onShowToast(`Pendaftaran ${rejectTargetMember.fullName || "Calon Anggota"} DITOLAK.`, "info");
       setRejectTargetMember(null);
       setRejectionReasonInput("");
@@ -1251,6 +1383,43 @@ export default function AdminModal({
     } finally {
       setIsProcessingRegAction(false);
     }
+  }
+
+  function handlePurgeApprovedHudPhotos() {
+    const eligibleCount = membersList.filter(
+      (m) =>
+        m.statusPhoto &&
+        m.status !== "PENDING_VERIFIKASI" &&
+        m.status !== "REJECTED"
+    ).length;
+
+    if (eligibleCount === 0) {
+      onShowToast("Tidak ada foto Status HUD anggota terverifikasi yang perlu dibersihkan.", "info");
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: "Bersihkan Foto Status HUD Lama",
+      message: `Hapus ${eligibleCount} screenshot Status HUD milik anggota yang SUDAH DISETUJUI (Resmi) untuk memperingan dan mempercepat database? Foto Profil, Foto KTP, dan berkas calon anggota yang masih Menunggu Verifikasi TIDAK akan disentuh.`,
+      confirmText: `Ya, Bersihkan (${eligibleCount} Foto HUD)`,
+      variant: "warning",
+      onConfirm: async () => {
+        setIsPurgingHudPhotos(true);
+        try {
+          const res = await purgeApprovedHudPhotosCloud();
+          onShowToast(
+            `Berhasil membersihkan ${res.purgedCount} foto Status HUD anggota terverifikasi. Database kini lebih ringan!`,
+            "success"
+          );
+        } catch (err) {
+          console.error("Gagal membersihkan foto HUD:", err);
+          onShowToast("Gagal membersihkan foto HUD: " + (err?.message || "Coba lagi."), "error");
+        } finally {
+          setIsPurgingHudPhotos(false);
+        }
+      },
+    });
   }
 
   async function handleExportExcel() {
@@ -2100,8 +2269,13 @@ export default function AdminModal({
   // Handle Save Discord Webhook Config to Cloud Firestore
   async function handleSaveDiscordWebhook() {
     const cleanUrl = (discordWebhookConfig.webhookUrl || "").trim();
+    const cleanKasUrl = (discordWebhookConfig.kasWebhookUrl || "").trim();
     if (cleanUrl && !isValidDiscordWebhookUrl(cleanUrl)) {
-      onShowToast("Format URL Webhook Discord tidak valid! Harus diawali https://discord.com/api/webhooks/...", "error");
+      onShowToast("Format URL Webhook Utama tidak valid! Harus diawali https://discord.com/api/webhooks/...", "error");
+      return;
+    }
+    if (cleanKasUrl && !isValidDiscordWebhookUrl(cleanKasUrl)) {
+      onShowToast("Format URL Webhook Keuangan tidak valid! Harus diawali https://discord.com/api/webhooks/...", "error");
       return;
     }
     setIsSavingWebhook(true);
@@ -2109,10 +2283,11 @@ export default function AdminModal({
       const saved = await updateDiscordWebhookConfig({
         ...discordWebhookConfig,
         webhookUrl: cleanUrl,
+        kasWebhookUrl: cleanKasUrl,
       });
       setDiscordWebhookConfig(saved);
       onShowToast(
-        cleanUrl
+        cleanUrl || cleanKasUrl
           ? "Pengaturan Discord Webhook berhasil disimpan ke Cloud!"
           : "URL Discord Webhook dikosongkan (notifikasi nonaktif).",
         "success"
@@ -2125,18 +2300,26 @@ export default function AdminModal({
     }
   }
 
-  // Handle Test Discord Webhook Notification
-  async function handleTestDiscordWebhook() {
-    const cleanUrl = (discordWebhookConfig.webhookUrl || "").trim();
+  // Handle Test Discord Webhook Notification (supports main or kas webhook)
+  async function handleTestDiscordWebhook(target = "main") {
+    const cleanUrl =
+      target === "kas"
+        ? (discordWebhookConfig.kasWebhookUrl || discordWebhookConfig.webhookUrl || "").trim()
+        : (discordWebhookConfig.webhookUrl || "").trim();
     if (!isValidDiscordWebhookUrl(cleanUrl)) {
       onShowToast("Masukkan URL Discord Webhook yang valid terlebih dahulu!", "error");
       return;
     }
     setIsTestingWebhook(true);
     try {
-      const res = await sendDiscordNotification("TEST", {}, cleanUrl);
+      const res = await sendDiscordNotification("TEST", { isKasTest: target === "kas" }, cleanUrl);
       if (res.ok) {
-        onShowToast("Pesan tes berhasil terkirim ke channel Discord pengurus!", "success");
+        onShowToast(
+          target === "kas"
+            ? "Pesan tes berhasil terkirim ke channel Discord Keuangan!"
+            : "Pesan tes berhasil terkirim ke channel Discord pengurus!",
+          "success"
+        );
       } else {
         onShowToast("Gagal mengirim tes Webhook: " + (res.error || res.reason || "Periksa URL webhook"), "error");
       }
@@ -2860,14 +3043,16 @@ export default function AdminModal({
 
   const filteredKasTransactions = kasTransactions.filter((tx) => {
     const txTypeUpper = (tx.type || "").toUpperCase();
+    const isTransfer = txTypeUpper === "TRANSFER";
     const txWalletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
     const isDarren = tx.wallet === "Darren" || txWalletText.includes("darren");
     const isOita = !isDarren;
 
     if (kasFilterType === "INCOME" && txTypeUpper !== "INCOME") return false;
     if (kasFilterType === "EXPENSE" && txTypeUpper !== "EXPENSE") return false;
-    if (kasFilterType === "OITA" && !isOita) return false;
-    if (kasFilterType === "DARREN" && !isDarren) return false;
+    if (kasFilterType === "TRANSFER" && !isTransfer) return false;
+    if (kasFilterType === "OITA" && !isOita && !isTransfer) return false;
+    if (kasFilterType === "DARREN" && !isDarren && !isTransfer) return false;
 
     if (kasSearchQuery.trim()) {
       const q = kasSearchQuery.toLowerCase();
@@ -2904,10 +3089,16 @@ export default function AdminModal({
     return getMemberVoucherSubscription(m, new Date(), activeJasraBatch).isActive;
   };
 
-  const totalVoucherActiveCount = membersList.filter((m) => isMemberVoucherActive(m)).length;
-  const totalVoucherReadyCount = membersList.length - totalVoucherActiveCount;
+  const approvedMembersList = membersList.filter(
+    (m) => m.status !== "PENDING_VERIFIKASI" && m.status !== "REJECTED"
+  );
+  const pendingMembersList = membersList.filter((m) => m.status === "PENDING_VERIFIKASI");
 
-  const filteredMembers = membersList.filter((m) => {
+  const totalVoucherActiveCount = approvedMembersList.filter((m) => isMemberVoucherActive(m)).length;
+  const totalVoucherReadyCount = approvedMembersList.length - totalVoucherActiveCount;
+  const approvedHudPhotosCount = approvedMembersList.filter((m) => Boolean(m.statusPhoto)).length;
+
+  const filteredMembers = approvedMembersList.filter((m) => {
     // 1. Text Search Filter
     if (memberSearchQuery.trim()) {
       const q = memberSearchQuery.toLowerCase();
@@ -2931,6 +3122,16 @@ export default function AdminModal({
     if (filterVoucher === "ready" && isVActive) return false;
 
     return true;
+  });
+
+  const filteredPendingMembers = pendingMembersList.filter((m) => {
+    if (!memberSearchQuery.trim()) return true;
+    const q = memberSearchQuery.toLowerCase();
+    const name = (m.fullName || "").toLowerCase();
+    const ic = (m.icNumber || "").toLowerCase();
+    const phone = (m.phone || "").toLowerCase();
+    const discord = (m.discordTag || "").toLowerCase();
+    return name.includes(q) || ic.includes(q) || phone.includes(q) || discord.includes(q);
   });
 
   const filteredDismissedMembers = dismissedMembersList.filter((m) => {
@@ -5294,8 +5495,13 @@ export default function AdminModal({
                             Database Anggota Terdaftar ({membersList.length})
                           </h4>
                           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
-                            TERVERIFIKASI
+                            {approvedRegistrationsCount} RESMI
                           </span>
+                          {pendingRegistrationsCount > 0 && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-400">
+                              {pendingRegistrationsCount} MENUNGGU VERIFIKASI
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-400">
                           Data pendaftaran anggota terintegrasi resmi LSM PPS Sandy Shores (GTA V IME Roleplay)
@@ -5303,7 +5509,7 @@ export default function AdminModal({
                       </div>
                     </div>
 
-                    {/* Export Actions: Excel & ZIP */}
+                    {/* Export & Maintenance Actions: Excel, ZIP, Duplikat, Bersihkan HUD */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
@@ -5337,12 +5543,27 @@ export default function AdminModal({
                         <ShieldAlert size={15} className="text-slate-950" />
                         <span>{isCleaningDuplicates ? "Memeriksa..." : "Bersihkan Duplikat"}</span>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={handlePurgeApprovedHudPhotos}
+                        disabled={isPurgingHudPhotos || approvedHudPhotosCount === 0}
+                        className="btn py-2 px-3.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-heading font-black border border-black/30 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer"
+                        title="Hapus screenshot Status HUD milik anggota yang sudah disetujui agar database lebih ringan (Foto Profil & KTP tetap aman)"
+                      >
+                        <Trash2 size={14} />
+                        <span>
+                          {isPurgingHudPhotos
+                            ? "Membersihkan..."
+                            : `Bersihkan Foto HUD (${approvedHudPhotosCount})`}
+                        </span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Sub-Tab Navigation: Anggota Aktif vs Riwayat Dikeluarkan */}
+                  {/* Sub-Tab Navigation: Anggota Aktif vs Menunggu Verifikasi vs Riwayat Dikeluarkan */}
                   <div className="flex items-center justify-between flex-wrap gap-2 p-1.5 bg-slate-100 dark:bg-[#15171E] border border-black/15 dark:border-white/10 rounded-lg shadow-xs">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
                         onClick={() => setMemberSubTab("active")}
@@ -5353,7 +5574,20 @@ export default function AdminModal({
                         }`}
                       >
                         <Users2 size={15} className="text-[#DC2626]" />
-                        <span>Anggota Aktif ({membersList.length})</span>
+                        <span>Anggota Aktif ({approvedMembersList.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setMemberSubTab("pending")}
+                        className={`flex items-center gap-2 py-2 px-3.5 rounded text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                          memberSubTab === "pending"
+                            ? "bg-amber-500 text-slate-950 border-amber-600/80 shadow-xs"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-black"
+                        }`}
+                      >
+                        <Clock size={15} className={memberSubTab === "pending" ? "text-slate-950" : "text-amber-600 dark:text-amber-400"} />
+                        <span>Menunggu Verifikasi ({pendingMembersList.length})</span>
                       </button>
 
                       <button
@@ -5372,7 +5606,9 @@ export default function AdminModal({
 
                     <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 px-2 py-1">
                       {memberSubTab === "active" ? (
-                        <span>Warga aktif berhak menerima kas & voucher</span>
+                        <span>Warga aktif resmi berhak menerima kas & voucher</span>
+                      ) : memberSubTab === "pending" ? (
+                        <span>Calon anggota menunggu persetujuan verifikasi pengurus</span>
                       ) : (
                         <span>Arsip riwayat tanggal, jam & alasan pengeluaran</span>
                       )}
@@ -5388,9 +5624,9 @@ export default function AdminModal({
                         <Users size={18} className="text-slate-900" />
                       </div>
                       <div>
-                        <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">Total Anggota</span>
+                        <span className="text-[10px] font-sans font-bold text-slate-500 uppercase block">Total Anggota Resmi</span>
                         <strong className="text-base font-mono font-black text-slate-900 dark:text-slate-100">
-                          {membersList.length} Warga
+                          {approvedMembersList.length} Warga
                         </strong>
                       </div>
                     </div>
@@ -5410,7 +5646,7 @@ export default function AdminModal({
                                 {totalKasActiveCount} Sudah Bayar
                               </strong>
                               <span className="text-[10px] font-mono text-slate-500">
-                                / {membersList.length - totalKasActiveCount} Belum Bayar
+                                / {Math.max(0, approvedMembersList.length - totalKasActiveCount)} Belum Bayar
                               </span>
                             </div>
                           </div>
@@ -5503,7 +5739,7 @@ export default function AdminModal({
                       </div>
 
                       <div className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0 self-start sm:self-center">
-                        Menampilkan <span className="text-[#DC2626] dark:text-[#FACC15]">{filteredMembers.length}</span> dari {membersList.length} anggota
+                        Menampilkan <span className="text-[#DC2626] dark:text-[#FACC15]">{filteredMembers.length}</span> dari {approvedMembersList.length} anggota resmi
                       </div>
                     </div>
 
@@ -5542,7 +5778,7 @@ export default function AdminModal({
                             : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
                         }`}
                       >
-                        ✕ Belum Bayar ({membersList.length - totalKasActiveCount})
+                        ✕ Belum Bayar ({Math.max(0, approvedMembersList.length - totalKasActiveCount)})
                       </button>
 
                       <div className="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block" />
@@ -5640,9 +5876,27 @@ export default function AdminModal({
                                   <h5 className="font-heading font-black text-sm text-slate-950 dark:text-slate-100 truncate" title={member.fullName}>
                                     {member.fullName || "Nama Tidak Tertera"}
                                   </h5>
-                                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-400 shrink-0">
-                                    RESMI
-                                  </span>
+                                  {member.status === "PENDING_VERIFIKASI" ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMemberRegFilterTab("PENDING");
+                                        setActiveTab("member_registrations");
+                                      }}
+                                      title="Klik untuk membuka tab Verifikasi Anggota"
+                                      className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-500 shrink-0 cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
+                                    >
+                                      MENUNGGU VERIFIKASI
+                                    </button>
+                                  ) : member.status === "REJECTED" ? (
+                                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-400 shrink-0">
+                                      DITOLAK
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400 shrink-0">
+                                      RESMI
+                                    </span>
+                                  )}
                                 </div>
                                 <span className="text-[10px] font-mono text-slate-500 block truncate">
                                   Terdaftar: {member.regDate || (member.createdAt ? new Date(member.createdAt).toLocaleDateString("id-ID") : "-")}
@@ -5866,6 +6120,186 @@ export default function AdminModal({
                     </div>
                   )}
                     </>
+                  )}
+
+                  {/* Sub-Tab: Menunggu Verifikasi */}
+                  {memberSubTab === "pending" && (
+                    <div className="flex flex-col gap-4">
+                      <div className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="relative w-full sm:max-w-md">
+                          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                          <input
+                            type="text"
+                            placeholder="Cari calon anggota (nama IC, CID, HP, Discord)..."
+                            value={memberSearchQuery}
+                            onChange={(e) => setMemberSearchQuery(e.target.value)}
+                            className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                          />
+                          {memberSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setMemberSearchQuery("")}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                          <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
+                            Menampilkan <span className="text-amber-600 dark:text-[#FACC15]">{filteredPendingMembers.length}</span> dari {pendingMembersList.length} antrean
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMemberRegFilterTab("PENDING");
+                              setActiveTab("member_registrations");
+                            }}
+                            className="btn py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-heading font-black border border-amber-600/80 shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <UserCheck size={13} />
+                            <span>Buka Verifikasi Lengkap &rarr;</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {filteredPendingMembers.length === 0 ? (
+                        <div className="card-brutal p-10 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 text-center flex flex-col items-center justify-center gap-2">
+                          <CheckCircle2 size={36} className="text-emerald-500" />
+                          <p className="font-heading font-black text-sm text-slate-800 dark:text-slate-200">
+                            {memberSearchQuery ? "Tidak ada calon anggota yang cocok" : "Semua berkas sudah diverifikasi"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {memberSearchQuery ? "Coba kata kunci pencarian lain." : "Saat ini tidak ada calon anggota yang menunggu verifikasi."}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                          {filteredPendingMembers.map((member, idx) => (
+                            <div
+                              key={member.id || idx}
+                              className="card-brutal p-4 bg-white dark:bg-[#1A1D26] border-2 border-amber-400/80 dark:border-amber-600/60 shadow-sm flex flex-col justify-between gap-3"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div
+                                  onClick={() => {
+                                    if (member.profilePhoto) {
+                                      setPreviewKtp({
+                                        image: member.profilePhoto,
+                                        name: `${member.fullName || "Calon Anggota"} (Foto Profil)`,
+                                        citizenId: member.icNumber || "",
+                                      });
+                                    }
+                                  }}
+                                  className={`w-12 h-12 rounded-full border border-amber-400 overflow-hidden shrink-0 flex items-center justify-center shadow-xs bg-amber-100 dark:bg-amber-950/50 ${
+                                    member.profilePhoto ? "cursor-pointer" : ""
+                                  }`}
+                                >
+                                  {member.profilePhoto ? (
+                                    <img src={member.profilePhoto} alt={member.fullName} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="font-heading font-black text-sm text-amber-800 dark:text-amber-300">
+                                      {(member.fullName || "P").charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <h5 className="font-heading font-black text-sm text-slate-950 dark:text-slate-100 truncate" title={member.fullName}>
+                                      {member.fullName || "Nama Tidak Tertera"}
+                                    </h5>
+                                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-500 shrink-0">
+                                      MENUNGGU VERIFIKASI
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-mono text-slate-500 block truncate">
+                                    Dikirim: {member.regDate || (member.createdAt ? new Date(member.createdAt).toLocaleDateString("id-ID") : "-")}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 text-xs p-2.5 rounded bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono">
+                                <div>
+                                  <span className="text-[9px] text-slate-400 font-sans font-bold block">NO KTP / IC:</span>
+                                  <strong className="text-[#DC2626] dark:text-[#FACC15] truncate block text-[11px]">{member.icNumber || "-"}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 font-sans font-bold block">NO TLP / WA:</span>
+                                  <span className="text-slate-800 dark:text-slate-200 truncate block text-[11px]">{member.phone || "-"}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 font-sans font-bold block">DISCORD:</span>
+                                  <span className="text-slate-800 dark:text-slate-200 truncate block text-[11px]">{member.discordTag || "-"}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-slate-400 font-sans font-bold block">PEKERJAAN / GANG:</span>
+                                  <span className="text-slate-800 dark:text-slate-200 truncate block text-[11px]" title={`${member.statusJob || "-"} / ${member.statusGang || "-"}`}>
+                                    {member.statusJob || "-"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {member.icPhoto && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewKtp({
+                                        image: member.icPhoto,
+                                        name: `${member.fullName || "Calon Anggota"} (KTP IC)`,
+                                        citizenId: member.icNumber || "",
+                                      })
+                                    }
+                                    className="flex-1 py-1.5 px-2 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-bold border border-black/15 dark:border-white/10 flex items-center justify-center gap-1 cursor-pointer"
+                                  >
+                                    <Eye size={12} />
+                                    <span>KTP</span>
+                                  </button>
+                                )}
+                                {member.statusPhoto && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewKtp({
+                                        image: member.statusPhoto,
+                                        name: `${member.fullName || "Calon Anggota"} (Status HUD)`,
+                                        citizenId: member.icNumber || "",
+                                      })
+                                    }
+                                    className="flex-1 py-1.5 px-2 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-bold border border-black/15 dark:border-white/10 flex items-center justify-center gap-1 cursor-pointer"
+                                  >
+                                    <Eye size={12} />
+                                    <span>HUD</span>
+                                  </button>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                                <button
+                                  type="button"
+                                  disabled={isProcessingRegAction}
+                                  onClick={() => handleApproveMemberRegistration(member)}
+                                  className="flex-1 py-2 px-2.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-heading font-black border border-emerald-500/80 shadow-xs flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                >
+                                  <Check size={13} />
+                                  <span>Setujui</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isProcessingRegAction}
+                                  onClick={() => handleOpenRejectModal(member)}
+                                  className="flex-1 py-2 px-2.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-heading font-black border border-rose-500/80 shadow-xs flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                >
+                                  <X size={13} />
+                                  <span>Tolak</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Sub-Tab: Riwayat Anggota Dikeluarkan */}
@@ -6413,6 +6847,16 @@ export default function AdminModal({
 
                       <button
                         type="button"
+                        onClick={() => setIsKasTransferModalOpen(true)}
+                        className="py-2 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-heading font-black border border-indigo-500/80 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        title="Pindahkan saldo antar bendahara (Kas Oita <-> Kas Darren) tanpa masuk pengeluaran"
+                      >
+                        <ArrowLeftRight size={15} />
+                        <span>Pindah Kas</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={handleExportKasExcel}
                         disabled={kasTransactions.length === 0}
                         className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded"
@@ -6425,11 +6869,11 @@ export default function AdminModal({
                       <button
                         type="button"
                         onClick={() => setIsKasCopyModalOpen(true)}
-                        className="py-2 px-3.5 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Salin laporan kas dalam format teks untuk Discord / WhatsApp"
+                        className="py-2 px-3.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-heading font-black border border-indigo-400/70 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
+                        title="Teruskan laporan lengkap atau ringkasan saldo kas langsung ke Discord Keuangan"
                       >
-                        <Copy size={15} />
-                        <span>Salin Laporan</span>
+                        <Send size={14} />
+                        <span>Teruskan ke Discord</span>
                       </button>
                     </div>
                   </div>
@@ -6570,6 +7014,17 @@ export default function AdminModal({
                       </button>
                       <button
                         type="button"
+                        onClick={() => setKasFilterType("TRANSFER")}
+                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
+                          kasFilterType === "TRANSFER"
+                            ? "bg-indigo-600 text-white shadow-xs"
+                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-indigo-50"
+                        }`}
+                      >
+                        Pindah Kas ({kasSummary.transferCount || 0})
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setKasFilterType("OITA")}
                         className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all ${
                           kasFilterType === "OITA"
@@ -6624,13 +7079,37 @@ export default function AdminModal({
                             </tr>
                           ) : (
                             filteredKasTransactions.map((tx) => {
-                              const isIncome = (tx.type || "").toUpperCase() === "INCOME";
+                              const txTypeUpper = (tx.type || "").toUpperCase();
+                              const isIncome = txTypeUpper === "INCOME";
+                              const isTransfer = txTypeUpper === "TRANSFER";
+                              const fromW = tx.fromWallet || tx.wallet || "Oita";
+                              const toW = tx.toWallet || (fromW === "Darren" ? "Oita" : "Darren");
                               const txWalletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
                               const isDarren = tx.wallet === "Darren" || txWalletText.includes("darren");
                               const balInfo = kasRunningBalances[tx.id];
-                              const isWalletView = kasFilterType === "OITA" || kasFilterType === "DARREN";
-                              const balBefore = balInfo ? (isWalletView ? balInfo.walletBefore : balInfo.netBefore) : 0;
-                              const balAfter = balInfo ? (isWalletView ? balInfo.walletAfter : balInfo.netAfter) : 0;
+                              const isOitaView = kasFilterType === "OITA";
+                              const isDarrenView = kasFilterType === "DARREN";
+                              const balBefore = balInfo
+                                ? isOitaView
+                                  ? balInfo.oitaBefore
+                                  : isDarrenView
+                                  ? balInfo.darrenBefore
+                                  : balInfo.netBefore
+                                : 0;
+                              const balAfter = balInfo
+                                ? isOitaView
+                                  ? balInfo.oitaAfter
+                                  : isDarrenView
+                                  ? balInfo.darrenAfter
+                                  : balInfo.netAfter
+                                : 0;
+                              const viewDelta = balInfo
+                                ? isOitaView
+                                  ? balInfo.oitaDelta
+                                  : isDarrenView
+                                  ? balInfo.darrenDelta
+                                  : balInfo.delta
+                                : 0;
                               const absAmt = Math.abs(Number(tx.amount) || 0);
 
                               return (
@@ -6642,26 +7121,34 @@ export default function AdminModal({
                                     {formatKasDate(tx.timestamp || tx.date)}
                                   </td>
                                   <td className="py-2.5 px-3 whitespace-nowrap">
-                                    <span
-                                      className={`px-2 py-0.5 rounded text-[10px] font-heading font-black border ${
-                                        isDarren
-                                          ? "bg-indigo-100 text-indigo-900 border-indigo-400 dark:bg-indigo-950/70 dark:text-indigo-300"
-                                          : "bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/70 dark:text-amber-200"
-                                      }`}
-                                    >
-                                      {isDarren ? "Kas Darren" : "Kas Oita"}
-                                    </span>
+                                    {isTransfer ? (
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-heading font-black border bg-sky-100 text-sky-900 border-sky-400 dark:bg-sky-950/70 dark:text-sky-200">
+                                        Kas {fromW} &rarr; Kas {toW}
+                                      </span>
+                                    ) : (
+                                      <span
+                                        className={`px-2 py-0.5 rounded text-[10px] font-heading font-black border ${
+                                          isDarren
+                                            ? "bg-indigo-100 text-indigo-900 border-indigo-400 dark:bg-indigo-950/70 dark:text-indigo-300"
+                                            : "bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/70 dark:text-amber-200"
+                                        }`}
+                                      >
+                                        {isDarren ? "Kas Darren" : "Kas Oita"}
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="py-2.5 px-3 whitespace-nowrap">
                                     <div className="flex items-center gap-1.5">
                                       <span
                                         className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                                          isIncome
+                                          isTransfer
+                                            ? "bg-indigo-100 text-indigo-800 border-indigo-400 dark:bg-indigo-950 dark:text-indigo-300"
+                                            : isIncome
                                             ? "bg-emerald-100 text-emerald-800 border-emerald-400 dark:bg-emerald-950 dark:text-emerald-300"
                                             : "bg-rose-100 text-rose-800 border-rose-400 dark:bg-rose-950 dark:text-rose-300"
                                         }`}
                                       >
-                                        {isIncome ? "Pemasukan" : "Pengeluaran"}
+                                        {isTransfer ? "Pindah Kas" : isIncome ? "Pemasukan" : "Pengeluaran"}
                                       </span>
                                       <span className="text-[10px] text-slate-500 font-sans">
                                         {tx.category || "Umum"}
@@ -6689,12 +7176,14 @@ export default function AdminModal({
                                   <td className="py-2.5 px-3 whitespace-nowrap text-right font-black">
                                     <span
                                       className={
-                                        isIncome
+                                        isTransfer
+                                          ? "text-indigo-600 dark:text-indigo-400"
+                                          : isIncome
                                           ? "text-emerald-700 dark:text-emerald-400"
                                           : "text-rose-700 dark:text-rose-400"
                                       }
                                     >
-                                      {isIncome ? "+" : "-"}
+                                      {isTransfer ? "↔ " : isIncome ? "+" : "-"}
                                       {formatCurrency(tx.amount)}
                                     </span>
                                   </td>
@@ -6703,16 +7192,24 @@ export default function AdminModal({
                                       {formatCurrency(balAfter)}
                                     </div>
                                     <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                                      {formatCurrency(balBefore)}{" "}
-                                      <span
-                                        className={
-                                          isIncome
-                                            ? "text-emerald-600 dark:text-emerald-400 font-bold"
-                                            : "text-rose-600 dark:text-rose-400 font-bold"
-                                        }
-                                      >
-                                        {isIncome ? "+" : "-"} {formatCurrency(absAmt)}
-                                      </span>
+                                      {isTransfer && viewDelta === 0 ? (
+                                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                                          Saldo Total Tetap
+                                        </span>
+                                      ) : (
+                                        <>
+                                          {formatCurrency(balBefore)}{" "}
+                                          <span
+                                            className={
+                                              viewDelta >= 0
+                                                ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                                                : "text-rose-600 dark:text-rose-400 font-bold"
+                                            }
+                                          >
+                                            {viewDelta >= 0 ? "+" : "-"} {formatCurrency(absAmt)}
+                                          </span>
+                                        </>
+                                      )}
                                     </div>
                                   </td>
                                   <td className="py-2.5 px-3 text-center whitespace-nowrap">
@@ -8091,42 +8588,76 @@ export default function AdminModal({
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
-                            Kirim laporan embed otomatis ke channel Discord pengurus setiap ada pendaftaran anggota, tiket layanan, atau klaim bansos masuk.
+                            Kirim laporan embed otomatis ke channel Discord pengurus untuk pendaftaran anggota, keputusan ACC/Tolak, tiket layanan, klaim bansos, dan catatan keuangan kas.
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2.5 pt-1">
-                      <label className="text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300">
-                        URL Discord Webhook Channel Pengurus
-                      </label>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          type="password"
-                          placeholder="https://discord.com/api/webhooks/..."
-                          value={discordWebhookConfig.webhookUrl}
-                          onChange={(e) =>
-                            setDiscordWebhookConfig((prev) => ({ ...prev, webhookUrl: e.target.value }))
-                          }
-                          className="input-field font-mono text-xs flex-1 bg-slate-50 dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-xl"
-                        />
-                        <button
-                          type="button"
-                          disabled={isTestingWebhook}
-                          onClick={handleTestDiscordWebhook}
-                          className="py-2 px-3.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-heading font-bold border border-indigo-600 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
-                        >
-                          {isTestingWebhook ? "Mengirim..." : "Tes Kirim"}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isSavingWebhook}
-                          onClick={handleSaveDiscordWebhook}
-                          className="py-2 px-3.5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-amber-400/80 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
-                        >
-                          {isSavingWebhook ? "Menyimpan..." : "Simpan Webhook"}
-                        </button>
+                    <div className="flex flex-col gap-3 pt-1">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300">
+                          URL Discord Webhook Utama (Channel Pengurus)
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="password"
+                            placeholder="https://discord.com/api/webhooks/..."
+                            value={discordWebhookConfig.webhookUrl}
+                            onChange={(e) =>
+                              setDiscordWebhookConfig((prev) => ({ ...prev, webhookUrl: e.target.value }))
+                            }
+                            className="input-field font-mono text-xs flex-1 bg-slate-50 dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            disabled={isTestingWebhook}
+                            onClick={() => handleTestDiscordWebhook("main")}
+                            className="py-2 px-3.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-heading font-bold border border-indigo-600 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
+                          >
+                            {isTestingWebhook ? "Mengirim..." : "Tes Utama"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSavingWebhook}
+                            onClick={handleSaveDiscordWebhook}
+                            className="py-2 px-3.5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-amber-400/80 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
+                          >
+                            {isSavingWebhook ? "Menyimpan..." : "Simpan Webhook"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Optional Dedicated Finance Webhook URL */}
+                      <div className="flex flex-col gap-1.5 pt-2 border-t border-black/10 dark:border-white/10">
+                        <label className="text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 flex-wrap">
+                          <span>URL Webhook Khusus Keuangan / Kas</span>
+                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-400/50">
+                            OPSIONAL
+                          </span>
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="password"
+                            placeholder="Kosongkan jika ingin ikut URL Webhook Utama di atas..."
+                            value={discordWebhookConfig.kasWebhookUrl || ""}
+                            onChange={(e) =>
+                              setDiscordWebhookConfig((prev) => ({ ...prev, kasWebhookUrl: e.target.value }))
+                            }
+                            className="input-field font-mono text-xs flex-1 bg-slate-50 dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            disabled={isTestingWebhook}
+                            onClick={() => handleTestDiscordWebhook("kas")}
+                            className="py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-bold border border-emerald-700 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
+                          >
+                            {isTestingWebhook ? "Mengirim..." : "Tes Kas"}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-relaxed">
+                          Jika kosong, notifikasi Pemasukan & Pengeluaran Kas otomatis dikirim ke URL Webhook Utama. Catatan Discord: menu <strong>Integrations &rarr; Webhooks</strong> hanya muncul jika role Anda memiliki izin <strong>Manage Webhooks</strong> di channel tersebut.
+                        </p>
                       </div>
 
                       {/* Event Toggles */}
@@ -8134,9 +8665,11 @@ export default function AdminModal({
                         {[
                           { key: "enabled", label: "Aktifkan Notifikasi Discord" },
                           { key: "notifyMemberReg", label: "Pendaftaran Anggota Baru (/daftar)" },
+                          { key: "notifyMemberDecision", label: "Keputusan Verifikasi Anggota (ACC / Tolak)" },
                           { key: "notifyServiceUmkm", label: "Pengajuan Lapak UMKM" },
                           { key: "notifyServiceMeeting", label: "Permintaan Jadwal Meeting" },
                           { key: "notifyBansos", label: "Klaim Bantuan Sosial (Bansos)" },
+                          { key: "notifyKas", label: "Catat Keuangan / Kas (Masuk & Keluar)" },
                         ].map((item) => (
                           <label
                             key={item.key}
@@ -9131,6 +9664,21 @@ export default function AdminModal({
               prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
             );
           }
+          loadKasLedgerCloud().then((list) => {
+            if (Array.isArray(list)) setKasTransactions(list);
+          });
+        }}
+      />
+
+      {/* Modal Pindah Kas Antar Bendahara (Oita <-> Darren) */}
+      <KasTransferModal
+        isOpen={isKasTransferModalOpen}
+        currentBalance={kasSummary.netBalance}
+        oitaBalance={kasSummary.oitaBalance}
+        darrenBalance={kasSummary.darrenBalance}
+        onClose={() => setIsKasTransferModalOpen(false)}
+        onShowToast={onShowToast}
+        onSuccess={() => {
           loadKasLedgerCloud().then((list) => {
             if (Array.isArray(list)) setKasTransactions(list);
           });

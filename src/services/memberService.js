@@ -1403,3 +1403,34 @@ export async function exportMembersToZip(members) {
   URL.revokeObjectURL(blobUrl);
   return true;
 }
+
+/**
+ * Purge statusPhoto (HUD screenshot) ONLY for members who are already APPROVED / official.
+ * Preserves profilePhoto, icPhoto (KTP), and NEVER touches PENDING_VERIFIKASI applicants.
+ */
+export async function purgeApprovedHudPhotosCloud() {
+  const colRef = collection(getMemberDb(), ...MEMBERS_COL_PATH);
+  const snap = await getDocs(colRef);
+  let purgedCount = 0;
+  let skippedPending = 0;
+
+  for (const d of snap.docs) {
+    if (d.id === "_meta") continue;
+    const m = d.data();
+    const hasHudPhoto = typeof m.statusPhoto === "string" && m.statusPhoto.trim().length > 0;
+    if (!hasHudPhoto) continue;
+
+    if (m.status === "PENDING_VERIFIKASI" || m.status === "REJECTED") {
+      skippedPending++;
+      continue;
+    }
+
+    await updateDoc(doc(getMemberDb(), ...MEMBERS_COL_PATH, d.id), {
+      statusPhoto: "",
+      statusPhotoPurgedAt: Date.now(),
+    });
+    purgedCount++;
+  }
+
+  return { purgedCount, skippedPending };
+}

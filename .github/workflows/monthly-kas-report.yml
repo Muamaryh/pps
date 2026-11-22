@@ -1,0 +1,37 @@
+name: Laporan Bulanan Keuangan LSM PPS
+
+on:
+  schedule:
+    # 16:55 UTC = 23:55 WIB pada tanggal 28-31 tiap bulan.
+    # Script otomatis memverifikasi apakah hari ini adalah hari terakhir bulan berjalan (WIB).
+    - cron: '55 16 28-31 * *'
+  workflow_dispatch:
+    inputs:
+      target_month:
+        description: 'Bulan target (opsional, format YYYY-MM, contoh: 2026-11). Kosongkan untuk bulan ini.'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Mode simulasi saja (true = hanya cetak log, tidak kirim ke Discord)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  send-monthly-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Kirim Laporan Bulanan Kas ke Discord
+        env:
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          TARGET_MONTH: ${{ inputs.target_month || '' }}
+          DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
+        run: node scripts/sendMonthlyKasReport.mjs

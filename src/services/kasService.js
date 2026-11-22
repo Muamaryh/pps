@@ -14,6 +14,7 @@ import {
   deleteDoc,
   onSnapshot,
 } from "firebase/firestore";
+import { sendDiscordNotification } from "./discordWebhook";
 
 const memberFirebaseConfig = {
   apiKey: "AIzaSyDB7TFVRDRvgMI4q_XtwnxSqOhCKZ2xAe8",
@@ -330,6 +331,23 @@ export function subscribeKasLedger(callback) {
   }
 }
 
+async function dispatchKasWebhook(eventType, payload) {
+  try {
+    const allTx = await loadKasTransactionsCloud();
+    const summary = getKasSummary(allTx);
+    const isDarren = payload.wallet === "Darren";
+    await sendDiscordNotification(eventType, {
+      ...payload,
+      netBalance: summary.netBalance,
+      oitaBalance: summary.oitaBalance,
+      darrenBalance: summary.darrenBalance,
+      walletBalance: isDarren ? summary.darrenBalance : summary.oitaBalance,
+    });
+  } catch (err) {
+    console.warn("[Kas Webhook] Notice:", err);
+  }
+}
+
 /**
  * Mencatat transaksi Pemasukan Kas
  */
@@ -375,6 +393,7 @@ export async function recordKasIncomeCloud({
 
   const docRef = doc(getKasDb(), ...KAS_LEDGER_COL_PATH, newId);
   await setDoc(docRef, payload);
+  dispatchKasWebhook("KAS_INCOME", payload);
   return { id: newId, ...payload };
 }
 
@@ -415,6 +434,55 @@ export async function recordKasExpenseCloud({
 
   const docRef = doc(getKasDb(), ...KAS_LEDGER_COL_PATH, newId);
   await setDoc(docRef, payload);
+  dispatchKasWebhook("KAS_EXPENSE", payload);
+  return { id: newId, ...payload };
+}
+
+/**
+ * Mencatat Pindah Kas / Transfer Antar Bendahara (Oita <-> Darren)
+ * TIDAK dihitung sebagai Pemasukan maupun Pengeluaran total LSM.
+ */
+export async function recordKasTransferCloud({
+  amount,
+  fromWallet = "Oita",
+  toWallet = "Darren",
+  title = "",
+  responsible = "",
+  notes = "",
+  customDate = null,
+  recordedBy = "Admin",
+}) {
+  const numericAmount = Number(amount) || 0;
+  if (numericAmount <= 0) throw new Error("Nominal pindah kas harus lebih dari 0");
+
+  const cleanFrom = fromWallet === "Darren" ? "Darren" : "Oita";
+  const cleanTo = toWallet === "Darren" ? "Darren" : "Oita";
+  if (cleanFrom === cleanTo) {
+    throw new Error("Pos kas asal dan tujuan tidak boleh sama");
+  }
+
+  const now = Date.now();
+  const txTimestamp = customDate ? parseDateInputToTimestamp(customDate) : now;
+  const newId = `trf-${now}-${Math.random().toString(36).substring(2, 6)}`;
+
+  const payload = {
+    type: "TRANSFER",
+    amount: numericAmount,
+    fromWallet: cleanFrom,
+    toWallet: cleanTo,
+    wallet: cleanFrom,
+    category: "Pindah Kas Antar Bendahara",
+    title: (title || `Pindah Kas: Kas ${cleanFrom} -> Kas ${cleanTo}`).trim(),
+    responsible: responsible || `${cleanFrom} -> ${cleanTo}`,
+    notes: notes || "",
+    recordedBy: recordedBy || "Admin",
+    date: formatKasDate(txTimestamp),
+    timestamp: txTimestamp,
+  };
+
+  const docRef = doc(getKasDb(), ...KAS_LEDGER_COL_PATH, newId);
+  await setDoc(docRef, payload);
+  dispatchKasWebhook("KAS_TRANSFER", payload);
   return { id: newId, ...payload };
 }
 
@@ -430,6 +498,7 @@ export async function deleteKasTransactionCloud(transactionId) {
 
 /**
  * Menghitung ringkasan kas (Total Pemasukan, Total Pengeluaran, Saldo Bersih, Saldo Oita & Darren)
+ * Transaksi TRANSFER hanya memindahkan saldo antar bendahara tanpa mengubah total pemasukan/pengeluaran.
  */
 export function getKasSummary(transactions = [], fallbackActiveKasRupiah = 0) {
   const txList = transactions.length > 0 ? transactions : INITIAL_KAS_TRANSACTIONS;
@@ -447,6 +516,19 @@ export function getKasSummary(transactions = [], fallbackActiveKasRupiah = 0) {
     const typeUpper = (tx.type || "").toUpperCase();
     const isIncome = typeUpper === "INCOME";
     const isExpense = typeUpper === "EXPENSE";
+    const isTransfer = typeUpper === "TRANSFER";
+
+    if (isTransfer) {
+      const fromIsDarren = (tx.fromWallet || tx.wallet) === "Darren";
+      if (fromIsDarren) {
+        darrenBalance -= amt;
+        oitaBalance += amt;
+      } else {
+        oitaBalance -= amt;
+        darrenBalance += amt;
+      }
+      continue;
+    }
 
     // Pos kas bendahara: cek wallet property atau fallback ke responsible/title
     const isDarren = isDarrenKasTx(tx);
@@ -487,6 +569,7 @@ export function getKasSummary(transactions = [], fallbackActiveKasRupiah = 0) {
     totalTransactions: txList.length,
     incomeCount: txList.filter((t) => (t.type || "").toUpperCase() === "INCOME").length,
     expenseCount: txList.filter((t) => (t.type || "").toUpperCase() === "EXPENSE").length,
+    transferCount: txList.filter((t) => (t.type || "").toUpperCase() === "TRANSFER").length,
   };
 }
 
@@ -516,10 +599,40 @@ export function computeKasRunningBalances(transactions = []) {
   for (const tx of chronological) {
     const amt = Number(tx.amount) || 0;
     const typeUpper = (tx.type || "").toUpperCase();
+    const isTransfer = typeUpper === "TRANSFER";
+
+    const netBefore = net;
+    const oitaBefore = oita;
+    const darrenBefore = darren;
+
+    if (isTransfer) {
+      const fromIsDarren = (tx.fromWallet || tx.wallet) === "Darren";
+      if (fromIsDarren) {
+        darren -= amt;
+        oita += amt;
+      } else {
+        oita -= amt;
+        darren += amt;
+      }
+      balanceMap[tx.id] = {
+        delta: 0,
+        oitaDelta: fromIsDarren ? amt : -amt,
+        darrenDelta: fromIsDarren ? -amt : amt,
+        netBefore,
+        netAfter: net,
+        oitaBefore,
+        oitaAfter: oita,
+        darrenBefore,
+        darrenAfter: darren,
+        walletBefore: fromIsDarren ? darrenBefore : oitaBefore,
+        walletAfter: fromIsDarren ? darren : oita,
+      };
+      continue;
+    }
+
     const delta = typeUpper === "INCOME" ? amt : typeUpper === "EXPENSE" ? -amt : 0;
     const isDarren = isDarrenKasTx(tx);
 
-    const netBefore = net;
     net += delta;
     const walletBefore = isDarren ? darren : oita;
     if (isDarren) {
@@ -530,8 +643,14 @@ export function computeKasRunningBalances(transactions = []) {
 
     balanceMap[tx.id] = {
       delta,
+      oitaDelta: isDarren ? 0 : delta,
+      darrenDelta: isDarren ? delta : 0,
       netBefore,
       netAfter: net,
+      oitaBefore,
+      oitaAfter: oita,
+      darrenBefore,
+      darrenAfter: darren,
       walletBefore,
       walletAfter: isDarren ? darren : oita,
     };
@@ -549,19 +668,29 @@ export async function exportKasLedgerToExcel(transactions = [], summary = null) 
     const txList = transactions.length > 0 ? transactions : INITIAL_KAS_TRANSACTIONS;
     const sum = summary || getKasSummary(txList);
 
-    const rows = txList.map((tx, idx) => ({
-      No: idx + 1,
-      Tanggal: tx.date || formatKasDate(tx.timestamp),
-      Tipe: (tx.type || "").toUpperCase() === "INCOME" ? "PEMASUKAN" : "PENGELUARAN",
-      "Pos Kas / Bendahara": tx.wallet ? `Kas ${tx.wallet}` : (tx.responsible || "Kas LSM"),
-      Kategori: tx.category || "-",
-      "Judul / Keperluan": tx.title || "-",
-      "Nominal ($)": Number(tx.amount) || 0,
-      "Nama Anggota / PJ": tx.memberName || tx.responsible || "-",
-      "Citizen ID": tx.memberCid || "-",
-      Keterangan: tx.notes || "-",
-      "Dicatat Oleh": tx.recordedBy || "Admin",
-    }));
+    const rows = txList.map((tx, idx) => {
+      const tUpper = (tx.type || "").toUpperCase();
+      const isTransfer = tUpper === "TRANSFER";
+      const fromW = tx.fromWallet || tx.wallet || "Oita";
+      const toW = tx.toWallet || (fromW === "Darren" ? "Oita" : "Darren");
+      return {
+        No: idx + 1,
+        Tanggal: tx.date || formatKasDate(tx.timestamp),
+        Tipe: isTransfer ? "PINDAH KAS" : tUpper === "INCOME" ? "PEMASUKAN" : "PENGELUARAN",
+        "Pos Kas / Bendahara": isTransfer
+          ? `Kas ${fromW} -> Kas ${toW}`
+          : tx.wallet
+          ? `Kas ${tx.wallet}`
+          : tx.responsible || "Kas LSM",
+        Kategori: tx.category || "-",
+        "Judul / Keperluan": tx.title || "-",
+        "Nominal ($)": Number(tx.amount) || 0,
+        "Nama Anggota / PJ": tx.memberName || tx.responsible || "-",
+        "Citizen ID": tx.memberCid || "-",
+        Keterangan: tx.notes || "-",
+        "Dicatat Oleh": tx.recordedBy || "Admin",
+      };
+    });
 
     // Baris Ringkasan di paling bawah
     rows.push({
@@ -599,19 +728,41 @@ export function generateKasReportText({
   summary = null,
   mode = "FULL",
   walletFilter = "ALL",
+  periodFilter = "ALL", // "ALL" | "MONTH"
 } = {}) {
   const allTx = transactions.length > 0 ? transactions : INITIAL_KAS_TRANSACTIONS;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const INDO_MONTHS = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+  ];
+  const currentMonthLabel = `${INDO_MONTHS[currentMonth]} ${currentYear}`;
+
   const filteredTx = allTx.filter((tx) => {
+    if (periodFilter === "MONTH") {
+      const ts = tx.timestamp || parseDateInputToTimestamp(tx.date);
+      const d = new Date(ts);
+      if (isNaN(d.getTime()) || d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) {
+        return false;
+      }
+    }
     if (walletFilter === "ALL") return true;
+    if ((tx.type || "").toUpperCase() === "TRANSFER") return true;
     const walletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
     const isDarren = tx.wallet === "Darren" || walletText.includes("darren");
     return walletFilter === "DARREN" ? isDarren : !isDarren;
   });
 
   const sum = summary || getKasSummary(allTx);
+  const periodSum = periodFilter === "MONTH" ? getKasSummary(filteredTx.length > 0 ? filteredTx : []) : null;
   const todayStr = getTodayIndonesianDateString();
 
-  let text = `[LAPORAN BUKU KAS LSM PAGUYUBAN PIZZA SANDY SHORES]\n`;
+  let text =
+    periodFilter === "MONTH"
+      ? `[LAPORAN BULANAN BUKU KAS LSM PAGUYUBAN PIZZA SANDY SHORES - ${currentMonthLabel.toUpperCase()}]\n`
+      : `[LAPORAN BUKU KAS LSM PAGUYUBAN PIZZA SANDY SHORES]\n`;
   text += `Update: ${todayStr}\n\n`;
 
   text += `RINGKASAN SALDO:\n`;
@@ -624,19 +775,51 @@ export function generateKasReportText({
   text += `----------------------------------------\n`;
   text += `TOTAL SALDO BERSIH LSM: ${formatCurrency(sum.netBalance)}\n`;
   text += `----------------------------------------\n`;
-  text += `Total Pemasukan  : +${formatCurrency(sum.totalIncome)} (${sum.incomeCount} transaksi)\n`;
-  text += `Total Pengeluaran: -${formatCurrency(sum.totalExpense)} (${sum.expenseCount} transaksi)\n`;
+
+  if (periodFilter === "MONTH") {
+    const mInc = filteredTx.filter((t) => (t.type || "").toUpperCase() === "INCOME");
+    const mExp = filteredTx.filter((t) => (t.type || "").toUpperCase() === "EXPENSE");
+    const mTrf = filteredTx.filter((t) => (t.type || "").toUpperCase() === "TRANSFER");
+    const mIncSum = mInc.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    const mExpSum = mExp.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    const mNet = mIncSum - mExpSum;
+    text += `ARUS KAS BULAN ${currentMonthLabel.toUpperCase()}:\n`;
+    text += `• Pemasukan Bulan Ini  : +${formatCurrency(mIncSum)} (${mInc.length} transaksi)\n`;
+    text += `• Pengeluaran Bulan Ini: -${formatCurrency(mExpSum)} (${mExp.length} transaksi)\n`;
+    text += `• Selisih Arus Kas     : ${mNet >= 0 ? "+" : ""}${formatCurrency(mNet)}\n`;
+    if (mTrf.length > 0) {
+      text += `• Pindah Kas Internal  : ${mTrf.length} kali (saldo total tetap)\n`;
+    }
+  } else {
+    text += `Total Pemasukan  : +${formatCurrency(sum.totalIncome)} (${sum.incomeCount} transaksi)\n`;
+    text += `Total Pengeluaran: -${formatCurrency(sum.totalExpense)} (${sum.expenseCount} transaksi)\n`;
+    if (sum.transferCount > 0) {
+      text += `Pindah Kas Internal: ${sum.transferCount} kali (tidak mempengaruhi saldo total)\n`;
+    }
+  }
+  void periodSum;
 
   if (mode === "FULL" && filteredTx.length > 0) {
-    text += `\nDAFTAR MUTASI TRANSAKSI (${filteredTx.length} Transaksi):\n`;
+    text += `\nDAFTAR MUTASI ${periodFilter === "MONTH" ? currentMonthLabel.toUpperCase() : "TRANSAKSI"} (${filteredTx.length} Transaksi):\n`;
     filteredTx.forEach((tx, idx) => {
-      const isIncome = (tx.type || "").toUpperCase() === "INCOME";
-      const sign = isIncome ? "[+]" : "[-]";
+      const tUpper = (tx.type || "").toUpperCase();
+      const isIncome = tUpper === "INCOME";
+      const isTransfer = tUpper === "TRANSFER";
+      const sign = isTransfer ? "[↔]" : isIncome ? "[+]" : "[-]";
       const dateStr = tx.date || formatKasDate(tx.timestamp);
-      const walletLabel = tx.wallet ? `Kas ${tx.wallet}` : (tx.responsible || "Kas LSM");
+      const fromW = tx.fromWallet || tx.wallet || "Oita";
+      const toW = tx.toWallet || (fromW === "Darren" ? "Oita" : "Darren");
+      const walletLabel = isTransfer
+        ? `Kas ${fromW} -> Kas ${toW}`
+        : tx.wallet
+        ? `Kas ${tx.wallet}`
+        : tx.responsible || "Kas LSM";
       const title = tx.title || tx.category || "Transaksi Kas";
       const amtStr = formatCurrency(tx.amount);
-      const memberInfo = tx.memberName ? ` (${tx.memberName})` : "";
+      const memberInfo =
+        tx.memberName && !title.toLowerCase().includes(tx.memberName.toLowerCase())
+          ? ` (${tx.memberName})`
+          : "";
 
       text += `${idx + 1}. ${sign} ${amtStr} | ${dateStr} | ${walletLabel}\n   ${title}${memberInfo}\n`;
     });

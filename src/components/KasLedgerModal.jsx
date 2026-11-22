@@ -14,7 +14,7 @@ import {
   Trash2,
   Calendar,
   Plus,
-  Copy,
+  Send,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -35,8 +35,6 @@ export default function KasLedgerModal({
   onShowToast,
   onReload,
 }) {
-  if (!isOpen) return null;
-
   const [filterType, setFilterType] = useState("all"); // 'all' | 'INCOME' | 'EXPENSE' | 'OITA' | 'DARREN'
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState(null);
@@ -52,19 +50,22 @@ export default function KasLedgerModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
 
+  if (!isOpen) return null;
+
   const summary = getKasSummary(transactions, fallbackActiveKasRupiah);
 
   // Filter transaksi
   const filtered = transactions.filter((tx) => {
     const typeUpper = (tx.type || "").toUpperCase();
+    const isTransfer = typeUpper === "TRANSFER";
     const txWalletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
     const isDarren = tx.wallet === "Darren" || txWalletText.includes("darren");
     const isOita = !isDarren;
 
     if (filterType === "INCOME" && typeUpper !== "INCOME") return false;
     if (filterType === "EXPENSE" && typeUpper !== "EXPENSE") return false;
-    if (filterType === "OITA" && !isOita) return false;
-    if (filterType === "DARREN" && !isDarren) return false;
+    if (filterType === "OITA" && !isOita && !isTransfer) return false;
+    if (filterType === "DARREN" && !isDarren && !isTransfer) return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -138,11 +139,11 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={() => setIsCopyModalOpen(true)}
-              className="py-1.5 px-3 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer flex items-center gap-1.5 rounded-lg active:translate-x-0.5 active:translate-y-0.5"
-              title="Salin teks laporan kas untuk Discord / WhatsApp"
+              className="py-1.5 px-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-heading font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer flex items-center gap-1.5 rounded-lg active:translate-x-0.5 active:translate-y-0.5"
+              title="Teruskan laporan kas ke Discord Keuangan"
             >
-              <Copy size={13} />
-              <span className="hidden sm:inline">Salin Teks</span>
+              <Send size={13} />
+              <span className="hidden sm:inline">Teruskan ke Discord</span>
             </button>
             <button
               type="button"
@@ -337,7 +338,11 @@ export default function KasLedgerModal({
                 </thead>
                 <tbody className="divide-y divide-black/10 dark:divide-white/10 font-mono text-[11px]">
                   {filtered.map((tx) => {
-                    const isIncome = (tx.type || "").toUpperCase() === "INCOME";
+                    const tUpper = (tx.type || "").toUpperCase();
+                    const isIncome = tUpper === "INCOME";
+                    const isTransfer = tUpper === "TRANSFER";
+                    const fromW = tx.fromWallet || tx.wallet || "Oita";
+                    const toW = tx.toWallet || (fromW === "Darren" ? "Oita" : "Darren");
                     const txWalletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
                     const isDarren = tx.wallet === "Darren" || txWalletText.includes("darren");
 
@@ -347,25 +352,33 @@ export default function KasLedgerModal({
                           {tx.date || formatKasDate(tx.timestamp)}
                         </td>
                         <td className="py-2 px-3 whitespace-nowrap">
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-heading font-black border ${
-                              isDarren
-                                ? "bg-indigo-100 text-indigo-900 border-indigo-400 dark:bg-indigo-950/70 dark:text-indigo-300"
-                                : "bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/70 dark:text-amber-200"
-                            }`}
-                          >
-                            {isDarren ? "Kas Darren" : "Kas Oita"}
-                          </span>
+                          {isTransfer ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-heading font-black border bg-sky-100 text-sky-900 border-sky-400 dark:bg-sky-950/70 dark:text-sky-200">
+                              Kas {fromW} &rarr; Kas {toW}
+                            </span>
+                          ) : (
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-heading font-black border ${
+                                isDarren
+                                  ? "bg-indigo-100 text-indigo-900 border-indigo-400 dark:bg-indigo-950/70 dark:text-indigo-300"
+                                  : "bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/70 dark:text-amber-200"
+                              }`}
+                            >
+                              {isDarren ? "Kas Darren" : "Kas Oita"}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2 px-3 whitespace-nowrap">
                           <span
                             className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                              isIncome
+                              isTransfer
+                                ? "bg-indigo-50 text-indigo-800 border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-300"
+                                : isIncome
                                 ? "bg-emerald-50 text-emerald-800 border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-300"
                                 : "bg-red-50 text-red-800 border-red-400 dark:bg-red-950/40 dark:text-red-300"
                             }`}
                           >
-                            {isIncome ? "Masuk" : "Keluar"} • {tx.category || "-"}
+                            {isTransfer ? "Pindah Kas" : isIncome ? "Masuk" : "Keluar"} • {tx.category || "-"}
                           </span>
                         </td>
                         <td className="py-2 px-3 font-sans">
@@ -380,8 +393,16 @@ export default function KasLedgerModal({
                           )}
                         </td>
                         <td className="py-2 px-3 text-right font-black whitespace-nowrap">
-                          <span className={isIncome ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
-                            {isIncome ? "+" : "-"}{formatCurrency(tx.amount)}
+                          <span
+                            className={
+                              isTransfer
+                                ? "text-indigo-600 dark:text-indigo-400"
+                                : isIncome
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-red-600 dark:text-red-400"
+                            }
+                          >
+                            {isTransfer ? "↔ " : isIncome ? "+" : "-"}{formatCurrency(tx.amount)}
                           </span>
                         </td>
                         <td className="py-2 px-2 text-center">

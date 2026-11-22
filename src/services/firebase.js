@@ -623,11 +623,14 @@ export async function loadDiscordWebhookConfig() {
 export async function saveDiscordWebhookConfig(config = {}) {
   const payload = {
     webhookUrl: String(config.webhookUrl || "").trim(),
+    kasWebhookUrl: String(config.kasWebhookUrl || "").trim(),
     enabled: config.enabled !== false,
     notifyMemberReg: config.notifyMemberReg !== false,
+    notifyMemberDecision: config.notifyMemberDecision !== false,
     notifyServiceUmkm: config.notifyServiceUmkm !== false,
     notifyServiceMeeting: config.notifyServiceMeeting !== false,
     notifyBansos: config.notifyBansos !== false,
+    notifyKas: config.notifyKas !== false,
     updatedAt: new Date().toISOString(),
   };
   await setDoc(doc(db, "pps_website", "discord_webhook_config"), payload, { merge: true });

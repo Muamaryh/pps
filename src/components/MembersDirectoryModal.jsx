@@ -200,6 +200,7 @@ export default function MembersDirectoryModal({
     if (!filterJasraOnly) {
       // Normal mode: Registered members filtered by status & search
       const list = members.filter((m) => {
+        if (m.status === "REJECTED") return false;
         if (statusFilter === "APPROVED" && m.status === "PENDING_VERIFIKASI") return false;
         if (statusFilter === "PENDING" && m.status !== "PENDING_VERIFIKASI") return false;
 
