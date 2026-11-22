@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
 import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, EyeOff, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, UserPlus, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight } from "lucide-react";
-import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions, loadAdminAccountsConfig, saveAdminAccountsConfig } from "../services/firebase";
+import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions, loadAdminAccountsConfig, saveAdminAccountsConfig, loadAdminActivityLogsCloud, logAdminActivityCloud } from "../services/firebase";
 import {
   subscribeMembersCloud,
   deleteMemberCloud,
@@ -216,10 +216,47 @@ export default function AdminModal({
   const [isSavingSelfCred, setIsSavingSelfCred] = useState(false);
   const [adminAccountAction, setAdminAccountAction] = useState(null);
   const [isProcessingAccountAction, setIsProcessingAccountAction] = useState(false);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [isLoadingActivityLogs, setIsLoadingActivityLogs] = useState(false);
+  const [activityLogCategory, setActivityLogCategory] = useState("ALL");
+  const [activityLogSearch, setActivityLogSearch] = useState("");
+  const [activityLogVisibleCount, setActivityLogVisibleCount] = useState(25);
   const [passwordInput, setPasswordInput] = useState("");
   const [loginMode, setLoginMode] = useState("password"); // "password" (default) | "pin"
   const [rememberMe, setRememberMe] = useState(true);
   const activeAdminName = currentAdmin?.name || "Admin LSM PPS";
+
+  function recordActivity(category, action, detail = "", overrideAdmin = null) {
+    const actorName = overrideAdmin?.name || currentAdmin?.name || "Admin LSM PPS";
+    const actorRole = overrideAdmin?.role || currentAdmin?.role || "Pengurus LSM";
+    const optimistic = {
+      id: `log-local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: Date.now(),
+      adminName: actorName,
+      adminRole: actorRole,
+      category: String(category || "KONTEN").toUpperCase(),
+      action: String(action || "").trim(),
+      detail: String(detail || "").trim(),
+    };
+    setActivityLogs((prev) => [optimistic, ...prev].slice(0, 150));
+    logAdminActivityCloud({
+      adminName: actorName,
+      adminRole: actorRole,
+      category,
+      action,
+      detail,
+    }).catch(() => {});
+  }
+
+  async function refreshActivityLogs() {
+    setIsLoadingActivityLogs(true);
+    try {
+      const items = await loadAdminActivityLogsCloud();
+      setActivityLogs(items);
+    } finally {
+      setIsLoadingActivityLogs(false);
+    }
+  }
 
   const ADMIN_ACTIVE_TAB_KEY = "pps_admin_active_tab";
   const ADMIN_MEMBER_SUBTAB_KEY = "pps_admin_member_subtab";
@@ -294,6 +331,11 @@ export default function AdminModal({
   const [activeTab, setActiveTab] = useState(
     () => resolveAdminTabFromQuery() || resolveSavedAdminTab() || "identity"
   );
+
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated || activeTab !== "security") return;
+    refreshActivityLogs();
+  }, [isOpen, isAuthenticated, activeTab]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -915,6 +957,11 @@ export default function AdminModal({
   async function handleToggleBansos(claim) {
     try {
       const nextStatus = await toggleBansosStatusCloud(claim.id, claim.claimed, activeAdminName);
+      recordActivity(
+        "BANSOS",
+        nextStatus ? "Serah Terima Bansos" : "Batalkan Status Bansos",
+        `${claim.fullName || "Warga"} (${claim.claimCode || "-"})`
+      );
       onShowToast(
         nextStatus
           ? `Bansos untuk ${claim.fullName} (${claim.claimCode}) berhasil diserahkan (SUDAH DIAMBIL).`
@@ -1000,6 +1047,11 @@ export default function AdminModal({
           await deleteKasTransactionCloud(tx.id);
           const updated = await loadKasLedgerCloud();
           if (Array.isArray(updated)) setKasTransactions(updated);
+          recordActivity(
+            "KEUANGAN",
+            "Hapus Transaksi Kas",
+            `${tx.title || "Transaksi"} (${formatCurrency(tx.amount)}, Kas ${tx.wallet || "Oita"})`
+          );
           onShowToast("Catatan transaksi kas berhasil dihapus.", "success");
         } catch (err) {
           console.error("Gagal menghapus transaksi kas:", err);
@@ -1413,6 +1465,11 @@ export default function AdminModal({
     setIsProcessingRegAction(true);
     try {
       await approveMemberCloud(member.id, activeAdminName);
+      recordActivity(
+        "ANGGOTA",
+        "ACC Pendaftaran Anggota",
+        `${member.fullName || "-"} (${member.icNumber || "-"})`
+      );
       sendDiscordNotification("MEMBER_APPROVED", {
         fullName: member.fullName || "-",
         icNumber: member.icNumber || "-",
@@ -1439,6 +1496,11 @@ export default function AdminModal({
     setIsProcessingRegAction(true);
     try {
       await rejectMemberCloud(rejectTargetMember.id, reason, activeAdminName);
+      recordActivity(
+        "ANGGOTA",
+        "Tolak Pendaftaran Anggota",
+        `${rejectTargetMember.fullName || "-"} (${rejectTargetMember.icNumber || "-"}) - ${reason}`
+      );
       sendDiscordNotification("MEMBER_REJECTED", {
         fullName: rejectTargetMember.fullName || "-",
         icNumber: rejectTargetMember.icNumber || "-",
@@ -1462,6 +1524,11 @@ export default function AdminModal({
     setIsProcessingRegAction(true);
     try {
       await revertMemberToPendingCloud(member.id, activeAdminName);
+      recordActivity(
+        "ANGGOTA",
+        "Kembalikan ke Verifikasi",
+        `${member.fullName || "-"} (${member.icNumber || "-"})`
+      );
       onShowToast(`Status ${member.fullName || "Calon Anggota"} dikembalikan ke Tahap Menunggu Verifikasi.`, "info");
     } catch (err) {
       console.error("Gagal mengembalikan status anggota:", err);
@@ -1675,6 +1742,7 @@ export default function AdminModal({
         )
       );
 
+      recordActivity("ANGGOTA", "Edit Profil Anggota", `${cleanName} (${cleanCid})`);
       onShowToast(`Data anggota "${cleanName}" berhasil diperbarui!`, "success");
       setEditMemberModal({
         isOpen: false,
@@ -1703,7 +1771,7 @@ export default function AdminModal({
       isOpen: true,
       member,
       reason: "",
-      dismissedBy: "Pengurus LSM PPS",
+      dismissedBy: activeAdminName,
       isSubmitting: false,
     });
   }
@@ -1723,6 +1791,11 @@ export default function AdminModal({
         dismissedBy: dismissModal.dismissedBy.trim() || "Pengurus LSM PPS",
       });
       const memberName = dismissModal.member.fullName || dismissModal.member.icNumber || "Anggota";
+      recordActivity(
+        "ANGGOTA",
+        "Keluarkan Anggota",
+        `${memberName} (${dismissModal.member.icNumber || "-"}) - ${dismissModal.reason.trim()}`
+      );
       onShowToast(`${memberName} telah berhasil dikeluarkan dari keanggotaan dan dicatat ke riwayat.`, "success");
       setDismissModal({
         isOpen: false,
@@ -2268,6 +2341,12 @@ export default function AdminModal({
             allowMasterOnboarding: freshAllowOnboarding,
           }).catch(() => {});
 
+          recordActivity(
+            "KEAMANAN",
+            "Login ke Panel Admin",
+            `Masuk via ${matchPass ? "Password" : "PIN"}`,
+            { name: targetAccount.name, role: targetAccount.role || "Pengurus LSM" }
+          );
           onShowToast(`Selamat datang kembali, ${targetAccount.name}!`, "success");
           return;
         }
@@ -2397,6 +2476,12 @@ export default function AdminModal({
       setIsAuthenticated(true);
       setLoginStep("login");
       setOnboardingForm({ name: "", role: "", password: "", pin: "" });
+      recordActivity(
+        "KEAMANAN",
+        "Aktivasi Akun Pengurus Baru",
+        `${newAccount.name} (${newAccount.role})`,
+        { name: newAccount.name, role: newAccount.role }
+      );
       onShowToast(`Akun pengurus ${newAccount.name} berhasil dibuat! Selamat datang.`, "success");
     } catch (err) {
       console.error("Gagal membuat akun pengurus:", err);
@@ -2479,6 +2564,7 @@ export default function AdminModal({
 
       setSelfCredForm({ currentSecret: "", newPassword: "", newPin: "" });
       setShowSelfCredForm(false);
+      recordActivity("KEAMANAN", "Ubah Password / PIN Pribadi", `Akun ${me.name}`);
       onShowToast("Password / PIN akun Anda berhasil diperbarui!", "success");
     } catch (err) {
       console.error("Gagal ubah kredensial akun:", err);
@@ -2526,6 +2612,11 @@ export default function AdminModal({
         setAdminAccounts(freshAccounts);
         setAllowMasterOnboarding(nextAllow);
         setAdminAccountAction(null);
+        recordActivity(
+          "KEAMANAN",
+          nextAllow ? "Buka Aktivasi Pengurus Baru" : "Tutup Aktivasi Pengurus Baru",
+          `Status aktivasi via Kode Utama: ${nextAllow ? "DIBUKA" : "DITUTUP"}`
+        );
         onShowToast(
           nextAllow
             ? "Aktivasi pengurus baru via Kode Akses Utama DIBUKA."
@@ -2546,6 +2637,7 @@ export default function AdminModal({
         setAdminAccounts(nextAccounts);
         if (nextAccounts.length === 0) setAllowMasterOnboarding(true);
         setAdminAccountAction(null);
+        recordActivity("KEAMANAN", "Cabut Akses Pengurus", `${target.name} (${target.role || "Pengurus LSM"})`);
 
         if (currentAdmin?.id === target.id) {
           clearStoredAdminSession();
@@ -2582,6 +2674,7 @@ export default function AdminModal({
         });
         setAdminAccounts(nextAccounts);
         setAdminAccountAction(null);
+        recordActivity("KEAMANAN", "Reset Password & PIN Pengurus", `${target.name} (${target.role || "Pengurus LSM"})`);
 
         if (currentAdmin?.id === target.id) {
           const persist = Boolean(localStorage.getItem(ADMIN_ACCOUNT_SESSION_KEY));
@@ -2781,6 +2874,11 @@ export default function AdminModal({
         kasWebhookUrl: cleanKasUrl,
       });
       setDiscordWebhookConfig(saved);
+      recordActivity(
+        "KEAMANAN",
+        "Simpan Konfigurasi Webhook Discord",
+        `Utama: ${cleanUrl ? "Aktif" : "Kosong"} • Keuangan: ${cleanKasUrl ? "Aktif" : "Ikut Utama"}`
+      );
       onShowToast(
         cleanUrl || cleanKasUrl
           ? "Pengaturan Discord Webhook berhasil disimpan ke Cloud!"
@@ -3370,6 +3468,7 @@ export default function AdminModal({
       const savedSnapshot = JSON.parse(JSON.stringify(formData));
       setLastSavedData(savedSnapshot);
       onDataSaved(savedSnapshot);
+      recordActivity("KONTEN", "Simpan Perubahan Konten Web", `Tab aktif: ${activeTab}`);
       onShowToast("Perubahan berhasil disimpan ke Database!", "success");
     } catch (err) {
       console.error(err);
@@ -9521,6 +9620,192 @@ export default function AdminModal({
                     </div>
                   </div>
 
+                  {/* Log Aktivitas Pengurus (Audit Trail Internal) */}
+                  <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b-2 border-black/10 dark:border-white/10 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded bg-sky-500/15 border-2 border-sky-600 flex items-center justify-center text-sky-700 dark:text-sky-300 shadow-[2px_2px_0px_#0284c7] shrink-0">
+                          <Clock size={19} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
+                              Log Aktivitas Pengurus
+                            </h4>
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10">
+                              {activityLogs.length} Catatan
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                            Rekam jejak otomatis siapa pengurus yang ACC, catat/hapus kas, bansos, dan ubah pengaturan
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isLoadingActivityLogs}
+                        onClick={refreshActivityLogs}
+                        className="btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <RotateCcw size={13} className={isLoadingActivityLogs ? "animate-spin" : ""} />
+                        <span>{isLoadingActivityLogs ? "Memuat..." : "Muat Ulang Log"}</span>
+                      </button>
+                    </div>
+
+                    {/* Filter Category Pills + Search */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0 sm:flex-wrap">
+                        {[
+                          { id: "ALL", label: "Semua" },
+                          { id: "ANGGOTA", label: "Anggota" },
+                          { id: "KEUANGAN", label: "Keuangan" },
+                          { id: "BANSOS", label: "Bansos" },
+                          { id: "KEAMANAN", label: "Keamanan" },
+                          { id: "KONTEN", label: "Konten Web" },
+                        ].map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              setActivityLogCategory(cat.id);
+                              setActivityLogVisibleCount(25);
+                            }}
+                            className={`px-2.5 py-1.5 rounded text-[11px] font-mono font-bold border transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
+                              activityLogCategory === cat.id
+                                ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-black dark:border-amber-400"
+                                : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            {cat.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="relative w-full sm:w-56 shrink-0">
+                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={activityLogSearch}
+                          onChange={(e) => setActivityLogSearch(e.target.value)}
+                          placeholder="Cari pengurus atau aksi..."
+                          className="w-full pl-8 pr-7 py-1.5 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border border-black/15 dark:border-white/10 rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#FACC15]"
+                        />
+                        {activityLogSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setActivityLogSearch("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Timeline List */}
+                    {(() => {
+                      const q = activityLogSearch.trim().toLowerCase();
+                      const filteredLogs = activityLogs.filter((item) => {
+                        if (activityLogCategory !== "ALL" && item.category !== activityLogCategory) return false;
+                        if (!q) return true;
+                        const hay = `${item.adminName || ""} ${item.adminRole || ""} ${item.action || ""} ${item.detail || ""} ${item.category || ""}`.toLowerCase();
+                        return hay.includes(q);
+                      });
+                      const visibleLogs = filteredLogs.slice(0, activityLogVisibleCount);
+
+                      const catBadgeStyles = {
+                        ANGGOTA: "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-400/60",
+                        KEUANGAN: "bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border-amber-400/60",
+                        BANSOS: "bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border-sky-400/60",
+                        KEAMANAN: "bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border-rose-400/60",
+                        KONTEN: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-400/50",
+                      };
+
+                      if (isLoadingActivityLogs && activityLogs.length === 0) {
+                        return (
+                          <div className="p-6 text-center text-xs font-mono text-slate-500 bg-slate-50 dark:bg-[#1A1D26] rounded border border-black/10 dark:border-white/10">
+                            Memuat catatan aktivitas pengurus...
+                          </div>
+                        );
+                      }
+
+                      if (filteredLogs.length === 0) {
+                        return (
+                          <div className="p-6 text-center bg-slate-50 dark:bg-[#1A1D26] rounded border border-black/10 dark:border-white/10">
+                            <div className="text-xs font-heading font-black text-slate-700 dark:text-slate-300">
+                              {activityLogs.length === 0
+                                ? "Belum ada log aktivitas tersimpan"
+                                : "Tidak ada log yang cocok dengan filter"}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              {activityLogs.length === 0
+                                ? "Setiap aksi ACC/Tolak anggota, catat atau hapus kas, bansos, login, dan pengaturan keamanan akan otomatis tercatat di sini."
+                                : "Coba ganti kategori atau hapus kata kunci pencarian."}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="flex flex-col gap-2">
+                          <div className="max-h-[380px] overflow-y-auto divide-y divide-black/10 dark:divide-white/10 border border-black/15 dark:border-white/10 rounded overflow-hidden bg-white dark:bg-[#1A1D26]">
+                            {visibleLogs.map((log) => {
+                              const badgeClass = catBadgeStyles[log.category] || catBadgeStyles.KONTEN;
+                              const timeLabel = log.timestamp
+                                ? new Date(log.timestamp).toLocaleString("id-ID", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "-";
+                              return (
+                                <div key={log.id} className="p-3 flex flex-col gap-1 hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors">
+                                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                      <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${badgeClass}`}>
+                                        {log.category || "SISTEM"}
+                                      </span>
+                                      <span className="font-heading font-black text-xs text-slate-900 dark:text-slate-100">
+                                        {log.action}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                                      {timeLabel} WIB
+                                    </span>
+                                  </div>
+                                  {log.detail && (
+                                    <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words">
+                                      {log.detail}
+                                    </p>
+                                  )}
+                                  <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1.5 pt-0.5">
+                                    <User size={11} className="text-[#DC2626] dark:text-[#FACC15] shrink-0" />
+                                    <span>
+                                      Oleh: <strong className="text-slate-800 dark:text-slate-200">{log.adminName || "Admin LSM PPS"}</strong>
+                                      {log.adminRole && log.adminRole !== "Pengurus LSM" ? ` (${log.adminRole})` : ""}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {filteredLogs.length > activityLogVisibleCount && (
+                            <button
+                              type="button"
+                              onClick={() => setActivityLogVisibleCount((n) => n + 25)}
+                              className="btn w-full py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/15 dark:border-white/10 cursor-pointer"
+                            >
+                              Tampilkan Lebih Banyak ({filteredLogs.length - activityLogVisibleCount} lagi)
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
                   {/* Security Architecture Card */}
                   <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
                     <div className="flex items-center gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
@@ -10801,6 +11086,11 @@ export default function AdminModal({
             setMembersList((prev) =>
               prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
             );
+            recordActivity(
+              "KEUANGAN",
+              "Catat Iuran Kas Anggota",
+              `${updatedMember.fullName || selectedKasMember?.fullName || "Anggota"} (${updatedMember.icNumber || selectedKasMember?.icNumber || "-"})`
+            );
           }
           loadKasLedgerCloud().then((list) => {
             if (Array.isArray(list)) setKasTransactions(list);
@@ -10817,10 +11107,12 @@ export default function AdminModal({
         adminName={activeAdminName}
         onClose={() => setIsKasExpenseModalOpen(false)}
         onShowToast={onShowToast}
-        onSuccess={(updatedMember) => {
-          if (updatedMember) {
-            setMembersList((prev) =>
-              prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
+        onSuccess={(tx) => {
+          if (tx) {
+            recordActivity(
+              "KEUANGAN",
+              "Catat Pengeluaran Kas",
+              `${tx.title || "Pengeluaran"} (-${formatCurrency(tx.amount)}, Kas ${tx.wallet || "Oita"})`
             );
           }
           loadKasLedgerCloud().then((list) => {
@@ -10838,10 +11130,12 @@ export default function AdminModal({
         adminName={activeAdminName}
         onClose={() => setIsKasIncomeModalOpen(false)}
         onShowToast={onShowToast}
-        onSuccess={(updatedMember) => {
-          if (updatedMember) {
-            setMembersList((prev) =>
-              prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
+        onSuccess={(tx) => {
+          if (tx) {
+            recordActivity(
+              "KEUANGAN",
+              "Catat Pemasukan Kas",
+              `${tx.title || "Pemasukan"} (+${formatCurrency(tx.amount)}, Kas ${tx.wallet || "Oita"})`
             );
           }
           loadKasLedgerCloud().then((list) => {
@@ -10859,7 +11153,14 @@ export default function AdminModal({
         adminName={activeAdminName}
         onClose={() => setIsKasTransferModalOpen(false)}
         onShowToast={onShowToast}
-        onSuccess={() => {
+        onSuccess={(tx) => {
+          if (tx) {
+            recordActivity(
+              "KEUANGAN",
+              "Pindah Kas Antar Bendahara",
+              `${formatCurrency(tx.amount)} (Kas ${tx.fromWallet || "Oita"} -> Kas ${tx.toWallet || "Darren"})`
+            );
+          }
           loadKasLedgerCloud().then((list) => {
             if (Array.isArray(list)) setKasTransactions(list);
           });

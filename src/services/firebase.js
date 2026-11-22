@@ -667,3 +667,55 @@ export async function saveAdminAccountsConfig(config = {}) {
   await setDoc(doc(db, "pps_website", "admin_accounts"), payload, { merge: true });
   return payload;
 }
+
+const MAX_ADMIN_ACTIVITY_LOGS = 150;
+
+export async function loadAdminActivityLogsCloud() {
+  try {
+    const snap = await getDoc(doc(db, "pps_website", "admin_activity_logs"));
+    if (snap.exists()) {
+      const data = snap.data() || {};
+      const items = Array.isArray(data.items) ? data.items : [];
+      return items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }
+  } catch (err) {
+    console.warn("Notice loading admin activity logs:", err);
+  }
+  return [];
+}
+
+export async function logAdminActivityCloud({
+  adminName = "Admin LSM PPS",
+  adminRole = "Pengurus LSM",
+  category = "KONTEN",
+  action = "",
+  detail = "",
+} = {}) {
+  try {
+    const cleanAction = String(action || "").trim();
+    if (!cleanAction) return null;
+    const entry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: Date.now(),
+      adminName: String(adminName || "Admin LSM PPS").trim(),
+      adminRole: String(adminRole || "Pengurus LSM").trim(),
+      category: String(category || "KONTEN").toUpperCase(),
+      action: cleanAction,
+      detail: String(detail || "").trim().slice(0, 280),
+    };
+    const existing = await loadAdminActivityLogsCloud();
+    const nextItems = [entry, ...existing].slice(0, MAX_ADMIN_ACTIVITY_LOGS);
+    await setDoc(
+      doc(db, "pps_website", "admin_activity_logs"),
+      {
+        items: nextItems,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    return entry;
+  } catch (err) {
+    console.warn("Notice logging admin activity:", err);
+    return null;
+  }
+}

@@ -121,15 +121,21 @@ export default function Hero({
       {/* 2. Seluruh Konten Slogan, Legalitas & CTA */}
       <div className="mt-8 text-center max-w-4xl mx-auto flex flex-col items-center w-full px-4">
         {/* Slogan */}
-        <p className="font-body text-base sm:text-xl md:text-2xl text-slate-900 dark:text-slate-200 leading-relaxed mb-4 font-black">
+        <p
+          data-reveal="text"
+          style={{ "--reveal-delay": "60ms" }}
+          className="font-body text-base sm:text-xl md:text-2xl text-slate-900 dark:text-slate-200 leading-relaxed mb-4 font-black"
+        >
           {subtext || "Bersatu • Berkarya • Untuk Masyarakat Sandy Shores"}
         </p>
 
         {/* Lencana Verifikasi Surat Izin Operasional Pemerintah */}
         <button
           type="button"
+          data-reveal="card"
+          style={{ "--reveal-delay": "150ms" }}
           onClick={onOpenPermit}
-          className="group inline-flex items-center gap-3 px-4 py-2.5 mb-7 rounded-2xl bg-white dark:bg-[#0B0D14] border border-black/20 dark:border-white/15 hover:border-[#FACC15]/60 shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.6)] hover:shadow-[0_8px_30px_rgba(250,204,21,0.15)] hover:-translate-y-0.5 cursor-pointer transition-all text-left max-w-xl w-full sm:w-auto"
+          className="group reveal-sheen inline-flex items-center gap-3 px-4 py-2.5 mb-7 rounded-2xl bg-white dark:bg-[#0B0D14] border border-black/20 dark:border-white/15 hover:border-[#FACC15]/60 shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.6)] hover:shadow-[0_8px_30px_rgba(250,204,21,0.15)] hover:-translate-y-0.5 cursor-pointer transition-all text-left max-w-xl w-full sm:w-auto"
           title="Klik untuk membuka dokumen Surat Izin Komunitas Resmi dari Pemerintah San Andreas"
         >
           <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-[#171A21] border-2 border-[#8A7131] flex items-center justify-center shrink-0 p-0.5 shadow-sm group-hover:scale-105 transition-transform">
@@ -162,7 +168,11 @@ export default function Hero({
         </button>
 
         {/* Tombol Aksi Taktil Selang-Seling Kuning & Merah Khas PPS (Sejajar Rapi 1 Baris) */}
-        <div className="grid grid-cols-2 md:flex md:flex-row md:flex-nowrap items-center justify-center gap-2.5 sm:gap-3 w-full max-w-4xl mx-auto">
+        <div
+          data-reveal="pop"
+          style={{ "--reveal-delay": "240ms" }}
+          className="grid grid-cols-2 md:flex md:flex-row md:flex-nowrap items-center justify-center gap-2.5 sm:gap-3 w-full max-w-4xl mx-auto"
+        >
           <a
             href="#about"
             className="btn bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-yellow-400/80 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black shadow-[0_4px_15px_rgba(250,204,21,0.25)] hover:shadow-[0_6px_25px_rgba(250,204,21,0.4)] whitespace-nowrap"

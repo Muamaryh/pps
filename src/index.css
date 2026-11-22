@@ -571,3 +571,166 @@ html.theme-transitioning *::before,
 html.theme-transitioning *::after {
   transition: none !important;
 }
+
+/* Cinematic Scroll Reveal Animation System (Pure GPU transform + opacity = 60fps smooth) */
+.scroll-progress-rail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 60;
+  pointer-events: none;
+  background: transparent;
+}
+
+.scroll-progress-fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, #FACC15 0%, #F59E0B 55%, #DC2626 100%);
+  will-change: transform;
+}
+
+/* Base hidden states (pure transform + opacity only, zero blur/clip-path repaint lag) */
+html.sr-ready [data-reveal]:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0);
+}
+
+/* Crisp Editorial Text Rise */
+html.sr-ready [data-reveal="text"]:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+}
+
+/* Smooth Card Lift + Micro Scale */
+html.sr-ready [data-reveal="card"]:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0) scale(0.97);
+}
+
+/* Split Entrances (Left / Right) */
+html.sr-ready [data-reveal="left"]:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: translate3d(-32px, 0, 0);
+}
+
+html.sr-ready [data-reveal="right"]:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: translate3d(32px, 0, 0);
+}
+
+/* Springy Badge / Pill Pop-In */
+html.sr-ready [data-reveal="pop"]:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0) scale(0.86);
+}
+
+/* Staggered List Item Slide */
+html.sr-ready [data-reveal="item"]:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: translate3d(-14px, 0, 0);
+}
+
+/* Animated Horizontal Rule / Accent Line Draw */
+html.sr-ready [data-reveal="line"]:not([data-revealed="true"]) {
+  opacity: 0.25;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+html.sr-ready [data-reveal="fade"]:not([data-revealed="true"]) {
+  opacity: 0;
+  transform: scale(0.985);
+}
+
+/* Active GPU-only transitions (released once data-reveal-done="true" so hover stays instant) */
+html.sr-ready [data-reveal]:not([data-reveal-done="true"]) {
+  transition:
+    opacity 0.56s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+    transform 0.64s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+}
+
+html.sr-ready [data-reveal="pop"]:not([data-reveal-done="true"]) {
+  transition:
+    opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+    transform 0.54s cubic-bezier(0.34, 1.45, 0.64, 1) var(--reveal-delay, 0ms);
+}
+
+html.sr-ready [data-reveal="item"]:not([data-reveal-done="true"]) {
+  transition:
+    opacity 0.44s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms),
+    transform 0.48s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms);
+}
+
+html.sr-ready [data-reveal="line"]:not([data-reveal-done="true"]) {
+  transform-origin: left center;
+  transition:
+    opacity 0.45s ease-out var(--reveal-delay, 0ms),
+    transform 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms);
+}
+
+/* Revealed target state */
+html.sr-ready [data-reveal][data-revealed="true"]:not([data-reveal-done="true"]) {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+html.sr-ready [data-reveal="line"][data-revealed="true"]:not([data-reveal-done="true"]) {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Lightweight one-shot gold glint sweep (pure GPU transform + opacity) */
+@keyframes revealSheenSweep {
+  0% {
+    transform: translate3d(-130%, 0, 0) skewX(-20deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(240%, 0, 0) skewX(-20deg);
+    opacity: 0;
+  }
+}
+
+.reveal-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+html.sr-ready .reveal-sheen[data-revealed="true"]:not([data-reveal-done="true"])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  pointer-events: none;
+  z-index: 20;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(250, 204, 21, 0.14) 48%,
+    rgba(255, 255, 255, 0.18) 54%,
+    transparent 100%
+  );
+  animation: revealSheenSweep 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms) 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress-rail {
+    display: none;
+  }
+  html.sr-ready [data-reveal],
+  html.sr-ready [data-reveal]:not([data-revealed="true"]) {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .reveal-sheen::after {
+    display: none !important;
+  }
+}

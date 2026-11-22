@@ -43,7 +43,11 @@ export default function Footer({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 pb-10 border-b border-black/20 dark:border-white/10">
           
           {/* Column 1: Organization Identity & Mission (Span 6) */}
-          <div className="md:col-span-2 lg:col-span-6 flex flex-col items-start gap-3.5">
+          <div
+            data-reveal="up"
+            style={{ "--reveal-delay": "0ms" }}
+            className="md:col-span-2 lg:col-span-6 flex flex-col items-start gap-3.5"
+          >
             <div className="flex items-center gap-3">
               <img
                 src="/logo.png"
@@ -78,7 +82,11 @@ export default function Footer({
           </div>
 
           {/* Column 2: Navigasi Cepat (Span 3) */}
-          <div className="flex flex-col gap-2.5 lg:col-span-3">
+          <div
+            data-reveal="up"
+            style={{ "--reveal-delay": "80ms" }}
+            className="flex flex-col gap-2.5 lg:col-span-3"
+          >
             <h4 className="font-heading font-black text-xs uppercase tracking-wider text-slate-900 dark:text-[#FACC15] border-b border-black/20 dark:border-white/10 pb-1.5 flex items-center gap-1.5">
               <Compass size={14} />
               <span>Navigasi</span>
@@ -147,7 +155,11 @@ export default function Footer({
           </div>
 
           {/* Column 3: Layanan Publik & Warga (Span 3) */}
-          <div className="flex flex-col gap-2.5 lg:col-span-3">
+          <div
+            data-reveal="up"
+            style={{ "--reveal-delay": "160ms" }}
+            className="flex flex-col gap-2.5 lg:col-span-3"
+          >
             <h4 className="font-heading font-black text-xs uppercase tracking-wider text-slate-900 dark:text-[#FACC15] border-b border-black/20 dark:border-white/10 pb-1.5 flex items-center gap-1.5">
               <Store size={14} />
               <span>Layanan Warga</span>

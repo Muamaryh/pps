@@ -67,7 +67,7 @@ export default function GalleryCard({ item, onOpenLightbox }) {
   }
 
   return (
-    <div className="card-brutal bg-white dark:bg-[#121622] border border-black/20 dark:border-white/20 overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300">
+    <div className="h-full card-brutal bg-white dark:bg-[#121622] border border-black/20 dark:border-white/20 overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300">
       {/* Image Viewport (Auto Slideshow + Multi-Photo Indicator) */}
       <div
         onClick={handleCardClick}

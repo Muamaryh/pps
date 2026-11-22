@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { flushSync } from "react-dom";
 import { loadCloudData, defaultData, mergeWithDefaults, sanitizeSandyShores } from "./services/firebase";
 import Navbar from "./components/Navbar";
@@ -916,6 +916,121 @@ export default function App() {
 
   // Toast Alerts State
   const [toasts, setToasts] = useState([]);
+  const scrollProgressFillRef = useRef(null);
+
+  // Smooth GPU-accelerated scroll progress rail on public pages
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let rafId = null;
+    const updateProgress = () => {
+      rafId = null;
+      const fillEl = scrollProgressFillRef.current;
+      if (!fillEl) return;
+      const docEl = document.documentElement;
+      const maxScroll = Math.max(1, docEl.scrollHeight - window.innerHeight);
+      const ratio = Math.min(1, Math.max(0, window.scrollY / maxScroll));
+      fillEl.style.transform = `scaleX(${ratio.toFixed(4)})`;
+    };
+    const onScroll = () => {
+      if (rafId === null) {
+        rafId = window.requestAnimationFrame(updateProgress);
+      }
+    };
+    updateProgress();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, [loading, currentPage]);
+
+  // Scroll Reveal Observer for all public pages (Beranda, Struktur, Dokumentasi, Footer)
+  useEffect(() => {
+    if (loading || typeof window === "undefined") return;
+
+    const rootEl = document.documentElement;
+    const prefersReduced =
+      window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (prefersReduced || typeof IntersectionObserver === "undefined") {
+      rootEl.classList.remove("sr-ready");
+      document.querySelectorAll("[data-reveal]").forEach((el) => {
+        el.setAttribute("data-revealed", "true");
+        el.setAttribute("data-reveal-done", "true");
+      });
+      return;
+    }
+
+    rootEl.classList.add("sr-ready");
+    const timers = [];
+
+    const markRevealed = (el) => {
+      if (el.getAttribute("data-revealed") === "true") return;
+      el.setAttribute("data-revealed", "true");
+      const rawDelay = el.style.getPropertyValue("--reveal-delay") || "0ms";
+      const delayMs = parseInt(rawDelay, 10) || 0;
+      const t = window.setTimeout(() => {
+        el.setAttribute("data-reveal-done", "true");
+      }, 760 + delayMs);
+      timers.push(t);
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            markRevealed(entry.target);
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05, rootMargin: "0px 0px -48px 0px" }
+    );
+
+    const observedSet = new WeakSet();
+    let scanRafId = null;
+    const scanAndObserve = () => {
+      scanRafId = null;
+      const nodes = document.querySelectorAll("[data-reveal]");
+      nodes.forEach((el) => {
+        if (el.getAttribute("data-revealed") === "true" || observedSet.has(el)) return;
+        observedSet.add(el);
+        observer.observe(el);
+      });
+    };
+
+    scanAndObserve();
+
+    // Only re-scan when new Element nodes are mounted (ignores text ticks like Hero typewriter)
+    const mutationObserver = new MutationObserver((mutations) => {
+      let hasNewElement = false;
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType === 1) {
+            hasNewElement = true;
+            break;
+          }
+        }
+        if (hasNewElement) break;
+      }
+      if (hasNewElement && scanRafId === null) {
+        scanRafId = window.requestAnimationFrame(scanAndObserve);
+      }
+    });
+    const mainTarget = document.querySelector("main");
+    if (mainTarget) {
+      mutationObserver.observe(mainTarget, { childList: true, subtree: true });
+    }
+
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+      if (scanRafId !== null) window.cancelAnimationFrame(scanRafId);
+      timers.forEach((t) => window.clearTimeout(t));
+    };
+  }, [loading, currentPage, data]);
 
   function showToast(message, type = "info") {
     const id = Date.now() + Math.random();
@@ -946,6 +1061,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-[#FACC15] selection:text-[#111827]">
+      {/* Cinematic Top Scroll Progress Rail */}
+      <div className="scroll-progress-rail" aria-hidden="true">
+        <div ref={scrollProgressFillRef} className="scroll-progress-fill" />
+      </div>
+
       {/* Sticky Header Area: Signature Yellow & Red Dual Top Strip + Notice Bar Orang Baik */}
       <div className="sticky top-0 z-40 w-full bg-[#FAF7EE] dark:bg-[#07090E] shadow-sm dark:shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors">
         {/* Signature Yellow & Red Dual Top Strip */}
@@ -1025,28 +1145,43 @@ export default function App() {
             />
 
             {/* Section Pemisah: Direktori Pengurus & Dokumentasi Kegiatan */}
-            <section id="portal-arsip" className="pt-12 sm:pt-16 mt-10 sm:mt-14 border-t border-black/20 dark:border-white/10 w-full scroll-mt-24">
+            <section id="portal-arsip" className="pt-12 sm:pt-16 mt-10 sm:mt-14 border-t border-black/20 dark:border-white/10 w-full scroll-mt-24 overflow-hidden">
               {/* Title Bar Pemisah */}
-              <div className="flex items-center justify-between gap-4 mb-6 sm:mb-8 pb-4 border-b border-black/20 dark:border-white/10 flex-wrap">
+              <div className="flex items-center justify-between gap-4 mb-6 sm:mb-8 pb-4 flex-wrap relative">
                 <div>
-                  <div className="card-label mb-1">
+                  <div data-reveal="text" className="card-label mb-1">
                     PORTAL INFORMASI &amp; ARSIP LEMBAGA
                   </div>
-                  <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
+                  <h2
+                    data-reveal="text"
+                    style={{ "--reveal-delay": "90ms" }}
+                    className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-900 dark:text-white uppercase tracking-tight"
+                  >
                     Struktur &amp; Dokumentasi Kegiatan
                   </h2>
                 </div>
-                <div className="badge-brutal badge-yellow font-black">
+                <div
+                  data-reveal="pop"
+                  style={{ "--reveal-delay": "180ms" }}
+                  className="badge-brutal badge-yellow font-black"
+                >
                   DIREKTORI RESMI
                 </div>
+                <div
+                  data-reveal="line"
+                  style={{ "--reveal-delay": "140ms" }}
+                  className="absolute bottom-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-[#DC2626] via-[#FACC15] to-black/15 dark:to-white/10"
+                />
               </div>
 
               {/* Dual Quick-Access Teasers: Susunan Pengurus & Dokumentasi Kegiatan */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
                 {/* Card 1: Bagan Kepengurusan */}
                 <div
+                  data-reveal="left"
+                  style={{ "--reveal-delay": "80ms" }}
                   onClick={handleNavigateToStructure}
-                  className="card-brutal bg-white dark:bg-[#121622] p-6 sm:p-8 border border-black/20 dark:border-white/20 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.75)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
+                  className="card-brutal reveal-sheen bg-white dark:bg-[#121622] p-6 sm:p-8 border border-black/20 dark:border-white/20 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.75)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
                   title="Buka Halaman Struktur & Susunan Pengurus LSM PPS"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-red-600/5 via-transparent to-amber-500/5 dark:from-red-600/10 dark:to-transparent opacity-80 pointer-events-none" />
@@ -1087,8 +1222,10 @@ export default function App() {
 
                 {/* Card 2: Dokumentasi Kegiatan */}
                 <div
+                  data-reveal="right"
+                  style={{ "--reveal-delay": "160ms" }}
                   onClick={handleNavigateToGallery}
-                  className="card-brutal bg-white dark:bg-[#121622] p-6 sm:p-8 border border-black/20 dark:border-white/20 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.75)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
+                  className="card-brutal reveal-sheen bg-white dark:bg-[#121622] p-6 sm:p-8 border border-black/20 dark:border-white/20 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.75)] flex flex-col justify-between relative overflow-hidden group cursor-pointer hover:-translate-y-1 transition-all"
                   title="Buka Halaman Dokumentasi Kegiatan LSM PPS"
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-red-600/5 dark:from-amber-500/10 dark:to-transparent opacity-80 pointer-events-none" />

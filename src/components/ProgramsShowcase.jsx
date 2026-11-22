@@ -94,28 +94,43 @@ export default function ProgramsShowcase({
   return (
     <section id="program" className="py-10 sm:py-14 w-full scroll-mt-24">
       {/* Title Bar */}
-      <div className="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-black/20 dark:border-white/10 flex-wrap">
+      <div className="flex items-center justify-between gap-4 mb-8 pb-4 flex-wrap relative">
         <div>
-          <div className="card-label mb-1">
+          <div data-reveal="text" className="card-label mb-1">
             PELAYANAN NYATA WARGA
           </div>
-          <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
+          <h2
+            data-reveal="text"
+            style={{ "--reveal-delay": "90ms" }}
+            className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-900 dark:text-white uppercase tracking-tight"
+          >
             Program &amp; Layanan Unggulan
           </h2>
         </div>
-        <div className="badge-brutal badge-red font-black">
+        <div
+          data-reveal="pop"
+          style={{ "--reveal-delay": "180ms" }}
+          className="badge-brutal badge-red font-black"
+        >
           4 PILAR AKSI
         </div>
+        <div
+          data-reveal="line"
+          style={{ "--reveal-delay": "140ms" }}
+          className="absolute bottom-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-[#DC2626] via-[#FACC15] to-black/15 dark:to-white/10"
+        />
       </div>
 
       {/* Program Grid (2x2 Balanced Spacious Cards) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-        {programs.map((prog) => {
+        {programs.map((prog, idx) => {
           const Icon = prog.icon;
           return (
             <div
               key={prog.id}
-              className="card-brutal p-6 sm:p-7 flex flex-col justify-between transition-all duration-200 group hover:border-[#FACC15]/60"
+              data-reveal="card"
+              style={{ "--reveal-delay": `${(idx % 2) * 130}ms` }}
+              className="card-brutal reveal-sheen p-6 sm:p-7 flex flex-col justify-between transition-all duration-200 group hover:border-[#FACC15]/60"
             >
               <div>
                 {/* Header: Icon & Category Badges */}
@@ -153,6 +168,8 @@ export default function ProgramsShowcase({
                     {prog.highlights.map((h, i) => (
                       <li
                         key={i}
+                        data-reveal="item"
+                        style={{ "--reveal-delay": `${140 + (idx % 2) * 100 + i * 70}ms` }}
                         className="flex items-center gap-2.5 text-xs font-semibold text-slate-800 dark:text-slate-200"
                       >
                         <CheckCircle2

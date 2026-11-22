@@ -82,18 +82,31 @@ export default function About({
   return (
     <section id="about" className="py-10 sm:py-14 w-full scroll-mt-24">
       {/* Title Bar */}
-      <div className="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-black/20 dark:border-white/10 flex-wrap">
+      <div className="flex items-center justify-between gap-4 mb-8 pb-4 flex-wrap relative">
         <div>
-          <div className="card-label mb-1">
+          <div data-reveal="text" className="card-label mb-1">
             {activeHeader.label}
           </div>
-          <h2 className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
+          <h2
+            data-reveal="text"
+            style={{ "--reveal-delay": "90ms" }}
+            className="font-heading font-black text-2xl sm:text-3xl lg:text-4xl text-slate-900 dark:text-white uppercase tracking-tight"
+          >
             {activeHeader.title}
           </h2>
         </div>
-        <div className="badge-brutal badge-yellow font-black">
+        <div
+          data-reveal="pop"
+          style={{ "--reveal-delay": "180ms" }}
+          className="badge-brutal badge-yellow font-black"
+        >
           {activeHeader.badge}
         </div>
+        <div
+          data-reveal="line"
+          style={{ "--reveal-delay": "140ms" }}
+          className="absolute bottom-0 inset-x-0 h-[1.5px] bg-gradient-to-r from-[#DC2626] via-[#FACC15] to-black/15 dark:to-white/10"
+        />
       </div>
 
       {/* 3 Pillars Cards (Generous padding & full-width grid) */}
@@ -104,7 +117,9 @@ export default function About({
           return (
             <div
               key={idx}
-              className="card-brutal p-6 sm:p-7 flex flex-col justify-between group"
+              data-reveal="card"
+              style={{ "--reveal-delay": `${idx * 120}ms` }}
+              className="card-brutal reveal-sheen p-6 sm:p-7 flex flex-col justify-between group"
             >
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -133,9 +148,9 @@ export default function About({
       </div>
 
       {/* Vision & Mission Card (Spacious 2-column layout) */}
-      <div className="card-brutal p-6 sm:p-8 lg:p-10 mb-8 border border-black/15 dark:border-white/10 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.7)]">
+      <div className="card-brutal p-6 sm:p-8 lg:p-10 mb-8 border border-black/15 dark:border-white/10 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.7)] overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-7">
+          <div data-reveal="left" className="lg:col-span-7">
             <div className="card-label mb-2">
               {activeVM.visionLabel}
             </div>
@@ -147,14 +162,23 @@ export default function About({
             </p>
           </div>
 
-          <div className="lg:col-span-5 p-5 sm:p-6 rounded-2xl bg-[#F7F5EE] dark:bg-[#07080E]/70 border border-black/25 dark:border-white/10 shadow-sm dark:shadow-lg">
+          <div
+            data-reveal="right"
+            style={{ "--reveal-delay": "100ms" }}
+            className="lg:col-span-5 p-5 sm:p-6 rounded-2xl bg-[#F7F5EE] dark:bg-[#07080E]/70 border border-black/25 dark:border-white/10 shadow-sm dark:shadow-lg"
+          >
             <h4 className="font-heading font-black text-base uppercase text-slate-900 dark:text-white mb-4 flex items-center gap-2">
               <Target size={18} className="text-[#DC2626] dark:text-[#FACC15]" />
               <span>{activeVM.missionTitle}</span>
             </h4>
             <ul className="space-y-3 text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium">
               {activeVM.missionItems.map((item, mIdx) => (
-                <li key={mIdx} className="flex items-start gap-3">
+                <li
+                  key={mIdx}
+                  data-reveal="item"
+                  style={{ "--reveal-delay": `${180 + mIdx * 90}ms` }}
+                  className="flex items-start gap-3"
+                >
                   <span className={`w-6 h-6 rounded-lg ${mIdx % 2 === 0 ? "bg-[#DC2626] text-white" : "bg-[#FACC15] text-black"} flex items-center justify-center shrink-0 text-xs font-black border border-black/10 dark:border-white/20 shadow-sm`}>
                     {mIdx + 1}
                   </span>
@@ -167,7 +191,10 @@ export default function About({
       </div>
 
       {/* Expandable Official Charter & AD/ART */}
-      <div className="card-brutal overflow-hidden border border-black/25 dark:border-white/10 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.7)]">
+      <div
+        data-reveal="card"
+        className="card-brutal reveal-sheen overflow-hidden border border-black/25 dark:border-white/10 shadow-sm dark:shadow-[0_12px_40px_rgba(0,0,0,0.7)]"
+      >
         <button
           onClick={() => setShowFullText(!showFullText)}
           className="w-full px-5 sm:px-7 py-4 sm:py-5 bg-[#F7F5EE] dark:bg-[#0E111B] hover:bg-[#EFECE3] dark:hover:bg-white/[0.04] transition-colors flex items-center justify-between text-left font-heading font-black text-sm sm:text-base text-slate-900 dark:text-white cursor-pointer"

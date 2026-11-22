@@ -407,11 +407,17 @@ export default function GalleryPage({
               .map((p) => (typeof p === "string" ? p.slice(0, 30) : ""))
               .join(",");
             return (
-              <GalleryCard
+              <div
                 key={`${item.title || "gal"}-${idx}-${photoKey}`}
-                item={item}
-                onOpenLightbox={onOpenLightbox}
-              />
+                data-reveal="card"
+                style={{ "--reveal-delay": `${(idx % 3) * 100}ms` }}
+                className="h-full"
+              >
+                <GalleryCard
+                  item={item}
+                  onOpenLightbox={onOpenLightbox}
+                />
+              </div>
             );
           })}
         </div>

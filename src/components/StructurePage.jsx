@@ -732,8 +732,8 @@ export default function StructurePage({
         {/* ============================================================== */}
         {/* TIER 1: KETUA UMUM */}
         {/* ============================================================== */}
-        <div className="flex flex-col items-center w-full mb-10">
-          <div className="badge-brutal badge-red mb-4 flex items-center gap-2 py-1.5 px-4 font-black">
+        <div data-reveal="card" className="flex flex-col items-center w-full mb-10">
+          <div data-reveal="pop" className="badge-brutal badge-red mb-4 flex items-center gap-2 py-1.5 px-4 font-black">
             <Crown size={14} />
             <span className="font-heading font-black tracking-wide">
               {activeTierTitles.tier1}
@@ -745,8 +745,8 @@ export default function StructurePage({
         {/* ============================================================== */}
         {/* TIER 2: MAJELIS PERTIMBANGAN ORGANISASI (MPO) */}
         {/* ============================================================== */}
-        <div className="flex flex-col items-center w-full mb-10 sm:mb-12">
-          <div className="badge-brutal badge-yellow mb-4 flex items-center gap-1.5 py-1.5 px-4 font-black">
+        <div data-reveal="card" className="flex flex-col items-center w-full mb-10 sm:mb-12">
+          <div data-reveal="pop" className="badge-brutal badge-yellow mb-4 flex items-center gap-1.5 py-1.5 px-4 font-black">
             <Shield size={13} />
             <span className="font-heading font-black">
               {activeTierTitles.tier2Left}
@@ -764,8 +764,8 @@ export default function StructurePage({
         {/* ============================================================== */}
         {/* TIER 3: WAKIL KETUA UMUM & KOMANDO LAPANGAN */}
         {/* ============================================================== */}
-        <div className="flex flex-col items-center w-full mb-10 sm:mb-12">
-          <div className="badge-brutal badge-red mb-4 flex items-center gap-1.5 py-1.5 px-4 font-black">
+        <div data-reveal="card" className="flex flex-col items-center w-full mb-10 sm:mb-12">
+          <div data-reveal="pop" className="badge-brutal badge-red mb-4 flex items-center gap-1.5 py-1.5 px-4 font-black">
             <Zap size={13} />
             <span className="font-heading font-black">
               {activeTierTitles.tier2Right}
@@ -784,8 +784,8 @@ export default function StructurePage({
         {/* ============================================================== */}
         {/* TIER 4: BADAN PENGURUS HARIAN (BPH) */}
         {/* ============================================================== */}
-        <div className="flex flex-col items-center w-full mb-10 sm:mb-12">
-          <div className="badge-brutal badge-yellow mb-6 flex items-center gap-2 py-1.5 px-5 font-black">
+        <div data-reveal="card" className="flex flex-col items-center w-full mb-10 sm:mb-12">
+          <div data-reveal="pop" className="badge-brutal badge-yellow mb-6 flex items-center gap-2 py-1.5 px-5 font-black">
             <Briefcase size={14} />
             <span className="font-heading font-black tracking-wide">
               {activeTierTitles.tier3}
@@ -805,8 +805,8 @@ export default function StructurePage({
         {/* ============================================================== */}
         {/* TIER 5: SATGAS LAPANGAN & KOORDINATOR WILAYAH */}
         {/* ============================================================== */}
-        <div className="flex flex-col items-center w-full mb-6">
-          <div className="badge-brutal badge-red mb-6 flex items-center gap-2 py-1.5 px-5 font-black">
+        <div data-reveal="card" className="flex flex-col items-center w-full mb-6">
+          <div data-reveal="pop" className="badge-brutal badge-red mb-6 flex items-center gap-2 py-1.5 px-5 font-black">
             <Compass size={14} />
             <span className="font-heading font-black tracking-wide">
               {activeTierTitles.tier4}
