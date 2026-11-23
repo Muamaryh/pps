@@ -17,7 +17,6 @@ import {
   ChevronUp,
   Trash2,
   Building2,
-  Sparkles,
   Info,
   Gift,
   ShieldAlert,

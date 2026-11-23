@@ -6,14 +6,8 @@ import Hero from "./components/Hero";
 import About from "./components/About";
 import ProgramsShowcase from "./components/ProgramsShowcase";
 import DonorsSection from "./components/DonorsSection";
-import StructurePage from "./components/StructurePage";
-import GalleryPage from "./components/GalleryPage";
 import Footer from "./components/Footer";
-import LightboxModal from "./components/LightboxModal";
-import CommunityMessengerDock from "./components/CommunityMessengerDock";
 import Toast from "./components/Toast";
-import FloatingActions from "./components/FloatingActions";
-import ScrollToTopMascot from "./components/ScrollToTopMascot";
 import PizzaLoader from "./components/PizzaLoader";
 import { Users, Camera, ArrowRight, Ticket, Dices } from "lucide-react";
 import { subscribeMembersCloud } from "./services/memberService";
@@ -28,7 +22,13 @@ import {
 } from "./services/doorprizeService";
 import { recordVisitorHitCloud } from "./services/visitorService";
 
-// Lazy-loaded heavy modals for faster initial page load
+// Lazy-loaded secondary pages, floating widgets & heavy modals for instant FCP/LCP
+const StructurePage = lazy(() => import("./components/StructurePage"));
+const GalleryPage = lazy(() => import("./components/GalleryPage"));
+const LightboxModal = lazy(() => import("./components/LightboxModal"));
+const CommunityMessengerDock = lazy(() => import("./components/CommunityMessengerDock"));
+const FloatingActions = lazy(() => import("./components/FloatingActions"));
+const ScrollToTopMascot = lazy(() => import("./components/ScrollToTopMascot"));
 const AdminModal = lazy(() => import("./components/AdminModal"));
 const ServicePortalModal = lazy(() => import("./components/ServicePortalModal"));
 const MemberRegistrationModal = lazy(() => import("./components/MemberRegistrationModal"));
@@ -69,7 +69,33 @@ export default function App() {
     }
     return defaultData;
   });
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(true);
+  const [deferredReady, setDeferredReady] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const p = window.location.pathname.toLowerCase();
+    const h = window.location.hash.toLowerCase();
+    return p.includes("/admin") || h.includes("admin");
+  });
+
+  // Schedule non-critical widgets & secondary Firestore streams after first paint
+  useEffect(() => {
+    if (deferredReady) return;
+    let timeoutId = null;
+    let idleId = null;
+    const enable = () => setDeferredReady(true);
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(enable, { timeout: 1400 });
+    } else {
+      timeoutId = window.setTimeout(enable, 900);
+    }
+    return () => {
+      if (idleId !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+  }, [deferredReady]);
 
   // Theme Management (Dark / Light)
   const [theme, setTheme] = useState(() => {
@@ -200,30 +226,24 @@ export default function App() {
     });
   }
 
-  // Load Firestore Cloud Data on Mount
+  // Load Firestore Cloud Data on Mount (non-blocking: Hero renders instantly from defaults/cache)
   useEffect(() => {
     async function fetchData() {
-      const startTime = Date.now();
       try {
         const cloud = await loadCloudData();
         setData(cloud);
       } catch (err) {
         console.warn("Using fallback data due to:", err);
       } finally {
-        const elapsed = Date.now() - startTime;
-        const minWait = 1100; // Minimum duration to enjoy the pizza eating animation smoothly
-        if (elapsed < minWait) {
-          setTimeout(() => setLoading(false), minWait - elapsed);
-        } else {
-          setLoading(false);
-        }
+        setIsCloudSyncing(false);
       }
     }
     fetchData();
   }, []);
 
-  // Real-time Member Count Subscription
+  // Real-time Member Count Subscription (deferred after first paint)
   useEffect(() => {
+    if (!deferredReady) return;
     const unsub = subscribeMembersCloud(
       (members) => {
         if (Array.isArray(members)) {
@@ -235,10 +255,11 @@ export default function App() {
     return () => {
       if (typeof unsub === "function") unsub();
     };
-  }, []);
+  }, [deferredReady]);
 
-  // Real-time Dynamic Events Subscription
+  // Real-time Dynamic Events Subscription (deferred after first paint)
   useEffect(() => {
+    if (!deferredReady) return;
     const unsub = subscribeEventsCloud(
       (events) => {
         if (Array.isArray(events)) {
@@ -250,10 +271,11 @@ export default function App() {
     return () => {
       if (typeof unsub === "function") unsub();
     };
-  }, []);
+  }, [deferredReady]);
 
-  // Real-time Dynamic Bansos Programs Subscription
+  // Real-time Dynamic Bansos Programs Subscription (deferred after first paint)
   useEffect(() => {
+    if (!deferredReady) return;
     const unsub = subscribeBansosProgramsCloud(
       (programs) => {
         if (Array.isArray(programs)) {
@@ -265,7 +287,7 @@ export default function App() {
     return () => {
       if (typeof unsub === "function") unsub();
     };
-  }, []);
+  }, [deferredReady]);
 
   // Active Bansos Program for Public Visitors (strictly null if no active program)
   const activeBansosProgram =
@@ -648,8 +670,10 @@ export default function App() {
       }
     }
 
-    // Record visitor hit atomically (1x per browser session)
-    recordVisitorHitCloud();
+    // Record visitor hit atomically after initial paint (1x per browser session)
+    const visitorTimer = window.setTimeout(() => {
+      recordVisitorHitCloud();
+    }, 1500);
 
     checkRoutes();
     window.addEventListener("popstate", checkRoutes);
@@ -657,6 +681,7 @@ export default function App() {
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      window.clearTimeout(visitorTimer);
       window.removeEventListener("popstate", checkRoutes);
       window.removeEventListener("hashchange", checkRoutes);
       window.removeEventListener("keydown", handleKeyDown);
@@ -823,6 +848,7 @@ export default function App() {
   const [hasAutoOpenedDoorprize, setHasAutoOpenedDoorprize] = useState(false);
 
   useEffect(() => {
+    if (!deferredReady) return;
     const unsubCfg = subscribeDoorprizeConfigCloud((cfg) => {
       setDoorprizeConfig(cfg);
       if (
@@ -860,7 +886,7 @@ export default function App() {
       unsubCfg();
       unsubTickets();
     };
-  }, [hasAutoOpenedDoorprize, adminModalOpen]);
+  }, [hasAutoOpenedDoorprize, adminModalOpen, deferredReady]);
 
   function handleOpenDoorprizeModal() {
     setDoorprizeModalOpen(true);
@@ -1103,19 +1129,23 @@ export default function App() {
         {loading ? (
           <PizzaLoader />
         ) : currentPage === "gallery" ? (
-          <GalleryPage
-            gallery={data.gallery}
-            onOpenLightbox={handleOpenLightbox}
-            onNavigateHome={handleNavigateToHome}
-            onOpenServicePortal={handleOpenServicePortal}
-          />
+          <Suspense fallback={<PizzaLoader />}>
+            <GalleryPage
+              gallery={data.gallery}
+              onOpenLightbox={handleOpenLightbox}
+              onNavigateHome={handleNavigateToHome}
+              onOpenServicePortal={handleOpenServicePortal}
+            />
+          </Suspense>
         ) : currentPage === "structure" ? (
-          <StructurePage
-            org={data.org}
-            tierTitles={data?.orgTierTitles}
-            onOpenLightbox={handleOpenLightbox}
-            onNavigateHome={handleNavigateToHome}
-          />
+          <Suspense fallback={<PizzaLoader />}>
+            <StructurePage
+              org={data.org}
+              tierTitles={data?.orgTierTitles}
+              onOpenLightbox={handleOpenLightbox}
+              onNavigateHome={handleNavigateToHome}
+            />
+          </Suspense>
         ) : (
           <>
             {/* Hero Section */}
@@ -1269,17 +1299,19 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Action Buttons: Anggota LSM PPS, Daftar Layanan & Donasi Warga */}
-      <FloatingActions
-        memberCount={memberCount}
-        onOpenRegister={handleOpenRegister}
-        onOpenServicePortal={handleOpenServicePortal}
-        onOpenMembersDirectory={handleOpenMembersDirectory}
-        onOpenDonation={handleOpenDonation}
-      />
-
-      {/* Floating Scroll to Top with Mascot & Reading Progress */}
-      <ScrollToTopMascot />
+      {/* Deferred Floating Action Widgets (loaded after initial paint) */}
+      {deferredReady && (
+        <Suspense fallback={null}>
+          <FloatingActions
+            memberCount={memberCount}
+            onOpenRegister={handleOpenRegister}
+            onOpenServicePortal={handleOpenServicePortal}
+            onOpenMembersDirectory={handleOpenMembersDirectory}
+            onOpenDonation={handleOpenDonation}
+          />
+          <ScrollToTopMascot />
+        </Suspense>
+      )}
 
       {/* Footer */}
       <Footer
@@ -1298,27 +1330,33 @@ export default function App() {
       />
 
       {/* Floating Messenger Community Dock (Event & Bansos Anti-Collision System) */}
-      {!adminModalOpen && (
-        <CommunityMessengerDock
-          activeEvent={activeEvent}
-          activeBansosProgram={activeBansosProgram}
-          onOpenRegisterEvent={handleOpenEventModal}
-          onOpenBansos={handleOpenBansosModal}
-        />
+      {deferredReady && !adminModalOpen && (
+        <Suspense fallback={null}>
+          <CommunityMessengerDock
+            activeEvent={activeEvent}
+            activeBansosProgram={activeBansosProgram}
+            onOpenRegisterEvent={handleOpenEventModal}
+            onOpenBansos={handleOpenBansosModal}
+          />
+        </Suspense>
       )}
 
-      {/* Lightbox Modal */}
-      <LightboxModal
-        isOpen={lightbox.isOpen}
-        photos={lightbox.photos}
-        photo={lightbox.photo}
-        initialIndex={lightbox.initialIndex}
-        caption={lightbox.caption}
-        desc={lightbox.desc}
-        location={lightbox.location}
-        date={lightbox.date}
-        onClose={handleCloseLightbox}
-      />
+      {/* Lightbox Modal (lazy-loaded only when opened) */}
+      {lightbox.isOpen && (
+        <Suspense fallback={null}>
+          <LightboxModal
+            isOpen={lightbox.isOpen}
+            photos={lightbox.photos}
+            photo={lightbox.photo}
+            initialIndex={lightbox.initialIndex}
+            caption={lightbox.caption}
+            desc={lightbox.desc}
+            location={lightbox.location}
+            date={lightbox.date}
+            onClose={handleCloseLightbox}
+          />
+        </Suspense>
+      )}
 
       <Suspense fallback={null}>
         {/* Direktori Publik Anggota Terdaftar (/anggota) */}
@@ -1378,7 +1416,7 @@ export default function App() {
             isOpen={adminModalOpen}
             onClose={handleCloseAdminModal}
             initialData={data}
-            isCloudLoading={loading}
+            isCloudLoading={isCloudSyncing}
             eventsList={eventsList}
             bansosPrograms={bansosPrograms}
             doorprizeTickets={doorprizeTickets}

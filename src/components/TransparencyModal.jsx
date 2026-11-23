@@ -23,7 +23,6 @@ import {
   DollarSign,
   Utensils,
   ChevronRight,
-  Sparkles,
   FileSpreadsheet,
   AlertCircle,
   Users,

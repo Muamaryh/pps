@@ -8,7 +8,6 @@ import {
   DollarSign,
   CheckCircle2,
   Package,
-  Sparkles,
   ShoppingBag,
   Wheat,
 } from "lucide-react";
@@ -33,8 +32,6 @@ function getIconComponent(iconName) {
       return ShoppingBag;
     case "package":
       return Package;
-    case "sparkles":
-      return Sparkles;
     default:
       return Gift;
   }

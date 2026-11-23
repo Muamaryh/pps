@@ -487,6 +487,52 @@ export async function recordKasTransferCloud({
 }
 
 /**
+ * Memperbarui transaksi kas yang sudah tercatat (Admin revision, tanpa mengirim ulang webhook Discord)
+ */
+export async function updateKasTransactionCloud(transactionId, updates = {}) {
+  if (!transactionId) throw new Error("ID transaksi tidak valid");
+  const numericAmount = Number(updates.amount) || 0;
+  if (numericAmount <= 0) throw new Error("Nominal transaksi harus lebih dari 0");
+
+  const typeUpper = String(updates.type || "INCOME").toUpperCase();
+  const isTransfer = typeUpper === "TRANSFER";
+  const txTimestamp = updates.customDate
+    ? parseDateInputToTimestamp(updates.customDate)
+    : Number(updates.timestamp) || Date.now();
+
+  const patch = {
+    amount: numericAmount,
+    title: String(updates.title || "").trim(),
+    category: String(updates.category || (isTransfer ? "Pindah Kas Antar Bendahara" : "Lainnya")).trim(),
+    responsible: String(updates.responsible || "").trim(),
+    notes: String(updates.notes || "").trim(),
+    date: formatKasDate(txTimestamp),
+    timestamp: txTimestamp,
+    editedBy: String(updates.editedBy || "Admin").trim(),
+    updatedAt: Date.now(),
+  };
+
+  if (!patch.title) throw new Error("Judul / keterangan transaksi wajib diisi");
+
+  if (isTransfer) {
+    const cleanFrom = updates.fromWallet === "Darren" ? "Darren" : "Oita";
+    const cleanTo = cleanFrom === "Darren" ? "Oita" : "Darren";
+    patch.fromWallet = cleanFrom;
+    patch.toWallet = cleanTo;
+    patch.wallet = cleanFrom;
+    if (!patch.responsible) patch.responsible = `${cleanFrom} -> ${cleanTo}`;
+  } else {
+    const cleanWallet = updates.wallet === "Darren" ? "Darren" : "Oita";
+    patch.wallet = cleanWallet;
+    if (!patch.responsible) patch.responsible = cleanWallet;
+  }
+
+  const docRef = doc(getKasDb(), ...KAS_LEDGER_COL_PATH, transactionId);
+  await setDoc(docRef, patch, { merge: true });
+  return { id: transactionId, ...patch };
+}
+
+/**
  * Menghapus transaksi kas (Admin action)
  */
 export async function deleteKasTransactionCloud(transactionId) {

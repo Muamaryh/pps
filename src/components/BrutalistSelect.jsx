@@ -82,7 +82,7 @@ export default function BrutalistSelect({
       {isOpen && (
         <div
           role="listbox"
-          className="absolute left-0 top-full mt-1.5 w-full z-50 rounded bg-[#FFFDF9] dark:bg-[#1A1D26] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] overflow-hidden max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+          className="absolute left-0 top-full mt-1.5 w-full z-[90] rounded-xl bg-[#FFFDF9] dark:bg-[#1A1D26] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] overflow-hidden max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
         >
           {normalizedOptions.map((opt, idx) => {
             const isSelected = opt.value === value;

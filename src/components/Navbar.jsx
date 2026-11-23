@@ -175,7 +175,10 @@ export default function Navbar({
         >
           {/* Logo tanpa box pembungkus */}
           <img
-            src="/logo.png"
+            src="/logo.webp"
+            width="36"
+            height="36"
+            decoding="async"
             alt="Logo LSM Paguyuban Pizza Sandy Shores"
             className="w-8 h-8 sm:w-9 sm:h-9 object-contain group-hover:scale-105 transition-transform shrink-0"
           />

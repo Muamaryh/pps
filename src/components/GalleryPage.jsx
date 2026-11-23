@@ -6,7 +6,6 @@ import {
   Layers,
   Image as ImageIcon,
   Calendar,
-  Sparkles,
   Home,
   ChevronRight,
   Filter,

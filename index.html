@@ -2,15 +2,50 @@
 <html lang="id" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/webp" href="/logo.webp" />
+    <link rel="apple-touch-icon" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="LSM Paguyuban Pizza Sandy Shores (PPS) - Bersatu • Berkarya • Untuk Masyarakat Sandy Shores" />
+    <meta name="theme-color" content="#FACC15" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://lsmpps.my.id/" />
+    <meta name="description" content="LSM Paguyuban Pizza Sandy Shores (PPS) - Wadah persatuan, advokasi aspirasi warga, lapak UMKM berizin, dan aksi sosial masyarakat Sandy Shores." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lsmpps.my.id/" />
+    <meta property="og:title" content="LSM Paguyuban Pizza Sandy Shores (PPS)" />
+    <meta property="og:description" content="Bersatu • Berkarya • Untuk Masyarakat Sandy Shores. Portal resmi organisasi, layanan UMKM, transparansi kas, dan keanggotaan LSM PPS." />
+    <meta property="og:image" content="https://lsmpps.my.id/pps.jpg" />
     <title>LSM Paguyuban Pizza Sandy Shores (PPS)</title>
 
-    <!-- Google Fonts: Barlow Condensed, Oswald, Bebas Neue, Space Grotesk, Outfit, Plus Jakarta Sans, JetBrains Mono -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;0,900;1,700;1,900&family=Bebas+Neue&family=JetBrains+Mono:wght@500;700&family=Outfit:wght@600;700;800;900&family=Oswald:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Preload Hero LCP image (responsive WebP) -->
+    <link
+      rel="preload"
+      as="image"
+      href="/pps.webp"
+      imagesrcset="/pps-mobile.webp 900w, /pps.webp 1600w"
+      imagesizes="100vw"
+      fetchpriority="high"
+    />
+
+    <!-- Google Fonts: only active heading & body families, non-render-blocking -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap"
+      rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
   </head>
   <body class="min-h-screen antialiased selection:bg-[#FAAE2B] selection:text-[#1A1A1A]">
     <div id="root"></div>

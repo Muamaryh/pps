@@ -6,7 +6,6 @@ import {
   MessageSquareText,
   ArrowRight,
   ShieldCheck,
-  Sparkles,
   ExternalLink,
   CheckCircle2,
 } from "lucide-react";

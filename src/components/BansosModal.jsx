@@ -13,7 +13,6 @@ import {
   Loader2,
   User,
   CreditCard,
-  Sparkles,
   ScanLine,
   HelpCircle,
   Eye,
@@ -53,8 +52,6 @@ function getBansosIcon(iconName) {
       return ShoppingBag;
     case "package":
       return Package;
-    case "sparkles":
-      return Sparkles;
     default:
       return Gift;
   }

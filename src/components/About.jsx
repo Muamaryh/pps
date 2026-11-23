@@ -1,6 +1,7 @@
-import React, { useState } from "react";
-import { HeartHandshake, TrendingUp, Landmark, ChevronDown, ChevronUp, FileText, CheckCircle2, Target, Scale, ScrollText } from "lucide-react";
-import OfficialCharterViewer from "./OfficialCharterViewer";
+import React, { useState, lazy, Suspense } from "react";
+import { HeartHandshake, TrendingUp, Landmark, ChevronDown, ChevronUp, FileText, CheckCircle2, Target, Scale } from "lucide-react";
+
+const OfficialCharterViewer = lazy(() => import("./OfficialCharterViewer"));
 
 export default function About({
   aboutText,
@@ -259,7 +260,15 @@ export default function About({
 
             {/* Konten Tab */}
             {activeTab === "charter" ? (
-              <OfficialCharterViewer onShowToast={onShowToast} />
+              <Suspense
+                fallback={
+                  <div className="p-6 text-center text-xs font-mono text-slate-500">
+                    Memuat dokumen AD/ART resmi...
+                  </div>
+                }
+              >
+                <OfficialCharterViewer onShowToast={onShowToast} />
+              </Suspense>
             ) : (
               <div className="p-5 sm:p-7 rounded-xl bg-[#F7F5EE] dark:bg-[#07080E]/80 border border-black/25 dark:border-white/10 shadow-sm dark:shadow-lg space-y-4 text-justify leading-relaxed text-sm sm:text-base font-normal text-slate-700 dark:text-slate-300">
                 <div className="flex items-center gap-2 pb-2 border-b border-black/25 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 font-mono">

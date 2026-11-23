@@ -136,12 +136,17 @@ export default function FloatingActions({
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
+          aria-label={isOpen ? "Tutup menu komunitas PPS" : "Buka menu komunitas PPS"}
           className="group relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#FACC15] hover:bg-[#EAB308] border-[3px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[3px] active:translate-y-[3px] transition-all focus:outline-none cursor-pointer"
           title={isOpen ? "Tutup menu" : "Menu Komunitas PPS"}
         >
           {/* Logo PPS */}
           <img
-            src="/logo.png"
+            src="/logo.webp"
+            width="44"
+            height="44"
+            loading="lazy"
+            decoding="async"
             alt="LSM PPS Logo"
             className={`w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow transition-transform duration-300 ${
               isOpen ? "rotate-12 scale-90" : "group-hover:scale-110"

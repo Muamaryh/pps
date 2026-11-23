@@ -69,9 +69,15 @@ export default function Hero({
     <section id="home" className="pt-2 pb-8 sm:pb-12 w-full scroll-mt-24">
       {/* 1. Box Gambar pps.jpg (Teks di Depan Gambar dengan Efek Typing 3 Baris Cepat) */}
       <div className="w-full relative rounded-2xl overflow-hidden border border-black/20 dark:border-white/10 shadow-none aspect-[1840/855] min-h-[280px] sm:min-h-[400px] md:min-h-[500px] flex items-center justify-center p-4 sm:p-8 text-center">
-        {/* Gambar pps.jpg sebagai latar belakang */}
+        {/* Gambar pps.webp sebagai latar belakang (Responsive WebP + Priority LCP) */}
         <img
-          src="/pps.jpg"
+          src="/pps.webp"
+          srcSet="/pps-mobile.webp 900w, /pps.webp 1600w"
+          sizes="100vw"
+          width="1600"
+          height="743"
+          fetchPriority="high"
+          decoding="async"
           alt="LSM Paguyuban Pizza Sandy Shores"
           className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
         />
@@ -84,7 +90,11 @@ export default function Hero({
           {/* Logo PPS di atas Judul Banner */}
           <div className="mb-2.5 sm:mb-4 select-none animate-logo-arrival">
             <img
-              src="/logo.png"
+              src="/logo.webp"
+              width="128"
+              height="128"
+              fetchPriority="high"
+              decoding="async"
               alt="Logo LSM Paguyuban Pizza Sandy Shores"
               className="w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 object-contain hover:scale-110 hover:-rotate-3 transition-all duration-300 cursor-pointer"
             />
@@ -140,7 +150,10 @@ export default function Hero({
         >
           <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-[#171A21] border-2 border-[#8A7131] flex items-center justify-center shrink-0 p-0.5 shadow-sm group-hover:scale-105 transition-transform">
             <img
-              src="/documents/san_andreas_seal.png"
+              src="/documents/san_andreas_seal.webp"
+              width="40"
+              height="40"
+              decoding="async"
               alt="Seal San Andreas"
               className="w-full h-full object-contain rounded-full"
             />

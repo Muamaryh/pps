@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, EyeOff, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Sparkles, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, UserPlus, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, LayoutDashboard, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, EyeOff, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, UserPlus, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions, loadAdminAccountsConfig, saveAdminAccountsConfig, loadAdminActivityLogsCloud, logAdminActivityCloud } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -77,6 +77,7 @@ import {
 } from "../services/bansosService";
 import { hashPassword, verifyPassword, verifyPersonalCredential, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, DEFAULT_ADMIN_PIN, DEFAULT_PIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
 import BrutalistDatePicker from "./BrutalistDatePicker";
+import BrutalistSelect from "./BrutalistSelect";
 import BrutalistConfirmModal from "./BrutalistConfirmModal";
 import KasPaymentModal from "./KasPaymentModal";
 import KasExpenseModal from "./KasExpenseModal";
@@ -106,6 +107,7 @@ import {
   formatCurrency,
   formatKasDate,
   exportKasLedgerToExcel,
+  updateKasTransactionCloud,
   deleteKasTransactionCloud,
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
@@ -268,6 +270,9 @@ export default function AdminModal({
       if (!rawTab) return null;
       const key = rawTab.trim().toLowerCase();
       const aliasMap = {
+        ringkasan: "overview",
+        overview: "overview",
+        dashboard: "overview",
         verifikasi: "member_registrations",
         member_registrations: "member_registrations",
         anggota: "members_db",
@@ -306,6 +311,7 @@ export default function AdminModal({
       const saved = sessionStorage.getItem(ADMIN_ACTIVE_TAB_KEY);
       if (!saved) return null;
       const validTabs = new Set([
+        "overview",
         "identity",
         "hero",
         "about",
@@ -329,11 +335,11 @@ export default function AdminModal({
   }
 
   const [activeTab, setActiveTab] = useState(
-    () => resolveAdminTabFromQuery() || resolveSavedAdminTab() || "identity"
+    () => resolveAdminTabFromQuery() || resolveSavedAdminTab() || "overview"
   );
 
   useEffect(() => {
-    if (!isOpen || !isAuthenticated || activeTab !== "security") return;
+    if (!isOpen || !isAuthenticated || (activeTab !== "security" && activeTab !== "overview")) return;
     refreshActivityLogs();
   }, [isOpen, isAuthenticated, activeTab]);
 
@@ -516,9 +522,23 @@ export default function AdminModal({
   const [membersList, setMembersList] = useState([]);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [isExportingZip, setIsExportingZip] = useState(false);
-  const [filterKas, setFilterKas] = useState("all"); // 'all' | 'paid' | 'unpaid'
-  const [filterVoucher, setFilterVoucher] = useState("all"); // 'all' | 'received' | 'unreceived'
+  const [filterKas, setFilterKas] = useState("all"); // 'all' | 'active' | 'unpaid'
+  const [filterVoucher, setFilterVoucher] = useState("all"); // 'all' | 'active' | 'ready'
+  const [filterJob, setFilterJob] = useState("all");
+  const [filterGang, setFilterGang] = useState("all");
   const [isPurgingHudPhotos, setIsPurgingHudPhotos] = useState(false);
+  const [editKasTxModal, setEditKasTxModal] = useState({
+    isOpen: false,
+    tx: null,
+    title: "",
+    amount: "",
+    wallet: "Oita",
+    category: "",
+    responsible: "",
+    customDate: "",
+    notes: "",
+    isSubmitting: false,
+  });
 
   // Member Registration Verification State (Verifikasi Anggota Baru)
   const [memberRegFilterTab, setMemberRegFilterTab] = useState("PENDING"); // 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'
@@ -1033,6 +1053,106 @@ export default function AdminModal({
   // =========================================================================
   // HANDLERS: MANAJEMEN BUKU KAS & KEUANGAN LSM
   // =========================================================================
+
+  function handleOpenEditKasTx(tx) {
+    if (!tx || !tx.id) return;
+    const typeUpper = String(tx.type || "INCOME").toUpperCase();
+    const isTransfer = typeUpper === "TRANSFER";
+    const initialWallet = isTransfer
+      ? tx.fromWallet === "Darren" || tx.wallet === "Darren"
+        ? "Darren"
+        : "Oita"
+      : tx.wallet === "Darren" || String(tx.responsible || "").toLowerCase().includes("darren")
+      ? "Darren"
+      : "Oita";
+
+    const d = tx.timestamp ? new Date(tx.timestamp) : new Date();
+    const INDO_DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jum'at", "Sabtu"];
+    const INDO_MONTHS = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+    ];
+    const formattedDate = !isNaN(d.getTime())
+      ? `${INDO_DAYS[d.getDay()]}, ${d.getDate()} ${INDO_MONTHS[d.getMonth()]} ${d.getFullYear()}`
+      : tx.date || "";
+
+    setEditKasTxModal({
+      isOpen: true,
+      tx,
+      title: tx.title || "",
+      amount: String(Number(tx.amount) || ""),
+      wallet: initialWallet,
+      category: tx.category || (isTransfer ? "Pindah Kas Antar Bendahara" : "Lainnya"),
+      responsible: tx.responsible || tx.recordedBy || initialWallet,
+      customDate: formattedDate,
+      notes: tx.notes || "",
+      isSubmitting: false,
+    });
+  }
+
+  async function handleSaveEditKasTx(e) {
+    e?.preventDefault();
+    const targetTx = editKasTxModal.tx;
+    if (!targetTx || !targetTx.id) return;
+
+    const numericAmount = Number(editKasTxModal.amount) || 0;
+    const cleanTitle = (editKasTxModal.title || "").trim();
+    if (!cleanTitle) {
+      onShowToast("Judul / keterangan transaksi wajib diisi.", "warning");
+      return;
+    }
+    if (numericAmount <= 0) {
+      onShowToast("Nominal transaksi harus lebih dari $0.", "warning");
+      return;
+    }
+
+    setEditKasTxModal((prev) => ({ ...prev, isSubmitting: true }));
+    try {
+      const typeUpper = String(targetTx.type || "INCOME").toUpperCase();
+      const isTransfer = typeUpper === "TRANSFER";
+      await updateKasTransactionCloud(targetTx.id, {
+        type: typeUpper,
+        title: cleanTitle,
+        amount: numericAmount,
+        wallet: editKasTxModal.wallet,
+        fromWallet: isTransfer ? editKasTxModal.wallet : undefined,
+        category: editKasTxModal.category,
+        responsible: editKasTxModal.responsible,
+        customDate: editKasTxModal.customDate,
+        timestamp: targetTx.timestamp,
+        notes: editKasTxModal.notes,
+        editedBy: activeAdminName,
+      });
+
+      const updated = await loadKasLedgerCloud();
+      if (Array.isArray(updated)) setKasTransactions(updated);
+
+      const oldAmt = formatCurrency(targetTx.amount);
+      const newAmt = formatCurrency(numericAmount);
+      recordActivity(
+        "KEUANGAN",
+        "Edit Transaksi Kas",
+        `${cleanTitle} (${oldAmt} -> ${newAmt}, Pos: Kas ${editKasTxModal.wallet})`
+      );
+      onShowToast("Transaksi kas berhasil diperbarui (tanpa mengirim ulang webhook Discord).", "success");
+      setEditKasTxModal({
+        isOpen: false,
+        tx: null,
+        title: "",
+        amount: "",
+        wallet: "Oita",
+        category: "",
+        responsible: "",
+        customDate: "",
+        notes: "",
+        isSubmitting: false,
+      });
+    } catch (err) {
+      console.error("Gagal mengedit transaksi kas:", err);
+      onShowToast("Gagal menyimpan perubahan transaksi: " + (err?.message || "Error"), "error");
+      setEditKasTxModal((prev) => ({ ...prev, isSubmitting: false }));
+    }
+  }
 
   function handleDeleteKasTx(tx) {
     setConfirmModal({
@@ -3511,8 +3631,13 @@ export default function AdminModal({
   const activeJasraBatch = getActiveJasraBatch(jasraBatches);
   const activeBatchJasraDists = getBatchDistributions(jasraDistributions, activeJasraBatch);
 
-  // Subscription-based stats aggregation (must be initialized before tabGroups)
-  const kasSubs = membersList.map((m) => ({
+  const approvedMembersList = membersList.filter(
+    (m) => m.status !== "PENDING_VERIFIKASI" && m.status !== "REJECTED"
+  );
+  const pendingMembersList = membersList.filter((m) => m.status === "PENDING_VERIFIKASI");
+
+  // Subscription-based stats aggregation (hanya anggota resmi yang sudah disetujui)
+  const kasSubs = approvedMembersList.map((m) => ({
     member: m,
     kas: getMemberKasSubscription(m),
     voucher: getMemberVoucherSubscription(m, new Date(), activeJasraBatch),
@@ -3580,6 +3705,7 @@ export default function AdminModal({
       icon: Layout,
       badgeCount: null,
       tabs: [
+        { id: "overview", label: "Ringkasan Panel", icon: LayoutDashboard },
         { id: "identity", label: "Brand & Menu", icon: Layout },
         { id: "hero", label: "Beranda & 4 Pilar", icon: Compass },
         { id: "about", label: "Tentang & Visi", icon: FileText },
@@ -3677,14 +3803,58 @@ export default function AdminModal({
     return getMemberVoucherSubscription(m, new Date(), activeJasraBatch).isActive;
   };
 
-  const approvedMembersList = membersList.filter(
-    (m) => m.status !== "PENDING_VERIFIKASI" && m.status !== "REJECTED"
-  );
-  const pendingMembersList = membersList.filter((m) => m.status === "PENDING_VERIFIKASI");
-
   const totalVoucherActiveCount = approvedMembersList.filter((m) => isMemberVoucherActive(m)).length;
   const totalVoucherReadyCount = approvedMembersList.length - totalVoucherActiveCount;
   const approvedHudPhotosCount = approvedMembersList.filter((m) => Boolean(m.statusPhoto)).length;
+
+  // Dynamic unique Job & Afiliasi filter options from approved members
+  const { jobFilterOptions, gangFilterOptions } = (() => {
+    const jobMap = new Map();
+    const gangMap = new Map();
+    let emptyJobCount = 0;
+    let emptyGangCount = 0;
+
+    approvedMembersList.forEach((m) => {
+      const rawJob = String(m.statusJob || "").trim();
+      if (rawJob) {
+        const key = rawJob.toLowerCase();
+        const prev = jobMap.get(key);
+        jobMap.set(key, { label: prev ? prev.label : rawJob, count: (prev?.count || 0) + 1 });
+      } else {
+        emptyJobCount++;
+      }
+
+      const rawGang = String(m.statusGang || "").trim();
+      if (rawGang) {
+        const key = rawGang.toLowerCase();
+        const prev = gangMap.get(key);
+        gangMap.set(key, { label: prev ? prev.label : rawGang, count: (prev?.count || 0) + 1 });
+      } else {
+        emptyGangCount++;
+      }
+    });
+
+    const sortedJobs = Array.from(jobMap.entries())
+      .sort((a, b) => b[1].count - a[1].count || a[1].label.localeCompare(b[1].label))
+      .map(([key, info]) => ({ value: key, label: `${info.label} (${info.count})` }));
+
+    const sortedGangs = Array.from(gangMap.entries())
+      .sort((a, b) => b[1].count - a[1].count || a[1].label.localeCompare(b[1].label))
+      .map(([key, info]) => ({ value: key, label: `${info.label} (${info.count})` }));
+
+    const jOpts = [
+      { value: "all", label: `Semua Pekerjaan (${approvedMembersList.length})` },
+      ...sortedJobs,
+      ...(emptyJobCount > 0 ? [{ value: "__EMPTY__", label: `Belum Diisi (${emptyJobCount})` }] : []),
+    ];
+    const gOpts = [
+      { value: "all", label: `Semua Afiliasi / Gang (${approvedMembersList.length})` },
+      ...sortedGangs,
+      ...(emptyGangCount > 0 ? [{ value: "__EMPTY__", label: `Belum Diisi (${emptyGangCount})` }] : []),
+    ];
+
+    return { jobFilterOptions: jOpts, gangFilterOptions: gOpts };
+  })();
 
   const filteredMembers = approvedMembersList.filter((m) => {
     // 1. Text Search Filter
@@ -3718,6 +3888,18 @@ export default function AdminModal({
     if (filterVoucher === "active" && !isVActive) return false;
     if (filterVoucher === "ready" && isVActive) return false;
 
+    // 4. Filter Job (Pekerjaan IC)
+    if (filterJob !== "all") {
+      const mJob = String(m.statusJob || "").trim().toLowerCase();
+      if (filterJob === "__EMPTY__" ? mJob !== "" : mJob !== filterJob) return false;
+    }
+
+    // 5. Filter Afiliasi / Gang
+    if (filterGang !== "all") {
+      const mGang = String(m.statusGang || "").trim().toLowerCase();
+      if (filterGang === "__EMPTY__" ? mGang !== "" : mGang !== filterGang) return false;
+    }
+
     return true;
   });
 
@@ -3742,7 +3924,7 @@ export default function AdminModal({
     return name.includes(q) || ic.includes(q) || phone.includes(q) || reason.includes(q) || by.includes(q);
   });
 
-  const filteredKasMembers = membersList.filter((m) => {
+  const filteredKasMembers = approvedMembersList.filter((m) => {
     if (kasMemberSearchQuery.trim()) {
       const q = kasMemberSearchQuery.toLowerCase();
       const name = (m.fullName || "").toLowerCase();
@@ -4451,6 +4633,382 @@ export default function AdminModal({
                   {/* Main Scrollable Content Area */}
                   <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6">
                 <div className="max-w-7xl mx-auto w-full min-w-0 flex flex-col gap-4 sm:gap-6">
+
+                  {/* Tab 0: Ringkasan Panel (Overview Operasional Pengurus) */}
+                  {activeTab === "overview" && (() => {
+                    const unpaidKasCount = Math.max(0, approvedMembersList.length - totalKasActiveCount);
+                    const kasPaidPct = approvedMembersList.length > 0
+                      ? Math.round((totalKasActiveCount / approvedMembersList.length) * 100)
+                      : 0;
+                    const unclaimedBansosCount = bansosClaims.filter((c) => !c.claimed).length;
+                    const recentKasTx = kasTransactions.slice(0, 4);
+                    const recentLogs = activityLogs.slice(0, 5);
+
+                    return (
+                      <div className="flex flex-col gap-4 sm:gap-5">
+                        {/* Greeting & Quick Actions Banner */}
+                        <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-11 h-11 rounded-xl bg-[#FACC15] border border-black/20 flex items-center justify-center font-heading font-black text-lg text-slate-950 shadow-xs shrink-0">
+                              {activeAdminName.slice(0, 1).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-heading font-black text-base sm:text-lg text-slate-950 dark:text-white truncate">
+                                  Halo, {activeAdminName}
+                                </h3>
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-400/60">
+                                  {currentAdmin?.role || "Pengurus LSM"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                                Ringkasan antrean tugas, posisi kas bendahara, dan status keanggotaan hari ini.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full lg:w-auto">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("member_registrations")}
+                              className="btn py-2 px-3 bg-[#FACC15] hover:bg-amber-400 text-slate-950 text-xs font-heading font-black border border-black/20 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <UserCheck size={14} className="text-[#DC2626] shrink-0" />
+                              <span className="truncate">Verifikasi ({pendingMembersCount})</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("member_kas")}
+                              className="btn py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <DollarSign size={14} className="shrink-0" />
+                              <span className="truncate">Catat Kas</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab("kas_db");
+                                setIsKasExpenseModalOpen(true);
+                              }}
+                              className="btn col-span-2 sm:col-span-1 py-2 px-3 bg-[#DC2626] hover:bg-red-700 text-white text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <TrendingDown size={14} className="shrink-0" />
+                              <span className="truncate">Catat Pengeluaran</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Antrean Tugas Perlu Tindakan (4 Actionable Cards) */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("member_registrations")}
+                            className={`card-brutal p-3.5 text-left border transition-all cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between gap-2 ${
+                              pendingMembersCount > 0
+                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-500/80"
+                                : "bg-white dark:bg-[#1A1D26] border-black/15 dark:border-white/10"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-300">
+                                Pending Verifikasi
+                              </span>
+                              <UserCheck size={15} className={pendingMembersCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400"} />
+                            </div>
+                            <div className="text-2xl font-mono font-black text-slate-950 dark:text-white">
+                              {pendingMembersCount}
+                            </div>
+                            <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                              {pendingMembersCount > 0 ? "Buka & tinjau berkas ->" : "Semua sudah diverifikasi"}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("submissions")}
+                            className={`card-brutal p-3.5 text-left border transition-all cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between gap-2 ${
+                              submissions.length > 0
+                                ? "bg-sky-50 dark:bg-sky-950/30 border-sky-500/70"
+                                : "bg-white dark:bg-[#1A1D26] border-black/15 dark:border-white/10"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-300">
+                                Kotak Masuk Layanan
+                              </span>
+                              <Inbox size={15} className="text-sky-600 dark:text-sky-400" />
+                            </div>
+                            <div className="text-2xl font-mono font-black text-slate-950 dark:text-white">
+                              {submissions.length}
+                            </div>
+                            <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-300">
+                              Lapak UMKM &amp; Meeting -&gt;
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setKasMemberStatusFilter("unpaid");
+                              setActiveTab("member_kas");
+                            }}
+                            className="card-brutal p-3.5 text-left bg-rose-50/80 dark:bg-rose-950/25 border border-rose-400/70 transition-all cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between gap-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-heading font-black uppercase text-rose-800 dark:text-rose-300">
+                                Kas Belum Bayar
+                              </span>
+                              <DollarSign size={15} className="text-rose-600 dark:text-rose-400" />
+                            </div>
+                            <div className="text-2xl font-mono font-black text-rose-700 dark:text-rose-300">
+                              {unpaidKasCount}
+                            </div>
+                            <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                              {totalKasExpiringCount > 0 ? `${totalKasExpiringCount} segera jatuh tempo` : "Lihat daftar kas ->"}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("bansos_db")}
+                            className="card-brutal p-3.5 text-left bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 transition-all cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between gap-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-300">
+                                Bansos Belum Diambil
+                              </span>
+                              <Gift size={15} className="text-[#DC2626] dark:text-[#FACC15]" />
+                            </div>
+                            <div className="text-2xl font-mono font-black text-slate-950 dark:text-white">
+                              {unclaimedBansosCount}
+                            </div>
+                            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                              Dari total {bansosClaims.length} klaim -&gt;
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* Middle Split: Posisi Kas Bendahara + Keanggotaan & Jasra */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                          {/* Posisi Kas Bendahara (7 cols) */}
+                          <div className="lg:col-span-7 card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3.5">
+                            <div className="flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2.5">
+                              <div className="flex items-center gap-2">
+                                <Landmark size={16} className="text-emerald-600 dark:text-emerald-400" />
+                                <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-900 dark:text-slate-100">
+                                  Posisi Kas Bendahara
+                                </h4>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab("kas_db")}
+                                className="text-xs font-heading font-black text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer"
+                              >
+                                Buka Buku Kas &rarr;
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/35 border border-emerald-500/60">
+                                <span className="text-[10px] font-mono font-bold uppercase text-emerald-800 dark:text-emerald-300 block">
+                                  Saldo Bersih LSM
+                                </span>
+                                <strong className="text-lg font-mono font-black text-emerald-800 dark:text-emerald-300 mt-0.5 block">
+                                  {formatCurrency(kasSummary.netBalance)}
+                                </strong>
+                              </div>
+                              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-400/70">
+                                <span className="text-[10px] font-mono font-bold uppercase text-amber-900 dark:text-amber-300 block">
+                                  Kas Oita
+                                </span>
+                                <strong className="text-base font-mono font-black text-amber-950 dark:text-amber-200 mt-0.5 block">
+                                  {formatCurrency(kasSummary.oitaBalance)}
+                                </strong>
+                              </div>
+                              <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-400/70">
+                                <span className="text-[10px] font-mono font-bold uppercase text-indigo-900 dark:text-indigo-300 block">
+                                  Kas Darren
+                                </span>
+                                <strong className="text-base font-mono font-black text-indigo-950 dark:text-indigo-200 mt-0.5 block">
+                                  {formatCurrency(kasSummary.darrenBalance)}
+                                </strong>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                              <span className="text-[10px] font-heading font-black uppercase text-slate-500">
+                                Mutasi Terbaru
+                              </span>
+                              <div className="divide-y divide-black/10 dark:divide-white/10 border border-black/10 dark:border-white/10 rounded-lg overflow-hidden bg-white dark:bg-[#1A1D26]">
+                                {recentKasTx.length === 0 ? (
+                                  <div className="p-3 text-xs text-slate-500 text-center">Belum ada transaksi kas.</div>
+                                ) : (
+                                  recentKasTx.map((tx) => {
+                                    const tUpper = (tx.type || "").toUpperCase();
+                                    const isInc = tUpper === "INCOME";
+                                    const isTrf = tUpper === "TRANSFER";
+                                    return (
+                                      <div key={tx.id} className="px-3 py-2 flex items-center justify-between gap-2 text-xs">
+                                        <div className="min-w-0">
+                                          <div className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                                            {tx.title}
+                                          </div>
+                                          <div className="text-[10px] font-mono text-slate-500 truncate">
+                                            {formatKasDate(tx.timestamp || tx.date)} • Kas {tx.wallet || "Oita"}
+                                          </div>
+                                        </div>
+                                        <span
+                                          className={`font-mono font-black text-xs shrink-0 ${
+                                            isTrf
+                                              ? "text-indigo-600 dark:text-indigo-400"
+                                              : isInc
+                                              ? "text-emerald-700 dark:text-emerald-400"
+                                              : "text-rose-700 dark:text-rose-400"
+                                          }`}
+                                        >
+                                          {isTrf ? "↔ " : isInc ? "+" : "-"}
+                                          {formatCurrency(tx.amount)}
+                                        </span>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Keanggotaan & Voucher Jasra (5 cols) */}
+                          <div className="lg:col-span-5 card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col justify-between gap-3.5">
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2.5">
+                                <div className="flex items-center gap-2">
+                                  <Users2 size={16} className="text-[#DC2626] dark:text-[#FACC15]" />
+                                  <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-900 dark:text-slate-100">
+                                    Keanggotaan &amp; Jasra
+                                  </h4>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab("members_db")}
+                                  className="text-xs font-heading font-black text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer"
+                                >
+                                  Database &rarr;
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2.5">
+                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#1E222D] border border-black/10 dark:border-white/10">
+                                  <span className="text-[10px] font-mono font-bold uppercase text-slate-500 block">
+                                    Anggota Resmi
+                                  </span>
+                                  <strong className="text-xl font-mono font-black text-slate-950 dark:text-white mt-0.5 block">
+                                    {approvedMembersList.length}
+                                  </strong>
+                                </div>
+                                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-400/60">
+                                  <span className="text-[10px] font-mono font-bold uppercase text-amber-900 dark:text-amber-300 block">
+                                    Voucher Jasra Aktif
+                                  </span>
+                                  <strong className="text-xl font-mono font-black text-amber-900 dark:text-[#FACC15] mt-0.5 block">
+                                    {totalVoucherActiveCount}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              {/* Kas Paid Progress Bar */}
+                              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#1E222D] border border-black/10 dark:border-white/10 flex flex-col gap-1.5">
+                                <div className="flex items-center justify-between text-xs font-mono">
+                                  <span className="font-bold text-slate-700 dark:text-slate-300">
+                                    Kepatuhan Iuran Kas
+                                  </span>
+                                  <strong className="text-emerald-700 dark:text-emerald-400">
+                                    {totalKasActiveCount}/{approvedMembersList.length} ({kasPaidPct}%)
+                                  </strong>
+                                </div>
+                                <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                  <div
+                                    className="h-full bg-emerald-500 rounded-full transition-all"
+                                    style={{ width: `${kasPaidPct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab("members_db")}
+                                className="btn py-2 px-3 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold border border-black/15 dark:border-white/10 cursor-pointer"
+                              >
+                                Database Anggota
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab("jasra_panel")}
+                                className="btn py-2 px-3 bg-[#FACC15] hover:bg-amber-400 text-slate-950 text-xs font-black border border-black/20 cursor-pointer"
+                              >
+                                Kelola Jasra
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Latest Pengurus Activity Snapshot */}
+                        <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
+                          <div className="flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <Clock size={16} className="text-sky-600 dark:text-sky-400" />
+                              <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-900 dark:text-slate-100">
+                                Aktivitas Pengurus Terbaru
+                              </h4>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("security")}
+                              className="text-xs font-heading font-black text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer"
+                            >
+                              Lihat Semua Log &rarr;
+                            </button>
+                          </div>
+
+                          {recentLogs.length === 0 ? (
+                            <p className="text-xs text-slate-500 py-2">
+                              Belum ada aktivitas terbaru tercatat.
+                            </p>
+                          ) : (
+                            <div className="divide-y divide-black/10 dark:divide-white/10 border border-black/10 dark:border-white/10 rounded-lg overflow-hidden bg-white dark:bg-[#1A1D26]">
+                              {recentLogs.map((log) => (
+                                <div key={log.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                                  <div className="min-w-0">
+                                    <span className="font-heading font-black text-slate-900 dark:text-slate-100">
+                                      {log.action}
+                                    </span>
+                                    {log.detail && (
+                                      <span className="text-slate-500 dark:text-slate-400 ml-1.5">
+                                        - {log.detail}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[10px] font-mono text-slate-500 shrink-0">
+                                    <strong className="text-slate-700 dark:text-slate-300">{log.adminName}</strong>
+                                    {" • "}
+                                    {log.timestamp
+                                      ? new Date(log.timestamp).toLocaleString("id-ID", {
+                                          day: "numeric",
+                                          month: "short",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : "-"}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Tab 1: Identity */}
                   {activeTab === "identity" && (
@@ -6647,13 +7205,13 @@ export default function AdminModal({
                   </div>
 
                   {/* Search and Filter Pills Bar */}
-                  <div className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
+                  <div className="relative z-30 card-brutal hover:!transform-none p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="relative w-full sm:max-w-md">
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         <input
                           type="text"
-                          placeholder="Cari nama IC, No KTP, atau No HP..."
+                          placeholder="Cari nama IC, No KTP, No HP, Job, atau Afiliasi..."
                           value={memberSearchQuery}
                           onChange={(e) => setMemberSearchQuery(e.target.value)}
                           className="input-field w-full pl-9 pr-8 text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
@@ -6749,6 +7307,54 @@ export default function AdminModal({
                       >
                         Siap Ambil ({totalVoucherReadyCount})
                       </button>
+                    </div>
+
+                    {/* Filter Pekerjaan (Job) & Afiliasi / Gang */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2.5 pt-2 border-t border-black/10 dark:border-white/10">
+                      <div className="flex items-center gap-2 lg:w-64">
+                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase shrink-0">
+                          Job:
+                        </span>
+                        <BrutalistSelect
+                          value={filterJob}
+                          onChange={(val) => setFilterJob(val)}
+                          options={jobFilterOptions}
+                          ariaLabel="Filter Pekerjaan Anggota"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2 lg:w-64">
+                        <span className="text-[10px] font-mono font-bold text-slate-500 uppercase shrink-0">
+                          Afiliasi:
+                        </span>
+                        <BrutalistSelect
+                          value={filterGang}
+                          onChange={(val) => setFilterGang(val)}
+                          options={gangFilterOptions}
+                          ariaLabel="Filter Afiliasi Anggota"
+                        />
+                      </div>
+
+                      {(memberSearchQuery.trim() ||
+                        filterKas !== "all" ||
+                        filterVoucher !== "all" ||
+                        filterJob !== "all" ||
+                        filterGang !== "all") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMemberSearchQuery("");
+                            setFilterKas("all");
+                            setFilterVoucher("all");
+                            setFilterJob("all");
+                            setFilterGang("all");
+                          }}
+                          className="btn py-2 px-3 text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-400/70 flex items-center justify-center gap-1.5 cursor-pointer lg:ml-auto"
+                        >
+                          <RotateCcw size={12} />
+                          <span>Reset Filter</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -7528,12 +8134,12 @@ export default function AdminModal({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs">
                       <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
-                        Total Anggota
+                        Total Anggota Resmi
                       </span>
                       <div className="text-xl font-mono font-black text-slate-900 dark:text-slate-100 mt-1">
-                        {membersList.length}
+                        {approvedMembersList.length}
                       </div>
-                      <span className="text-[10px] text-slate-500">Warga terdaftar</span>
+                      <span className="text-[10px] text-slate-500">Sudah disetujui pengurus</span>
                     </div>
 
                     <div className="card-brutal p-3 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-xs">
@@ -7544,7 +8150,7 @@ export default function AdminModal({
                         {totalKasActiveCount}
                       </div>
                       <span className="text-[10px] text-emerald-600 font-mono">
-                        {Math.round((totalKasActiveCount / (membersList.length || 1)) * 100)}% anggota bayar kas
+                        {Math.round((totalKasActiveCount / (approvedMembersList.length || 1)) * 100)}% anggota bayar kas
                       </span>
                     </div>
 
@@ -7553,7 +8159,7 @@ export default function AdminModal({
                         Belum Bayar
                       </span>
                       <div className="text-xl font-mono font-black text-rose-700 dark:text-rose-300 mt-1">
-                        {membersList.length - totalKasActiveCount}
+                        {Math.max(0, approvedMembersList.length - totalKasActiveCount)}
                       </div>
                       <span className="text-[10px] text-rose-600 font-mono">Belum iuran kas</span>
                     </div>
@@ -7593,7 +8199,7 @@ export default function AdminModal({
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
                         }`}
                       >
-                        Semua ({membersList.length})
+                        Semua ({approvedMembersList.length})
                       </button>
                       <button
                         type="button"
@@ -7615,7 +8221,7 @@ export default function AdminModal({
                             : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-rose-50"
                         }`}
                       >
-                        ✕ Belum Bayar ({membersList.length - totalKasActiveCount})
+                        ✕ Belum Bayar ({Math.max(0, approvedMembersList.length - totalKasActiveCount)})
                       </button>
                     </div>
                   </div>
@@ -7727,7 +8333,7 @@ export default function AdminModal({
                 <JasraPanel
                   batches={jasraBatches}
                   distributions={jasraDistributions}
-                  membersList={membersList}
+                  membersList={approvedMembersList}
                   externalJasraList={externalJasraList}
                   onShowToast={onShowToast}
                   initialDistributeType={jasraInitialDistributeType}
@@ -8160,14 +8766,24 @@ export default function AdminModal({
                                     </div>
                                   </td>
                                   <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteKasTx(tx)}
-                                      className="p-1 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 cursor-pointer transition-colors"
-                                      title="Hapus catatan transaksi ini"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
+                                    <div className="inline-flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditKasTx(tx)}
+                                        className="p-1.5 rounded bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 cursor-pointer transition-colors"
+                                        title="Edit transaksi kas ini (tanpa mengirim ulang webhook Discord)"
+                                      >
+                                        <Edit2 size={13} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteKasTx(tx)}
+                                        className="p-1.5 rounded bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 cursor-pointer transition-colors"
+                                        title="Hapus catatan transaksi ini"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -9968,8 +10584,8 @@ export default function AdminModal({
                   <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shrink-0 border border-black/30 shadow-sm">
-                          <Sparkles size={16} />
+                        <div className="w-8 h-8 rounded bg-[#FACC15] flex items-center justify-center text-[#DC2626] shrink-0 border border-black/25 shadow-xs">
+                          <ScanLine size={16} />
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -10916,7 +11532,6 @@ export default function AdminModal({
                         <option value="ShoppingBag">🛍️ Shopping (Sembako)</option>
                         <option value="Wheat">🌾 Wheat (Bibit)</option>
                         <option value="Package">📦 Package</option>
-                        <option value="Sparkles">✨ Sparkles</option>
                         <option value="Gift">🎁 Gift</option>
                       </select>
 
@@ -11143,6 +11758,181 @@ export default function AdminModal({
           });
         }}
       />
+
+      {/* Modal Edit Transaksi Kas (Revisi tanpa spam webhook Discord) */}
+      {editKasTxModal.isOpen && editKasTxModal.tx && (() => {
+        const txType = String(editKasTxModal.tx.type || "INCOME").toUpperCase();
+        const isTransfer = txType === "TRANSFER";
+        const isIncome = txType === "INCOME";
+        const categoryOpts = isTransfer
+          ? ["Pindah Kas Antar Bendahara"]
+          : isIncome
+          ? ["Iuran Kas Anggota", "Iuran Kas Donatur", ...INCOME_CATEGORIES]
+          : [...EXPENSE_CATEGORIES];
+        if (editKasTxModal.category && !categoryOpts.includes(editKasTxModal.category)) {
+          categoryOpts.unshift(editKasTxModal.category);
+        }
+
+        return (
+          <div
+            className="fixed inset-0 z-[130] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+            onClick={() => setEditKasTxModal((prev) => ({ ...prev, isOpen: false }))}
+          >
+            <div
+              className="w-full max-w-lg bg-white dark:bg-[#161820] border-[3px] border-black dark:border-[#475569] rounded-2xl shadow-[8px_8px_0px_#000] p-4 sm:p-5 flex flex-col gap-3.5 max-h-[92vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b-2 border-black/15 dark:border-white/15">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#FACC15] border border-black flex items-center justify-center text-slate-950 shrink-0">
+                    <Edit2 size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-heading font-black uppercase text-slate-900 dark:text-slate-100">
+                      Edit Transaksi Kas
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-mono">
+                      {isTransfer ? "Pindah Kas" : isIncome ? "Pemasukan" : "Pengeluaran"} • Tidak mengirim ulang notif Discord
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditKasTxModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditKasTx} className="flex flex-col gap-3">
+                <div>
+                  <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                    Judul / Keterangan Transaksi *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editKasTxModal.title}
+                    onChange={(e) => setEditKasTxModal((prev) => ({ ...prev, title: e.target.value }))}
+                    className="input-field w-full text-xs sm:text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                      Nominal ($) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      required
+                      value={editKasTxModal.amount}
+                      onChange={(e) => setEditKasTxModal((prev) => ({ ...prev, amount: e.target.value }))}
+                      className="input-field w-full font-mono text-sm font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                      {isTransfer ? "Arah Pindah Kas" : "Pos Kas Bendahara"}
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {["Oita", "Darren"].map((w) => {
+                        const active = editKasTxModal.wallet === w;
+                        return (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => setEditKasTxModal((prev) => ({ ...prev, wallet: w }))}
+                            className={`py-2 px-2 rounded-lg text-xs font-heading font-black border cursor-pointer transition-colors ${
+                              active
+                                ? "bg-[#FACC15] text-slate-950 border-black shadow-xs"
+                                : "bg-slate-50 dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/10"
+                            }`}
+                          >
+                            {isTransfer ? (w === "Oita" ? "Oita -> Darren" : "Darren -> Oita") : `Kas ${w}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                      Kategori
+                    </label>
+                    <BrutalistSelect
+                      value={editKasTxModal.category}
+                      onChange={(val) => setEditKasTxModal((prev) => ({ ...prev, category: val }))}
+                      options={categoryOpts}
+                      ariaLabel="Kategori Transaksi Kas"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                      Penanggung Jawab
+                    </label>
+                    <input
+                      type="text"
+                      value={editKasTxModal.responsible}
+                      onChange={(e) => setEditKasTxModal((prev) => ({ ...prev, responsible: e.target.value }))}
+                      placeholder="Oita / Darren / Pengurus"
+                      className="input-field w-full text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                    Tanggal Transaksi
+                  </label>
+                  <BrutalistDatePicker
+                    value={editKasTxModal.customDate}
+                    onChange={(val) => setEditKasTxModal((prev) => ({ ...prev, customDate: val }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                    Catatan Tambahan
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editKasTxModal.notes}
+                    onChange={(e) => setEditKasTxModal((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Opsional..."
+                    className="input-field w-full text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/10 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setEditKasTxModal((prev) => ({ ...prev, isOpen: false }))}
+                    className="btn btn-secondary text-xs py-2 px-3.5 border border-black/15 dark:border-white/10 cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editKasTxModal.isSubmitting}
+                    className="btn text-xs py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black border border-emerald-700 shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Save size={14} />
+                    <span>{editKasTxModal.isSubmitting ? "Menyimpan..." : "Simpan Revisi"}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal Pindah Kas Antar Bendahara (Oita <-> Darren) */}
       <KasTransferModal
