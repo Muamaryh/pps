@@ -6,6 +6,8 @@
 
 import { loadDiscordWebhookConfig, saveDiscordWebhookConfig } from "./firebase";
 
+export const DISCORD_WEBHOOK_AVATAR_URL = "https://lsmpps.my.id/webhook-avatar.jpg";
+
 export const DEFAULT_DISCORD_WEBHOOK_CONFIG = {
   webhookUrl: "",
   kasWebhookUrl: "",
@@ -105,7 +107,10 @@ function buildKasDetailText(data = {}) {
 function buildEmbed(eventType, data = {}) {
   const adminUrl = getAdminPortalUrl();
   const timestamp = new Date().toISOString();
-  const footer = { text: "LSM Paguyuban Pizza Sandy Shores Notifikasi Otomatis" };
+  const footer = {
+    text: "LSM Paguyuban Pizza Sandy Shores Notifikasi Otomatis",
+    icon_url: DISCORD_WEBHOOK_AVATAR_URL,
+  };
 
   if (eventType === "MEMBER_REGISTRATION") {
     const verifyUrl = getAdminPortalUrl("member_registrations");
@@ -396,6 +401,7 @@ function splitReportTextIntoChunks(rawText, maxLen = 3600) {
 async function postSingleEmbed(targetUrl, embed, data = {}) {
   const baseBody = {
     username: "Portal LSM PPS",
+    avatar_url: DISCORD_WEBHOOK_AVATAR_URL,
     embeds: [embed],
   };
 
@@ -494,7 +500,10 @@ export async function sendDiscordNotification(eventType, data = {}, customUrl = 
               ? `Cakupan: **${walletLabel}**\n\`\`\`text\n${chunks[i]}\n\`\`\``
               : `\`\`\`text\n${chunks[i]}\n\`\`\``,
           color: 0xfacc15,
-          footer: { text: `LSM Paguyuban Pizza Sandy Shores Notifikasi Otomatis${partSuffix}` },
+          footer: {
+            text: `LSM Paguyuban Pizza Sandy Shores Notifikasi Otomatis${partSuffix}`,
+            icon_url: DISCORD_WEBHOOK_AVATAR_URL,
+          },
           timestamp,
         };
         const res = await postSingleEmbed(targetUrl, embed, data);
