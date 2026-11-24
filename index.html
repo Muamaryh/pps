@@ -16,15 +16,16 @@
     <meta property="og:image" content="https://lsmpps.my.id/pps.jpg" />
     <title>LSM Paguyuban Pizza Sandy Shores (PPS)</title>
 
-    <!-- Preload Hero LCP image (responsive WebP) -->
+    <!-- Preload Hero LCP image (mobile-first responsive WebP) & logo -->
     <link
       rel="preload"
       as="image"
-      href="/pps.webp"
-      imagesrcset="/pps-mobile.webp 900w, /pps.webp 1600w"
+      href="/pps-mobile.webp?v=hd2"
+      imagesrcset="/pps-mobile.webp?v=hd2 960w, /pps.webp?v=hd2 1840w"
       imagesizes="100vw"
       fetchpriority="high"
     />
+    <link rel="preload" as="image" href="/logo.webp" fetchpriority="high" />
 
     <!-- Google Fonts: only active heading & body families, non-render-blocking -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

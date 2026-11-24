@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
-import DoorprizeAdminPanel from "./DoorprizeAdminPanel";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, LayoutDashboard, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, EyeOff, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, UserPlus, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions, loadAdminAccountsConfig, saveAdminAccountsConfig, loadAdminActivityLogsCloud, logAdminActivityCloud } from "../services/firebase";
 import {
@@ -79,14 +78,21 @@ import { hashPassword, verifyPassword, verifyPersonalCredential, getLockoutState
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistSelect from "./BrutalistSelect";
 import BrutalistConfirmModal from "./BrutalistConfirmModal";
-import KasPaymentModal from "./KasPaymentModal";
-import KasExpenseModal from "./KasExpenseModal";
-import KasIncomeModal from "./KasIncomeModal";
-import KasTransferModal from "./KasTransferModal";
-import KasLedgerModal from "./KasLedgerModal";
-import KasCopyModal from "./KasCopyModal";
-import JasraPanel from "./JasraPanel";
 import { getSubMembers } from "../services/orgService";
+
+// Lazy-loaded heavy Admin tabs & sub-modals (improves mobile load speed & reduces main Admin chunk)
+const DoorprizeAdminPanel = lazy(() => import("./DoorprizeAdminPanel"));
+const KasPaymentModal = lazy(() => import("./KasPaymentModal"));
+const KasExpenseModal = lazy(() => import("./KasExpenseModal"));
+const KasIncomeModal = lazy(() => import("./KasIncomeModal"));
+const KasTransferModal = lazy(() => import("./KasTransferModal"));
+const KasLedgerModal = lazy(() => import("./KasLedgerModal"));
+const KasCopyModal = lazy(() => import("./KasCopyModal"));
+const JasraPanel = lazy(() => import("./JasraPanel"));
+const AdminOverviewTab = lazy(() => import("./admin/AdminOverviewTab"));
+const AdminSubmissionsTab = lazy(() => import("./admin/AdminSubmissionsTab"));
+const AdminKasTab = lazy(() => import("./admin/AdminKasTab"));
+const AdminSecurityTab = lazy(() => import("./admin/AdminSecurityTab"));
 import {
   loadJasraBatchesCloud,
   subscribeJasraBatchesCloud,
@@ -2142,11 +2148,24 @@ export default function AdminModal({
   }
 
   async function handleUpdateSubmissionStatus(id, newStatus) {
+    const isFinalized = newStatus !== "pending" && newStatus !== "in_progress";
+    const statusLabels = {
+      pending: "Baru",
+      in_progress: "Diproses",
+      approved: "Disetujui",
+      completed: "Selesai",
+      rejected: "Ditolak",
+    };
     const updated = submissions.map((sub) => {
       if (sub.id === id) {
-        const item = { ...sub, status: newStatus };
-        // Otomatis bersihkan foto KTP jika tiket sudah diproses (approved / rejected / completed)
-        if (newStatus !== "pending") {
+        const item = {
+          ...sub,
+          status: newStatus,
+          handledBy: activeAdminName,
+          statusUpdatedAt: Date.now(),
+        };
+        // Otomatis bersihkan foto KTP hanya jika tiket sudah final (approved / completed / rejected)
+        if (isFinalized) {
           delete item.fotoWajahIc;
           delete item.ktpImage;
           item.ktpVerified = true;
@@ -2157,10 +2176,12 @@ export default function AdminModal({
     });
     setSubmissions(updated);
     await updateSubmissions(updated);
-    if (newStatus !== "pending") {
-      onShowToast(`Status tiket #${id} diubah ke ${newStatus}. Foto KTP otomatis dibersihkan dari arsip.`, "success");
+    const label = statusLabels[newStatus] || newStatus;
+    recordActivity("KONTEN", "Update Status Tiket Layanan", `Tiket #${id} -> ${label}`);
+    if (isFinalized) {
+      onShowToast(`Status tiket #${id} diubah ke ${label}. Foto KTP otomatis dibersihkan dari arsip.`, "success");
     } else {
-      onShowToast(`Status tiket #${id} diubah ke ${newStatus}`, "info");
+      onShowToast(`Status tiket #${id} diubah ke ${label}`, "info");
     }
   }
 
@@ -3698,6 +3719,10 @@ export default function AdminModal({
     return match ? { cleanTitle: match[1], countText: match[2] } : { cleanTitle: label, countText: null };
   }
 
+  const openSubmissionsCount = submissions.filter(
+    (s) => !s.status || s.status === "pending" || s.status === "in_progress"
+  ).length;
+
   const tabGroups = [
     {
       group: "Umum & Konten",
@@ -3717,9 +3742,9 @@ export default function AdminModal({
       group: "Warga & Keuangan",
       shortLabel: "Warga",
       icon: Users2,
-      badgeCount: (submissions.length > 0 || membersList.length > 0 || pendingMembersCount > 0) ? (submissions.length + membersList.length) : null,
+      badgeCount: (openSubmissionsCount > 0 || pendingMembersCount > 0) ? (openSubmissionsCount + pendingMembersCount) : null,
       tabs: [
-        { id: "submissions", label: `Kotak Masuk (${submissions.length})`, icon: Inbox },
+        { id: "submissions", label: `Kotak Masuk (${openSubmissionsCount})`, icon: Inbox },
         { id: "member_registrations", label: `Verifikasi Anggota (${pendingMembersCount})`, icon: UserCheck },
         { id: "members_db", label: `Database Anggota (${membersList.length})`, icon: Users2 },
         { id: "member_kas", label: "Catat Uang Kas", icon: DollarSign },
@@ -4635,380 +4660,34 @@ export default function AdminModal({
                 <div className="max-w-7xl mx-auto w-full min-w-0 flex flex-col gap-4 sm:gap-6">
 
                   {/* Tab 0: Ringkasan Panel (Overview Operasional Pengurus) */}
-                  {activeTab === "overview" && (() => {
-                    const unpaidKasCount = Math.max(0, approvedMembersList.length - totalKasActiveCount);
-                    const kasPaidPct = approvedMembersList.length > 0
-                      ? Math.round((totalKasActiveCount / approvedMembersList.length) * 100)
-                      : 0;
-                    const unclaimedBansosCount = bansosClaims.filter((c) => !c.claimed).length;
-                    const recentKasTx = kasTransactions.slice(0, 4);
-                    const recentLogs = activityLogs.slice(0, 5);
-
-                    return (
-                      <div className="flex flex-col gap-4 sm:gap-5">
-                        {/* Greeting & Quick Actions Banner */}
-                        <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-11 h-11 rounded-xl bg-[#FACC15] border border-black/20 flex items-center justify-center font-heading font-black text-lg text-slate-950 shadow-xs shrink-0">
-                              {activeAdminName.slice(0, 1).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-heading font-black text-base sm:text-lg text-slate-950 dark:text-white truncate">
-                                  Halo, {activeAdminName}
-                                </h3>
-                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-400/60">
-                                  {currentAdmin?.role || "Pengurus LSM"}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                                Ringkasan antrean tugas, posisi kas bendahara, dan status keanggotaan hari ini.
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full lg:w-auto">
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab("member_registrations")}
-                              className="btn py-2 px-3 bg-[#FACC15] hover:bg-amber-400 text-slate-950 text-xs font-heading font-black border border-black/20 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <UserCheck size={14} className="text-[#DC2626] shrink-0" />
-                              <span className="truncate">Verifikasi ({pendingMembersCount})</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab("member_kas")}
-                              className="btn py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <DollarSign size={14} className="shrink-0" />
-                              <span className="truncate">Catat Kas</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTab("kas_db");
-                                setIsKasExpenseModalOpen(true);
-                              }}
-                              className="btn col-span-2 sm:col-span-1 py-2 px-3 bg-[#DC2626] hover:bg-red-700 text-white text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <TrendingDown size={14} className="shrink-0" />
-                              <span className="truncate">Catat Pengeluaran</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Antrean Tugas Perlu Tindakan (4 Actionable Cards) */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setActiveTab("member_registrations")}
-                            className={`card-brutal p-3.5 text-left border transition-all cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between gap-2 ${
-                              pendingMembersCount > 0
-                                ? "bg-amber-50 dark:bg-amber-950/30 border-amber-500/80"
-                                : "bg-white dark:bg-[#1A1D26] border-black/15 dark:border-white/10"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-300">
-                                Pending Verifikasi
-                              </span>
-                              <UserCheck size={15} className={pendingMembersCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400"} />
-                            </div>
-                            <div className="text-2xl font-mono font-black text-slate-950 dark:text-white">
-                              {pendingMembersCount}
-                            </div>
-                            <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                              {pendingMembersCount > 0 ? "Buka & tinjau berkas ->" : "Semua sudah diverifikasi"}
-                            </span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setActiveTab("submissions")}
-                            className={`card-brutal p-3.5 text-left border transition-all cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between gap-2 ${
-                              submissions.length > 0
-                                ? "bg-sky-50 dark:bg-sky-950/30 border-sky-500/70"
-                                : "bg-white dark:bg-[#1A1D26] border-black/15 dark:border-white/10"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-300">
-                                Kotak Masuk Layanan
-                              </span>
-                              <Inbox size={15} className="text-sky-600 dark:text-sky-400" />
-                            </div>
-                            <div className="text-2xl font-mono font-black text-slate-950 dark:text-white">
-                              {submissions.length}
-                            </div>
-                            <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-300">
-                              Lapak UMKM &amp; Meeting -&gt;
-                            </span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setKasMemberStatusFilter("unpaid");
-                              setActiveTab("member_kas");
-                            }}
-                            className="card-brutal p-3.5 text-left bg-rose-50/80 dark:bg-rose-950/25 border border-rose-400/70 transition-all cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between gap-2"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-heading font-black uppercase text-rose-800 dark:text-rose-300">
-                                Kas Belum Bayar
-                              </span>
-                              <DollarSign size={15} className="text-rose-600 dark:text-rose-400" />
-                            </div>
-                            <div className="text-2xl font-mono font-black text-rose-700 dark:text-rose-300">
-                              {unpaidKasCount}
-                            </div>
-                            <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
-                              {totalKasExpiringCount > 0 ? `${totalKasExpiringCount} segera jatuh tempo` : "Lihat daftar kas ->"}
-                            </span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setActiveTab("bansos_db")}
-                            className="card-brutal p-3.5 text-left bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 transition-all cursor-pointer hover:-translate-y-0.5 flex flex-col justify-between gap-2"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-300">
-                                Bansos Belum Diambil
-                              </span>
-                              <Gift size={15} className="text-[#DC2626] dark:text-[#FACC15]" />
-                            </div>
-                            <div className="text-2xl font-mono font-black text-slate-950 dark:text-white">
-                              {unclaimedBansosCount}
-                            </div>
-                            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                              Dari total {bansosClaims.length} klaim -&gt;
-                            </span>
-                          </button>
-                        </div>
-
-                        {/* Middle Split: Posisi Kas Bendahara + Keanggotaan & Jasra */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                          {/* Posisi Kas Bendahara (7 cols) */}
-                          <div className="lg:col-span-7 card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3.5">
-                            <div className="flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2.5">
-                              <div className="flex items-center gap-2">
-                                <Landmark size={16} className="text-emerald-600 dark:text-emerald-400" />
-                                <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-900 dark:text-slate-100">
-                                  Posisi Kas Bendahara
-                                </h4>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab("kas_db")}
-                                className="text-xs font-heading font-black text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer"
-                              >
-                                Buka Buku Kas &rarr;
-                              </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                              <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/35 border border-emerald-500/60">
-                                <span className="text-[10px] font-mono font-bold uppercase text-emerald-800 dark:text-emerald-300 block">
-                                  Saldo Bersih LSM
-                                </span>
-                                <strong className="text-lg font-mono font-black text-emerald-800 dark:text-emerald-300 mt-0.5 block">
-                                  {formatCurrency(kasSummary.netBalance)}
-                                </strong>
-                              </div>
-                              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-400/70">
-                                <span className="text-[10px] font-mono font-bold uppercase text-amber-900 dark:text-amber-300 block">
-                                  Kas Oita
-                                </span>
-                                <strong className="text-base font-mono font-black text-amber-950 dark:text-amber-200 mt-0.5 block">
-                                  {formatCurrency(kasSummary.oitaBalance)}
-                                </strong>
-                              </div>
-                              <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-400/70">
-                                <span className="text-[10px] font-mono font-bold uppercase text-indigo-900 dark:text-indigo-300 block">
-                                  Kas Darren
-                                </span>
-                                <strong className="text-base font-mono font-black text-indigo-950 dark:text-indigo-200 mt-0.5 block">
-                                  {formatCurrency(kasSummary.darrenBalance)}
-                                </strong>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                              <span className="text-[10px] font-heading font-black uppercase text-slate-500">
-                                Mutasi Terbaru
-                              </span>
-                              <div className="divide-y divide-black/10 dark:divide-white/10 border border-black/10 dark:border-white/10 rounded-lg overflow-hidden bg-white dark:bg-[#1A1D26]">
-                                {recentKasTx.length === 0 ? (
-                                  <div className="p-3 text-xs text-slate-500 text-center">Belum ada transaksi kas.</div>
-                                ) : (
-                                  recentKasTx.map((tx) => {
-                                    const tUpper = (tx.type || "").toUpperCase();
-                                    const isInc = tUpper === "INCOME";
-                                    const isTrf = tUpper === "TRANSFER";
-                                    return (
-                                      <div key={tx.id} className="px-3 py-2 flex items-center justify-between gap-2 text-xs">
-                                        <div className="min-w-0">
-                                          <div className="font-bold text-slate-900 dark:text-slate-100 truncate">
-                                            {tx.title}
-                                          </div>
-                                          <div className="text-[10px] font-mono text-slate-500 truncate">
-                                            {formatKasDate(tx.timestamp || tx.date)} • Kas {tx.wallet || "Oita"}
-                                          </div>
-                                        </div>
-                                        <span
-                                          className={`font-mono font-black text-xs shrink-0 ${
-                                            isTrf
-                                              ? "text-indigo-600 dark:text-indigo-400"
-                                              : isInc
-                                              ? "text-emerald-700 dark:text-emerald-400"
-                                              : "text-rose-700 dark:text-rose-400"
-                                          }`}
-                                        >
-                                          {isTrf ? "↔ " : isInc ? "+" : "-"}
-                                          {formatCurrency(tx.amount)}
-                                        </span>
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Keanggotaan & Voucher Jasra (5 cols) */}
-                          <div className="lg:col-span-5 card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col justify-between gap-3.5">
-                            <div className="flex flex-col gap-3">
-                              <div className="flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2.5">
-                                <div className="flex items-center gap-2">
-                                  <Users2 size={16} className="text-[#DC2626] dark:text-[#FACC15]" />
-                                  <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-900 dark:text-slate-100">
-                                    Keanggotaan &amp; Jasra
-                                  </h4>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveTab("members_db")}
-                                  className="text-xs font-heading font-black text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer"
-                                >
-                                  Database &rarr;
-                                </button>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2.5">
-                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#1E222D] border border-black/10 dark:border-white/10">
-                                  <span className="text-[10px] font-mono font-bold uppercase text-slate-500 block">
-                                    Anggota Resmi
-                                  </span>
-                                  <strong className="text-xl font-mono font-black text-slate-950 dark:text-white mt-0.5 block">
-                                    {approvedMembersList.length}
-                                  </strong>
-                                </div>
-                                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-400/60">
-                                  <span className="text-[10px] font-mono font-bold uppercase text-amber-900 dark:text-amber-300 block">
-                                    Voucher Jasra Aktif
-                                  </span>
-                                  <strong className="text-xl font-mono font-black text-amber-900 dark:text-[#FACC15] mt-0.5 block">
-                                    {totalVoucherActiveCount}
-                                  </strong>
-                                </div>
-                              </div>
-
-                              {/* Kas Paid Progress Bar */}
-                              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#1E222D] border border-black/10 dark:border-white/10 flex flex-col gap-1.5">
-                                <div className="flex items-center justify-between text-xs font-mono">
-                                  <span className="font-bold text-slate-700 dark:text-slate-300">
-                                    Kepatuhan Iuran Kas
-                                  </span>
-                                  <strong className="text-emerald-700 dark:text-emerald-400">
-                                    {totalKasActiveCount}/{approvedMembersList.length} ({kasPaidPct}%)
-                                  </strong>
-                                </div>
-                                <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                                  <div
-                                    className="h-full bg-emerald-500 rounded-full transition-all"
-                                    style={{ width: `${kasPaidPct}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab("members_db")}
-                                className="btn py-2 px-3 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold border border-black/15 dark:border-white/10 cursor-pointer"
-                              >
-                                Database Anggota
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab("jasra_panel")}
-                                className="btn py-2 px-3 bg-[#FACC15] hover:bg-amber-400 text-slate-950 text-xs font-black border border-black/20 cursor-pointer"
-                              >
-                                Kelola Jasra
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Latest Pengurus Activity Snapshot */}
-                        <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
-                          <div className="flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 pb-2.5">
-                            <div className="flex items-center gap-2">
-                              <Clock size={16} className="text-sky-600 dark:text-sky-400" />
-                              <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-900 dark:text-slate-100">
-                                Aktivitas Pengurus Terbaru
-                              </h4>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab("security")}
-                              className="text-xs font-heading font-black text-[#DC2626] dark:text-[#FACC15] hover:underline cursor-pointer"
-                            >
-                              Lihat Semua Log &rarr;
-                            </button>
-                          </div>
-
-                          {recentLogs.length === 0 ? (
-                            <p className="text-xs text-slate-500 py-2">
-                              Belum ada aktivitas terbaru tercatat.
-                            </p>
-                          ) : (
-                            <div className="divide-y divide-black/10 dark:divide-white/10 border border-black/10 dark:border-white/10 rounded-lg overflow-hidden bg-white dark:bg-[#1A1D26]">
-                              {recentLogs.map((log) => (
-                                <div key={log.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
-                                  <div className="min-w-0">
-                                    <span className="font-heading font-black text-slate-900 dark:text-slate-100">
-                                      {log.action}
-                                    </span>
-                                    {log.detail && (
-                                      <span className="text-slate-500 dark:text-slate-400 ml-1.5">
-                                        - {log.detail}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-[10px] font-mono text-slate-500 shrink-0">
-                                    <strong className="text-slate-700 dark:text-slate-300">{log.adminName}</strong>
-                                    {" • "}
-                                    {log.timestamp
-                                      ? new Date(log.timestamp).toLocaleString("id-ID", {
-                                          day: "numeric",
-                                          month: "short",
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })
-                                      : "-"}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                  <Suspense
+                    fallback={
+                      <div className="p-8 text-center text-xs font-mono text-slate-500">
+                        Memuat modul panel admin...
                       </div>
-                    );
-                  })()}
+                    }
+                  >
+                  {activeTab === "overview" && (
+                    <AdminOverviewTab
+                      activeAdminName={activeAdminName}
+                      currentAdmin={currentAdmin}
+                      pendingMembersCount={pendingMembersCount}
+                      submissions={submissions}
+                      approvedMembersList={approvedMembersList}
+                      totalKasActiveCount={totalKasActiveCount}
+                      totalKasExpiringCount={totalKasExpiringCount}
+                      totalVoucherActiveCount={totalVoucherActiveCount}
+                      bansosClaims={bansosClaims}
+                      kasSummary={kasSummary}
+                      kasTransactions={kasTransactions}
+                      activityLogs={activityLogs}
+                      formatCurrency={formatCurrency}
+                      formatKasDate={formatKasDate}
+                      setActiveTab={setActiveTab}
+                      setKasMemberStatusFilter={setKasMemberStatusFilter}
+                      setIsKasExpenseModalOpen={setIsKasExpenseModalOpen}
+                    />
+                  )}
 
                   {/* Tab 1: Identity */}
                   {activeTab === "identity" && (
@@ -5927,480 +5606,15 @@ export default function AdminModal({
 
               {/* Tab: Kotak Masuk Pengajuan (Lapak UMKM & Request Meeting) */}
               {activeTab === "submissions" && (
-                <div className="flex flex-col gap-3.5">
-                  <div className="flex flex-wrap justify-between items-center gap-2">
-                    <div>
-                      <span className="font-heading font-black text-xs sm:text-sm uppercase text-slate-800 dark:text-slate-200">
-                        Total: {submissions.length} Pengajuan Warga
-                      </span>
-                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block sm:inline sm:ml-2">
-                        (🏪 {submissions.filter((s) => s.type === "lapak").length} Stan Lapak UMKM • 🤝 {submissions.filter((s) => s.type === "meeting").length} Permohonan Pertemuan)
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-200/60 dark:bg-[#1A1D26] p-1 rounded border border-black/10 dark:border-white/10 text-xs font-bold">
-                      <button
-                        type="button"
-                        onClick={() => setSubmissionFilter("all")}
-                        className={`px-2.5 py-1 rounded transition-colors ${
-                          submissionFilter === "all" ? "bg-[#FACC15] text-[#111827] shadow-sm font-black border border-black" : "text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        Semua ({submissions.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSubmissionFilter("lapak")}
-                        className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1 ${
-                          submissionFilter === "lapak" ? "bg-[#FACC15] text-[#111827] shadow-sm font-black border border-black" : "text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        <span>🏪 Stan Lapak UMKM</span>
-                        <span>({submissions.filter((s) => s.type === "lapak").length})</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSubmissionFilter("meeting")}
-                        className={`px-2.5 py-1 rounded transition-colors flex items-center gap-1 ${
-                          submissionFilter === "meeting" ? "bg-[#DC2626] text-white shadow-sm font-black border border-black" : "text-slate-600 dark:text-slate-400"
-                        }`}
-                      >
-                        <span>🤝 Permohonan Pertemuan</span>
-                        <span>({submissions.filter((s) => s.type === "meeting").length})</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {submissions.filter((s) => submissionFilter === "all" || s.type === submissionFilter).length === 0 ? (
-                    <div className="card-brutal p-8 text-center bg-[var(--card-bg)] border-2 border-dashed border-black/30 dark:border-slate-600 text-slate-500 text-xs">
-                      Belum ada data pengajuan warga yang tercatat.
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {submissions
-                        .filter((s) => submissionFilter === "all" || s.type === submissionFilter)
-                        .map((sub) => {
-                          const isLapak = sub.type === "lapak";
-                          return (
-                            <div
-                              key={sub.id}
-                              className="card-brutal p-3.5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-2.5"
-                            >
-                              <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-black/10 dark:border-white/10">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-heading font-black border border-black uppercase ${
-                                      isLapak ? "bg-[#FACC15] text-[#111827]" : "bg-[#DC2626] text-white"
-                                    }`}
-                                  >
-                                    {isLapak ? "🏪 Stan Lapak UMKM" : "🤝 Permohonan Pertemuan"}
-                                  </span>
-                                  <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
-                                    #{sub.id}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <select
-                                    value={sub.status || "pending"}
-                                    onChange={(e) => handleUpdateSubmissionStatus(sub.id, e.target.value)}
-                                    className={`text-[11px] font-heading font-bold py-1 px-2 rounded border border-black cursor-pointer ${
-                                      sub.status === "approved"
-                                        ? "bg-emerald-100 text-emerald-900 border-emerald-500"
-                                        : sub.status === "completed"
-                                        ? "bg-blue-100 text-blue-900 border-blue-500"
-                                        : sub.status === "rejected"
-                                        ? "bg-red-100 text-red-900 border-red-500"
-                                        : "bg-amber-100 text-amber-900 border-amber-500"
-                                    }`}
-                                  >
-                                    <option value="pending">⏳ Menunggu</option>
-                                    <option value="approved">✅ Disetujui</option>
-                                    <option value="completed">🎉 Selesai</option>
-                                    <option value="rejected">❌ Ditolak</option>
-                                  </select>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteSubmission(sub.id)}
-                                    className="p-1 rounded text-red-600 hover:bg-red-100 dark:hover:bg-red-950/40 border border-transparent hover:border-red-400"
-                                    title="Hapus Tiket"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs items-center">
-                                <div>
-                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold block uppercase tracking-wider">
-                                    NAMA KTP / PEMOHON
-                                  </span>
-                                  <span className="font-heading font-black text-slate-900 dark:text-slate-100 text-sm block">
-                                    {sub.firstName ? `${sub.firstName} ${sub.lastName}` : (sub.namaKtp || sub.characterName)}
-                                  </span>
-                                  <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[10px] font-mono">
-                                    {sub.citizenId && (
-                                      <span className="font-bold text-[#DC2626] dark:text-[#FACC15]">
-                                        ID: {sub.citizenId}
-                                      </span>
-                                    )}
-                                    {sub.dob && (
-                                      <span className="text-slate-500 dark:text-slate-400">
-                                        • {sub.dob}
-                                      </span>
-                                    )}
-                                    {sub.sex && (
-                                      <span className="text-slate-500 dark:text-slate-400">
-                                        • {sub.sex}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold block uppercase tracking-wider">
-                                    KONTAK PENGAJU
-                                  </span>
-                                  <div className="flex items-center gap-1.5 text-xs font-mono">
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 font-black text-[10px] border border-amber-400/70 shrink-0">
-                                      📞 No. IC:
-                                    </span>
-                                    <strong className="text-slate-900 dark:text-slate-100 font-black tracking-wide truncate">
-                                      {sub.phoneNumber || "-"}
-                                    </strong>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 text-xs font-mono">
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950/70 text-indigo-900 dark:text-indigo-200 font-black text-[10px] border border-indigo-400/70 shrink-0">
-                                      💬 Discord:
-                                    </span>
-                                    <span className="text-slate-800 dark:text-slate-200 font-bold truncate">
-                                      {sub.discordTag ? sub.discordTag : <span className="text-slate-400 font-normal italic">Tidak diisi</span>}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold block uppercase tracking-wider">
-                                    WAKTU & MOU
-                                  </span>
-                                  <span className="text-slate-700 dark:text-slate-300 text-[11px] block font-mono">
-                                    {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("id-ID") : "-"}
-                                  </span>
-                                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                                    {sub.agreedMOU ? "✓ MOU Disetujui" : "Persetujuan Tertib"}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {isLapak ? (
-                                <div className="p-3.5 rounded bg-amber-50/70 dark:bg-[#1E212B] border border-black/20 dark:border-white/15/15 dark:border-white/10 text-xs font-sans">
-                                  <div className="flex items-center justify-between pb-1.5 mb-2.5 border-b border-black/10 dark:border-white/10 text-[11px] font-heading font-black text-[#DC2626] dark:text-[#FACC15] uppercase tracking-wider">
-                                    <span>🏪 Rincian Usaha & Lokasi Lapak</span>
-                                    {(sub.fotoWajahIc || sub.ktpImage) && (
-                                      <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/40">
-                                        ✓ Scan KTP Terlampir
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
-                                    {/* Kolom Kiri: 6 Field KTP IC + Rincian Lapak Usaha */}
-                                    <div className="lg:col-span-8 flex flex-col justify-between space-y-2.5">
-                                      {/* 6 Data Terpisah KTP IC */}
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded bg-white dark:bg-[#161820] border border-black/20 dark:border-white/15/15 dark:border-white/10 text-[11px] font-mono shadow-xs/10">
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">FIRST NAME:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100 text-xs">{sub.firstName || (sub.namaKtp ? sub.namaKtp.split(" ")[0] : "-")}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">LAST NAME:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100 text-xs">{sub.lastName || (sub.namaKtp ? sub.namaKtp.split(" ").slice(1).join(" ") : "-")}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">DOB:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100">{sub.dob || "-"}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">SEX:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100">{sub.sex || "-"}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">NATIONALITY:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100">{sub.nationality || "-"}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">CITIZEN ID:</span>
-                                          <strong className="text-[#DC2626] dark:text-[#FACC15] text-xs">{sub.citizenId || "-"}</strong>
-                                        </div>
-                                      </div>
-
-                                      {/* Rincian Usaha */}
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs p-2.5 rounded bg-white/70 dark:bg-[#161820]/70 border border-black/10 dark:border-white/10">
-                                        <div>
-                                          <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">NAMA USAHA / STAN:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100 text-xs">{sub.businessName}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">JENIS USAHA / PRODUK:</span>
-                                          <strong className="text-[#DC2626] dark:text-[#FACC15] text-xs">{sub.businessType}</strong>
-                                        </div>
-                                        <div className="sm:col-span-2 pt-1 border-t border-black/5 dark:border-white/5">
-                                          <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">PILIHAN LOKASI LAPAK SANDY SHORES:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100">{sub.preferredLocation}</strong>
-                                        </div>
-                                        {sub.facilityNeeds && (
-                                          <div className="sm:col-span-2 pt-1 border-t border-black/5 dark:border-white/5">
-                                            <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">KEBUTUHAN STAND & FASILITAS:</span>
-                                            <span className="text-slate-800 dark:text-slate-200">{sub.facilityNeeds}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Kolom Kanan Bawah: Gambar KTP IC */}
-                                    <div className="lg:col-span-4 flex flex-col justify-between rounded border border-black/20 dark:border-white/15 dark:border-slate-700 bg-white dark:bg-[#161820] p-2.5 shadow-xs">
-                                      <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-black/10 dark:border-white/10">
-                                        <span className="text-[10px] font-heading font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1">
-                                          <FileText size={12} className="text-[#DC2626] dark:text-[#FACC15]" />
-                                          DOKUMEN KTP IC
-                                        </span>
-                                        <span className="text-[9px] font-mono text-slate-400">
-                                          {sub.citizenId ? `#${sub.citizenId}` : ""}
-                                        </span>
-                                      </div>
-
-                                      {(sub.fotoWajahIc || sub.ktpImage) ? (
-                                        <div
-                                          className="relative group/ktp flex-1 min-h-[140px] rounded overflow-hidden border border-black/20 dark:border-white/10 bg-slate-950 flex items-center justify-center cursor-pointer"
-                                          onClick={() => setPreviewKtp({ image: sub.fotoWajahIc || sub.ktpImage, name: sub.firstName ? (sub.firstName + " " + sub.lastName) : (sub.namaKtp || sub.characterName || "Warga"), citizenId: sub.citizenId || "" })}
-                                          title="Klik untuk membuka dokumen KTP resolusi penuh"
-                                        >
-                                          <img
-                                            src={sub.fotoWajahIc || sub.ktpImage}
-                                            alt="Dokumen KTP IC"
-                                            className="w-full h-full max-h-[175px] object-contain group-hover/ktp:scale-105 transition-transform"
-                                          />
-                                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/ktp:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-[11px] font-bold font-mono">
-                                            <Maximize2 size={16} className="text-[#FACC15]" />
-                                            <span>Lihat Ukuran Penuh</span>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div className="flex-1 min-h-[130px] rounded border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 p-3 text-center bg-slate-50/50 dark:bg-slate-900/30">
-                                          <FileText size={22} className="mb-1 text-slate-300 dark:text-slate-600" />
-                                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">Tidak Ada Lampiran KTP</span>
-                                          <span className="text-[9px] text-slate-400">Diinput manual tanpa upload foto</span>
-                                        </div>
-                                      )}
-
-                                      <div className="mt-2 pt-1.5 border-t border-black/10 dark:border-white/10 text-[9px] text-slate-500 dark:text-slate-400 flex items-center justify-between font-mono">
-                                        <span>FOTO IDENTITAS</span>
-                                        {(sub.fotoWajahIc || sub.ktpImage) && (
-                                          <button
-                                            type="button"
-                                            onClick={() => setPreviewKtp({ image: sub.fotoWajahIc || sub.ktpImage, name: sub.firstName ? (sub.firstName + " " + sub.lastName) : (sub.namaKtp || sub.characterName || "Warga"), citizenId: sub.citizenId || "" })}
-                                            className="text-[#DC2626] dark:text-[#FACC15] hover:underline font-bold font-sans flex items-center gap-0.5"
-                                          >
-                                            Buka Dokumen ↗
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="p-3.5 rounded bg-red-50/70 dark:bg-[#1E212B] border border-black/20 dark:border-white/15/15 dark:border-white/10 text-xs font-sans">
-                                  <div className="flex items-center justify-between pb-1.5 mb-2.5 border-b border-black/10 dark:border-white/10 text-[11px] font-heading font-black text-[#DC2626] dark:text-[#FACC15] uppercase tracking-wider">
-                                    <span>🤝 Rincian Audiensi & Usulan Pertemuan</span>
-                                    {(sub.fotoWajahIc || sub.ktpImage) && (
-                                      <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/40">
-                                        ✓ Scan KTP Terlampir
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
-                                    {/* Kolom Kiri: 6 Field KTP IC + Rincian Audiensi / Pertemuan */}
-                                    <div className="lg:col-span-8 flex flex-col justify-between space-y-2.5">
-                                      {/* 6 Data Terpisah KTP IC */}
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded bg-white dark:bg-[#161820] border border-black/20 dark:border-white/15/15 dark:border-white/10 text-[11px] font-mono shadow-xs/10">
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">FIRST NAME:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100 text-xs">{sub.firstName || (sub.characterName ? sub.characterName.split(" ")[0] : "-")}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">LAST NAME:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100 text-xs">{sub.lastName || (sub.characterName ? sub.characterName.split(" ").slice(1).join(" ") : "-")}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">DOB:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100">{sub.dob || "-"}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">SEX:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100">{sub.sex || "-"}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">NATIONALITY:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100">{sub.nationality || "-"}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="text-[9px] text-slate-500 dark:text-slate-400 block font-sans font-black">CITIZEN ID:</span>
-                                          <strong className="text-[#DC2626] dark:text-[#FACC15] text-xs">{sub.citizenId || "-"}</strong>
-                                        </div>
-                                      </div>
-
-                                      {/* Rincian Pertemuan */}
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs p-2.5 rounded bg-white/70 dark:bg-[#161820]/70 border border-black/10 dark:border-white/10">
-                                        <div>
-                                          <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">ASAL INSTANSI / FRAKSI / KOMUNITAS:</span>
-                                          <strong className="text-[#DC2626] dark:text-[#FACC15] text-xs">{sub.agencyName}</strong>
-                                        </div>
-                                        <div>
-                                          <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">TOPIK POKOK PERTEMUAN:</span>
-                                          <strong className="text-slate-900 dark:text-slate-100 text-xs">{sub.meetingTopic}</strong>
-                                        </div>
-                                        <div className="sm:col-span-2 pt-1 border-t border-black/5 dark:border-white/5">
-                                          <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">RINCIAN AGENDA & PEMBAHASAN:</span>
-                                          <p className="text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed">{sub.agendaDetail}</p>
-                                        </div>
-                                        <div className="sm:col-span-2 pt-2 border-t border-black/10 dark:border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
-                                          <div>
-                                            <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">USULAN TANGGAL:</span>
-                                            <strong className="text-slate-900 dark:text-slate-100">📅 {sub.preferredDate}</strong>
-                                          </div>
-                                          <div>
-                                            <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">USULAN WAKTU:</span>
-                                            <strong className="text-slate-900 dark:text-slate-100">⏰ {sub.preferredTime}</strong>
-                                          </div>
-                                          <div>
-                                            <span className="font-black text-slate-600 dark:text-slate-400 block text-[10px]">TEMPAT PERTEMUAN:</span>
-                                            <strong className="text-slate-900 dark:text-slate-100">📍 {sub.meetingLocation}</strong>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Kolom Kanan Bawah: Gambar KTP IC */}
-                                    <div className="lg:col-span-4 flex flex-col justify-between rounded border border-black/20 dark:border-white/15 dark:border-slate-700 bg-white dark:bg-[#161820] p-2.5 shadow-xs">
-                                      <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-black/10 dark:border-white/10">
-                                        <span className="text-[10px] font-heading font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1">
-                                          <FileText size={12} className="text-[#DC2626] dark:text-[#FACC15]" />
-                                          DOKUMEN KTP IC
-                                        </span>
-                                        <span className="text-[9px] font-mono text-slate-400">
-                                          {sub.citizenId ? `#${sub.citizenId}` : ""}
-                                        </span>
-                                      </div>
-
-                                      {(sub.fotoWajahIc || sub.ktpImage) ? (
-                                        <div
-                                          className="relative group/ktp flex-1 min-h-[140px] rounded overflow-hidden border border-black/20 dark:border-white/10 bg-slate-950 flex items-center justify-center cursor-pointer"
-                                          onClick={() => setPreviewKtp({ image: sub.fotoWajahIc || sub.ktpImage, name: sub.firstName ? (sub.firstName + " " + sub.lastName) : (sub.namaKtp || sub.characterName || "Warga"), citizenId: sub.citizenId || "" })}
-                                          title="Klik untuk membuka dokumen KTP resolusi penuh"
-                                        >
-                                          <img
-                                            src={sub.fotoWajahIc || sub.ktpImage}
-                                            alt="Dokumen KTP IC"
-                                            className="w-full h-full max-h-[175px] object-contain group-hover/ktp:scale-105 transition-transform"
-                                          />
-                                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/ktp:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-[11px] font-bold font-mono">
-                                            <Maximize2 size={16} className="text-[#FACC15]" />
-                                            <span>Lihat Ukuran Penuh</span>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div className="flex-1 min-h-[130px] rounded border-2 border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 p-3 text-center bg-slate-50/50 dark:bg-slate-900/30">
-                                          <FileText size={22} className="mb-1 text-slate-300 dark:text-slate-600" />
-                                          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">Tidak Ada Lampiran KTP</span>
-                                          <span className="text-[9px] text-slate-400">Diinput manual tanpa upload foto</span>
-                                        </div>
-                                      )}
-
-                                      <div className="mt-2 pt-1.5 border-t border-black/10 dark:border-white/10 text-[9px] text-slate-500 dark:text-slate-400 flex items-center justify-between font-mono">
-                                        <span>FOTO IDENTITAS</span>
-                                        {(sub.fotoWajahIc || sub.ktpImage) && (
-                                          <button
-                                            type="button"
-                                            onClick={() => setPreviewKtp({ image: sub.fotoWajahIc || sub.ktpImage, name: sub.firstName ? (sub.firstName + " " + sub.lastName) : (sub.namaKtp || sub.characterName || "Warga"), citizenId: sub.citizenId || "" })}
-                                            className="text-[#DC2626] dark:text-[#FACC15] hover:underline font-bold font-sans flex items-center gap-0.5"
-                                          >
-                                            Buka Dokumen ↗
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Catatan / Balasan Pengurus untuk Pengaju */}
-                              <div className="pt-2 border-t border-black/10 dark:border-white/10 flex flex-col gap-1.5">
-                                <label className="text-[10px] font-heading font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center justify-between">
-                                  <span>💬 Catatan / Balasan Pengurus (Terlihat oleh Warga saat Lacak Tiket):</span>
-                                  <span className="text-[9px] font-normal text-slate-500">Ketik lalu klik Simpan</span>
-                                </label>
-                                <div className="flex gap-2">
-                                  <input
-                                    type="text"
-                                    placeholder="Contoh: Disetujui! Datang jam 20.00 IC ke Markas PPS Sandy Shores, temui Jack Sullivan."
-                                    defaultValue={sub.adminNotes || ""}
-                                    id={`note-input-${sub.id}`}
-                                    className="input-field text-xs py-1 px-2.5 flex-1 bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 border border-black dark:border-slate-600 rounded"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const inputElem = document.getElementById(`note-input-${sub.id}`);
-                                      if (inputElem) {
-                                        handleUpdateSubmissionNote(sub.id, inputElem.value);
-                                      }
-                                    }}
-                                    className="px-3 py-1 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] text-xs font-heading font-black border border-black shadow-xs rounded"
-                                  >
-                                    Simpan Catatan
-                                  </button>
-                                </div>
-
-                                {/* Template Cepat untuk Pengurus */}
-                                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const inputElem = document.getElementById(`note-input-${sub.id}`);
-                                      if (inputElem) {
-                                        inputElem.value = "MOU & Berkas disetujui! Silakan masuk ke channel Discord visitor untuk koordinasi jadwal meeting IC di Markas Sandy Shores.";
-                                        handleUpdateSubmissionNote(sub.id, inputElem.value);
-                                        handleUpdateSubmissionStatus(sub.id, "approved");
-                                      }
-                                    }}
-                                    className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 border border-emerald-500 hover:bg-emerald-200"
-                                  >
-                                    + Preset: Setujui & Arahkan Discord Visitor
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const inputElem = document.getElementById(`note-input-${sub.id}`);
-                                      if (inputElem) {
-                                        inputElem.value = "Jadwal meeting IC disetujui. Silakan hadir di Markas LSM PPS Sandy Shores jam 20.30 IC.";
-                                        handleUpdateSubmissionNote(sub.id, inputElem.value);
-                                      }
-                                    }}
-                                    className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300 border border-blue-500 hover:bg-blue-200"
-                                  >
-                                    + Preset: Jadwal Meeting IC Siap
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </div>
+                <AdminSubmissionsTab
+                  submissions={submissions}
+                  submissionFilter={submissionFilter}
+                  setSubmissionFilter={setSubmissionFilter}
+                  handleUpdateSubmissionStatus={handleUpdateSubmissionStatus}
+                  handleUpdateSubmissionNote={handleUpdateSubmissionNote}
+                  handleDeleteSubmission={handleDeleteSubmission}
+                  setPreviewKtp={setPreviewKtp}
+                />
               )}
 
               {/* Tab: Verifikasi Anggota Baru (member_registrations) */}
@@ -8344,456 +7558,26 @@ export default function AdminModal({
 
               {/* Tab: Buku Kas & Keuangan LSM PPS */}
               {activeTab === "kas_db" && (
-                <div className="flex flex-col gap-4">
-                  {/* Top Header Card with Actions */}
-                  <div className="card-brutal p-4 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-[#FACC15] border border-black/20 dark:border-white/15 flex items-center justify-center text-slate-900 shadow-xs shrink-0">
-                        <DollarSign size={20} className="text-[#DC2626]" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
-                            Keuangan LSM PPS
-                          </h4>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-400">
-                            TRANSPARAN
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400">
-                          Pencatatan kas organisasi, iuran anggota, donasi, dan alokasi dana operasional Sandy Shores
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 w-full md:w-auto">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("member_kas")}
-                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] sm:text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Buka menu khusus pencatatan iuran kas anggota LSM"
-                      >
-                        <DollarSign size={15} className="shrink-0" />
-                        <span className="truncate">Catat Kas Anggota</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsKasIncomeModalOpen(true)}
-                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] sm:text-xs font-heading font-black border border-emerald-500/80 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Catat dana masuk baru (donasi warga, sponsorship, hasil UMKM, dll)"
-                      >
-                        <Plus size={15} className="shrink-0" />
-                        <span className="truncate">Catat Pemasukan</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsKasExpenseModalOpen(true)}
-                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[11px] sm:text-xs font-heading font-black border border-red-500/80 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Catat pengeluaran baru kas LSM"
-                      >
-                        <TrendingDown size={15} className="shrink-0" />
-                        <span className="truncate">Catat Pengeluaran</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsKasTransferModalOpen(true)}
-                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] sm:text-xs font-heading font-black border border-indigo-500/80 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Pindahkan saldo antar bendahara (Kas Oita <-> Kas Darren) tanpa masuk pengeluaran"
-                      >
-                        <ArrowLeftRight size={15} className="shrink-0" />
-                        <span className="truncate">Pindah Kas</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleExportKasExcel}
-                        disabled={kasTransactions.length === 0}
-                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-heading font-black border border-black/20 dark:border-white/15 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50 transition-all cursor-pointer rounded"
-                        title="Download seluruh mutasi kas dalam format Excel (.xlsx)"
-                      >
-                        <FileSpreadsheet size={15} className="shrink-0" />
-                        <span className="truncate">Ekspor Excel</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsKasCopyModalOpen(true)}
-                        className="py-2.5 sm:py-2 px-2.5 sm:px-3.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-[11px] sm:text-xs font-heading font-black border border-indigo-400/70 shadow-xs flex items-center justify-center gap-1.5 sm:gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Teruskan laporan lengkap atau ringkasan saldo kas langsung ke Discord Keuangan"
-                      >
-                        <Send size={14} className="shrink-0" />
-                        <span className="truncate">Kirim ke Discord</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Metric Cards: 2 Pos Kas Bendahara & Total Saldo Bersih */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* Card 1: Kas Oita */}
-                    <div className="card-brutal p-3.5 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 dark:border-amber-400 shadow-xs flex flex-col justify-between gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-sans font-black text-amber-900 dark:text-amber-300 uppercase">
-                          Kas di Oita (Bendahara)
-                        </span>
-                      </div>
-                      <div className="flex items-baseline gap-1">
-                        <strong className="text-xl font-mono font-black text-amber-950 dark:text-amber-200">
-                          {formatCurrency(kasSummary.oitaBalance)}
-                        </strong>
-                      </div>
-                      <span className="text-[10px] text-amber-800 dark:text-amber-300 font-mono">
-                        Masuk: +{formatCurrency(kasSummary.oitaIncome)} • Keluar: -{formatCurrency(kasSummary.oitaExpense)}
-                      </span>
-                    </div>
-
-                    {/* Card 2: Kas Darren */}
-                    <div className="card-brutal p-3.5 bg-indigo-50 dark:bg-indigo-950/30 border-2 border-indigo-500 dark:border-indigo-400 shadow-xs flex flex-col justify-between gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-sans font-black text-indigo-900 dark:text-indigo-300 uppercase">
-                          Kas di Darren (Bendahara)
-                        </span>
-                      </div>
-                      <div className="flex items-baseline gap-1">
-                        <strong className="text-xl font-mono font-black text-indigo-950 dark:text-indigo-200">
-                          {formatCurrency(kasSummary.darrenBalance)}
-                        </strong>
-                      </div>
-                      <span className="text-[10px] text-indigo-800 dark:text-indigo-300 font-mono">
-                        Masuk: +{formatCurrency(kasSummary.darrenIncome)} • Keluar: -{formatCurrency(kasSummary.darrenExpense)}
-                      </span>
-                    </div>
-
-                    {/* Card 3: Saldo Kas Bersih LSM */}
-                    <div className="card-brutal p-3.5 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-xs flex flex-col justify-between gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-sans font-black text-emerald-900 dark:text-emerald-300 uppercase">
-                          Total Saldo Bersih LSM
-                        </span>
-                      </div>
-                      <div className="flex items-baseline gap-1">
-                        <strong className="text-xl font-mono font-black text-emerald-800 dark:text-emerald-300">
-                          {formatCurrency(kasSummary.netBalance)}
-                        </strong>
-                      </div>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                        Total gabungan kas Oita + Darren
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Arus Kas: Total Pemasukan vs Total Pengeluaran */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
-                          Akumulasi Pemasukan
-                        </span>
-                        <strong className="text-base font-mono font-black text-emerald-700 dark:text-emerald-400">
-                          +{formatCurrency(kasSummary.totalIncome)}
-                        </strong>
-                      </div>
-                      <span className="text-[11px] font-mono px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300">
-                        {kasSummary.incomeCount} transaksi masuk
-                      </span>
-                    </div>
-
-                    <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-sans font-black text-slate-500 uppercase">
-                          Akumulasi Pengeluaran
-                        </span>
-                        <strong className="text-base font-mono font-black text-rose-700 dark:text-rose-400">
-                          -{formatCurrency(kasSummary.totalExpense)}
-                        </strong>
-                      </div>
-                      <span className="text-[11px] font-mono px-2 py-1 rounded bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300">
-                        {kasSummary.expenseCount} transaksi keluar
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Filter & Search Bar */}
-                  <div className="card-brutal p-3 bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-                    {/* Search box */}
-                    <div className="relative flex-1">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Cari transaksi, nama anggota, CID, bendahara, catatan..."
-                        value={kasSearchQuery}
-                        onChange={(e) => setKasSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-3 py-1.5 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border border-black/15 dark:border-white/10 rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#DC2626]"
-                      />
-                    </div>
-
-                    {/* Filter pills */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0 sm:flex-wrap sm:overflow-visible">
-                      <button
-                        type="button"
-                        onClick={() => setKasFilterType("ALL")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-                          kasFilterType === "ALL"
-                            ? "bg-slate-900 text-white shadow-xs"
-                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-                        }`}
-                      >
-                        Semua ({kasTransactions.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setKasFilterType("INCOME")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-                          kasFilterType === "INCOME"
-                            ? "bg-emerald-600 text-white shadow-xs"
-                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-emerald-50"
-                        }`}
-                      >
-                        Pemasukan ({kasSummary.incomeCount})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setKasFilterType("EXPENSE")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-                          kasFilterType === "EXPENSE"
-                            ? "bg-rose-600 text-white shadow-xs"
-                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-rose-50"
-                        }`}
-                      >
-                        Pengeluaran ({kasSummary.expenseCount})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setKasFilterType("TRANSFER")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-                          kasFilterType === "TRANSFER"
-                            ? "bg-indigo-600 text-white shadow-xs"
-                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-indigo-50"
-                        }`}
-                      >
-                        Pindah Kas ({kasSummary.transferCount || 0})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setKasFilterType("OITA")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-                          kasFilterType === "OITA"
-                            ? "bg-amber-500 text-slate-950 shadow-xs"
-                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-amber-50"
-                        }`}
-                      >
-                        Kas Oita
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setKasFilterType("DARREN")}
-                        className={`px-2.5 py-1.5 text-xs font-mono font-bold rounded border border-black/20 dark:border-white/15 cursor-pointer transition-all shrink-0 whitespace-nowrap ${
-                          kasFilterType === "DARREN"
-                            ? "bg-indigo-600 text-white shadow-xs"
-                            : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 hover:bg-indigo-50"
-                        }`}
-                      >
-                        Kas Darren
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Transactions Table */}
-                  <div className="card-brutal bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-100 dark:bg-[#20232E] border-b-2 border-black dark:border-[#475569] text-[10px] font-heading font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                            <th className="py-2.5 px-3">Tanggal / Waktu</th>
-                            <th className="py-2.5 px-3">Pos Kas</th>
-                            <th className="py-2.5 px-3">Jenis & Kategori</th>
-                            <th className="py-2.5 px-3">Keterangan / Terkait</th>
-                            <th className="py-2.5 px-3">Penanggung Jawab</th>
-                            <th className="py-2.5 px-3 text-right">Nominal ($)</th>
-                            <th className="py-2.5 px-3 text-right whitespace-nowrap">
-                              {kasFilterType === "OITA"
-                                ? "Saldo Oita ($)"
-                                : kasFilterType === "DARREN"
-                                ? "Saldo Darren ($)"
-                                : "Saldo Bersih ($)"}
-                            </th>
-                            <th className="py-2.5 px-3 text-center">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-black/10 dark:divide-white/10 font-mono text-xs">
-                          {filteredKasTransactions.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="py-8 text-center text-slate-500">
-                                Tidak ada transaksi yang sesuai dengan filter.
-                              </td>
-                            </tr>
-                          ) : (
-                            filteredKasTransactions.map((tx) => {
-                              const txTypeUpper = (tx.type || "").toUpperCase();
-                              const isIncome = txTypeUpper === "INCOME";
-                              const isTransfer = txTypeUpper === "TRANSFER";
-                              const fromW = tx.fromWallet || tx.wallet || "Oita";
-                              const toW = tx.toWallet || (fromW === "Darren" ? "Oita" : "Darren");
-                              const txWalletText = (tx.wallet || tx.responsible || tx.title || "").toLowerCase();
-                              const isDarren = tx.wallet === "Darren" || txWalletText.includes("darren");
-                              const balInfo = kasRunningBalances[tx.id];
-                              const isOitaView = kasFilterType === "OITA";
-                              const isDarrenView = kasFilterType === "DARREN";
-                              const balBefore = balInfo
-                                ? isOitaView
-                                  ? balInfo.oitaBefore
-                                  : isDarrenView
-                                  ? balInfo.darrenBefore
-                                  : balInfo.netBefore
-                                : 0;
-                              const balAfter = balInfo
-                                ? isOitaView
-                                  ? balInfo.oitaAfter
-                                  : isDarrenView
-                                  ? balInfo.darrenAfter
-                                  : balInfo.netAfter
-                                : 0;
-                              const viewDelta = balInfo
-                                ? isOitaView
-                                  ? balInfo.oitaDelta
-                                  : isDarrenView
-                                  ? balInfo.darrenDelta
-                                  : balInfo.delta
-                                : 0;
-                              const absAmt = Math.abs(Number(tx.amount) || 0);
-
-                              return (
-                                <tr
-                                  key={tx.id}
-                                  className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-                                >
-                                  <td className="py-2.5 px-3 whitespace-nowrap text-[11px] text-slate-600 dark:text-slate-400">
-                                    {formatKasDate(tx.timestamp || tx.date)}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap">
-                                    {isTransfer ? (
-                                      <span className="px-2 py-0.5 rounded text-[10px] font-heading font-black border bg-sky-100 text-sky-900 border-sky-400 dark:bg-sky-950/70 dark:text-sky-200">
-                                        Kas {fromW} &rarr; Kas {toW}
-                                      </span>
-                                    ) : (
-                                      <span
-                                        className={`px-2 py-0.5 rounded text-[10px] font-heading font-black border ${
-                                          isDarren
-                                            ? "bg-indigo-100 text-indigo-900 border-indigo-400 dark:bg-indigo-950/70 dark:text-indigo-300"
-                                            : "bg-amber-100 text-amber-900 border-amber-400 dark:bg-amber-950/70 dark:text-amber-200"
-                                        }`}
-                                      >
-                                        {isDarren ? "Kas Darren" : "Kas Oita"}
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap">
-                                    <div className="flex items-center gap-1.5">
-                                      <span
-                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                                          isTransfer
-                                            ? "bg-indigo-100 text-indigo-800 border-indigo-400 dark:bg-indigo-950 dark:text-indigo-300"
-                                            : isIncome
-                                            ? "bg-emerald-100 text-emerald-800 border-emerald-400 dark:bg-emerald-950 dark:text-emerald-300"
-                                            : "bg-rose-100 text-rose-800 border-rose-400 dark:bg-rose-950 dark:text-rose-300"
-                                        }`}
-                                      >
-                                        {isTransfer ? "Pindah Kas" : isIncome ? "Pemasukan" : "Pengeluaran"}
-                                      </span>
-                                      <span className="text-[10px] text-slate-500 font-sans">
-                                        {tx.category || "Umum"}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className="py-2.5 px-3">
-                                    <div className="font-sans font-bold text-slate-900 dark:text-slate-100 text-xs">
-                                      {tx.title}
-                                    </div>
-                                    {(tx.memberName || tx.memberCid) && (
-                                      <div className="text-[10px] text-slate-500 font-mono">
-                                        Anggota: {tx.memberName} ({tx.memberCid})
-                                      </div>
-                                    )}
-                                    {tx.notes && (
-                                      <div className="text-[10px] text-slate-500 italic mt-0.5">
-                                        {tx.notes}
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap text-[11px] text-slate-700 dark:text-slate-300">
-                                    {tx.responsible || tx.recordedBy || (isDarren ? "Darren" : "Oita")}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap text-right font-black">
-                                    <span
-                                      className={
-                                        isTransfer
-                                          ? "text-indigo-600 dark:text-indigo-400"
-                                          : isIncome
-                                          ? "text-emerald-700 dark:text-emerald-400"
-                                          : "text-rose-700 dark:text-rose-400"
-                                      }
-                                    >
-                                      {isTransfer ? "↔ " : isIncome ? "+" : "-"}
-                                      {formatCurrency(tx.amount)}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap text-right">
-                                    <div className="font-mono font-black text-slate-900 dark:text-slate-100">
-                                      {formatCurrency(balAfter)}
-                                    </div>
-                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                                      {isTransfer && viewDelta === 0 ? (
-                                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">
-                                          Saldo Total Tetap
-                                        </span>
-                                      ) : (
-                                        <>
-                                          {formatCurrency(balBefore)}{" "}
-                                          <span
-                                            className={
-                                              viewDelta >= 0
-                                                ? "text-emerald-600 dark:text-emerald-400 font-bold"
-                                                : "text-rose-600 dark:text-rose-400 font-bold"
-                                            }
-                                          >
-                                            {viewDelta >= 0 ? "+" : "-"} {formatCurrency(absAmt)}
-                                          </span>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                    <div className="inline-flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenEditKasTx(tx)}
-                                        className="p-1.5 rounded bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 cursor-pointer transition-colors"
-                                        title="Edit transaksi kas ini (tanpa mengirim ulang webhook Discord)"
-                                      >
-                                        <Edit2 size={13} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteKasTx(tx)}
-                                        className="p-1.5 rounded bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 cursor-pointer transition-colors"
-                                        title="Hapus catatan transaksi ini"
-                                      >
-                                        <Trash2 size={13} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
+                <AdminKasTab
+                  kasSummary={kasSummary}
+                  kasTransactions={kasTransactions}
+                  filteredKasTransactions={filteredKasTransactions}
+                  kasRunningBalances={kasRunningBalances}
+                  kasSearchQuery={kasSearchQuery}
+                  setKasSearchQuery={setKasSearchQuery}
+                  kasFilterType={kasFilterType}
+                  setKasFilterType={setKasFilterType}
+                  formatCurrency={formatCurrency}
+                  formatKasDate={formatKasDate}
+                  setActiveTab={setActiveTab}
+                  setIsKasIncomeModalOpen={setIsKasIncomeModalOpen}
+                  setIsKasExpenseModalOpen={setIsKasExpenseModalOpen}
+                  setIsKasTransferModalOpen={setIsKasTransferModalOpen}
+                  setIsKasCopyModalOpen={setIsKasCopyModalOpen}
+                  handleExportKasExcel={handleExportKasExcel}
+                  handleOpenEditKasTx={handleOpenEditKasTx}
+                  handleDeleteKasTx={handleDeleteKasTx}
+                />
               )}
 
               {/* Tab: Kelola Event & Database Pendaftar */}
@@ -9906,896 +8690,60 @@ export default function AdminModal({
 
               {/* Tab 5: Security */}
               {activeTab === "security" && (
-                <div className="flex flex-col gap-5">
-                  {/* Pengurus Accounts Management Card */}
-                  <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded bg-amber-500/15 border-2 border-amber-500 flex items-center justify-center text-amber-700 dark:text-amber-300 shadow-[2px_2px_0px_#d97706] shrink-0">
-                          <Users size={20} />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
-                            Akun Pengurus & Audit Akses
-                          </h4>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
-                            Setiap pengurus login pakai akun IC pribadi agar ACC, kas, dan bansos tercatat otomatis
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAdminAccountAction({
-                            type: "toggle_onboarding",
-                            masterInput: "",
-                            newPassword: "",
-                            newPin: "",
-                          })
-                        }
-                        className={`btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 font-black border border-black/20 dark:border-white/15 shadow-xs cursor-pointer ${
-                          allowMasterOnboarding
-                            ? "bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-300"
-                            : "bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 text-slate-800 dark:text-slate-300"
-                        }`}
-                      >
-                        {allowMasterOnboarding ? "Aktivasi Pengurus Baru: DIBUKA" : "Aktivasi Pengurus Baru: DITUTUP"}
-                      </button>
-                    </div>
-
-                    {/* Active Logged-in Pengurus Info + Self Update */}
-                    <div className="p-3.5 rounded bg-amber-50/70 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60 flex flex-col gap-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-full bg-[#FACC15] border border-black/20 flex items-center justify-center font-heading font-black text-sm text-slate-950 shrink-0">
-                            {activeAdminName.slice(0, 1).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                              <span>{activeAdminName}</span>
-                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40">
-                                Sedang Login
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-slate-600 dark:text-slate-400">
-                              Jabatan: <strong>{currentAdmin?.role || "Pengurus LSM"}</strong>
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowSelfCredForm((v) => !v);
-                            setSelfCredForm({ currentSecret: "", newPassword: "", newPin: "" });
-                          }}
-                          className="btn text-xs py-1.5 px-3 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15 font-bold shadow-xs cursor-pointer"
-                        >
-                          {showSelfCredForm ? "Tutup Form" : "Ubah Password / PIN Saya"}
-                        </button>
-                      </div>
-
-                      {showSelfCredForm && (
-                        <form
-                          onSubmit={handleUpdateSelfCredentials}
-                          className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-amber-300/60 dark:border-amber-800/50"
-                        >
-                          <div>
-                            <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
-                              Password / PIN Saat Ini *
-                            </label>
-                            <input
-                              type="password"
-                              value={selfCredForm.currentSecret}
-                              onChange={(e) =>
-                                setSelfCredForm((prev) => ({ ...prev, currentSecret: e.target.value }))
-                              }
-                              placeholder="Password atau PIN lama..."
-                              required
-                              className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
-                              Password Baru (Opsional)
-                            </label>
-                            <input
-                              type="password"
-                              value={selfCredForm.newPassword}
-                              onChange={(e) =>
-                                setSelfCredForm((prev) => ({ ...prev, newPassword: e.target.value }))
-                              }
-                              placeholder="Min. 4 karakter..."
-                              className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
-                              PIN Baru 4-6 Digit (Opsional)
-                            </label>
-                            <input
-                              type="password"
-                              inputMode="numeric"
-                              value={selfCredForm.newPin}
-                              onChange={(e) =>
-                                setSelfCredForm((prev) => ({
-                                  ...prev,
-                                  newPin: e.target.value.replace(/\D/g, "").slice(0, 6),
-                                }))
-                              }
-                              placeholder="Contoh: 123456"
-                              className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
-                            />
-                          </div>
-                          <div className="sm:col-span-3 flex items-center gap-2 pt-1">
-                            <button
-                              type="submit"
-                              disabled={isSavingSelfCred}
-                              className="btn text-xs py-1.5 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black border border-black/20 shadow-xs disabled:opacity-50"
-                            >
-                              {isSavingSelfCred ? "Menyimpan..." : "Simpan Perubahan"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowSelfCredForm(false)}
-                              className="btn btn-secondary text-xs py-1.5 px-3 border border-black/15 dark:border-white/10"
-                            >
-                              Batal
-                            </button>
-                          </div>
-                        </form>
-                      )}
-                    </div>
-
-                    {/* Inline Master Confirmation Panel for Sensitive Account Actions */}
-                    {adminAccountAction && (
-                      <form
-                        onSubmit={handleExecuteAdminAccountAction}
-                        className="p-4 rounded bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500/70 flex flex-col gap-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="font-heading font-black text-xs uppercase text-rose-900 dark:text-rose-200">
-                              {adminAccountAction.type === "toggle_onboarding"
-                                ? allowMasterOnboarding
-                                  ? "Konfirmasi Tutup Aktivasi Pengurus Baru"
-                                  : "Konfirmasi Buka Aktivasi Pengurus Baru"
-                                : adminAccountAction.type === "delete"
-                                ? `Konfirmasi Cabut Akses: ${adminAccountAction.account?.name}`
-                                : `Reset Password & PIN: ${adminAccountAction.account?.name}`}
-                            </div>
-                            <p className="text-[11px] text-rose-800/90 dark:text-rose-300 mt-0.5">
-                              {adminAccountAction.type === "toggle_onboarding"
-                                ? "Masukkan Kode Akses Utama (Master Password/PIN) untuk mengubah status aktivasi pengurus baru."
-                                : adminAccountAction.type === "delete"
-                                ? "Akun ini akan dihapus dan otomatis keluar dari semua browser yang sedang login."
-                                : "Tentukan Password & PIN sementara baru untuk pengurus ini, lalu konfirmasi pakai Kode Akses Utama."}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setAdminAccountAction(null)}
-                            className="p-1 rounded hover:bg-rose-200/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 cursor-pointer"
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-
-                        {adminAccountAction.type === "reset" && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            <div>
-                              <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
-                                Password Sementara Baru *
-                              </label>
-                              <input
-                                type="text"
-                                value={adminAccountAction.newPassword}
-                                onChange={(e) =>
-                                  setAdminAccountAction((prev) => ({ ...prev, newPassword: e.target.value }))
-                                }
-                                placeholder="Minimal 4 karakter..."
-                                required
-                                className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
-                                PIN Sementara Baru (4-6 Digit) *
-                              </label>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                value={adminAccountAction.newPin}
-                                onChange={(e) =>
-                                  setAdminAccountAction((prev) => ({
-                                    ...prev,
-                                    newPin: e.target.value.replace(/\D/g, "").slice(0, 6),
-                                  }))
-                                }
-                                placeholder="Contoh: 123456"
-                                required
-                                className="input-field font-mono text-xs bg-white dark:bg-[#1A1D26] border border-black/15 dark:border-white/10"
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="password"
-                            value={adminAccountAction.masterInput}
-                            onChange={(e) =>
-                              setAdminAccountAction((prev) => ({ ...prev, masterInput: e.target.value }))
-                            }
-                            placeholder="Masukkan Kode Akses Utama (Master Password / PIN)..."
-                            autoFocus
-                            required
-                            className="input-field font-mono text-xs flex-1 bg-white dark:bg-[#1A1D26] border border-black/20 dark:border-white/15"
-                          />
-                          <button
-                            type="submit"
-                            disabled={isProcessingAccountAction}
-                            className="btn text-xs py-2 px-4 bg-[#DC2626] hover:bg-red-700 text-white font-black border border-black/20 shadow-xs disabled:opacity-50"
-                          >
-                            {isProcessingAccountAction ? "Memproses..." : "Konfirmasi & Terapkan"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setAdminAccountAction(null)}
-                            className="btn btn-secondary text-xs py-2 px-3 border border-black/15 dark:border-white/10"
-                          >
-                            Batal
-                          </button>
-                        </div>
-                      </form>
-                    )}
-
-                    {/* Registered Pengurus Accounts List */}
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between text-[11px] font-heading font-black uppercase text-slate-600 dark:text-slate-400">
-                        <span>Daftar Pengurus Terdaftar ({adminAccounts.length})</span>
-                      </div>
-                      {adminAccounts.length === 0 ? (
-                        <div className="p-3 rounded bg-slate-50 dark:bg-[#1E222D] border border-black/10 dark:border-white/10 text-xs text-slate-500">
-                          Belum ada akun pengurus tersimpan.
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-black/10 dark:divide-white/10 border border-black/15 dark:border-white/10 rounded overflow-hidden">
-                          {adminAccounts.map((acc) => {
-                            const isMe = currentAdmin?.id === acc.id;
-                            return (
-                              <div
-                                key={acc.id}
-                                className="p-3 bg-white dark:bg-[#1A1D26] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
-                              >
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="font-heading font-black text-xs text-slate-900 dark:text-slate-100">
-                                      {acc.name}
-                                    </span>
-                                    {acc.role && (
-                                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10">
-                                        {acc.role}
-                                      </span>
-                                    )}
-                                    {isMe && (
-                                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border border-amber-400/60">
-                                        ANDA
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="text-[10px] font-mono text-slate-500 mt-0.5">
-                                    Daftar: {acc.createdAt ? new Date(acc.createdAt).toLocaleDateString("id-ID") : "-"} • Terakhir login:{" "}
-                                    {acc.lastLoginAt
-                                      ? new Date(acc.lastLoginAt).toLocaleString("id-ID", {
-                                          day: "numeric",
-                                          month: "short",
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })
-                                      : "-"}
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full sm:w-auto shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setAdminAccountAction({
-                                        type: "reset",
-                                        account: acc,
-                                        masterInput: "",
-                                        newPassword: "",
-                                        newPin: "",
-                                      })
-                                    }
-                                    className="px-2.5 py-2 sm:py-1 rounded text-[11px] font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-300 border border-amber-400/70 cursor-pointer text-center"
-                                  >
-                                    Reset Akses
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setAdminAccountAction({
-                                        type: "delete",
-                                        account: acc,
-                                        masterInput: "",
-                                        newPassword: "",
-                                        newPin: "",
-                                      })
-                                    }
-                                    className="px-2.5 py-2 sm:py-1 rounded text-[11px] font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-400/70 cursor-pointer text-center"
-                                  >
-                                    Cabut Akses
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Log Aktivitas Pengurus (Audit Trail Internal) */}
-                  <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3.5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b-2 border-black/10 dark:border-white/10 pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded bg-sky-500/15 border-2 border-sky-600 flex items-center justify-center text-sky-700 dark:text-sky-300 shadow-[2px_2px_0px_#0284c7] shrink-0">
-                          <Clock size={19} />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
-                              Log Aktivitas Pengurus
-                            </h4>
-                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-black/10 dark:border-white/10">
-                              {activityLogs.length} Catatan
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
-                            Rekam jejak otomatis siapa pengurus yang ACC, catat/hapus kas, bansos, dan ubah pengaturan
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isLoadingActivityLogs}
-                        onClick={refreshActivityLogs}
-                        className="btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        <RotateCcw size={13} className={isLoadingActivityLogs ? "animate-spin" : ""} />
-                        <span>{isLoadingActivityLogs ? "Memuat..." : "Muat Ulang Log"}</span>
-                      </button>
-                    </div>
-
-                    {/* Filter Category Pills + Search */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0 sm:flex-wrap">
-                        {[
-                          { id: "ALL", label: "Semua" },
-                          { id: "ANGGOTA", label: "Anggota" },
-                          { id: "KEUANGAN", label: "Keuangan" },
-                          { id: "BANSOS", label: "Bansos" },
-                          { id: "KEAMANAN", label: "Keamanan" },
-                          { id: "KONTEN", label: "Konten Web" },
-                        ].map((cat) => (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            onClick={() => {
-                              setActivityLogCategory(cat.id);
-                              setActivityLogVisibleCount(25);
-                            }}
-                            className={`px-2.5 py-1.5 rounded text-[11px] font-mono font-bold border transition-colors shrink-0 whitespace-nowrap cursor-pointer ${
-                              activityLogCategory === cat.id
-                                ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-black dark:border-amber-400"
-                                : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            }`}
-                          >
-                            {cat.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="relative w-full sm:w-56 shrink-0">
-                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          value={activityLogSearch}
-                          onChange={(e) => setActivityLogSearch(e.target.value)}
-                          placeholder="Cari pengurus atau aksi..."
-                          className="w-full pl-8 pr-7 py-1.5 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border border-black/15 dark:border-white/10 rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#FACC15]"
-                        />
-                        {activityLogSearch && (
-                          <button
-                            type="button"
-                            onClick={() => setActivityLogSearch("")}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                          >
-                            <X size={13} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Timeline List */}
-                    {(() => {
-                      const q = activityLogSearch.trim().toLowerCase();
-                      const filteredLogs = activityLogs.filter((item) => {
-                        if (activityLogCategory !== "ALL" && item.category !== activityLogCategory) return false;
-                        if (!q) return true;
-                        const hay = `${item.adminName || ""} ${item.adminRole || ""} ${item.action || ""} ${item.detail || ""} ${item.category || ""}`.toLowerCase();
-                        return hay.includes(q);
-                      });
-                      const visibleLogs = filteredLogs.slice(0, activityLogVisibleCount);
-
-                      const catBadgeStyles = {
-                        ANGGOTA: "bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-400/60",
-                        KEUANGAN: "bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-300 border-amber-400/60",
-                        BANSOS: "bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border-sky-400/60",
-                        KEAMANAN: "bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border-rose-400/60",
-                        KONTEN: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-400/50",
-                      };
-
-                      if (isLoadingActivityLogs && activityLogs.length === 0) {
-                        return (
-                          <div className="p-6 text-center text-xs font-mono text-slate-500 bg-slate-50 dark:bg-[#1A1D26] rounded border border-black/10 dark:border-white/10">
-                            Memuat catatan aktivitas pengurus...
-                          </div>
-                        );
-                      }
-
-                      if (filteredLogs.length === 0) {
-                        return (
-                          <div className="p-6 text-center bg-slate-50 dark:bg-[#1A1D26] rounded border border-black/10 dark:border-white/10">
-                            <div className="text-xs font-heading font-black text-slate-700 dark:text-slate-300">
-                              {activityLogs.length === 0
-                                ? "Belum ada log aktivitas tersimpan"
-                                : "Tidak ada log yang cocok dengan filter"}
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-1">
-                              {activityLogs.length === 0
-                                ? "Setiap aksi ACC/Tolak anggota, catat atau hapus kas, bansos, login, dan pengaturan keamanan akan otomatis tercatat di sini."
-                                : "Coba ganti kategori atau hapus kata kunci pencarian."}
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="flex flex-col gap-2">
-                          <div className="max-h-[380px] overflow-y-auto divide-y divide-black/10 dark:divide-white/10 border border-black/15 dark:border-white/10 rounded overflow-hidden bg-white dark:bg-[#1A1D26]">
-                            {visibleLogs.map((log) => {
-                              const badgeClass = catBadgeStyles[log.category] || catBadgeStyles.KONTEN;
-                              const timeLabel = log.timestamp
-                                ? new Date(log.timestamp).toLocaleString("id-ID", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : "-";
-                              return (
-                                <div key={log.id} className="p-3 flex flex-col gap-1 hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors">
-                                  <div className="flex items-start justify-between gap-2 flex-wrap">
-                                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                                      <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded border uppercase shrink-0 ${badgeClass}`}>
-                                        {log.category || "SISTEM"}
-                                      </span>
-                                      <span className="font-heading font-black text-xs text-slate-900 dark:text-slate-100">
-                                        {log.action}
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] font-mono text-slate-500 shrink-0">
-                                      {timeLabel} WIB
-                                    </span>
-                                  </div>
-                                  {log.detail && (
-                                    <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug break-words">
-                                      {log.detail}
-                                    </p>
-                                  )}
-                                  <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1.5 pt-0.5">
-                                    <User size={11} className="text-[#DC2626] dark:text-[#FACC15] shrink-0" />
-                                    <span>
-                                      Oleh: <strong className="text-slate-800 dark:text-slate-200">{log.adminName || "Admin LSM PPS"}</strong>
-                                      {log.adminRole && log.adminRole !== "Pengurus LSM" ? ` (${log.adminRole})` : ""}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {filteredLogs.length > activityLogVisibleCount && (
-                            <button
-                              type="button"
-                              onClick={() => setActivityLogVisibleCount((n) => n + 25)}
-                              className="btn w-full py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/15 dark:border-white/10 cursor-pointer"
-                            >
-                              Tampilkan Lebih Banyak ({filteredLogs.length - activityLogVisibleCount} lagi)
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* Security Architecture Card */}
-                  <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
-                    <div className="flex items-center gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
-                      <div className="w-10 h-10 rounded bg-emerald-500/10 border-2 border-emerald-600 flex items-center justify-center text-emerald-600 shadow-[2px_2px_0px_#059669] shrink-0">
-                        <ShieldCheck size={20} />
-                      </div>
-                      <div>
-                        <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
-                          Sistem Keamanan & Enkripsi Portal
-                        </h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-400">
-                          Standar pengamanan akses dashboard LSM Sandy Shores
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div className="p-3 bg-slate-50 dark:bg-[#1E222D] border border-black/20 dark:border-white/15/15 dark:border-white/10 rounded">
-                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                          Enkripsi Kata Sandi
-                        </div>
-                        <div className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                          <CheckCircle2 size={14} /> SHA-256 Cryptographic Hash
-                        </div>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
-                          Password & PIN pribadi dienkripsi satu arah sebelum disimpan ke database.
-                        </div>
-                      </div>
-
-                      <div className="p-3 bg-slate-50 dark:bg-[#1E222D] border border-black/20 dark:border-white/15/15 dark:border-white/10 rounded">
-                        <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                          Proteksi Anti Brute-Force
-                        </div>
-                        <div className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                          <ShieldAlert size={14} /> Maks 5 Percobaan / Kunci 60 Detik
-                        </div>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
-                          Mencegah bot dan serangan tebak password otomatis.
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Hash fingerprint info */}
-                    <div className="p-3 bg-slate-100 dark:bg-[#181A22] border border-black/20 dark:border-white/15/20 dark:border-white/15 rounded flex flex-col gap-1">
-                      <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">
-                        Fingerprint Hash Kode Akses Utama (SHA-256):
-                      </span>
-                      <code className="text-[11px] font-mono break-all text-slate-800 dark:text-slate-200 bg-white dark:bg-[#111319] p-2 border border-black/10 dark:border-white/10 rounded select-all">
-                        {formData.adminPassHash || DEFAULT_ADMIN_HASH}
-                      </code>
-                    </div>
-                  </div>
-
-                  {/* Change Master Password Card */}
-                  <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <KeyRound size={18} className="text-[#DC2626] shrink-0" />
-                        <div className="min-w-0">
-                          <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
-                            Kode Akses Utama (Master Aktivasi)
-                          </h4>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
-                            Dipakai untuk aktivasi akun pengurus baru & konfirmasi hapus/reset akun
-                          </p>
-                        </div>
-                      </div>
-                      {!showPasswordForm && (
-                        <div className="grid grid-cols-1 sm:flex sm:items-center gap-2 sm:flex-wrap w-full sm:w-auto">
-                          <button
-                            type="button"
-                            onClick={() => setShowPasswordForm(true)}
-                            className="btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 bg-[#FACC15] text-[#111827] border border-black/20 dark:border-white/15 font-black shadow-xs active:translate-x-0.5 active:translate-y-0.5"
-                          >
-                            Ubah PIN / Password
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleResetPinToDefault}
-                            className="btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-black/20 dark:border-white/15 font-bold shadow-xs active:translate-x-0.5 active:translate-y-0.5"
-                            title="Atur kode akses admin ke PIN default: 114123"
-                          >
-                            Reset ke PIN 114123
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleResetPasswordToDefault}
-                            className="btn w-full sm:w-auto justify-center text-xs py-2 sm:py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/20 dark:border-white/15 font-bold shadow-xs active:translate-x-0.5 active:translate-y-0.5"
-                            title="Kembalikan password ke default: @adminpps22h6"
-                          >
-                            Reset ke Password Default
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {showPasswordForm ? (
-                      <div className="flex flex-col gap-3.5 bg-slate-50 dark:bg-[#1C1F2A] p-4 border border-black/20 dark:border-white/15/20 dark:border-white/15 rounded">
-                        <div>
-                          <label className="card-label text-slate-700 dark:text-slate-300 mb-1 block">
-                            PIN / Password Baru (Minimal 6 Karakter atau 6 Digit)
-                          </label>
-                          <input
-                            type="password"
-                            placeholder="Ketik 6 digit PIN atau password baru..."
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="card-label text-slate-700 dark:text-slate-300 mb-1 block">
-                            Konfirmasi Ulang Password Baru
-                          </label>
-                          <input
-                            type="password"
-                            placeholder="Ulangi password baru..."
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="input-field font-mono text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            type="button"
-                            disabled={isApplyingPassword}
-                            onClick={handleApplyNewPassword}
-                            className="btn text-xs py-2 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black border border-black/20 dark:border-white/15 shadow-xs active:translate-x-0.5 active:translate-y-0.5"
-                          >
-                            {isApplyingPassword ? "Menyimpan ke Database..." : "Simpan & Terapkan Password Baru"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowPasswordForm(false);
-                              setNewPassword("");
-                              setConfirmPassword("");
-                            }}
-                            className="btn btn-secondary text-xs py-2 px-3 border border-black/15 dark:border-white/10"
-                          >
-                            Batal
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/50 rounded text-xs text-slate-700 dark:text-slate-300 flex flex-col gap-1">
-                        <span className="font-heading font-black text-amber-900 dark:text-amber-200">
-                          Informasi Akses Rekan Admin:
-                        </span>
-                        <p className="text-[11px] leading-relaxed">
-                          PIN Default: <strong className="font-mono text-[#DC2626] dark:text-[#FACC15]">114123</strong> dan Password Default: <strong className="font-mono text-[#DC2626] dark:text-[#FACC15]">@adminpps22h6</strong> selalu aktif sebagai akses darurat jika ada rekan pengurus yang lupa kode akses baru.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Google Gemini Vision AI Card */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded bg-[#FACC15] flex items-center justify-center text-[#DC2626] shrink-0 border border-black/25 shadow-xs">
-                          <ScanLine size={16} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100">
-                              Integrasi AI Vision (Google Gemini)
-                            </h4>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                              geminiKeyInput?.trim()
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-500/40"
-                                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-300 dark:border-slate-700"
-                            }`}>
-                              {geminiKeyInput?.trim() ? "AI Vision Aktif" : "Mode Standar (Tesseract)"}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                            Memindai foto KTP IC secara instan dengan kecerdasan multi-modal (99.9% akurat).
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2 pt-1">
-                      <label className="text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300">
-                        Gemini API Key (Google AI Studio)
-                      </label>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          type="password"
-                          placeholder="AQ.Ab8RN6... atau AIzaSy..."
-                          value={geminiKeyInput}
-                          onChange={(e) => setGeminiKeyInput(e.target.value)}
-                          className="input-field font-mono text-xs flex-1 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
-                        />
-                        <button
-                          type="button"
-                          disabled={isTestingGemini}
-                          onClick={handleTestGeminiKey}
-                          className="btn text-xs py-2 px-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold border border-black/20 dark:border-white/15 shadow-xs active:translate-x-0.5 active:translate-y-0.5 disabled:opacity-50"
-                        >
-                          {isTestingGemini ? "Menguji..." : "Uji Koneksi AI"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSaveGeminiKey}
-                          className="btn text-xs py-2 px-3 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold border border-black/20 dark:border-white/15 shadow-xs active:translate-x-0.5 active:translate-y-0.5"
-                        >
-                          Simpan Key
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-normal">
-                        Kunci API tersinkron ke Cloud dan otomatis dipakai di seluruh fitur OCR (pendaftaran anggota, klaim bansos, lapak UMKM, request meeting, event/UFC, dan Jasra). Jika kosong atau offline, sistem otomatis beralih ke OCR spasial lokal.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Discord Webhook Notification Config Card */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151824] border border-black/10 dark:border-white/10 shadow-sm flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-400/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-                          <MessageSquare size={18} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-heading font-black text-xs sm:text-sm uppercase text-slate-900 dark:text-slate-100">
-                              Notifikasi Otomatis Discord (Webhook)
-                            </h4>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                isValidDiscordWebhookUrl(discordWebhookConfig.webhookUrl) && discordWebhookConfig.enabled
-                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-500/40"
-                                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-300 dark:border-slate-700"
-                              }`}
-                            >
-                              {isValidDiscordWebhookUrl(discordWebhookConfig.webhookUrl) && discordWebhookConfig.enabled
-                                ? "Webhook Aktif"
-                                : "Belum Aktif"}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
-                            Kirim laporan embed otomatis ke channel Discord pengurus untuk pendaftaran anggota, keputusan ACC/Tolak, tiket layanan, klaim bansos, dan catatan keuangan kas.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3 pt-1">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300">
-                          URL Discord Webhook Utama (Channel Pengurus)
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="password"
-                            placeholder="https://discord.com/api/webhooks/..."
-                            value={discordWebhookConfig.webhookUrl}
-                            onChange={(e) =>
-                              setDiscordWebhookConfig((prev) => ({ ...prev, webhookUrl: e.target.value }))
-                            }
-                            className="input-field font-mono text-xs flex-1 bg-slate-50 dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-xl"
-                          />
-                          <button
-                            type="button"
-                            disabled={isTestingWebhook}
-                            onClick={() => handleTestDiscordWebhook("main")}
-                            className="py-2 px-3.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-heading font-bold border border-indigo-600 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
-                          >
-                            {isTestingWebhook ? "Mengirim..." : "Tes Utama"}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={isSavingWebhook}
-                            onClick={handleSaveDiscordWebhook}
-                            className="py-2 px-3.5 rounded-xl bg-[#FACC15] hover:bg-yellow-400 text-slate-950 text-xs font-heading font-black border border-amber-400/80 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
-                          >
-                            {isSavingWebhook ? "Menyimpan..." : "Simpan Webhook"}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Optional Dedicated Finance Webhook URL */}
-                      <div className="flex flex-col gap-1.5 pt-2 border-t border-black/10 dark:border-white/10">
-                        <label className="text-[11px] font-heading font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 flex-wrap">
-                          <span>URL Webhook Khusus Keuangan / Kas</span>
-                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-400/50">
-                            OPSIONAL
-                          </span>
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="password"
-                            placeholder="Kosongkan jika ingin ikut URL Webhook Utama di atas..."
-                            value={discordWebhookConfig.kasWebhookUrl || ""}
-                            onChange={(e) =>
-                              setDiscordWebhookConfig((prev) => ({ ...prev, kasWebhookUrl: e.target.value }))
-                            }
-                            className="input-field font-mono text-xs flex-1 bg-slate-50 dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 rounded-xl"
-                          />
-                          <button
-                            type="button"
-                            disabled={isTestingWebhook}
-                            onClick={() => handleTestDiscordWebhook("kas")}
-                            className="py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-bold border border-emerald-700 shadow-xs cursor-pointer disabled:opacity-50 transition-colors"
-                          >
-                            {isTestingWebhook ? "Mengirim..." : "Tes Kas"}
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-slate-500 leading-relaxed">
-                          Jika kosong, notifikasi Pemasukan & Pengeluaran Kas otomatis dikirim ke URL Webhook Utama. Catatan Discord: menu <strong>Integrations &rarr; Webhooks</strong> hanya muncul jika role Anda memiliki izin <strong>Manage Webhooks</strong> di channel tersebut.
-                        </p>
-                      </div>
-
-                      {/* Event Toggles */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                        {[
-                          { key: "enabled", label: "Aktifkan Notifikasi Discord" },
-                          { key: "notifyMemberReg", label: "Pendaftaran Anggota Baru (/daftar)" },
-                          { key: "notifyMemberDecision", label: "Keputusan Verifikasi Anggota (ACC / Tolak)" },
-                          { key: "notifyServiceUmkm", label: "Pengajuan Lapak UMKM" },
-                          { key: "notifyServiceMeeting", label: "Permintaan Jadwal Meeting" },
-                          { key: "notifyBansos", label: "Klaim Bantuan Sosial (Bansos)" },
-                          { key: "notifyKas", label: "Catat Keuangan / Kas (Masuk & Keluar)" },
-                        ].map((item) => (
-                          <label
-                            key={item.key}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1A1D27] border border-black/10 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={Boolean(discordWebhookConfig[item.key])}
-                              onChange={(e) =>
-                                setDiscordWebhookConfig((prev) => ({
-                                  ...prev,
-                                  [item.key]: e.target.checked,
-                                }))
-                              }
-                              className="w-4 h-4 accent-[#DC2626] rounded cursor-pointer"
-                            />
-                            <span className="font-semibold text-[11px]">{item.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Browser Session Card */}
-                  <div className="card-brutal p-4 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div>
-                      <h4 className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100">
-                        Sesi Login di Browser Ini
-                      </h4>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                        Status: <span className="text-emerald-600 dark:text-emerald-400 font-bold">Tersimpan aman (SHA-256 Session Token)</span>
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="btn text-xs py-2 px-3.5 bg-red-600 hover:bg-red-700 text-white font-heading font-black border border-black/20 dark:border-white/15 dark:border-red-400 shadow-xs active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5"
-                    >
-                      <LogOut size={14} className="text-white" />
-                      <span>Hapus Sesi & Logout</span>
-                    </button>
-                  </div>
-                </div>
+                <AdminSecurityTab
+                  activeAdminName={activeAdminName}
+                  currentAdmin={currentAdmin}
+                  allowMasterOnboarding={allowMasterOnboarding}
+                  adminAccounts={adminAccounts}
+                  adminAccountAction={adminAccountAction}
+                  setAdminAccountAction={setAdminAccountAction}
+                  isProcessingAccountAction={isProcessingAccountAction}
+                  handleExecuteAdminAccountAction={handleExecuteAdminAccountAction}
+                  showSelfCredForm={showSelfCredForm}
+                  setShowSelfCredForm={setShowSelfCredForm}
+                  selfCredForm={selfCredForm}
+                  setSelfCredForm={setSelfCredForm}
+                  isSavingSelfCred={isSavingSelfCred}
+                  handleUpdateSelfCredentials={handleUpdateSelfCredentials}
+                  activityLogs={activityLogs}
+                  isLoadingActivityLogs={isLoadingActivityLogs}
+                  refreshActivityLogs={refreshActivityLogs}
+                  activityLogCategory={activityLogCategory}
+                  setActivityLogCategory={setActivityLogCategory}
+                  activityLogSearch={activityLogSearch}
+                  setActivityLogSearch={setActivityLogSearch}
+                  activityLogVisibleCount={activityLogVisibleCount}
+                  setActivityLogVisibleCount={setActivityLogVisibleCount}
+                  formData={formData}
+                  showPasswordForm={showPasswordForm}
+                  setShowPasswordForm={setShowPasswordForm}
+                  newPassword={newPassword}
+                  setNewPassword={setNewPassword}
+                  confirmPassword={confirmPassword}
+                  setConfirmPassword={setConfirmPassword}
+                  isApplyingPassword={isApplyingPassword}
+                  handleApplyNewPassword={handleApplyNewPassword}
+                  handleResetPinToDefault={handleResetPinToDefault}
+                  handleResetPasswordToDefault={handleResetPasswordToDefault}
+                  geminiKeyInput={geminiKeyInput}
+                  setGeminiKeyInput={setGeminiKeyInput}
+                  isTestingGemini={isTestingGemini}
+                  handleTestGeminiKey={handleTestGeminiKey}
+                  handleSaveGeminiKey={handleSaveGeminiKey}
+                  discordWebhookConfig={discordWebhookConfig}
+                  setDiscordWebhookConfig={setDiscordWebhookConfig}
+                  isTestingWebhook={isTestingWebhook}
+                  isSavingWebhook={isSavingWebhook}
+                  handleTestDiscordWebhook={handleTestDiscordWebhook}
+                  handleSaveDiscordWebhook={handleSaveDiscordWebhook}
+                  handleLogout={handleLogout}
+                />
               )}
 
               {activeTab === "doorprize_db" && (
                 <DoorprizeAdminPanel onShowToast={onShowToast} />
               )}
+                  </Suspense>
 
                 </div>
               </div>
@@ -11687,77 +9635,89 @@ export default function AdminModal({
       )}
 
       {/* Modal Pembayaran Kas Anggota */}
-      <KasPaymentModal
-        isOpen={isKasPaymentModalOpen}
-        member={selectedKasMember}
-        adminName={activeAdminName}
-        onClose={() => {
-          setIsKasPaymentModalOpen(false);
-          setSelectedKasMember(null);
-        }}
-        onShowToast={onShowToast}
-        onSuccess={(updatedMember) => {
-          if (updatedMember) {
-            setMembersList((prev) =>
-              prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
-            );
-            recordActivity(
-              "KEUANGAN",
-              "Catat Iuran Kas Anggota",
-              `${updatedMember.fullName || selectedKasMember?.fullName || "Anggota"} (${updatedMember.icNumber || selectedKasMember?.icNumber || "-"})`
-            );
-          }
-          loadKasLedgerCloud().then((list) => {
-            if (Array.isArray(list)) setKasTransactions(list);
-          });
-        }}
-      />
+      {isKasPaymentModalOpen && (
+        <Suspense fallback={null}>
+          <KasPaymentModal
+            isOpen={isKasPaymentModalOpen}
+            member={selectedKasMember}
+            adminName={activeAdminName}
+            onClose={() => {
+              setIsKasPaymentModalOpen(false);
+              setSelectedKasMember(null);
+            }}
+            onShowToast={onShowToast}
+            onSuccess={(updatedMember) => {
+              if (updatedMember) {
+                setMembersList((prev) =>
+                  prev.map((m) => (m.id === updatedMember.id ? { ...m, ...updatedMember } : m))
+                );
+                recordActivity(
+                  "KEUANGAN",
+                  "Catat Iuran Kas Anggota",
+                  `${updatedMember.fullName || selectedKasMember?.fullName || "Anggota"} (${updatedMember.icNumber || selectedKasMember?.icNumber || "-"})`
+                );
+              }
+              loadKasLedgerCloud().then((list) => {
+                if (Array.isArray(list)) setKasTransactions(list);
+              });
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Modal Catat Pengeluaran Kas */}
-      <KasExpenseModal
-        isOpen={isKasExpenseModalOpen}
-        currentBalance={kasSummary.netBalance}
-        oitaBalance={kasSummary.oitaBalance}
-        darrenBalance={kasSummary.darrenBalance}
-        adminName={activeAdminName}
-        onClose={() => setIsKasExpenseModalOpen(false)}
-        onShowToast={onShowToast}
-        onSuccess={(tx) => {
-          if (tx) {
-            recordActivity(
-              "KEUANGAN",
-              "Catat Pengeluaran Kas",
-              `${tx.title || "Pengeluaran"} (-${formatCurrency(tx.amount)}, Kas ${tx.wallet || "Oita"})`
-            );
-          }
-          loadKasLedgerCloud().then((list) => {
-            if (Array.isArray(list)) setKasTransactions(list);
-          });
-        }}
-      />
+      {isKasExpenseModalOpen && (
+        <Suspense fallback={null}>
+          <KasExpenseModal
+            isOpen={isKasExpenseModalOpen}
+            currentBalance={kasSummary.netBalance}
+            oitaBalance={kasSummary.oitaBalance}
+            darrenBalance={kasSummary.darrenBalance}
+            adminName={activeAdminName}
+            onClose={() => setIsKasExpenseModalOpen(false)}
+            onShowToast={onShowToast}
+            onSuccess={(tx) => {
+              if (tx) {
+                recordActivity(
+                  "KEUANGAN",
+                  "Catat Pengeluaran Kas",
+                  `${tx.title || "Pengeluaran"} (-${formatCurrency(tx.amount)}, Kas ${tx.wallet || "Oita"})`
+                );
+              }
+              loadKasLedgerCloud().then((list) => {
+                if (Array.isArray(list)) setKasTransactions(list);
+              });
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Modal Catat Pemasukan Kas (Non-Iuran / Donasi / Sponsorship / UMKM) */}
-      <KasIncomeModal
-        isOpen={isKasIncomeModalOpen}
-        currentBalance={kasSummary.netBalance}
-        oitaBalance={kasSummary.oitaBalance}
-        darrenBalance={kasSummary.darrenBalance}
-        adminName={activeAdminName}
-        onClose={() => setIsKasIncomeModalOpen(false)}
-        onShowToast={onShowToast}
-        onSuccess={(tx) => {
-          if (tx) {
-            recordActivity(
-              "KEUANGAN",
-              "Catat Pemasukan Kas",
-              `${tx.title || "Pemasukan"} (+${formatCurrency(tx.amount)}, Kas ${tx.wallet || "Oita"})`
-            );
-          }
-          loadKasLedgerCloud().then((list) => {
-            if (Array.isArray(list)) setKasTransactions(list);
-          });
-        }}
-      />
+      {isKasIncomeModalOpen && (
+        <Suspense fallback={null}>
+          <KasIncomeModal
+            isOpen={isKasIncomeModalOpen}
+            currentBalance={kasSummary.netBalance}
+            oitaBalance={kasSummary.oitaBalance}
+            darrenBalance={kasSummary.darrenBalance}
+            adminName={activeAdminName}
+            onClose={() => setIsKasIncomeModalOpen(false)}
+            onShowToast={onShowToast}
+            onSuccess={(tx) => {
+              if (tx) {
+                recordActivity(
+                  "KEUANGAN",
+                  "Catat Pemasukan Kas",
+                  `${tx.title || "Pemasukan"} (+${formatCurrency(tx.amount)}, Kas ${tx.wallet || "Oita"})`
+                );
+              }
+              loadKasLedgerCloud().then((list) => {
+                if (Array.isArray(list)) setKasTransactions(list);
+              });
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Modal Edit Transaksi Kas (Revisi tanpa spam webhook Discord) */}
       {editKasTxModal.isOpen && editKasTxModal.tx && (() => {
@@ -11935,52 +9895,64 @@ export default function AdminModal({
       })()}
 
       {/* Modal Pindah Kas Antar Bendahara (Oita <-> Darren) */}
-      <KasTransferModal
-        isOpen={isKasTransferModalOpen}
-        currentBalance={kasSummary.netBalance}
-        oitaBalance={kasSummary.oitaBalance}
-        darrenBalance={kasSummary.darrenBalance}
-        adminName={activeAdminName}
-        onClose={() => setIsKasTransferModalOpen(false)}
-        onShowToast={onShowToast}
-        onSuccess={(tx) => {
-          if (tx) {
-            recordActivity(
-              "KEUANGAN",
-              "Pindah Kas Antar Bendahara",
-              `${formatCurrency(tx.amount)} (Kas ${tx.fromWallet || "Oita"} -> Kas ${tx.toWallet || "Darren"})`
-            );
-          }
-          loadKasLedgerCloud().then((list) => {
-            if (Array.isArray(list)) setKasTransactions(list);
-          });
-        }}
-      />
+      {isKasTransferModalOpen && (
+        <Suspense fallback={null}>
+          <KasTransferModal
+            isOpen={isKasTransferModalOpen}
+            currentBalance={kasSummary.netBalance}
+            oitaBalance={kasSummary.oitaBalance}
+            darrenBalance={kasSummary.darrenBalance}
+            adminName={activeAdminName}
+            onClose={() => setIsKasTransferModalOpen(false)}
+            onShowToast={onShowToast}
+            onSuccess={(tx) => {
+              if (tx) {
+                recordActivity(
+                  "KEUANGAN",
+                  "Pindah Kas Antar Bendahara",
+                  `${formatCurrency(tx.amount)} (Kas ${tx.fromWallet || "Oita"} -> Kas ${tx.toWallet || "Darren"})`
+                );
+              }
+              loadKasLedgerCloud().then((list) => {
+                if (Array.isArray(list)) setKasTransactions(list);
+              });
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Modal Buku Kas & Mutasi Keuangan */}
-      <KasLedgerModal
-        isOpen={isKasLedgerModalOpen}
-        transactions={kasTransactions}
-        fallbackActiveKasRupiah={totalKasRupiah}
-        onClose={() => setIsKasLedgerModalOpen(false)}
-        onOpenIncomeModal={() => setIsKasIncomeModalOpen(true)}
-        onOpenExpenseModal={() => setIsKasExpenseModalOpen(true)}
-        onShowToast={onShowToast}
-        onReload={() => {
-          loadKasLedgerCloud().then((list) => {
-            if (Array.isArray(list)) setKasTransactions(list);
-          });
-        }}
-      />
+      {isKasLedgerModalOpen && (
+        <Suspense fallback={null}>
+          <KasLedgerModal
+            isOpen={isKasLedgerModalOpen}
+            transactions={kasTransactions}
+            fallbackActiveKasRupiah={totalKasRupiah}
+            onClose={() => setIsKasLedgerModalOpen(false)}
+            onOpenIncomeModal={() => setIsKasIncomeModalOpen(true)}
+            onOpenExpenseModal={() => setIsKasExpenseModalOpen(true)}
+            onShowToast={onShowToast}
+            onReload={() => {
+              loadKasLedgerCloud().then((list) => {
+                if (Array.isArray(list)) setKasTransactions(list);
+              });
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Modal Salin Teks Laporan Kas (Discord / WA) */}
-      <KasCopyModal
-        isOpen={isKasCopyModalOpen}
-        onClose={() => setIsKasCopyModalOpen(false)}
-        transactions={kasTransactions}
-        summary={kasSummary}
-        onShowToast={onShowToast}
-      />
+      {isKasCopyModalOpen && (
+        <Suspense fallback={null}>
+          <KasCopyModal
+            isOpen={isKasCopyModalOpen}
+            onClose={() => setIsKasCopyModalOpen(false)}
+            transactions={kasTransactions}
+            summary={kasSummary}
+            onShowToast={onShowToast}
+          />
+        </Suspense>
+      )}
 
       {/* Modal Tambah / Edit Penerima Jasra Luar Anggota */}
       {editingExternalJasra && (

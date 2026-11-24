@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { flushSync } from "react-dom";
 import { loadCloudData, defaultData, mergeWithDefaults, sanitizeSandyShores } from "./services/firebase";
 import Navbar from "./components/Navbar";
@@ -41,6 +41,20 @@ const DoorprizeModal = lazy(() => import("./components/DoorprizeModal"));
 
 export default function App() {
   const [memberCount, setMemberCount] = useState(0);
+  const [approvedMembersCount, setApprovedMembersCount] = useState(() => {
+    try {
+      const cached = localStorage.getItem("pps_home_approved_members");
+      if (cached !== null) return Number(cached);
+    } catch {}
+    return null;
+  });
+  const [activeJasraCount, setActiveJasraCount] = useState(() => {
+    try {
+      const cached = localStorage.getItem("pps_home_active_jasra");
+      if (cached !== null) return Number(cached);
+    } catch {}
+    return null;
+  });
   const [eventsList, setEventsList] = useState(() => {
     try {
       const cached = localStorage.getItem("pps_events_list_cache");
@@ -70,6 +84,14 @@ export default function App() {
     return defaultData;
   });
   const [loading] = useState(false);
+  const [introSplash, setIntroSplash] = useState(() => {
+    if (typeof window === "undefined") return "done";
+    const p = window.location.pathname.toLowerCase();
+    const h = window.location.hash.toLowerCase();
+    // Lewati splash overlay kalau langsung buka Portal Admin
+    if (p.includes("/admin") || h.includes("admin")) return "done";
+    return "visible";
+  });
   const [isCloudSyncing, setIsCloudSyncing] = useState(true);
   const [deferredReady, setDeferredReady] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -77,6 +99,23 @@ export default function App() {
     const h = window.location.hash.toLowerCase();
     return p.includes("/admin") || h.includes("admin");
   });
+
+  // Fast non-blocking Pizza Mascot intro overlay (~700ms visible + 260ms fade-out)
+  useEffect(() => {
+    if (introSplash !== "visible") return;
+    const fadeTimer = window.setTimeout(() => {
+      setIntroSplash("fading");
+    }, 700);
+    return () => window.clearTimeout(fadeTimer);
+  }, [introSplash]);
+
+  useEffect(() => {
+    if (introSplash !== "fading") return;
+    const doneTimer = window.setTimeout(() => {
+      setIntroSplash("done");
+    }, 280);
+    return () => window.clearTimeout(doneTimer);
+  }, [introSplash]);
 
   // Schedule non-critical widgets & secondary Firestore streams after first paint
   useEffect(() => {
@@ -248,12 +287,47 @@ export default function App() {
       (members) => {
         if (Array.isArray(members)) {
           setMemberCount(members.length);
+          const approved = members.filter(
+            (m) => m.status !== "PENDING_VERIFIKASI" && m.status !== "REJECTED"
+          ).length;
+          setApprovedMembersCount(approved);
+          try {
+            localStorage.setItem("pps_home_approved_members", String(approved));
+          } catch {}
         }
       },
       () => {}
     );
     return () => {
       if (typeof unsub === "function") unsub();
+    };
+  }, [deferredReady]);
+
+  // Deferred one-shot Jasra active recipient count for Homepage Live Stats Strip
+  useEffect(() => {
+    if (!deferredReady) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const jasraMod = await import("./services/jasraService");
+        const [batches, dists] = await Promise.all([
+          jasraMod.loadJasraBatchesCloud(),
+          jasraMod.loadJasraDistributionsCloud(),
+        ]);
+        if (cancelled) return;
+        const activeBatch = jasraMod.getActiveJasraBatch(batches);
+        const batchDists = jasraMod.getBatchDistributions(dists, activeBatch);
+        const count = batchDists.length;
+        setActiveJasraCount(count);
+        try {
+          localStorage.setItem("pps_home_active_jasra", String(count));
+        } catch {}
+      } catch {
+        // Keep cached or fallback value silently
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
   }, [deferredReady]);
 
@@ -972,6 +1046,8 @@ export default function App() {
     };
   }, [loading, currentPage]);
 
+  const isIntroReady = introSplash !== "visible";
+
   // Scroll Reveal Observer for all public pages (Beranda, Struktur, Dokumentasi, Footer)
   useEffect(() => {
     if (loading || typeof window === "undefined") return;
@@ -990,6 +1066,7 @@ export default function App() {
     }
 
     rootEl.classList.add("sr-ready");
+    if (!isIntroReady) return;
     const timers = [];
 
     const markRevealed = (el) => {
@@ -1056,7 +1133,7 @@ export default function App() {
       if (scanRafId !== null) window.cancelAnimationFrame(scanRafId);
       timers.forEach((t) => window.clearTimeout(t));
     };
-  }, [loading, currentPage, data]);
+  }, [loading, isIntroReady, currentPage, data]);
 
   function showToast(message, type = "info") {
     const id = Date.now() + Math.random();
@@ -1066,6 +1143,41 @@ export default function App() {
   function removeToast(id) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
+
+  // 3 Dokumentasi kegiatan terbaru (dengan foto valid) untuk preview langsung di beranda
+  const latestGalleryPreviews = useMemo(() => {
+    const list = Array.isArray(data?.gallery) ? data.gallery : [];
+    const indoMonths = {
+      januari: 0, februari: 1, maret: 2, april: 3, mei: 4, juni: 5,
+      juli: 6, agustus: 7, september: 8, oktober: 9, november: 10, desember: 11,
+    };
+    const getScore = (item) => {
+      const str = String(item?.date || "");
+      const m = str.match(/(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
+      if (m) {
+        const mon = indoMonths[m[2].toLowerCase()];
+        if (mon !== undefined) return new Date(parseInt(m[3], 10), mon, parseInt(m[1], 10)).getTime();
+      }
+      const parsed = Date.parse(str);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    };
+    return list
+      .map((item, idx) => {
+        const photos = Array.isArray(item?.photos) && item.photos.length > 0
+          ? item.photos.filter((p) => typeof p === "string" && p.trim().length > 0)
+          : (typeof item?.photo === "string" && item.photo.trim() ? [item.photo.trim()] : []);
+        return { item, photos, cover: photos[0] || "", score: getScore(item), idx };
+      })
+      .filter((entry) => Boolean(entry.cover))
+      .sort((a, b) => (b.score - a.score) || (b.idx - a.idx))
+      .slice(0, 3);
+  }, [data?.gallery]);
+
+  // Preview avatar jajaran pengurus inti untuk menyeimbangkan kartu Struktur & Dokumentasi
+  const topOrgPreviews = useMemo(() => {
+    const list = Array.isArray(data?.org) ? data.org : [];
+    return list.slice(0, 5);
+  }, [data?.org]);
 
   // Extract Discord and Register URLs from data / navLinks if customized
   let discordUrl = data?.discordUrl || "https://discord.gg/gb7ajBMduF";
@@ -1087,6 +1199,22 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-[#FACC15] selection:text-[#111827]">
+      {/* Non-blocking Fast Intro Splash (Maskot Makan Pizza ~700ms, Hero tetap siap di belakang) */}
+      {introSplash !== "done" && (
+        <div
+          onClick={() => setIntroSplash("fading")}
+          role="status"
+          aria-live="polite"
+          className={`fixed inset-0 z-[120] flex items-center justify-center bg-[#FAF7EE]/95 dark:bg-[#07090E]/95 backdrop-blur-sm transition-all duration-300 cursor-pointer ${
+            introSplash === "fading"
+              ? "opacity-0 scale-[0.98] pointer-events-none"
+              : "opacity-100 scale-100"
+          }`}
+        >
+          <PizzaLoader />
+        </div>
+      )}
+
       {/* Cinematic Top Scroll Progress Rail */}
       <div className="scroll-progress-rail" aria-hidden="true">
         <div ref={scrollProgressFillRef} className="scroll-progress-fill" />
@@ -1152,9 +1280,19 @@ export default function App() {
             <Hero
               heading={data.heading}
               subtext={data.subtext}
+              isIntroReady={isIntroReady}
               onOpenPermit={() => setIsPermitModalOpen(true)}
+              onOpenRegister={handleOpenRegister}
+              onOpenTransparency={handleOpenTransparency}
+              onOpenMembersDirectory={handleOpenMembersDirectory}
               onNavigateToStructure={handleNavigateToStructure}
               onNavigateToGallery={handleNavigateToGallery}
+              liveStats={{
+                approvedMembers: approvedMembersCount,
+                activeJasra: activeJasraCount,
+                orgCount: Array.isArray(data?.org) ? data.org.length : 0,
+                galleryCount: Array.isArray(data?.gallery) ? data.gallery.length : 0,
+              }}
             />
 
             {/* Tentang Kami Section */}
@@ -1230,6 +1368,43 @@ export default function App() {
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-normal leading-relaxed">
                       Mengenal jajaran pimpinan, dewan penasihat, badan pengurus harian, kepala seksi divisi, serta koordinator satgas lapangan LSM PPS.
                     </p>
+
+                    {/* Preview Ringkas Jajaran Pengurus Aktif */}
+                    {topOrgPreviews.length > 0 && (
+                      <div className="mt-4 pt-3.5 border-t border-black/10 dark:border-white/10 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center -space-x-2.5">
+                          {topOrgPreviews.map((person, idx) => (
+                            <div
+                              key={person.id || `${person.name}-${idx}`}
+                              className="w-10 h-10 rounded-full border-2 border-white dark:border-[#121622] bg-slate-100 dark:bg-[#1A1F2E] overflow-hidden shadow-sm shrink-0"
+                              title={`${person.name || "Pengurus"} - ${person.role || ""}`}
+                            >
+                              {person.photo ? (
+                                <img
+                                  src={person.photo}
+                                  alt={person.name || "Pengurus PPS"}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xs font-heading font-black text-[#DC2626] dark:text-[#FACC15]">
+                                  {(person.name || "P").slice(0, 1).toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          {Array.isArray(data?.org) && data.org.length > topOrgPreviews.length && (
+                            <div className="w-10 h-10 rounded-full border-2 border-white dark:border-[#121622] bg-[#FACC15] text-slate-950 flex items-center justify-center text-[11px] font-mono font-black shadow-sm shrink-0">
+                              +{data.org.length - topOrgPreviews.length}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300">
+                          {Array.isArray(data?.org) ? data.org.length : 0} Pengurus Aktif
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-6 mt-5 border-t border-black/15 dark:border-white/15 flex items-center justify-between relative z-10">
@@ -1274,6 +1449,44 @@ export default function App() {
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-normal leading-relaxed">
                       Rekam jejak visual aksi sosial, pembagian bansos, advokasi warga, penertiban lapak UMKM, dan kegiatan resmi Paguyuban Pizza Sandy Shores.
                     </p>
+
+                    {/* Preview 3 Foto Dokumentasi Kegiatan Terbaru */}
+                    {latestGalleryPreviews.length > 0 && (
+                      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-2.5">
+                        {latestGalleryPreviews.map(({ item, photos, cover, idx }) => (
+                          <button
+                            key={item.id || `${item.title}-${idx}`}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenLightbox(
+                                photos,
+                                item.title || "Dokumentasi Kegiatan",
+                                item.desc || "",
+                                item.location || "Sandy Shores Area",
+                                item.date || "",
+                                0
+                              );
+                            }}
+                            className="group/thumb relative aspect-[4/3] rounded-xl overflow-hidden border border-black/15 dark:border-white/15 bg-slate-100 dark:bg-[#1A1F2E] text-left cursor-pointer"
+                            title={item.title || "Lihat foto kegiatan"}
+                          >
+                            <img
+                              src={cover}
+                              alt={item.title || "Dokumentasi PPS"}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-2 py-1.5">
+                              <span className="block text-[10px] font-heading font-bold text-white truncate">
+                                {item.title || "Aksi Lapangan"}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-6 mt-5 border-t border-black/15 dark:border-white/15 flex items-center justify-between relative z-10">

@@ -1976,7 +1976,12 @@ export default function ServicePortalModal({
                           let statusDesc =
                             "Pengajuan kamu telah masuk ke sistem dan sedang dalam antrean evaluasi pengurus LSM PPS. Silakan isi data di channel Discord visitor untuk kelancaran verifikasi.";
 
-                          if (status === "approved") {
+                          if (status === "in_progress") {
+                            badgeColor = "bg-sky-100 text-sky-900 border-sky-500";
+                            statusLabel = "🔄 SEDANG DIPROSES PENGURUS";
+                            statusDesc =
+                              "Pengajuan kamu sudah dibuka dan sedang ditindaklanjuti oleh pengurus LSM PPS. Pantau terus catatan pengurus di bawah.";
+                          } else if (status === "approved") {
                             badgeColor = "bg-emerald-100 text-emerald-900 border-emerald-500";
                             statusLabel = "✅ RESMI DISETUJUI";
                             statusDesc =
