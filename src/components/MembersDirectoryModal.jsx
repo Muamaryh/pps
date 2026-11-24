@@ -206,11 +206,7 @@ export default function MembersDirectoryModal({
 
         if (!q) return true;
         const name = (m.fullName || "").toLowerCase();
-        const ic = (m.icNumber || "").toLowerCase();
-        const phone = (m.phone || "").toLowerCase();
-        const job = (m.statusJob || "").toLowerCase();
-        const gang = (m.statusGang || "").toLowerCase();
-        return name.includes(q) || ic.includes(q) || phone.includes(q) || job.includes(q) || gang.includes(q);
+        return name.includes(q);
       });
       return list.map((m) => ({ type: "MEMBER", data: m }));
     }
@@ -222,9 +218,7 @@ export default function MembersDirectoryModal({
       const filteredMemJasra = memberJasraList.filter((m) => {
         if (!q) return true;
         const name = (m.fullName || "").toLowerCase();
-        const ic = (m.icNumber || "").toLowerCase();
-        const phone = (m.phone || "").toLowerCase();
-        return name.includes(q) || ic.includes(q) || phone.includes(q);
+        return name.includes(q);
       });
       result.push(...filteredMemJasra.map((m) => ({ type: "MEMBER", data: m })));
     }
@@ -233,10 +227,8 @@ export default function MembersDirectoryModal({
       const filteredExt = externalJasraItems.filter((item) => {
         if (!q) return true;
         const name = (item.fullName || "").toLowerCase();
-        const cid = (item.citizenId || "").toLowerCase();
-        const phone = (item.phone || "").toLowerCase();
         const notes = (item.notes || "").toLowerCase();
-        return name.includes(q) || cid.includes(q) || phone.includes(q) || notes.includes(q);
+        return name.includes(q) || notes.includes(q);
       });
       result.push(...filteredExt.map((item) => ({ type: "EXTERNAL", data: item })));
     }
@@ -404,7 +396,7 @@ export default function MembersDirectoryModal({
               />
               <input
                 type="text"
-                placeholder={filterJasraOnly ? "Cari nama IC, Citizen ID, no HP, atau catatan penerima Jasra..." : "Cari nama IC, Citizen ID / No KTP, atau No HP..."}
+                placeholder={filterJasraOnly ? "Cari nama penerima Jasra..." : "Cari nama anggota..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="input-field w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 shadow-inner"
@@ -599,32 +591,6 @@ export default function MembersDirectoryModal({
                             </div>
                           </div>
 
-                          {/* Details Info: Citizen ID & Phone */}
-                          <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded-xl bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2.5">
-                            <div>
-                              <span className="text-[9px] text-slate-400 font-sans font-bold block">
-                                CITIZEN ID / KTP:
-                              </span>
-                              <strong
-                                className="text-[#DC2626] dark:text-[#FACC15] truncate block text-[11px]"
-                                title={ext.citizenId}
-                              >
-                                {ext.citizenId || "-"}
-                              </strong>
-                            </div>
-                            <div>
-                              <span className="text-[9px] text-slate-400 font-sans font-bold block">
-                                NO TLP / WA:
-                              </span>
-                              <span
-                                className="text-slate-800 dark:text-slate-200 truncate block text-[11px]"
-                                title={ext.phone}
-                              >
-                                {ext.phone || "-"}
-                              </span>
-                            </div>
-                          </div>
-
                           {/* Status Voucher Jasra (Warga Luar) */}
                           <div className="flex flex-col gap-1 p-2 rounded-xl bg-amber-50/60 dark:bg-[#12141D] border border-black/10 dark:border-white/10 mb-2.5 text-[11px]">
                             <div className="flex items-center justify-between gap-1">
@@ -719,14 +685,6 @@ export default function MembersDirectoryModal({
                 <strong className="block text-slate-950 dark:text-slate-100 font-heading text-xs uppercase">
                   {selectedPendingDisclaimer.fullName || "Calon Anggota"}
                 </strong>
-                <span className="font-mono text-[11px] text-[#DC2626] dark:text-[#FACC15]">
-                  Citizen ID: {selectedPendingDisclaimer.icNumber || "-"}
-                </span>
-                {(selectedPendingDisclaimer.statusJob || selectedPendingDisclaimer.statusGang) && (
-                  <div className="text-[10.5px] text-slate-600 dark:text-slate-400 mt-1 font-mono">
-                    Pekerjaan: {selectedPendingDisclaimer.statusJob || "-"} • Gang: {selectedPendingDisclaimer.statusGang || "-"}
-                  </div>
-                )}
               </div>
 
               <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800/60 text-red-950 dark:text-red-200">
@@ -787,58 +745,6 @@ export default function MembersDirectoryModal({
                             Terdaftar: {member.regDate || (member.createdAt ? new Date(member.createdAt).toLocaleDateString("id-ID") : "-")}
                           </span>
                         </div>
-                      </div>
-
-                      {/* Details Info: Citizen ID & Phone */}
-                      <div className="grid grid-cols-2 gap-2 text-xs p-2 rounded-xl bg-slate-50 dark:bg-[#14161F] border border-black/10 dark:border-white/10 font-mono mb-2">
-                        <div>
-                          <span className="text-[9px] text-slate-400 font-sans font-bold block">
-                            CITIZEN ID / KTP:
-                          </span>
-                          <strong
-                            className="text-[#DC2626] dark:text-[#FACC15] truncate block text-[11px]"
-                            title={member.icNumber}
-                          >
-                            {member.icNumber || "-"}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-slate-400 font-sans font-bold block">
-                            NO TLP / WA:
-                          </span>
-                          <span
-                            className="text-slate-800 dark:text-slate-200 truncate block text-[11px]"
-                            title={member.phone}
-                          >
-                            {member.phone || "-"}
-                          </span>
-                        </div>
-                        {(member.statusJob || member.statusGang) && (
-                          <>
-                            <div className="pt-1.5 border-t border-black/5 dark:border-white/5">
-                              <span className="text-[9px] text-slate-400 font-sans font-bold block">
-                                PEKERJAAN (JOB):
-                              </span>
-                              <span
-                                className="text-slate-800 dark:text-slate-200 truncate block text-[11px] font-sans font-semibold"
-                                title={member.statusJob || "-"}
-                              >
-                                {member.statusJob || "-"}
-                              </span>
-                            </div>
-                            <div className="pt-1.5 border-t border-black/5 dark:border-white/5">
-                              <span className="text-[9px] text-slate-400 font-sans font-bold block">
-                                AFILIASI / GANG:
-                              </span>
-                              <span
-                                className="text-emerald-700 dark:text-emerald-400 truncate block text-[11px] font-sans font-semibold"
-                                title={member.statusGang || "-"}
-                              >
-                                {member.statusGang || "-"}
-                              </span>
-                            </div>
-                          </>
-                        )}
                       </div>
 
                       {/* Status Kas & Voucher Jasra */}
@@ -971,11 +877,6 @@ export default function MembersDirectoryModal({
                 <h4 className="font-heading font-black text-sm uppercase text-slate-900 dark:text-slate-100">
                   {previewKtp.name}
                 </h4>
-                {previewKtp.citizenId && (
-                  <span className="text-xs font-mono font-bold text-[#DC2626] dark:text-[#FACC15]">
-                    Citizen ID: {previewKtp.citizenId}
-                  </span>
-                )}
               </div>
               <button
                 type="button"
@@ -1035,14 +936,6 @@ export default function MembersDirectoryModal({
                 <strong className="block text-slate-950 dark:text-slate-100 font-heading text-xs uppercase">
                   {selectedPendingDisclaimer.fullName || "Calon Anggota"}
                 </strong>
-                <span className="font-mono text-[11px] text-[#DC2626] dark:text-[#FACC15]">
-                  Citizen ID: {selectedPendingDisclaimer.icNumber || "-"}
-                </span>
-                {(selectedPendingDisclaimer.statusJob || selectedPendingDisclaimer.statusGang) && (
-                  <div className="text-[10.5px] text-slate-600 dark:text-slate-400 mt-1 font-mono">
-                    Pekerjaan: {selectedPendingDisclaimer.statusJob || "-"} • Gang: {selectedPendingDisclaimer.statusGang || "-"}
-                  </div>
-                )}
               </div>
 
               <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800/60 text-red-950 dark:text-red-200">
