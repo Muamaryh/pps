@@ -23,14 +23,16 @@ export default function PermitModal({ isOpen, onClose, onShowToast }) {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] rounded-2xl border-[3px] border-black dark:border-[#475569] shadow-[8px_8px_0px_#000000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-4xl bg-white dark:bg-[#0B0D14] bg-[var(--modal-bg)] rounded-2xl border border-black/15 dark:border-white/15 shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal - Pinned & Sticky di atas agar tombol close tidak pernah tenggelam saat scroll */}
-        <div className="sticky top-0 z-30 flex items-center justify-between p-3.5 sm:p-5 border-b-[2.5px] border-black dark:border-[#475569] bg-white dark:bg-[#161820] bg-[var(--modal-bg)] shrink-0 shadow-xs">
+        <div className="sticky top-0 z-30 flex items-center justify-between p-3.5 sm:p-5 border-b border-black/10 dark:border-white/10 bg-white dark:bg-[#0B0D14] bg-[var(--modal-bg)] shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-2">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#171A21] border-2 border-[#8A7131] flex items-center justify-center shrink-0 p-0.5 shadow-sm">
               <img
@@ -54,15 +56,14 @@ export default function PermitModal({ isOpen, onClose, onShowToast }) {
             </div>
           </div>
 
-          {/* Tombol Close Menonjol & Sangat Terlihat (Merah Kontras Neobrutalisme) */}
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[2px_2px_0px_#000000] flex items-center justify-center shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/70 shadow-sm flex items-center justify-center shrink-0 cursor-pointer active:translate-y-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
             aria-label="Tutup dokumen"
             title="Tutup (Esc)"
           >
-            <X size={20} className="stroke-[3]" />
+            <X size={20} className="stroke-[2.5]" />
           </button>
         </div>
 

@@ -566,7 +566,7 @@ export default function MemberRegistrationModal({
                       href={activeDiscordUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn py-3 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                      className="btn py-3 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border border-indigo-400/60 shadow-sm font-heading font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0.5 transition-all"
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
@@ -581,7 +581,7 @@ export default function MemberRegistrationModal({
                 <button
                   type="button"
                   onClick={handleCloseAndReset}
-                  className="btn text-xs py-2 px-6 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                  className="btn text-xs py-2 px-6 bg-[#FACC15] text-[#111827] border border-amber-500/70 shadow-sm font-heading font-black cursor-pointer active:translate-y-0.5"
                 >
                   Selesai & Kembali ke Beranda
                 </button>
@@ -589,11 +589,11 @@ export default function MemberRegistrationModal({
             ) : rejectedData ? (
               /* Rejection Screen */
               <div className="py-3 flex flex-col items-center text-center max-w-lg mx-auto animate-fadeIn">
-                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-400 border-[3px] border-black flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000]">
+                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-950/70 text-red-600 dark:text-red-400 border border-red-400/70 flex items-center justify-center mb-3 shadow-sm">
                   <ShieldAlert size={36} />
                 </div>
 
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 dark:bg-red-950/80 border border-red-500 text-red-700 dark:text-red-300 font-mono text-xs font-bold mb-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 dark:bg-red-950/80 border border-red-500/60 text-red-700 dark:text-red-300 font-mono text-xs font-bold mb-2">
                   <AlertCircle size={13} />
                   <span>PENDAFTARAN DITOLAK (SUDAH TERDAFTAR)</span>
                 </div>
@@ -607,13 +607,13 @@ export default function MemberRegistrationModal({
                 </p>
 
                 {/* Detail Box */}
-                <div className="w-full text-left p-4 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-red-500 shadow-[4px_4px_0px_#000] flex flex-col gap-3 mb-4">
+                <div className="w-full text-left p-4 rounded-xl bg-[#FAF8F3] dark:bg-[#121622] border border-red-500/50 shadow-sm flex flex-col gap-3 mb-4">
                   <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/15">
                     <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-red-600 dark:text-red-400">
                       <ShieldCheck size={16} />
                       <span>DATA KEANGGOTAAN TERDAFTAR:</span>
                     </div>
-                    <span className="text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-500">
+                    <span className="text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/50">
                       ANGGOTA RESMI
                     </span>
                   </div>
@@ -645,7 +645,7 @@ export default function MemberRegistrationModal({
                     </div>
                   </div>
 
-                  <div className="p-2.5 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed mt-1">
+                  <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed mt-1">
                     Informasi: Setiap warga hanya dapat mendaftarkan satu kartu identitas. Jika Anda ingin memperbarui nomor telepon IC, foto profil, atau ada pergantian data lainnya, silakan hubungi pengurus LSM PPS di Discord resmi.
                   </div>
 
@@ -655,7 +655,7 @@ export default function MemberRegistrationModal({
                       href={activeDiscordUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black text-xs uppercase flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5"
+                      className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border border-indigo-400/60 shadow-sm font-heading font-black text-xs uppercase flex items-center justify-center gap-2 active:translate-y-0.5"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
@@ -670,7 +670,7 @@ export default function MemberRegistrationModal({
                 <button
                   type="button"
                   onClick={handleCloseAndReset}
-                  className="btn text-xs py-2 px-6 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border-2 border-black font-heading font-black cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+                  className="btn btn-secondary text-xs py-2 px-6 font-heading font-black cursor-pointer active:translate-y-0.5"
                 >
                   Tutup & Kembali
                 </button>
@@ -680,7 +680,7 @@ export default function MemberRegistrationModal({
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 {/* Duplicate Member Warning Banner */}
                 {duplicateMember && (
-                  <div className="p-3.5 rounded-lg bg-red-50 dark:bg-red-950/50 border-2 border-red-500 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 animate-fadeIn shadow-[3px_3px_0px_#ef4444]">
+                  <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-500/60 text-xs text-red-900 dark:text-red-200 flex items-start gap-2.5 animate-fadeIn shadow-sm">
                     <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <strong className="font-heading font-black uppercase text-red-700 dark:text-red-400 block text-xs">
@@ -701,7 +701,7 @@ export default function MemberRegistrationModal({
                 )}
 
                 {/* Verification Notice Banner */}
-                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-400 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2.5">
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-400/70 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2.5">
                   <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
                   <div className="leading-relaxed">
                     <strong className="font-heading font-black uppercase block">
@@ -714,7 +714,7 @@ export default function MemberRegistrationModal({
                 </div>
 
                 {/* Bagian 1: Foto Profil Karakter IC */}
-                <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/10 shadow-sm flex flex-col gap-2.5">
+                <div className="p-3.5 rounded-xl bg-[#FAF8F3] dark:bg-[#121622] border border-black/15 dark:border-white/10 flex flex-col gap-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
                     <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                       <User size={14} />
@@ -734,7 +734,7 @@ export default function MemberRegistrationModal({
                   </div>
 
                   <div className="flex items-center gap-3.5">
-                    <div className="w-16 h-16 rounded-full border-2 border-black dark:border-white/20 overflow-hidden shrink-0 bg-slate-100 dark:bg-[#14161F] flex items-center justify-center shadow-sm relative group">
+                    <div className="w-16 h-16 rounded-full border border-black/15 dark:border-white/15 overflow-hidden shrink-0 bg-slate-100 dark:bg-[#14161F] flex items-center justify-center shadow-sm relative group">
                       {formData.profilePhoto ? (
                         <img
                           src={formData.profilePhoto}
@@ -975,7 +975,7 @@ export default function MemberRegistrationModal({
                         value={formData.fullName}
                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                         required
-                        className="input-field text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                        className="input-field text-xs font-bold w-full"
                       />
                     </div>
 
@@ -994,7 +994,7 @@ export default function MemberRegistrationModal({
                           })
                         }
                         required
-                        className="input-field text-xs font-mono font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                        className="input-field text-xs font-mono font-bold w-full"
                       />
 
                       {/* OCR Candidates Chips */}
@@ -1006,10 +1006,10 @@ export default function MemberRegistrationModal({
                               key={cIdx}
                               type="button"
                               onClick={() => setFormData((prev) => ({ ...prev, icNumber: cid }))}
-                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+                              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border ${
                                 formData.icNumber === cid
-                                  ? "bg-emerald-500 text-white border-black shadow-[1px_1px_0px_#000]"
-                                  : "bg-slate-100 dark:bg-[#161820] text-slate-700 dark:text-slate-300 border-black/30 hover:bg-amber-100 dark:hover:bg-amber-950"
+                                  ? "bg-emerald-600 text-white border-emerald-500/70 shadow-sm"
+                                  : "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-amber-100 dark:hover:bg-amber-950"
                               } cursor-pointer transition-colors`}
                               title={`Gunakan Citizen ID: ${cid}`}
                             >
@@ -1033,7 +1033,7 @@ export default function MemberRegistrationModal({
                           value={formData.statusTime}
                           onChange={(e) => setFormData({ ...formData, statusTime: e.target.value })}
                           required
-                          className="input-field !pl-9 text-xs font-mono font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                          className="input-field !pl-9 text-xs font-mono font-bold w-full"
                         />
                       </div>
                     </div>
@@ -1050,7 +1050,7 @@ export default function MemberRegistrationModal({
                           value={formData.statusJob}
                           onChange={(e) => setFormData({ ...formData, statusJob: e.target.value })}
                           required
-                          className="input-field !pl-9 text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                          className="input-field !pl-9 text-xs font-bold w-full"
                         />
                       </div>
                     </div>
@@ -1067,7 +1067,7 @@ export default function MemberRegistrationModal({
                           value={formData.statusGang}
                           onChange={(e) => setFormData({ ...formData, statusGang: e.target.value })}
                           required
-                          className="input-field !pl-9 text-xs font-bold bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                          className="input-field !pl-9 text-xs font-bold w-full"
                         />
                       </div>
                     </div>
@@ -1085,7 +1085,7 @@ export default function MemberRegistrationModal({
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                           required
-                          className="input-field !pl-9 text-xs font-mono bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                          className="input-field !pl-9 text-xs font-mono w-full"
                         />
                       </div>
                     </div>
@@ -1100,21 +1100,21 @@ export default function MemberRegistrationModal({
                         value={formData.discordTag}
                         onChange={(e) => setFormData({ ...formData, discordTag: e.target.value })}
                         required
-                        className="input-field text-xs font-mono bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] w-full"
+                        className="input-field text-xs font-mono w-full"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Bagian 5: Pernyataan & Persetujuan MOU */}
-                <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border-2 border-black/20 dark:border-white/10 flex items-start gap-2.5">
+                <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-400/50 dark:border-amber-700/40 flex items-start gap-2.5">
                   <input
                     type="checkbox"
                     id="agree-mou-member"
                     checked={formData.agreedMOU}
                     onChange={(e) => setFormData({ ...formData, agreedMOU: e.target.checked })}
                     required
-                    className="mt-0.5 rounded border-2 border-black text-[#DC2626] focus:ring-0 cursor-pointer"
+                    className="mt-0.5 rounded border border-black/30 dark:border-white/30 text-[#DC2626] focus:ring-[#FACC15] cursor-pointer"
                   />
                   <label htmlFor="agree-mou-member" className="text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none leading-relaxed">
                     Saya menyatakan bahwa data IC yang dicantumkan adalah benar dan asli. Saya bersedia menjaga ketertiban, solidaritas, serta mematuhi norma dan peraturan LSM Paguyuban Pizza Sandy Shores.
@@ -1156,7 +1156,7 @@ export default function MemberRegistrationModal({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-xl bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 max-h-[90vh] overflow-y-auto text-slate-900 dark:text-slate-100">
+          <div className="w-full max-w-xl bg-white dark:bg-[#0B0D14] border border-black/15 dark:border-white/15 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 max-h-[90vh] overflow-y-auto text-slate-900 dark:text-slate-100">
             {/* Guide Header */}
             <div className="flex items-center justify-between pb-2.5 border-b border-black/15 dark:border-white/10">
               <div className="flex items-center gap-2">

@@ -70,7 +70,7 @@ export default function FloatingActions({
               if (onOpenMembersDirectory) onOpenMembersDirectory();
               else if (onOpenRegister) onOpenRegister();
             }}
-            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
+            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-amber-500/70 shadow-[0_10px_24px_-6px_rgba(15,23,42,0.28)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
             title="Lihat Direktori Anggota Resmi LSM PPS & Pendaftaran"
           >
             <div className="w-7 h-7 rounded-lg bg-[#DC2626] text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -91,7 +91,7 @@ export default function FloatingActions({
               setIsOpen(false);
               if (onOpenServicePortal) onOpenServicePortal("lapak");
             }}
-            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
+            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/70 shadow-[0_10px_24px_-6px_rgba(220,38,38,0.42)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
             title="Portal Layanan Warga (Lapak UMKM, Request Meeting & Lacak Tiket)"
           >
             <div className="w-7 h-7 rounded-lg bg-white/20 text-[#FACC15] flex items-center justify-center shrink-0 shadow-sm">
@@ -116,7 +116,7 @@ export default function FloatingActions({
                 window.dispatchEvent(new CustomEvent("pps:open-donasi"));
               }
             }}
-            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white border-[2.5px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[-2px] hover:translate-y-[-2px] active:translate-x-[2px] active:translate-y-[2px] transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer"
+            className="group flex items-center gap-3 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white border border-emerald-500/70 shadow-[0_10px_24px_-6px_rgba(5,150,105,0.42)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all font-heading font-black text-xs sm:text-sm uppercase tracking-wider cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
             title="Salurkan Donasi Warga & Lihat Rekapitulasi Orang Baik"
           >
             <div className="w-7 h-7 rounded-lg bg-white/20 text-[#FACC15] flex items-center justify-center shrink-0 shadow-sm">
@@ -137,7 +137,7 @@ export default function FloatingActions({
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
           aria-label={isOpen ? "Tutup menu komunitas PPS" : "Buka menu komunitas PPS"}
-          className="group relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#FACC15] hover:bg-[#EAB308] border-[3px] border-[#1A1A1A] dark:border-[#334155] shadow-[4px_4px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[3px] active:translate-y-[3px] transition-all focus:outline-none cursor-pointer"
+          className="group relative flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#FACC15] hover:bg-[#EAB308] border border-amber-500/80 dark:border-amber-400/60 shadow-[0_12px_28px_-6px_rgba(15,23,42,0.35)] dark:shadow-[0_12px_30px_-6px_rgba(0,0,0,0.85)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#DC2626] focus-visible:ring-offset-2 cursor-pointer"
           title={isOpen ? "Tutup menu" : "Menu Komunitas PPS"}
         >
           {/* Logo PPS */}
@@ -155,19 +155,14 @@ export default function FloatingActions({
 
           {/* Indicator Badge (Chevron turns to X when open) */}
           <span
-            className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 border-[#1A1A1A] flex items-center justify-center text-white text-xs font-black shadow transition-all duration-300 ${
+            className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border border-white/80 dark:border-[#0B0D14] flex items-center justify-center text-white text-xs font-black shadow-md transition-all duration-300 ${
               isOpen
                 ? "bg-[#DC2626] rotate-90 scale-105"
-                : "bg-[#1A1A1A] group-hover:bg-[#DC2626] group-hover:scale-110"
+                : "bg-[#111827] group-hover:bg-[#DC2626] group-hover:scale-110"
             }`}
           >
             {isOpen ? <X size={13} strokeWidth={3} /> : <ChevronUp size={14} strokeWidth={3} />}
           </span>
-
-          {/* Subtle pulse ring when collapsed */}
-          {!isOpen && (
-            <span className="absolute -inset-1 rounded-full border-2 border-[#FACC15] animate-ping opacity-30 pointer-events-none" />
-          )}
         </button>
       </aside>
     </>

@@ -67,18 +67,18 @@ export default function EventMessengerPopup({
     <div className="select-none pointer-events-auto font-sans flex flex-col items-end">
       {/* Pop-up Window Card (Messenger Chat Style) */}
       {isOpen ? (
-        <div className="w-[310px] sm:w-[360px] rounded-2xl border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_0px_#000000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col animate-slideUp">
+        <div className="w-[310px] sm:w-[360px] rounded-2xl border border-black/15 dark:border-white/15 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.28)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)] bg-white dark:bg-[#0B0D14] overflow-hidden flex flex-col animate-slideUp">
           
           {/* Header Messenger Bar */}
-          <div className="px-3.5 py-2.5 bg-[#FACC15] dark:bg-[#EAB308] border-b-2 border-black flex items-center justify-between text-slate-950">
+          <div className="px-3.5 py-2.5 bg-[#FACC15] dark:bg-[#EAB308] border-b border-black/10 flex items-center justify-between text-slate-950">
             <div className="flex items-center gap-2">
               <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-white border border-black flex items-center justify-center p-0.5 shadow-sm overflow-hidden shrink-0">
+                <div className="w-8 h-8 rounded-full bg-white border border-black/15 flex items-center justify-center p-0.5 shadow-sm overflow-hidden shrink-0">
                   <img src="/logo.png" alt="Logo LSM PPS" className="w-full h-full object-contain" />
                 </div>
                 {/* Active Status Dot */}
                 <span
-                  className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-black ${
+                  className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white ${
                     isOpenStatus ? "bg-emerald-500" : "bg-red-500"
                   }`}
                 />
@@ -91,7 +91,7 @@ export default function EventMessengerPopup({
                 <span className="text-[10px] text-slate-800 font-mono flex items-center gap-1 font-bold">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
-                      isOpenStatus ? "bg-emerald-600 animate-pulse" : "bg-red-600"
+                      isOpenStatus ? "bg-emerald-600" : "bg-red-600"
                     }`}
                   />
                   Pesan Masuk • Event Resmi
@@ -103,8 +103,9 @@ export default function EventMessengerPopup({
               <button
                 type="button"
                 onClick={handleDismiss}
-                className="w-6 h-6 rounded border border-black/40 hover:border-black bg-white/70 hover:bg-white flex items-center justify-center text-slate-900 transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-lg border border-black/15 hover:border-black/30 bg-white/80 hover:bg-white flex items-center justify-center text-slate-900 transition-colors cursor-pointer"
                 title="Sembunyikan pesan"
+                aria-label="Sembunyikan pesan"
               >
                 <X size={14} />
               </button>
@@ -114,15 +115,17 @@ export default function EventMessengerPopup({
           {/* Chat Bubble Body */}
           <div className="p-3.5 flex flex-col gap-2.5">
             {/* Bubble Message */}
-            <div className="p-3 bg-white dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-xl shadow-sm flex flex-col gap-1.5">
+            <div className="p-3 bg-[#FAF8F3] dark:bg-[#121622] border border-black/10 dark:border-white/10 rounded-xl flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold text-slate-400">
+                <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">
                   Hari Ini • Pesan Resmi
                 </span>
                 {/* Badge Status Pendaftaran: HIJAU bila DIBUKA, MERAH bila DITUTUP */}
                 <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-black text-white border border-black shadow-[1px_1px_0px_#000] ${
-                    isOpenStatus ? "bg-emerald-600" : "bg-red-600"
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-black text-white border ${
+                    isOpenStatus
+                      ? "bg-emerald-600 border-emerald-500/60"
+                      : "bg-red-600 border-red-500/60"
                   }`}
                 >
                   {isOpenStatus ? "PENDAFTARAN DIBUKA" : "PENDAFTARAN DITUTUP"}
@@ -155,10 +158,10 @@ export default function EventMessengerPopup({
             <button
               type="button"
               onClick={handleOpenEvent}
-              className={`w-full btn py-2.5 px-3 text-white font-heading font-black text-xs uppercase tracking-wider border-2 border-black shadow-[2.5px_2.5px_0px_#000] flex items-center justify-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all ${
+              className={`w-full py-2.5 px-3 rounded-xl text-white font-heading font-black text-xs uppercase tracking-wider border shadow-sm flex items-center justify-center gap-1.5 hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer transition-all ${
                 isOpenStatus
-                  ? "bg-[#DC2626] hover:bg-[#B91C1C]"
-                  : "bg-slate-700 hover:bg-slate-800"
+                  ? "bg-[#DC2626] hover:bg-[#B91C1C] border-red-500/70"
+                  : "bg-slate-700 hover:bg-slate-800 border-slate-600"
               }`}
             >
               <span>{isOpenStatus ? "Klik Di Sini Untuk Daftar" : "Lihat Informasi Event"}</span>
@@ -171,19 +174,19 @@ export default function EventMessengerPopup({
         <button
           type="button"
           onClick={handleToggle}
-          className="group flex items-center gap-2.5 px-4 py-2.5 rounded-full border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] hover:bg-[#FACC15] dark:hover:bg-[#FACC15] hover:text-slate-950 text-slate-900 dark:text-slate-100 transition-all cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+          className="group flex items-center gap-2.5 px-4 py-2.5 rounded-full border border-black/15 dark:border-white/15 shadow-[0_12px_28px_-6px_rgba(15,23,42,0.22)] dark:shadow-[0_14px_32px_-6px_rgba(0,0,0,0.85)] bg-white dark:bg-[#0E111B] hover:bg-[#FACC15] dark:hover:bg-[#FACC15] hover:text-slate-950 text-slate-900 dark:text-slate-100 transition-all cursor-pointer hover:-translate-y-0.5 active:translate-y-0.5"
           title="Buka notifikasi event baru"
         >
           <div className="relative">
             <div
-              className={`w-8 h-8 rounded-full text-white flex items-center justify-center border border-black shadow-sm ${
-                isOpenStatus ? "bg-[#DC2626]" : "bg-slate-700"
+              className={`w-8 h-8 rounded-full text-white flex items-center justify-center border shadow-sm ${
+                isOpenStatus ? "bg-[#DC2626] border-red-500/70" : "bg-slate-700 border-slate-600"
               }`}
             >
               <MessageSquare size={16} />
             </div>
             {/* Unread Red Notification Badge */}
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 border border-white dark:border-black text-[9px] font-black text-white flex items-center justify-center animate-pulse">
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#DC2626] border border-white dark:border-[#0E111B] text-[9px] font-black text-white flex items-center justify-center">
               1
             </span>
           </div>

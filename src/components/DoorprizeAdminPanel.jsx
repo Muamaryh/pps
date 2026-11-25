@@ -627,7 +627,7 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
           </div>
 
           {/* Rolling Number Display Box */}
-          <div className="rounded-xl border-[3px] border-black bg-slate-950 text-white p-5 text-center shadow-inner relative overflow-hidden">
+          <div className="rounded-xl border border-white/15 bg-slate-950 text-white p-5 text-center shadow-inner relative overflow-hidden">
             <span className="block font-mono text-[10px] uppercase tracking-widest text-amber-400 font-bold">
               {isSpinning
                 ? "MENGOCOK NOMOR PESERTA..."
@@ -913,11 +913,11 @@ export default function DoorprizeAdminPanel({ onShowToast, onOpenVisitorModal })
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="bg-slate-900 text-[#FACC15] sticky top-0 z-10 font-heading uppercase text-[11px]">
                   <tr>
-                    <th className="py-2.5 px-3 border-b-2 border-black">Nomor Undian</th>
-                    <th className="py-2.5 px-3 border-b-2 border-black">Nama Lengkap IC</th>
-                    <th className="py-2.5 px-3 border-b-2 border-black">Citizen ID (CID)</th>
-                    <th className="py-2.5 px-3 border-b-2 border-black">Status</th>
-                    <th className="py-2.5 px-3 border-b-2 border-black text-center">Aksi</th>
+                    <th className="py-2.5 px-3 border-b border-white/15">Nomor Undian</th>
+                    <th className="py-2.5 px-3 border-b border-white/15">Nama Lengkap IC</th>
+                    <th className="py-2.5 px-3 border-b border-white/15">Citizen ID (CID)</th>
+                    <th className="py-2.5 px-3 border-b border-white/15">Status</th>
+                    <th className="py-2.5 px-3 border-b border-white/15 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/15 dark:divide-white/10">

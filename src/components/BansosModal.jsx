@@ -429,14 +429,14 @@ export default function BansosModal({
         </div>
 
         {/* Navigation Tabs (Formulir Klaim vs Transparansi Penerima Bansos) */}
-        <div className="flex items-center border-b-2 border-black bg-slate-100 dark:bg-[#1C1F2B] px-4 sm:px-6 pt-2.5 gap-2 overflow-x-auto">
+        <div className="flex items-center border-b border-black/10 dark:border-white/10 bg-[#F6F4ED] dark:bg-[#0E111B] px-4 sm:px-6 py-2.5 gap-2 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab("form")}
-            className={`py-2 px-3 sm:px-4 text-xs font-heading font-black uppercase border-t-2 border-x-2 border-black transition-all flex items-center gap-1.5 cursor-pointer -mb-[2px] ${
+            className={`py-2 px-3.5 text-xs font-heading font-black uppercase rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === "form"
-                ? "bg-[#FFFDF9] dark:bg-[#161822] text-slate-900 dark:text-slate-100 border-b-2 border-b-transparent shadow-xs"
-                : "bg-slate-200 dark:bg-[#12141D] text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-[#191C27] border-b-2 border-black"
+                ? "bg-[#FACC15] text-slate-950 border-amber-500/80 shadow-sm"
+                : "bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-white/10"
             }`}
           >
             <Gift size={15} className={isBansosClosed ? "text-slate-400" : "text-[#DC2626]"} />
@@ -451,15 +451,15 @@ export default function BansosModal({
           <button
             type="button"
             onClick={() => setActiveTab("recipients")}
-            className={`py-2 px-3 sm:px-4 text-xs font-heading font-black uppercase border-t-2 border-x-2 border-black transition-all flex items-center gap-1.5 cursor-pointer -mb-[2px] ${
+            className={`py-2 px-3.5 text-xs font-heading font-black uppercase rounded-xl border transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === "recipients"
-                ? "bg-[#FFFDF9] dark:bg-[#161822] text-slate-900 dark:text-slate-100 border-b-2 border-b-transparent shadow-xs"
-                : "bg-slate-200 dark:bg-[#12141D] text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-[#191C27] border-b-2 border-black"
+                ? "bg-[#FACC15] text-slate-950 border-amber-500/80 shadow-sm"
+                : "bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-white/10"
             }`}
           >
             <Users size={15} className="text-emerald-600" />
             <span>Daftar Penerima Bansos</span>
-            <span className="text-[10px] font-mono font-black px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-400">
+            <span className="text-[10px] font-mono font-black px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-400/70">
               {claimsList.length}
             </span>
           </button>
@@ -472,8 +472,8 @@ export default function BansosModal({
             <>
               {isBansosClosed ? (
                 /* BANSOS CLOSED / INACTIVE STATE */
-                <div className="p-6 sm:p-8 rounded-xl bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] text-center flex flex-col items-center justify-center gap-3.5 my-2">
-                  <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-950/60 border-2 border-black flex items-center justify-center text-amber-800 dark:text-amber-300 shadow-[2px_2px_0px_#000]">
+                <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 shadow-sm text-center flex flex-col items-center justify-center gap-3.5 my-2">
+                  <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-400/70 flex items-center justify-center text-amber-800 dark:text-amber-300 shadow-sm">
                     <Lock size={28} />
                   </div>
                   <div className="space-y-1.5 max-w-md">
@@ -492,7 +492,7 @@ export default function BansosModal({
                     <button
                       type="button"
                       onClick={() => setActiveTab("recipients")}
-                      className="py-2.5 px-4 rounded bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs uppercase border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-2 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+                      className="py-2.5 px-4 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs uppercase border border-amber-500/70 shadow-sm flex items-center gap-2 cursor-pointer transition-all active:translate-y-0.5"
                     >
                       <Users size={16} />
                       <span>Lihat Transparansi Penerima Bansos ({claimsList.length})</span>
@@ -503,7 +503,7 @@ export default function BansosModal({
                 <>
                   {/* Multiple Programs Switcher (Shown if more than 1 active program) */}
                   {availablePrograms.length > 1 && !issuedClaim && (
-                    <div className="bg-amber-100/70 dark:bg-[#1E212B] border-2 border-black p-3 shadow-[2px_2px_0px_#000] flex flex-col gap-1.5">
+                    <div className="rounded-2xl bg-amber-50/80 dark:bg-[#121622] border border-amber-400/50 dark:border-white/10 p-3.5 flex flex-col gap-2">
                       <span className="text-[10px] font-heading font-black uppercase text-amber-950 dark:text-amber-300">
                         Pilih Program Bansos Yang Ingin Diajukan:
                       </span>
@@ -515,10 +515,10 @@ export default function BansosModal({
                               key={p.id}
                               type="button"
                               onClick={() => setSelectedProgramId(p.id)}
-                              className={`px-3 py-1.5 rounded text-xs font-heading font-black uppercase border-2 border-black transition-all cursor-pointer ${
+                              className={`px-3 py-1.5 rounded-lg text-xs font-heading font-black uppercase border transition-all cursor-pointer ${
                                 isSel
-                                  ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                                  : "bg-white dark:bg-[#28251e] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                                  ? "bg-[#FACC15] text-slate-950 border-amber-500/80 shadow-sm"
+                                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
                               }`}
                             >
                               {p.title}
@@ -530,12 +530,12 @@ export default function BansosModal({
                   )}
 
           {/* Package Highlight Banner */}
-          <div className="bg-[#FFF8E7] dark:bg-[#1f1b13] border-2 border-black dark:border-[#715413] p-4 shadow-[3px_3px_0px_#000]">
-            <div className="flex items-center justify-between mb-2">
+          <div className="rounded-2xl bg-[#FAF8F3] dark:bg-[#121622] border border-amber-400/50 dark:border-amber-700/40 p-4">
+            <div className="flex items-center justify-between mb-2.5">
               <span className="text-[11px] font-black uppercase text-[#92400E] dark:text-[#FBBF24] tracking-wider">
                 Isi Paket Bantuan Sosial Per Warga:
               </span>
-              <span className="text-[10px] font-black bg-red-600 text-white px-2 py-0.5 border border-black shadow-[1px_1px_0px_#000] uppercase">
+              <span className="text-[10px] font-black bg-red-600 text-white px-2 py-0.5 rounded-md border border-red-500/70 uppercase">
                 1 CID = 1 Klaim
               </span>
             </div>
@@ -551,7 +551,7 @@ export default function BansosModal({
                 return (
                   <div
                     key={idx}
-                    className="p-2.5 bg-white dark:bg-[#28251e] border-2 border-black flex flex-col items-center justify-center"
+                    className="p-2.5 rounded-xl bg-white dark:bg-[#1A1F2E] border border-black/15 dark:border-white/10 flex flex-col items-center justify-center"
                   >
                     <IconComponent className="text-amber-600 dark:text-amber-400 mb-1" size={24} />
                     <span className="font-heading font-black text-xs sm:text-sm">{it.name}</span>
@@ -569,9 +569,9 @@ export default function BansosModal({
           {/* VIEW: EITHER SUCCESS TICKET OR CLAIM FORM */}
           {issuedClaim ? (
                 /* SUCCESS TICKET VIEW */
-                <div className="border-3 border-black bg-emerald-50 dark:bg-[#06241a] p-5 shadow-[4px_4px_0px_#000] space-y-4 animate-fadeIn">
+                <div className="rounded-2xl border border-emerald-500/60 bg-emerald-50 dark:bg-[#06241a] p-5 shadow-sm space-y-4 animate-fadeIn">
                   <div className="text-center space-y-1">
-                    <div className="inline-flex p-2 bg-emerald-600 text-white rounded-full border-2 border-black shadow-[2px_2px_0px_#000] mb-1">
+                    <div className="inline-flex p-2 bg-emerald-600 text-white rounded-full border border-emerald-500/70 shadow-sm mb-1">
                       <CheckCircle2 size={32} />
                     </div>
                     <h3 className="font-heading font-black text-xl text-emerald-800 dark:text-emerald-300 uppercase">
@@ -583,7 +583,7 @@ export default function BansosModal({
                   </div>
 
                   {/* Digital Coupon Box */}
-                  <div className="bg-white dark:bg-[#1E212B] border-2 border-dashed border-black p-4 text-center space-y-3 shadow-[3px_3px_0px_#000]">
+                  <div className="rounded-xl bg-white dark:bg-[#121622] border border-dashed border-black/25 dark:border-white/25 p-4 text-center space-y-3 shadow-sm">
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest block">
                       Kode Kupon Digital
                     </span>
@@ -594,7 +594,7 @@ export default function BansosModal({
                       <button
                         type="button"
                         onClick={() => handleCopyCode(issuedClaim.claimCode)}
-                        className="px-2.5 py-1.5 bg-[#FACC15] hover:bg-yellow-300 text-black border-2 border-black font-black text-xs flex items-center gap-1 shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#FACC15] hover:bg-[#EAB308] text-black border border-amber-500/70 font-black text-xs flex items-center gap-1 shadow-sm active:translate-y-0.5 cursor-pointer transition-all"
                         title="Salin Kode Kupon"
                       >
                         {copiedCode ? <Check size={14} /> : <Copy size={14} />}
@@ -623,21 +623,21 @@ export default function BansosModal({
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[10px] uppercase font-bold">Status Pengambilan</span>
-                        <span className="inline-block px-1.5 py-0.5 bg-yellow-400 text-black font-black text-[10px] border border-black uppercase">
+                        <span className="inline-block px-1.5 py-0.5 rounded-md bg-[#FACC15] text-black font-black text-[10px] border border-amber-500/70 uppercase">
                           BELUM DIAMBIL
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-3 bg-amber-100 dark:bg-amber-950/40 border border-amber-500 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-400/60 text-amber-900 dark:text-amber-200 text-xs space-y-1.5">
                     <span className="font-black block uppercase text-[11px]">
                       Lokasi & Cara Pengambilan:
                     </span>
                     <p className="text-[11px] leading-relaxed">
                       Kunjungi <strong>Kantor LSM Paguyuban Pizza Sandy Shores</strong>. Beritahukan Citizen ID (<strong>{issuedClaim.citizenId}</strong>) atau tunjukkan kode kupon <strong>{issuedClaim.claimCode}</strong> kepada staf pengurus yang bertugas untuk menerima paket fisik bansos.
                     </p>
-                    <div className="p-2 bg-white/70 dark:bg-black/30 border border-amber-600/30 rounded text-[11px] leading-relaxed">
+                    <div className="p-2 bg-white/70 dark:bg-black/30 border border-amber-600/30 rounded-lg text-[11px] leading-relaxed">
                       <span className="font-bold block text-amber-800 dark:text-amber-300 mb-0.5">
                         Panduan Roleplay (RP):
                       </span>
@@ -648,7 +648,7 @@ export default function BansosModal({
                   <button
                     type="button"
                     onClick={handleModalClose}
-                    className="w-full py-3 bg-[#FACC15] hover:bg-yellow-300 text-black border-2 border-black font-heading font-black text-xs uppercase shadow-[3px_3px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                    className="w-full py-3 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-black border border-amber-500/70 font-heading font-black text-xs uppercase shadow-sm active:translate-y-0.5 cursor-pointer transition-all"
                   >
                     Selesai & Tutup
                   </button>
@@ -657,7 +657,7 @@ export default function BansosModal({
                 /* CLAIM FORM */
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {errorMessage && (
-                    <div className="p-3 bg-red-100 dark:bg-red-950/60 border-2 border-red-600 text-red-900 dark:text-red-200 text-xs font-bold flex items-start gap-2 shadow-[2px_2px_0px_#000]">
+                    <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-500/60 text-red-900 dark:text-red-200 text-xs font-bold flex items-start gap-2">
                       <AlertTriangle className="shrink-0 text-red-600" size={16} />
                       <div className="space-y-1">
                         <p>{errorMessage}</p>
@@ -668,9 +668,9 @@ export default function BansosModal({
                     </div>
                   )}
 
-                  {/* Area 1: Unggah KTP dengan Auto-Scan OCR (Mirip Pendaftaran Anggota) */}
-                  <div className="p-3.5 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
+                  {/* Area 1: Unggah KTP dengan Auto-Scan OCR */}
+                  <div className="p-4 rounded-2xl bg-[#FAF8F3] dark:bg-[#121622] border border-black/15 dark:border-white/15 flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1.5 border-b border-black/10 dark:border-white/10">
                       <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                         <CreditCard size={14} />
                         <span>1. Dokumen KTP IC (Auto-Scan OCR Aktif)</span>
@@ -679,12 +679,12 @@ export default function BansosModal({
                         <button
                           type="button"
                           onClick={() => setShowSampleKtp(true)}
-                          className="py-1 px-2.5 bg-white dark:bg-[#1E222D] hover:bg-amber-100 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 font-heading font-black text-[11px] border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-colors"
+                          className="py-1 px-2.5 rounded-lg bg-white dark:bg-white/5 hover:bg-amber-100 dark:hover:bg-white/10 text-slate-900 dark:text-slate-100 font-heading font-black text-[11px] border border-black/15 dark:border-white/15 shadow-sm flex items-center gap-1.5 cursor-pointer transition-colors"
                         >
                           <HelpCircle size={13} className="text-[#DC2626]" />
                           <span>Contoh KTP yang Benar</span>
                         </button>
-                        <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] flex items-center gap-1">
+                        <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded-md border border-amber-500/70 flex items-center gap-1">
                           <ScanLine size={12} />
                           <span>AUTO-FILL AKTIF</span>
                         </span>
@@ -693,13 +693,13 @@ export default function BansosModal({
 
                     <div className="flex flex-col sm:flex-row items-center gap-3">
                       <div className="w-full sm:w-1/2">
-                        <div className="border-2 border-dashed border-black/30 dark:border-white/20 rounded p-3 text-center bg-slate-50 dark:bg-[#14161F] hover:bg-amber-50/50 transition-colors">
+                        <div className="border-2 border-dashed border-black/20 dark:border-white/20 rounded-xl p-3 text-center bg-white dark:bg-[#0B0D14] hover:border-[#FACC15] hover:bg-amber-50/40 dark:hover:bg-[#161B29] transition-colors">
                           {screenshotPreview ? (
                             <div className="flex flex-col items-center gap-1.5">
                               <img
                                 src={screenshotPreview}
                                 alt="KTP IC Preview"
-                                className="w-full max-h-32 object-contain rounded border border-black shadow-sm"
+                                className="w-full max-h-32 object-contain rounded-lg border border-black/15 dark:border-white/15 shadow-sm"
                               />
                               <button
                                 type="button"
@@ -748,7 +748,7 @@ export default function BansosModal({
 
                       <div className="w-full sm:w-1/2 text-xs flex flex-col justify-center">
                         {isScanningOcr ? (
-                          <div className="p-3 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-400 text-amber-900 dark:text-amber-200 flex flex-col gap-1.5 animate-pulse">
+                          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-400 text-amber-900 dark:text-amber-200 flex flex-col gap-1.5">
                             <div className="flex items-center gap-2 font-bold">
                               <ScanLine size={16} className="animate-spin text-amber-600" />
                               <span>Memindai Dokumen KTP IC... {scanProgress}%</span>
@@ -764,7 +764,7 @@ export default function BansosModal({
                             </span>
                           </div>
                         ) : ocrSuccess === true ? (
-                          <div className="p-2.5 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500 text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
+                          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/60 text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
                             <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
                             <div>
                               <strong className="block font-bold">✓ KTP Terdeteksi Sukses!</strong>
@@ -774,17 +774,17 @@ export default function BansosModal({
                             </div>
                           </div>
                         ) : (
-                          <div className="p-2.5 rounded bg-slate-100 dark:bg-[#161820] border border-black/15 text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
-                            💡 <strong>Tips OCR:</strong> Pastikan foto KTP IC tampak jelas dan tidak terpotong agar sistem membaca Nama Lengkap, Citizen ID, dan Sex secara otomatis.
+                          <div className="p-2.5 rounded-xl bg-white dark:bg-[#0B0D14] border border-black/10 dark:border-white/10 text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+                            <strong>Tips OCR:</strong> Pastikan foto KTP IC tampak jelas dan tidak terpotong agar sistem membaca Nama Lengkap, Citizen ID, dan Sex secara otomatis.
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Area 2: Rincian Data Bansos (Sama seperti daftar anggota + Sex) */}
-                  <div className="p-3.5 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col gap-3">
-                    <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1 border-b border-black/10 dark:border-white/10">
+                  {/* Area 2: Rincian Data Bansos */}
+                  <div className="p-4 rounded-2xl bg-[#FAF8F3] dark:bg-[#121622] border border-black/15 dark:border-white/15 flex flex-col gap-3">
+                    <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1.5 border-b border-black/10 dark:border-white/10">
                       <User size={14} />
                       <span>2. Rincian Data Penerima Bansos</span>
                     </div>
@@ -801,7 +801,7 @@ export default function BansosModal({
                           placeholder="Contoh: Mamang Resing"
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value.toUpperCase())}
-                          className="w-full bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] px-3 py-2 text-xs font-bold uppercase shadow-[1.5px_1.5px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                          className="input-field w-full px-3 py-2 text-xs font-bold uppercase"
                         />
                       </div>
 
@@ -816,7 +816,7 @@ export default function BansosModal({
                           placeholder="Contoh: PPS12345"
                           value={citizenId}
                           onChange={(e) => setCitizenId(e.target.value.toUpperCase())}
-                          className="w-full bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] px-3 py-2 text-xs font-mono font-bold uppercase shadow-[1.5px_1.5px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                          className="input-field w-full px-3 py-2 text-xs font-mono font-bold uppercase"
                         />
                       </div>
 
@@ -840,7 +840,7 @@ export default function BansosModal({
                     <button
                       type="submit"
                       disabled={isSubmitting || isScanningOcr}
-                      className="w-full py-3.5 px-4 bg-[#FACC15] hover:bg-yellow-300 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-[#111827] border-2 border-black font-heading font-black text-sm uppercase tracking-wider shadow-[4px_4px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 flex items-center justify-center gap-2 transition-colors min-h-[48px] cursor-pointer"
+                      className="w-full btn py-3.5 px-4 bg-[#FACC15] hover:bg-[#EAB308] disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-[#111827] border border-amber-500/70 font-heading font-black text-sm uppercase tracking-wider shadow-sm active:translate-y-0.5 flex items-center justify-center gap-2 transition-all min-h-[48px] cursor-pointer"
                     >
                       {isSubmitting ? (
                         <>
@@ -869,9 +869,9 @@ export default function BansosModal({
           {activeTab === "recipients" && (
             <div className="space-y-4">
               {/* Header Info */}
-              <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-[#0b241b] dark:to-[#0f2e24] border-2 border-black dark:border-emerald-700/60 shadow-[3px_3px_0px_#000] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-[#0b241b] dark:to-[#0f2e24] border border-emerald-500/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded bg-emerald-600 text-white border-2 border-black flex items-center justify-center font-bold shadow-[1.5px_1.5px_0px_#000] shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white border border-emerald-500/70 flex items-center justify-center font-bold shadow-sm shrink-0">
                     <CheckCircle2 size={20} />
                   </div>
                   <div>
@@ -885,7 +885,7 @@ export default function BansosModal({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white dark:bg-[#181B24] border border-black text-slate-800 dark:text-slate-200 shadow-xs">
+                  <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-md bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/15 text-slate-800 dark:text-slate-200">
                     Update Real-Time
                   </span>
                 </div>
@@ -893,8 +893,8 @@ export default function BansosModal({
 
               {/* 3 Stats Bar */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div className="p-3 rounded bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded bg-[#FACC15] border border-black flex items-center justify-center font-bold text-slate-950 shrink-0">
+                <div className="p-3 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#FACC15] border border-amber-500/70 flex items-center justify-center font-bold text-slate-950 shrink-0">
                     <Users size={16} />
                   </div>
                   <div>
@@ -903,8 +903,8 @@ export default function BansosModal({
                   </div>
                 </div>
 
-                <div className="p-3 rounded bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded bg-emerald-500 border border-black flex items-center justify-center font-bold text-white shrink-0">
+                <div className="p-3 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-600 border border-emerald-500/70 flex items-center justify-center font-bold text-white shrink-0">
                     <CheckCircle2 size={16} />
                   </div>
                   <div>
@@ -913,8 +913,8 @@ export default function BansosModal({
                   </div>
                 </div>
 
-                <div className="p-3 rounded bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded bg-amber-400 border border-black flex items-center justify-center font-bold text-slate-950 shrink-0">
+                <div className="p-3 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-400 border border-amber-500/70 flex items-center justify-center font-bold text-slate-950 shrink-0">
                     <Clock size={16} />
                   </div>
                   <div>
@@ -933,7 +933,7 @@ export default function BansosModal({
                     value={recipientSearch}
                     onChange={(e) => setRecipientSearch(e.target.value)}
                     placeholder="Cari nama warga, Citizen ID / No KTP, atau nama bansos..."
-                    className="input-field w-full pl-9 pr-8 py-2 text-xs bg-white dark:bg-[#1A1D26] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[1.5px_1.5px_0px_#000]"
+                    className="input-field w-full !pl-9 !pr-8 py-2 text-xs"
                   />
                   {recipientSearch && (
                     <button
@@ -953,7 +953,7 @@ export default function BansosModal({
                     <select
                       value={recipientProgramFilter}
                       onChange={(e) => setRecipientProgramFilter(e.target.value)}
-                      className="py-1.5 px-2 text-[11px] font-heading font-black bg-white dark:bg-[#1E212B] text-slate-800 dark:text-slate-200 border-2 border-black dark:border-[#475569] shadow-[1.5px_1.5px_0px_#000] cursor-pointer"
+                      className="select-field py-1.5 px-2.5 text-[11px] font-heading font-black cursor-pointer"
                     >
                       <option value="ALL">Semua Program ({claimsList.length})</option>
                       {bansosPrograms.map((p) => {
@@ -973,10 +973,10 @@ export default function BansosModal({
                   <button
                     type="button"
                     onClick={() => setRecipientFilter("ALL")}
-                    className={`py-1.5 px-2.5 rounded text-[11px] font-heading font-bold border-2 border-black cursor-pointer transition-all ${
+                    className={`py-1.5 px-2.5 rounded-lg text-[11px] font-heading font-bold border cursor-pointer transition-all ${
                       recipientFilter === "ALL"
-                        ? "bg-slate-900 text-white shadow-[1px_1px_0px_#000]"
-                        : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                        ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                        : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
                     }`}
                   >
                     Semua ({totalClaims})
@@ -984,10 +984,10 @@ export default function BansosModal({
                   <button
                     type="button"
                     onClick={() => setRecipientFilter("CLAIMED")}
-                    className={`py-1.5 px-2.5 rounded text-[11px] font-heading font-bold border-2 border-black cursor-pointer transition-all ${
+                    className={`py-1.5 px-2.5 rounded-lg text-[11px] font-heading font-bold border cursor-pointer transition-all ${
                       recipientFilter === "CLAIMED"
-                        ? "bg-emerald-600 text-white shadow-[1px_1px_0px_#000]"
-                        : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100"
+                        ? "bg-emerald-600 text-white border-emerald-500/70 shadow-sm"
+                        : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-400/50 hover:bg-emerald-100"
                     }`}
                   >
                     Sudah Diterima ({claimedCount})
@@ -995,10 +995,10 @@ export default function BansosModal({
                   <button
                     type="button"
                     onClick={() => setRecipientFilter("PENDING")}
-                    className={`py-1.5 px-2.5 rounded text-[11px] font-heading font-bold border-2 border-black cursor-pointer transition-all ${
+                    className={`py-1.5 px-2.5 rounded-lg text-[11px] font-heading font-bold border cursor-pointer transition-all ${
                       recipientFilter === "PENDING"
-                        ? "bg-amber-500 text-slate-950 shadow-[1px_1px_0px_#000]"
-                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100"
+                        ? "bg-amber-500 text-slate-950 border-amber-500 shadow-sm"
+                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-400/50 hover:bg-amber-100"
                     }`}
                   >
                     Siap Ambil ({pendingCount})
@@ -1013,7 +1013,7 @@ export default function BansosModal({
                   <span>Memuat data transparansi penerima bansos...</span>
                 </div>
               ) : filteredRecipients.length === 0 ? (
-                <div className="p-8 text-center bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                <div className="p-8 text-center rounded-2xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15">
                   <Package size={28} className="mx-auto text-slate-400 mb-2" />
                   <p className="font-heading font-black text-xs uppercase text-slate-800 dark:text-slate-200">
                     Tidak Ada Data Penerima Bansos
@@ -1031,13 +1031,15 @@ export default function BansosModal({
                     return (
                       <div
                         key={c.id || c.claimCode}
-                        className="p-3 sm:p-3.5 rounded bg-white dark:bg-[#1C1F2B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                        className="p-3 sm:p-3.5 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
                       >
                         {/* Warga Info */}
                         <div className="flex items-start gap-2.5 min-w-0 flex-1">
                           <div
-                            className={`w-9 h-9 rounded flex items-center justify-center font-heading font-black text-xs border-2 border-black shrink-0 shadow-[1px_1px_0px_#000] ${
-                              isClaimed ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
+                            className={`w-9 h-9 rounded-lg flex items-center justify-center font-heading font-black text-xs border shrink-0 ${
+                              isClaimed
+                                ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border-emerald-400/60"
+                                : "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-400/60"
                             }`}
                           >
                             {(c.fullName || "W")[0]}
@@ -1106,7 +1108,7 @@ export default function BansosModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="bg-[#FFFDF9] dark:bg-[#161822] border-t-2 border-black/20 dark:border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+        <div className="bg-[#FFFDF9] dark:bg-[#161822] border-t border-black/15 dark:border-white/10 px-4 sm:px-6 py-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <span>LSM Paguyuban Pizza Sandy Shores &copy; 2026 • Transparansi Bansos</span>
           {activeTab === "form" ? (
             <button
@@ -1136,10 +1138,10 @@ export default function BansosModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col max-h-[90vh]"
+            className="w-full max-w-lg rounded-2xl border border-black/20 dark:border-white/15 shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col max-h-[90vh]"
           >
             {/* Header Modal */}
-            <div className="flex items-center justify-between px-4 py-3 border-b-2 border-black bg-[#FACC15] text-slate-950">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-black/15 bg-[#FACC15] text-slate-950">
               <div className="flex items-center gap-2">
                 <HelpCircle size={18} className="text-[#DC2626]" />
                 <h4 className="font-heading font-black text-xs sm:text-sm uppercase">
@@ -1149,7 +1151,7 @@ export default function BansosModal({
               <button
                 type="button"
                 onClick={() => setShowSampleKtp(false)}
-                className="w-7 h-7 rounded border border-black bg-white flex items-center justify-center font-bold hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-lg border border-black/20 bg-white flex items-center justify-center font-bold hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
                 title="Tutup Preview"
               >
                 <X size={16} />
@@ -1159,7 +1161,7 @@ export default function BansosModal({
             {/* Content Modal */}
             <div className="p-4 flex flex-col gap-3 overflow-y-auto">
               <div className="flex justify-center items-center py-1">
-                <div className="rounded-lg border-2 border-black shadow-[3px_3px_0px_#000] overflow-hidden inline-block bg-slate-50 dark:bg-slate-900">
+                <div className="rounded-xl border border-black/15 dark:border-white/15 shadow-md overflow-hidden inline-block bg-slate-50 dark:bg-slate-900">
                   <img
                     src="/contoh-ktp-bansos.png"
                     alt="Contoh Format KTP IC yang Benar"
@@ -1168,7 +1170,7 @@ export default function BansosModal({
                 </div>
               </div>
 
-              <div className="p-3 bg-amber-50 dark:bg-[#14161F] border border-amber-300 dark:border-amber-900 rounded text-xs text-slate-800 dark:text-slate-200 space-y-1.5">
+              <div className="p-3 bg-amber-50 dark:bg-[#14161F] border border-amber-300 dark:border-amber-900 rounded-xl text-xs text-slate-800 dark:text-slate-200 space-y-1.5">
                 <strong className="block font-bold text-[#DC2626] uppercase text-[11px]">
                   Ketentuan Foto KTP IC Warga:
                 </strong>
@@ -1188,7 +1190,7 @@ export default function BansosModal({
               <button
                 type="button"
                 onClick={() => setShowSampleKtp(false)}
-                className="w-full py-2.5 bg-[#FACC15] hover:bg-yellow-300 text-black border-2 border-black font-heading font-black text-xs uppercase shadow-[2px_2px_0px_#000] mt-1 cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#FACC15] hover:bg-yellow-300 text-black border border-black/20 font-heading font-black text-xs uppercase shadow-sm mt-1 cursor-pointer transition-all active:scale-[0.99]"
               >
                 Saya Mengerti, Lanjutkan Upload KTP
               </button>

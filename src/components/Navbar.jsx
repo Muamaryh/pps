@@ -306,7 +306,7 @@ export default function Navbar({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="lg:hidden mt-2 p-4 rounded-2xl bg-white/95 dark:bg-[#0B0D14]/98 backdrop-blur-xl border border-black/15 dark:border-white/15 shadow-xl dark:shadow-[0_15px_40px_rgba(0,0,0,0.85)] flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="lg:hidden mt-2 p-4 rounded-2xl bg-white/95 dark:bg-[#0B0D14]/95 backdrop-blur-xl border border-black/15 dark:border-white/15 shadow-xl dark:shadow-[0_15px_40px_rgba(0,0,0,0.85)] flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
           {displayLinks.map((link, idx) => {
             const targetId = link.url.replace("#", "");
             const isGalleryLink =

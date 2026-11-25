@@ -115,16 +115,18 @@ export default function KasCopyModal({
   return (
     <div
       className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-2xl shadow-[8px_8px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-2xl bg-white dark:bg-[#0B0D14] bg-[var(--modal-bg)] border border-black/15 dark:border-white/15 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Sticky di atas agar tidak tenggelam */}
-        <div className="sticky top-0 z-20 flex items-center justify-between p-4 border-b-2 border-black dark:border-[#475569] bg-white dark:bg-[#161820] bg-[var(--modal-bg)] shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#5865F2] border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+        <div className="sticky top-0 z-20 flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10 bg-white dark:bg-[#0B0D14] bg-[var(--modal-bg)] shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#5865F2] border border-indigo-400/60 flex items-center justify-center text-white shrink-0 shadow-sm">
               <Send size={16} />
             </div>
             <div>
@@ -139,11 +141,11 @@ export default function KasCopyModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center justify-center shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+            className="w-8 h-8 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/70 shadow-sm flex items-center justify-center shrink-0 cursor-pointer active:translate-y-0.5 transition-all"
             aria-label="Tutup modal"
             title="Tutup (Esc)"
           >
-            <X size={16} className="stroke-[3]" />
+            <X size={16} className="stroke-[2.5]" />
           </button>
         </div>
 
@@ -157,10 +159,10 @@ export default function KasCopyModal({
             <button
               type="button"
               onClick={() => setMode("FULL")}
-              className={`py-1.5 px-3 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+              className={`py-1.5 px-3 text-xs font-mono font-bold rounded-lg border cursor-pointer transition-all ${
                 mode === "FULL"
-                  ? "bg-slate-900 text-white shadow-[1px_1px_0px_#000]"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
               }`}
             >
               Laporan Lengkap (+ Mutasi)
@@ -168,10 +170,10 @@ export default function KasCopyModal({
             <button
               type="button"
               onClick={() => setMode("SUMMARY")}
-              className={`py-1.5 px-3 text-xs font-mono font-bold rounded border-2 border-black cursor-pointer transition-all ${
+              className={`py-1.5 px-3 text-xs font-mono font-bold rounded-lg border cursor-pointer transition-all ${
                 mode === "SUMMARY"
-                  ? "bg-slate-900 text-white shadow-[1px_1px_0px_#000]"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
               }`}
             >
               Ringkasan Saldo Saja
@@ -185,10 +187,10 @@ export default function KasCopyModal({
               <button
                 type="button"
                 onClick={() => setPeriodFilter("MONTH")}
-                className={`px-2 py-1 text-[11px] font-mono font-bold rounded border cursor-pointer ${
+                className={`px-2 py-1 text-[11px] font-mono font-bold rounded-lg border cursor-pointer transition-colors ${
                   periodFilter === "MONTH"
-                    ? "bg-emerald-500 text-white border-black font-black"
-                    : "bg-transparent text-slate-500 border-black/20 hover:text-black dark:hover:text-white"
+                    ? "bg-emerald-600 text-white border-emerald-500/70 font-black"
+                    : "bg-transparent text-slate-500 border-black/15 dark:border-white/15 hover:text-black dark:hover:text-white"
                 }`}
               >
                 Bulan Ini
@@ -196,10 +198,10 @@ export default function KasCopyModal({
               <button
                 type="button"
                 onClick={() => setPeriodFilter("ALL")}
-                className={`px-2 py-1 text-[11px] font-mono font-bold rounded border cursor-pointer ${
+                className={`px-2 py-1 text-[11px] font-mono font-bold rounded-lg border cursor-pointer transition-colors ${
                   periodFilter === "ALL"
-                    ? "bg-slate-900 text-white border-black font-black"
-                    : "bg-transparent text-slate-500 border-black/20 hover:text-black dark:hover:text-white"
+                    ? "bg-slate-900 dark:bg-white/20 text-white border-slate-900 dark:border-white/25 font-black"
+                    : "bg-transparent text-slate-500 border-black/15 dark:border-white/15 hover:text-black dark:hover:text-white"
                 }`}
               >
                 Semua
@@ -211,10 +213,10 @@ export default function KasCopyModal({
               <button
                 type="button"
                 onClick={() => setWalletFilter("ALL")}
-                className={`px-2 py-1 text-[11px] font-mono font-bold rounded border cursor-pointer ${
+                className={`px-2 py-1 text-[11px] font-mono font-bold rounded-lg border cursor-pointer transition-colors ${
                   walletFilter === "ALL"
-                    ? "bg-[#FACC15] text-black border-black font-black"
-                    : "bg-transparent text-slate-500 border-black/20 hover:text-black dark:hover:text-white"
+                    ? "bg-[#FACC15] text-black border-amber-500/70 font-black"
+                    : "bg-transparent text-slate-500 border-black/15 dark:border-white/15 hover:text-black dark:hover:text-white"
                 }`}
               >
                 Semua
@@ -222,10 +224,10 @@ export default function KasCopyModal({
               <button
                 type="button"
                 onClick={() => setWalletFilter("OITA")}
-                className={`px-2 py-1 text-[11px] font-mono font-bold rounded border cursor-pointer ${
+                className={`px-2 py-1 text-[11px] font-mono font-bold rounded-lg border cursor-pointer transition-colors ${
                   walletFilter === "OITA"
-                    ? "bg-amber-400 text-black border-black font-black"
-                    : "bg-transparent text-slate-500 border-black/20 hover:text-black dark:hover:text-white"
+                    ? "bg-amber-400 text-black border-amber-500/70 font-black"
+                    : "bg-transparent text-slate-500 border-black/15 dark:border-white/15 hover:text-black dark:hover:text-white"
                 }`}
               >
                 Kas Oita
@@ -233,10 +235,10 @@ export default function KasCopyModal({
               <button
                 type="button"
                 onClick={() => setWalletFilter("DARREN")}
-                className={`px-2 py-1 text-[11px] font-mono font-bold rounded border cursor-pointer ${
+                className={`px-2 py-1 text-[11px] font-mono font-bold rounded-lg border cursor-pointer transition-colors ${
                   walletFilter === "DARREN"
-                    ? "bg-indigo-400 text-black border-black font-black"
-                    : "bg-transparent text-slate-500 border-black/20 hover:text-black dark:hover:text-white"
+                    ? "bg-indigo-500 text-white border-indigo-400/70 font-black"
+                    : "bg-transparent text-slate-500 border-black/15 dark:border-white/15 hover:text-black dark:hover:text-white"
                 }`}
               >
                 Kas Darren
@@ -256,17 +258,17 @@ export default function KasCopyModal({
             rows={14}
             value={reportText}
             onChange={(e) => setReportText(e.target.value)}
-            className="w-full p-3 font-mono text-xs leading-relaxed bg-slate-50 dark:bg-[#14161F] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] rounded shadow-[inset_1px_1px_0px_#000] focus:outline-none focus:border-[#5865F2] resize-y"
+            className="input-field w-full p-3 font-mono text-xs leading-relaxed resize-y"
             placeholder="Menyiapkan teks laporan kas..."
           />
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t-2 border-black/10 dark:border-white/10">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-black/10 dark:border-white/10">
           <button
             type="button"
             onClick={handleCopy}
-            className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-mono font-bold border border-black/20 dark:border-white/15 cursor-pointer flex items-center gap-1.5 transition-colors"
+            className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 text-xs font-mono font-bold border border-black/15 dark:border-white/15 cursor-pointer flex items-center gap-1.5 transition-colors"
             title="Salin teks ke clipboard secara manual"
           >
             {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
@@ -277,7 +279,7 @@ export default function KasCopyModal({
             <button
               type="button"
               onClick={onClose}
-              className="py-2.5 px-4 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
+              className="py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/15 shadow-sm active:translate-y-0.5 cursor-pointer transition-all"
             >
               Tutup
             </button>
@@ -285,10 +287,10 @@ export default function KasCopyModal({
               type="button"
               disabled={isSendingDiscord}
               onClick={handleSendToDiscord}
-              className={`py-2.5 px-5 rounded-xl text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer disabled:opacity-60 transition-all flex items-center gap-2 ${
+              className={`py-2.5 px-5 rounded-xl text-xs font-heading font-black border shadow-sm hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer disabled:opacity-60 transition-all flex items-center gap-2 ${
                 sentDiscord
-                  ? "bg-emerald-500 text-white"
-                  : "bg-[#5865F2] hover:bg-[#4752C4] text-white"
+                  ? "bg-emerald-600 text-white border-emerald-500/70"
+                  : "bg-[#5865F2] hover:bg-[#4752C4] text-white border-indigo-400/70"
               }`}
             >
               {isSendingDiscord ? (

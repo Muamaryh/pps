@@ -19,11 +19,11 @@ export default function PizzaLoader() {
 
   return (
     <div className="py-16 sm:py-24 flex flex-col items-center justify-center w-full px-4 select-none">
-      {/* Neo-brutalist Outer Card */}
-      <div className="card-brutal p-6 sm:p-8 max-w-md w-full bg-[var(--card-bg)] border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] flex flex-col items-center text-center relative overflow-hidden">
+      {/* Loader Outer Card */}
+      <div className="card-brutal p-6 sm:p-8 max-w-md w-full bg-[var(--card-bg)] border border-black/15 dark:border-white/15 shadow-[0_16px_40px_-10px_rgba(15,23,42,0.16)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8)] flex flex-col items-center text-center relative overflow-hidden">
         
-        {/* Decorative Top Tag */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#FACC15] text-[#111827] border-2 border-black font-heading font-black text-xs uppercase tracking-wider mb-5 shadow-[2px_2px_0px_#000]">        
+        {/* Top Status Tag */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FACC15] text-[#111827] border border-amber-500/70 font-heading font-black text-xs uppercase tracking-wider mb-5 shadow-sm">
           <span>MEMUAT PORTAL PPS</span>
         </div>
 
@@ -278,9 +278,9 @@ export default function PizzaLoader() {
           {flavorTexts[flavorTextIndex]}
         </p>
 
-        {/* Neo-brutalist Striped Progress Bar */}
-        <div className="w-full bg-slate-200 dark:bg-slate-800 rounded h-4 border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000] overflow-hidden p-[2px]">
-          <div className="h-full rounded-sm bg-gradient-to-r from-[#FACC15] via-[#DC2626] to-[#FACC15] bg-[length:40px_40px] animate-stripe-slide w-full" />
+        {/* Striped Progress Bar */}
+        <div className="w-full bg-slate-200 dark:bg-white/10 rounded-full h-3.5 border border-black/15 dark:border-white/15 overflow-hidden p-[2px]">
+          <div className="h-full rounded-full bg-gradient-to-r from-[#FACC15] via-[#DC2626] to-[#FACC15] bg-[length:40px_40px] animate-stripe-slide w-full" />
         </div>
 
         <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-2.5 uppercase tracking-wider">

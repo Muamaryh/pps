@@ -85,7 +85,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
   return (
     <section id="structure" className="py-10 sm:py-14 w-full scroll-mt-24">
       {/* Title Bar (Centered) */}
-      <div className="flex flex-col items-center text-center mb-8 pb-3 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569]">
+      <div className="flex flex-col items-center text-center mb-8 pb-3 border-b border-black/15 dark:border-white/10">
         <div className="card-label text-xs sm:text-sm font-black text-slate-700 dark:text-slate-400 mb-1">
           STRUKTUR RESMI
         </div>
@@ -113,11 +113,10 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setFilterLevel(tab.id)}
-                className={`tab-btn text-xs sm:text-sm border-2 border-black dark:border-[#475569] flex items-center gap-1.5 transition-all ${
-                  isActive
-                    ? "active !bg-[#FACC15] !text-[#111827] !border-black font-black"
-                    : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:border-black font-bold"
+                className={`tab-btn text-xs sm:text-sm flex items-center gap-1.5 transition-all ${
+                  isActive ? "active font-black" : "font-bold"
                 }`}
               >
                 {isActive && (
@@ -137,15 +136,15 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
             placeholder="Cari nama / posisi..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="input-field w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-200 dark:placeholder-slate-400 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]"
+            className="input-field w-full pl-9 pr-3 py-2 text-xs sm:text-sm"
           />
         </div>
       </div>
 
       {/* Empty State */}
       {filteredMembers.length === 0 ? (
-        <div className="card-brutal p-12 text-center bg-[var(--card-bg)] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] flex flex-col items-center justify-center">
-          <div className="w-14 h-14 rounded-xl bg-[#FACC15] text-[#111827] border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center mb-4">
+        <div className="card-brutal p-12 text-center bg-[var(--card-bg)] border border-black/15 dark:border-white/15 flex flex-col items-center justify-center">
+          <div className="w-14 h-14 rounded-xl bg-[#FACC15] text-[#111827] border border-amber-500/70 shadow-sm flex items-center justify-center mb-4">
             <User size={28} />
           </div>
           <h3 className="font-heading font-black text-lg text-slate-950 dark:text-slate-200 mb-1.5">
@@ -166,12 +165,12 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
               <div key={lvl} className="flex flex-col gap-4">
                 {/* Level Title Bar (Centered with balanced lines on left & right) */}
                 <div className="flex items-center justify-center gap-3 w-full">
-                  <div className="flex-1 h-[2px] bg-[#1A1A1A]/20 dark:bg-slate-700/60" />
+                  <div className="flex-1 h-px bg-black/15 dark:bg-white/10" />
                   <div className={`badge-brutal text-xs sm:text-sm uppercase ${meta.badgeStyle} flex items-center gap-2 py-1.5 px-4`}>
                     <Icon size={16} className={meta.iconColor} />
                     <span className="font-heading font-black tracking-wide">{meta.title}</span>
                   </div>
-                  <div className="flex-1 h-[2px] bg-black/15 dark:bg-white/10" />
+                  <div className="flex-1 h-px bg-black/15 dark:bg-white/10" />
                 </div>
 
                 {/* Cards (Centered Flex Wrap) */}
@@ -179,12 +178,12 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                   {members.map((member, mIdx) => (
                     <div
                       key={mIdx}
-                      className="card-brutal overflow-hidden flex flex-col group hover:-translate-y-1.5 transition-all duration-300 w-[calc(50%-10px)] sm:w-[calc(33.333%-14px)] md:w-[calc(25%-16px)] lg:w-[calc(20%-16px)] min-w-[170px] max-w-[260px]"
+                      className="card-brutal overflow-hidden flex flex-col group hover:-translate-y-1 transition-all duration-300 w-[calc(50%-10px)] sm:w-[calc(33.333%-14px)] md:w-[calc(25%-16px)] lg:w-[calc(20%-16px)] min-w-[170px] max-w-[260px]"
                     >
                       {/* Photo Area (Tinggi disesuaikan dan posisi object-top agar wajah personel tampil jelas) */}
                       <div
                         onClick={() => member.photo && onOpenLightbox(member.photo, `${member.role} - ${member.name}`)}
-                        className={`h-48 sm:h-56 w-full relative bg-[#FFFDF9] dark:bg-[#1A1D26] border-b-2 border-[#1A1A1A] dark:border-[#475569] overflow-hidden flex items-center justify-center select-none ${
+                        className={`h-48 sm:h-56 w-full relative bg-[#FAF8F3] dark:bg-[#121622] border-b border-black/10 dark:border-white/10 overflow-hidden flex items-center justify-center select-none ${
                           member.photo ? "cursor-pointer" : ""
                         }`}
                       >
@@ -195,7 +194,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                               alt={member.name}
                               className="w-full h-full object-cover object-top group-hover:scale-103 transition-transform duration-200"
                             />
-                            <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-[#DC2626] text-white border border-black opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-heading font-black text-[10px]">
+                            <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-[#DC2626] text-white border border-red-500/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-heading font-black text-[10px]">
                               <ZoomIn size={11} />
                               <span>Zoom</span>
                             </div>
@@ -209,7 +208,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
                             </div>
 
                             {/* Initials Badge Circle */}
-                            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-[#FACC15] dark:bg-[#222634] border-2 border-black/25 dark:border-white/20 flex items-center justify-center text-xl sm:text-2xl font-heading font-black text-[#111827] dark:text-[#FACC15] shadow-sm relative z-10 group-hover:scale-105 transition-transform">
+                            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-[#FACC15] dark:bg-[#1A1F2E] border border-black/15 dark:border-white/15 flex items-center justify-center text-xl sm:text-2xl font-heading font-black text-[#111827] dark:text-[#FACC15] shadow-sm relative z-10 group-hover:scale-105 transition-transform">
                               {(() => {
                                 const clean = (member.name || "").trim().replace(/^(BAPAK|IBU|MR\.|MR|DE)\s+/i, "");
                                 const words = clean.split(/\s+/).filter(Boolean);
@@ -227,7 +226,7 @@ export default function OrgStructure({ org = [], onOpenLightbox }) {
 
                       {/* Info Area */}
                       <div className="p-3.5 text-center flex-1 flex flex-col justify-center bg-[var(--card-bg)]">
-                        <span className="badge-brutal text-[10px] uppercase py-0.5 px-2 self-center mb-2 bg-[#FACC15] text-[#111827] border border-black shadow-sm font-black">
+                        <span className="badge-brutal text-[10px] uppercase py-0.5 px-2 self-center mb-2 bg-[#FACC15] text-[#111827] border border-amber-500/70 font-black">
                           {member.role}
                         </span>
                         <h4 className="font-heading font-black text-xs sm:text-sm text-slate-950 dark:text-slate-200 uppercase tracking-tight line-clamp-2">

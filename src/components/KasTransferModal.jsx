@@ -92,16 +92,18 @@ export default function KasTransferModal({
   return (
     <div
       className="fixed inset-0 z-[105] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-2xl shadow-[8px_8px_0px_#000] p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto"
+        className="w-full max-w-lg bg-white dark:bg-[#0B0D14] bg-[var(--modal-bg)] border border-black/15 dark:border-white/15 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-4 max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b-2 border-black dark:border-[#475569]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+        <div className="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 border border-indigo-400/60 flex items-center justify-center text-white shrink-0 shadow-sm">
               <ArrowLeftRight size={17} />
             </div>
             <div>
@@ -116,7 +118,7 @@ export default function KasTransferModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-slate-500 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 cursor-pointer text-slate-500 transition-colors"
             aria-label="Tutup modal pindah kas"
           >
             <X size={18} />
@@ -124,7 +126,7 @@ export default function KasTransferModal({
         </div>
 
         {/* Info Callout */}
-        <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/35 border border-indigo-400/70 text-[11px] text-indigo-950 dark:text-indigo-200 flex items-start gap-2 leading-relaxed">
+        <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/35 border border-indigo-400/50 text-[11px] text-indigo-950 dark:text-indigo-200 flex items-start gap-2 leading-relaxed">
           <CheckCircle2 size={15} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
           <span>
             Pindah kas internal <strong>tidak dihitung sebagai Pengeluaran maupun Pemasukan</strong>. Total Saldo Bersih LSM tetap{" "}
@@ -142,10 +144,10 @@ export default function KasTransferModal({
               <button
                 type="button"
                 onClick={() => handleSelectDirection("Oita")}
-                className={`p-3 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                   fromWallet === "Oita"
-                    ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 shadow-[2px_2px_0px_#000]"
-                    : "bg-slate-50 dark:bg-[#1E212B] border-black/15 dark:border-white/10 hover:border-black/40"
+                    ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-1 ring-amber-400/40 shadow-sm"
+                    : "bg-[#F6F4ED] dark:bg-[#141724] border-black/15 dark:border-white/10 hover:border-amber-400/60"
                 }`}
               >
                 <div className="font-heading font-black text-xs text-slate-900 dark:text-slate-100">
@@ -159,10 +161,10 @@ export default function KasTransferModal({
               <button
                 type="button"
                 onClick={() => handleSelectDirection("Darren")}
-                className={`p-3 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                   fromWallet === "Darren"
-                    ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 shadow-[2px_2px_0px_#000]"
-                    : "bg-slate-50 dark:bg-[#1E212B] border-black/15 dark:border-white/10 hover:border-black/40"
+                    ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 ring-1 ring-indigo-400/40 shadow-sm"
+                    : "bg-[#F6F4ED] dark:bg-[#141724] border-black/15 dark:border-white/10 hover:border-indigo-400/60"
                 }`}
               >
                 <div className="font-heading font-black text-xs text-slate-900 dark:text-slate-100">
@@ -187,7 +189,7 @@ export default function KasTransferModal({
               placeholder="Contoh: 50000"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="input-field w-full font-mono text-sm font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] rounded-xl px-3 py-2"
+              className="input-field w-full font-mono text-sm font-bold"
               required
             />
             <div className="flex items-center gap-1.5 flex-wrap mt-2">
@@ -299,18 +301,18 @@ export default function KasTransferModal({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t-2 border-black/10 dark:border-white/10">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-black/10 dark:border-white/10">
             <button
               type="button"
               onClick={onClose}
-              className="py-2.5 px-4 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer"
+              className="py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/15 shadow-sm active:translate-y-0.5 cursor-pointer transition-all"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isSubmitting || numericAmount <= 0}
-              className="py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 transition-all"
+              className="py-2.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-heading font-black border border-indigo-400/70 shadow-sm hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 transition-all"
             >
               <ArrowLeftRight size={15} />
               <span>{isSubmitting ? "Menyimpan..." : "Simpan Pindah Kas"}</span>

@@ -406,7 +406,7 @@ export default function StructurePage({
             ) : (
               /* Executive Monogram Avatar for No Photo */
               <div className="w-full h-full p-3 sm:p-4 flex flex-col items-center justify-center text-center relative overflow-hidden bg-gradient-to-b from-[#FAF8F2] to-[#EFECE3] dark:from-[#1B2032] dark:to-[#121622]">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#FACC15] dark:bg-[#0B0E17] border-2 border-[#1A1A1A]/25 dark:border-[#FACC15]/35 flex items-center justify-center text-xl sm:text-2xl font-heading font-black text-[#111827] dark:text-[#FACC15] shadow-sm dark:shadow-inner mb-1.5">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#FACC15] dark:bg-[#0B0E17] border border-black/15 dark:border-[#FACC15]/35 flex items-center justify-center text-xl sm:text-2xl font-heading font-black text-[#111827] dark:text-[#FACC15] shadow-sm dark:shadow-inner mb-1.5">
                   {(() => {
                     const clean = (member.name || "")
                       .trim()

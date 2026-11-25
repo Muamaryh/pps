@@ -4005,7 +4005,7 @@ export default function AdminModal({
       className="fixed inset-0 z-[100] w-full h-full bg-[#F3F4F6] dark:bg-[#0D0F17] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100 select-text"
     >
       {/* Header Panel Administrator (Full Width Bar) */}
-      <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-8 py-2.5 sm:py-3.5 border-b-2 border-black dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1A1D26] shadow-[0_2px_0px_#000]/10">
+      <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-8 py-2.5 sm:py-3.5 border-b border-black/15 dark:border-white/10 bg-[#FFFDF9] dark:bg-[#1A1D26] shadow-xs">
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#DC2626] border border-black/20 dark:border-white/15 flex items-center justify-center text-white shadow-xs shrink-0">
             <Shield size={15} />
@@ -4222,7 +4222,7 @@ export default function AdminModal({
 
                     {/* Anti Brute-Force Lockout Warning */}
                     {lockoutState.isLocked && (
-                      <div className="w-full mb-4 p-3 bg-red-100 dark:bg-red-950/70 border-2 border-red-600 rounded text-red-900 dark:text-red-200 text-xs flex items-center gap-2.5 text-left shadow-[2px_2px_0px_#DC2626] animate-pulse">
+                      <div className="w-full mb-4 p-3 bg-red-50 dark:bg-red-950/60 border border-red-500/60 rounded-xl text-red-900 dark:text-red-200 text-xs flex items-center gap-2.5 text-left shadow-sm">
                         <ShieldAlert size={22} className="text-red-600 shrink-0" />
                         <div>
                           <div className="font-heading font-black">AKSES TERKUNCI SEMENTARA!</div>
@@ -4505,7 +4505,7 @@ export default function AdminModal({
               {/* SPLIT WORKSPACE: Left Sidebar (Desktop) + Right Content Area (Mobile/Desktop) */}
               <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
                 {/* DESKTOP SIDEBAR KIRI (md:flex) */}
-                <aside className="hidden md:flex w-64 lg:w-72 shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-r border-black/15 dark:border-white/10 flex-col justify-between overflow-y-auto z-10 shadow-[3px_0px_0px_rgba(0,0,0,0.08)]">
+                <aside className="hidden md:flex w-64 lg:w-72 shrink-0 bg-[#FAF8F3] dark:bg-[#0B0D14] border-r border-black/15 dark:border-white/10 flex-col justify-between overflow-y-auto z-10">
                   <div className="p-3.5 space-y-1.5">
                     {/* Sidebar Header Title */}
                     <div className="px-2.5 py-1.5 mb-1.5 bg-black/5 dark:bg-white/5 rounded border border-black/10 dark:border-white/10 flex items-center justify-between">
@@ -4581,7 +4581,7 @@ export default function AdminModal({
                 {/* RIGHT WORKSPACE AREA (Mobile Full-Width, Desktop Flex-1) */}
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                   {/* MOBILE NAVIGATION (< md): Clean, Single Compact Bar */}
-                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b-2 border-black dark:border-[#475569]">
+                  <div className="md:hidden shrink-0 bg-[#FFFDF9] dark:bg-[#161822] border-b border-black/15 dark:border-white/10">
                     {/* Top Line: Active Section Context & Quick Menu Trigger */}
                     <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]">
                       <button
@@ -7773,7 +7773,7 @@ export default function AdminModal({
                                   <div className="flex flex-col gap-1 text-slate-800 dark:text-slate-200">
                                     {evt.requirements.slice(0, 3).map((r, i) => (
                                       <div key={i} className="flex items-start gap-1.5">
-                                        <span className="w-4 h-4 rounded bg-[#DC2626] text-[#FACC15] font-mono font-bold flex items-center justify-center shrink-0 text-[9px] border border-black shadow-[0.5px_0.5px_0px_#000]">
+                                        <span className="w-4 h-4 rounded bg-[#DC2626] text-[#FACC15] font-mono font-bold flex items-center justify-center shrink-0 text-[9px] border border-red-500/80">
                                           {i + 1}
                                         </span>
                                         <span className="truncate">{r}</span>
@@ -9063,7 +9063,7 @@ export default function AdminModal({
         >
           <div className="w-full max-w-xl max-h-[92vh] rounded-xl border border-black/15 dark:border-white/10 shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
             {/* Header Modal */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#FACC15] text-slate-950">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-black/15 bg-[#FACC15] text-slate-950">
               <div className="flex items-center gap-2">
                 <Ticket size={20} className="text-[#DC2626]" />
                 <h4 className="font-heading font-black text-sm uppercase">
@@ -9357,7 +9357,7 @@ export default function AdminModal({
         >
           <div className="w-full max-w-xl max-h-[92vh] rounded-xl border border-black/15 dark:border-white/10 shadow-2xl bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col text-slate-900 dark:text-slate-100">
             {/* Header Modal */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b-2 border-black bg-[#FACC15] text-slate-950">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-black/15 bg-[#FACC15] text-slate-950">
               <div className="flex items-center gap-2">
                 <Gift size={20} className="text-[#059669]" />
                 <h4 className="font-heading font-black text-sm uppercase">
@@ -9739,7 +9739,7 @@ export default function AdminModal({
             onClick={() => setEditKasTxModal((prev) => ({ ...prev, isOpen: false }))}
           >
             <div
-              className="w-full max-w-lg bg-white dark:bg-[#161820] border-[3px] border-black dark:border-[#475569] rounded-2xl shadow-[8px_8px_0px_#000] p-4 sm:p-5 flex flex-col gap-3.5 max-h-[92vh] overflow-y-auto"
+              className="w-full max-w-lg bg-white dark:bg-[#0B0D14] border border-black/15 dark:border-white/15 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 max-h-[92vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between pb-3 border-b-2 border-black/15 dark:border-white/15">

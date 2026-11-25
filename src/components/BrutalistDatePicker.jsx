@@ -248,8 +248,8 @@ export default function BrutalistDatePicker({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left rounded-xl bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000] hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:translate-x-[2px] active:translate-y-[2px] transition-all focus:outline-none focus:ring-2 focus:ring-[#FACC15] cursor-pointer ${
-          isOpen ? "ring-2 ring-[#DC2626] dark:ring-[#FACC15]" : ""
+        className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-xs font-bold text-left rounded-xl bg-white dark:bg-[#141724] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15 hover:border-[#FACC15]/80 shadow-sm active:translate-y-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] cursor-pointer ${
+          isOpen ? "ring-2 ring-[#FACC15] border-[#FACC15]" : ""
         }`}
         title="Buka Kalender Pemilih Tanggal"
         aria-label="Pilih tanggal kegiatan"
@@ -258,27 +258,29 @@ export default function BrutalistDatePicker({
           {displayString}
         </span>
         <div
-          className={`w-6 h-6 rounded-lg bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0 shadow-[1px_1px_0px_#000] transition-colors duration-200 ${
-            isOpen ? "bg-[#DC2626] text-white" : ""
+          className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 border ${
+            isOpen
+              ? "bg-[#DC2626] text-white border-red-500/70"
+              : "bg-[#FACC15]/90 text-[#111827] border-amber-500/50"
           }`}
         >
           <CalendarIcon size={14} />
         </div>
       </button>
 
-      {/* Brutalist Calendar Popover */}
+      {/* Calendar Popover */}
       {isOpen && (
         <div
           className={`absolute left-0 ${
             effectiveDropUp ? "bottom-full mb-2" : "top-full mt-2"
-          } z-[90] w-72 bg-[#FFF9F2] dark:bg-[#161820] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] p-3.5 rounded-2xl animate-in fade-in zoom-in-95 duration-100 select-none`}
+          } z-[90] w-72 bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/15 shadow-[0_16px_38px_-6px_rgba(15,23,42,0.22)] dark:shadow-[0_20px_44px_-6px_rgba(0,0,0,0.85)] p-3.5 rounded-2xl animate-in fade-in zoom-in-95 duration-100 select-none`}
         >
           {/* Calendar Header */}
-          <div className="flex items-center justify-between gap-1 mb-2.5 pb-2 border-b-2 border-black/15 dark:border-slate-700/60">
+          <div className="flex items-center justify-between gap-1 mb-2.5 pb-2 border-b border-black/10 dark:border-white/10">
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="w-7 h-7 rounded-lg border-2 border-black bg-white dark:bg-[#20232E] hover:bg-[#FACC15] text-[#111827] dark:text-slate-100 dark:hover:text-[#111827] flex items-center justify-center shadow-[1px_1px_0px_#000] cursor-pointer"
+              className="w-7 h-7 rounded-lg border border-black/15 dark:border-white/15 bg-slate-50 dark:bg-white/5 hover:bg-[#FACC15] text-[#111827] dark:text-slate-100 dark:hover:text-[#111827] flex items-center justify-center transition-colors cursor-pointer"
               title="Bulan Sebelumnya"
             >
               <ChevronLeft size={14} />
@@ -291,7 +293,7 @@ export default function BrutalistDatePicker({
             <button
               type="button"
               onClick={handleNextMonth}
-              className="w-7 h-7 rounded-lg border-2 border-black bg-white dark:bg-[#20232E] hover:bg-[#FACC15] text-[#111827] dark:text-slate-100 dark:hover:text-[#111827] flex items-center justify-center shadow-[1px_1px_0px_#000] cursor-pointer"
+              className="w-7 h-7 rounded-lg border border-black/15 dark:border-white/15 bg-slate-50 dark:bg-white/5 hover:bg-[#FACC15] text-[#111827] dark:text-slate-100 dark:hover:text-[#111827] flex items-center justify-center transition-colors cursor-pointer"
               title="Bulan Berikutnya"
             >
               <ChevronRight size={14} />
@@ -328,10 +330,10 @@ export default function BrutalistDatePicker({
                   onClick={() => handleSelectDay(cell)}
                   className={`w-8 h-8 rounded-lg text-xs font-heading font-extrabold flex items-center justify-center border transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-black scale-105"
+                      ? "bg-[#FACC15] text-[#111827] border-amber-500 shadow-sm font-black"
                       : isSunday
-                      ? "border-black/30 dark:border-slate-700/60 hover:border-black hover:bg-[#FACC15] hover:text-[#111827] hover:shadow-[1px_1px_0px_#000] text-[#DC2626] dark:text-[#EF4444]"
-                      : "border-black/30 dark:border-slate-700/60 hover:border-black hover:bg-[#FACC15] hover:text-[#111827] hover:shadow-[1px_1px_0px_#000] text-slate-900 dark:text-slate-100"
+                      ? "border-black/10 dark:border-white/10 hover:border-[#FACC15] hover:bg-[#FACC15]/20 hover:text-[#111827] dark:hover:text-white text-[#DC2626] dark:text-[#EF4444]"
+                      : "border-black/10 dark:border-white/10 hover:border-[#FACC15] hover:bg-[#FACC15]/20 hover:text-[#111827] dark:hover:text-white text-slate-900 dark:text-slate-100"
                   }`}
                 >
                   {cell}
@@ -341,7 +343,7 @@ export default function BrutalistDatePicker({
           </div>
 
           {/* Quick Footer Action */}
-          <div className="mt-3 pt-2 border-t-2 border-dashed border-black/15 dark:border-slate-700/60 flex items-center justify-between">
+          <div className="mt-3 pt-2 border-t border-black/10 dark:border-white/10 flex items-center justify-between">
             <button
               type="button"
               onClick={handleSelectToday}
@@ -354,7 +356,7 @@ export default function BrutalistDatePicker({
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-2.5 py-1 text-[10px] font-heading font-bold rounded-lg border border-black/30 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
+              className="px-2.5 py-1 text-[10px] font-heading font-bold rounded-lg border border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 cursor-pointer transition-colors"
             >
               Tutup
             </button>

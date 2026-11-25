@@ -218,14 +218,16 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
         role="dialog"
         aria-modal="true"
       >
-        <div className="w-full max-w-2xl max-h-[94vh] rounded-2xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[8px_8px_0px_0px_#000000] bg-[var(--card-bg)] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+        <div className="w-full max-w-2xl max-h-[94vh] rounded-2xl border border-black/15 dark:border-white/15 shadow-2xl bg-white dark:bg-[#0B0D14] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
           
           {/* Modal Header */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b-[2.5px] border-[#1A1A1A] dark:border-[#475569] bg-[#FFFDF9] dark:bg-[#1F222C]">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-black/10 dark:border-white/10 bg-[#FAF8F3] dark:bg-[#0E111B]">
             <div className="flex items-center gap-3">
               <div
-                className={`w-10 h-10 rounded-lg border-2 border-black flex items-center justify-center shrink-0 shadow-[2px_2px_0px_#000] ${
-                  isOpenStatus ? "bg-[#DC2626]" : "bg-slate-700"
+                className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-sm ${
+                  isOpenStatus
+                    ? "bg-[#DC2626] border-red-500/70"
+                    : "bg-slate-700 border-slate-600"
                 }`}
               >
                 <Ticket size={20} className="text-[#FACC15]" />
@@ -236,8 +238,10 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                     {activeEvent.organizer || "LSM PAGUYUBAN PIZZA SANDY SHORES"} • RESMI
                   </span>
                   <span
-                    className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-black text-white border border-black shadow-[1px_1px_0px_#000] ${
-                      isOpenStatus ? "bg-emerald-600" : "bg-red-600"
+                    className={`px-2.5 py-0.5 rounded-md text-[10px] font-mono font-black text-white border ${
+                      isOpenStatus
+                        ? "bg-emerald-600 border-emerald-500/70"
+                        : "bg-red-600 border-red-500/70"
                     }`}
                   >
                     {isOpenStatus ? "PENDAFTARAN DIBUKA" : "PENDAFTARAN DITUTUP"}
@@ -252,8 +256,9 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
             <button
               type="button"
               onClick={handleReset}
-              className="w-8 h-8 rounded border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:translate-x-[1px] hover:translate-y-[1px] transition-transform cursor-pointer"
+              className="w-8 h-8 rounded-xl border border-black/15 dark:border-white/15 bg-white/90 dark:bg-[#141724] text-slate-900 dark:text-slate-200 flex items-center justify-center font-bold hover:bg-white dark:hover:bg-white/10 transition-colors cursor-pointer"
               title="Tutup Formulir"
+              aria-label="Tutup Formulir"
             >
               <X size={18} />
             </button>
@@ -264,12 +269,12 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
             {registeredTicket ? (
               /* SUCCESS TICKET SCREEN */
               <div className="flex flex-col items-center text-center gap-4 py-2">
-                <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 flex items-center justify-center text-emerald-600 shadow-[3px_3px_0px_#000]">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-500/70 flex items-center justify-center text-emerald-600 shadow-sm">
                   <CheckCircle2 size={36} />
                 </div>
 
                 <div>
-                  <span className="inline-block px-3 py-1 rounded bg-emerald-600 text-white font-heading font-black text-xs uppercase tracking-wider mb-2">
+                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-600 text-white font-heading font-black text-xs uppercase tracking-wider mb-2">
                     PENDAFTARAN BERHASIL
                   </span>
                   <h4 className="font-heading font-black text-xl sm:text-2xl text-slate-950 dark:text-white uppercase">
@@ -280,18 +285,18 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                   </p>
                 </div>
 
-                {/* Digital Brutalist Ticket Card */}
-                <div className="w-full bg-[#FFFDF9] dark:bg-[#14161F] p-4 sm:p-5 rounded-xl border-[2.5px] border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] text-left flex flex-col gap-3 relative overflow-hidden">
-                  <div className="flex items-center justify-between pb-2 border-b-2 border-dashed border-black/20 dark:border-white/20">
+                {/* Digital Ticket Card */}
+                <div className="w-full bg-[#FAF8F3] dark:bg-[#121622] p-4 sm:p-5 rounded-2xl border border-black/15 dark:border-white/15 shadow-sm text-left flex flex-col gap-3 relative overflow-hidden">
+                  <div className="flex items-center justify-between pb-2 border-b border-dashed border-black/15 dark:border-white/15">
                     <span className="text-[10px] font-mono font-bold text-slate-500 uppercase truncate max-w-[240px]">
                       TIKET RESMI: {activeEvent.title}
                     </span>
-                    <span className="text-[10px] font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-black/30">
+                    <span className="text-[10px] font-mono font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-white/10 px-2 py-0.5 rounded-md border border-black/15 dark:border-white/15">
                       BIAYA: {activeEvent.entryFee || "$10.000 USD"}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 bg-[#FACC15]/20 dark:bg-[#FACC15]/10 p-3 rounded-lg border-2 border-black">
+                  <div className="flex items-center justify-between gap-2 bg-[#FACC15]/15 dark:bg-[#FACC15]/10 p-3 rounded-xl border border-amber-400/60">
                     <div>
                       <span className="text-[10px] text-slate-500 font-bold block">NOMOR REGISTRASI:</span>
                       <strong className="text-xl sm:text-2xl font-mono font-black text-[#DC2626] dark:text-[#FACC15]">
@@ -302,7 +307,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                     <button
                       type="button"
                       onClick={handleCopyTicket}
-                      className="btn py-1.5 px-3 bg-[#FACC15] hover:bg-yellow-400 text-slate-900 font-bold text-xs border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                      className="btn py-1.5 px-3 bg-[#FACC15] hover:bg-[#EAB308] text-slate-900 font-bold text-xs border border-amber-500/70 shadow-sm flex items-center gap-1 active:translate-y-0.5 cursor-pointer"
                     >
                       {copied ? <Check size={14} className="text-emerald-700" /> : <Copy size={14} />}
                       <span>{copied ? "Tersalin!" : "Salin Kode"}</span>
@@ -345,7 +350,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                   <button
                     type="button"
                     onClick={handleReset}
-                    className="flex-1 btn py-3 px-4 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                    className="flex-1 btn py-3 px-4 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs uppercase tracking-wider border border-amber-500/70 shadow-sm active:translate-y-0.5 cursor-pointer"
                   >
                     Selesai & Simpan Tiket
                   </button>
@@ -356,7 +361,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 
                 {/* Event Condition Banner - Mengurut Rapi ke Bawah 1, 2, 3 */}
-                <div className="p-3.5 bg-amber-50 dark:bg-[#14161F] border-2 border-black dark:border-[#475569] rounded-lg flex flex-col gap-2.5 text-xs shadow-[2px_2px_0px_#000]/10">
+                <div className="p-3.5 bg-amber-50/80 dark:bg-[#121622] border border-amber-400/50 dark:border-white/10 rounded-xl flex flex-col gap-2.5 text-xs">
                   <div className="flex items-center justify-between gap-3 border-b border-black/10 dark:border-white/10 pb-2">
                     <div className="flex items-center gap-2">
                       <Trophy size={16} className="text-[#DC2626]" />
@@ -369,7 +374,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                       <button
                         type="button"
                         onClick={() => setShowSampleModal(true)}
-                        className="btn py-1 px-2.5 bg-white dark:bg-[#1E222D] hover:bg-amber-100 text-slate-900 dark:text-slate-100 font-heading font-black text-[11px] border border-black shadow-[1.5px_1.5px_0px_#000] flex items-center gap-1.5 shrink-0 cursor-pointer"
+                        className="py-1 px-2.5 rounded-lg bg-white dark:bg-white/5 hover:bg-amber-100 dark:hover:bg-white/10 text-slate-900 dark:text-slate-100 font-heading font-black text-[11px] border border-black/15 dark:border-white/15 shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors"
                       >
                         <HelpCircle size={13} className="text-[#DC2626]" />
                         <span>Contoh Screenshot</span>
@@ -388,7 +393,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                         ].filter(Boolean)
                     ).map((req, idx) => (
                       <div key={idx} className="flex items-start gap-2.5">
-                        <span className="w-5 h-5 rounded bg-[#DC2626] text-[#FACC15] font-mono font-black flex items-center justify-center shrink-0 text-[11px] border border-black shadow-[1px_1px_0px_#000]">
+                        <span className="w-5 h-5 rounded-md bg-[#DC2626] text-[#FACC15] font-mono font-black flex items-center justify-center shrink-0 text-[11px] border border-red-500/70">
                           {idx + 1}
                         </span>
                         <span className="text-slate-800 dark:text-slate-200 font-medium leading-snug pt-0.5 text-xs">
@@ -401,7 +406,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
 
                 {/* Closed Alert if not OPEN */}
                 {!isOpenStatus && (
-                  <div className="p-3 bg-red-100 dark:bg-red-950/70 border-2 border-red-600 rounded-lg text-red-950 dark:text-red-200 flex items-center gap-3">
+                  <div className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-500/60 rounded-xl text-red-950 dark:text-red-200 flex items-center gap-3">
                     <Lock size={18} className="text-red-600 shrink-0" />
                     <div>
                       <strong className="font-heading font-black uppercase text-xs">
@@ -434,7 +439,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                   />
 
                   {screenshotPreview ? (
-                    <div className="flex flex-col gap-2 p-3 bg-white dark:bg-[#1A1D27] border-2 border-black dark:border-[#475569] rounded-lg shadow-[2px_2px_0px_#000]">
+                    <div className="flex flex-col gap-2 p-3 bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 rounded-xl">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
                           <ImageIcon size={16} className="text-[#DC2626]" />
@@ -443,27 +448,27 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="btn py-1 px-2.5 bg-slate-100 dark:bg-slate-800 text-[11px] font-bold border border-black shadow-sm"
+                          className="py-1 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-[11px] font-bold border border-black/15 dark:border-white/15 cursor-pointer transition-colors"
                         >
                           Ganti Gambar
                         </button>
                       </div>
 
                       {/* Preview Image Thumbnail - Pas & Tanpa Background Hitam */}
-                      <div className="flex justify-center p-2 bg-amber-50/50 dark:bg-[#14161F] rounded-lg border-2 border-black/20">
+                      <div className="flex justify-center p-2 bg-[#FAF8F3] dark:bg-[#0B0D14] rounded-lg border border-black/10 dark:border-white/10">
                         <img
                           src={screenshotPreview}
                           alt="Screenshot KTP & HUD"
-                          className="max-h-56 w-auto object-contain rounded border-2 border-black shadow-sm"
+                          className="max-h-56 w-auto object-contain rounded-lg border border-black/15 dark:border-white/15 shadow-sm"
                         />
                       </div>
                     </div>
                   ) : (
                     <div
                       onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-black dark:border-[#475569] bg-white dark:bg-[#161820] hover:bg-amber-50/50 dark:hover:bg-[#1F222C] p-6 rounded-lg text-center flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-colors"
+                      className="border-2 border-dashed border-black/25 dark:border-white/20 bg-white dark:bg-[#121622] hover:border-[#FACC15] hover:bg-amber-50/40 dark:hover:bg-[#161B29] p-6 rounded-xl text-center flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-colors"
                     >
-                      <div className="w-12 h-12 rounded-full bg-[#FACC15] border-2 border-black flex items-center justify-center text-slate-900 shadow-[2px_2px_0px_#000]">
+                      <div className="w-12 h-12 rounded-full bg-[#FACC15] border border-amber-500/70 flex items-center justify-center text-slate-900 shadow-sm">
                         <Upload size={20} />
                       </div>
                       <div>
@@ -480,7 +485,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
 
                 {/* Scanning Progress Bar */}
                 {isScanningOcr && (
-                  <div className="p-3.5 bg-amber-50 dark:bg-[#1A1D27] border-2 border-black rounded-lg flex flex-col gap-2">
+                  <div className="p-3.5 bg-amber-50 dark:bg-[#121622] border border-amber-400/60 rounded-xl flex flex-col gap-2">
                     <div className="flex items-center justify-between text-xs font-mono font-bold">
                       <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
                         <Loader2 size={16} className="animate-spin text-[#DC2626]" />
@@ -488,7 +493,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                       </div>
                       <span className="text-[#DC2626] font-black">{scanProgress}%</span>
                     </div>
-                    <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden border border-black">
+                    <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden border border-black/15 dark:border-white/15">
                       <div
                         className="h-full bg-[#FACC15] transition-all duration-300"
                         style={{ width: `${Math.max(scanProgress, 10)}%` }}
@@ -499,7 +504,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
 
                 {/* REJECTION ALERT (Jika tidak memenuhi syarat) */}
                 {rejectionMessage && (
-                  <div className="p-3.5 bg-red-100 dark:bg-red-950/70 border-2 border-red-600 text-red-950 dark:text-red-200 rounded-lg flex items-start gap-3 shadow-[2px_2px_0px_#DC2626]">
+                  <div className="p-3.5 bg-red-50 dark:bg-red-950/60 border border-red-500/60 text-red-950 dark:text-red-200 rounded-xl flex items-start gap-3">
                     <ShieldAlert size={22} className="text-red-600 shrink-0 mt-0.5" />
                     <div>
                       <strong className="block font-heading font-black text-xs uppercase tracking-wide text-red-700 dark:text-red-400">
@@ -517,7 +522,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
 
                 {/* SUCCESS VERIFICATION RESULT (Jika lolos Civilian & No Gang) */}
                 {ocrResult && ocrResult.isValidUfc && !isScanningOcr && (
-                  <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-600 rounded-lg flex flex-col gap-2 shadow-[2px_2px_0px_#059669]">
+                  <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/35 border border-emerald-500/60 rounded-xl flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                       <ShieldCheck size={18} className="text-emerald-600" />
                       <strong className="font-heading font-black text-xs uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
@@ -526,21 +531,21 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-xs font-mono">
-                      <div className="p-2 bg-white dark:bg-[#14161F] border border-emerald-400 rounded">
+                      <div className="p-2 bg-white dark:bg-[#0E111B] border border-emerald-400/60 rounded-lg">
                         <span className="text-[9px] text-slate-400 block">JOB STATUS:</span>
                         <strong className="text-emerald-700 dark:text-emerald-300 text-[11px] truncate block">
                           ✓ {activeEvent.requireCivilianOnly !== false ? (ocrResult.jobStatus || "Civilian - Freelancer") : "Bebas / Lolos"}
                         </strong>
                       </div>
 
-                      <div className="p-2 bg-white dark:bg-[#14161F] border border-emerald-400 rounded">
+                      <div className="p-2 bg-white dark:bg-[#0E111B] border border-emerald-400/60 rounded-lg">
                         <span className="text-[9px] text-slate-400 block">GANG STATUS:</span>
                         <strong className="text-emerald-700 dark:text-emerald-300 text-[11px] truncate block">
                           ✓ {activeEvent.requireNoGangOnly !== false ? (ocrResult.gangStatus || "No Gang - Unaffiliated") : "Bebas / Lolos"}
                         </strong>
                       </div>
 
-                      <div className="p-2 bg-white dark:bg-[#14161F] border border-emerald-400 rounded col-span-2 sm:col-span-1">
+                      <div className="p-2 bg-white dark:bg-[#0E111B] border border-emerald-400/60 rounded-lg col-span-2 sm:col-span-1">
                         <span className="text-[9px] text-slate-400 block">WAKTU SS:</span>
                         <span className="text-slate-800 dark:text-slate-200 text-[11px] truncate block">
                           {ocrResult.dateTime || "Terdeteksi"}
@@ -565,7 +570,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="Contoh: Marcus Holloway / Budi Santoso"
                         required
-                        className="w-full pl-9 pr-3 py-2.5 rounded-lg border-2 border-black dark:border-[#475569] bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                        className="input-field w-full !pl-9 pr-3 py-2.5 text-xs sm:text-sm font-medium"
                       />
                     </div>
                   </div>
@@ -584,7 +589,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="Contoh: 555-8821 / 08123456"
                           required
-                          className="w-full pl-9 pr-3 py-2.5 rounded-lg border-2 border-black dark:border-[#475569] bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                          className="input-field w-full !pl-9 pr-3 py-2.5 text-xs sm:text-sm font-medium"
                         />
                       </div>
                     </div>
@@ -604,7 +609,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                           onChange={(e) => setDiscordTag(e.target.value)}
                           placeholder="Contoh: ridi_to / username"
                           required
-                          className="w-full pl-9 pr-3 py-2.5 rounded-lg border-2 border-black dark:border-[#475569] bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                          className="input-field w-full !pl-9 pr-3 py-2.5 text-xs sm:text-sm font-medium"
                         />
                       </div>
                     </div>
@@ -613,7 +618,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
 
                 {/* Entry Fee Notice Box */}
                 {activeEvent.entryFee && (
-                  <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-lg flex items-center justify-between gap-3 text-xs">
+                  <div className="p-3 bg-[#F6F4ED] dark:bg-[#121622] border border-black/15 dark:border-white/10 rounded-xl flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2">
                       <DollarSign size={18} className="text-emerald-600" />
                       <div>
@@ -625,7 +630,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                         </span>
                       </div>
                     </div>
-                    <span className="font-mono font-black text-xs px-2.5 py-1 rounded bg-white dark:bg-[#1F222C] text-slate-900 dark:text-slate-100 border border-black shadow-sm shrink-0">
+                    <span className="font-mono font-black text-xs px-2.5 py-1 rounded-lg bg-white dark:bg-white/10 text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 shrink-0">
                       {activeEvent.entryFee}
                     </span>
                   </div>
@@ -641,7 +646,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                       isScanningOcr ||
                       Boolean(rejectionMessage)
                     }
-                    className="w-full btn py-3.5 px-4 bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-50 text-white font-heading font-black text-xs sm:text-sm uppercase tracking-wider border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
+                    className="w-full btn btn-red py-3.5 px-4 bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-50 text-white font-heading font-black text-xs sm:text-sm uppercase tracking-wider border border-red-500/70 shadow-sm flex items-center justify-center gap-2 active:translate-y-0.5 cursor-pointer transition-all"
                   >
                     <Ticket size={18} className="text-[#FACC15]" />
                     <span>
@@ -673,8 +678,8 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-lg rounded-2xl border-[3px] border-black shadow-[8px_8px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b-2 border-black bg-[#FACC15] text-slate-950">
+          <div className="w-full max-w-lg rounded-2xl border border-black/15 dark:border-white/15 shadow-2xl bg-white dark:bg-[#0B0D14] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-black/10 bg-[#FACC15] text-slate-950">
               <div className="flex items-center gap-2">
                 <HelpCircle size={18} className="text-[#DC2626]" />
                 <h4 className="font-heading font-black text-xs sm:text-sm uppercase">
@@ -684,7 +689,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
               <button
                 type="button"
                 onClick={() => setShowSampleModal(false)}
-                className="w-7 h-7 rounded border border-black bg-white flex items-center justify-center font-bold"
+                className="w-7 h-7 rounded-lg border border-black/15 bg-white/90 hover:bg-white flex items-center justify-center font-bold cursor-pointer"
               >
                 <X size={16} />
               </button>
@@ -693,7 +698,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
             <div className="p-4 flex flex-col gap-3">
               {/* Screenshot Preview Box - Tepat pas di gambar tanpa bar/background hitam di pinggir */}
               <div className="flex justify-center items-center py-1">
-                <div className="rounded-lg border-2 border-black shadow-[3px_3px_0px_#000] overflow-hidden inline-block bg-slate-50 dark:bg-slate-900">
+                <div className="rounded-xl border border-black/15 dark:border-white/15 shadow-md overflow-hidden inline-block bg-slate-50 dark:bg-slate-900">
                   <img
                     src="/contoh-ss-ktp2.jpg"
                     alt={`Contoh Screenshot - ${activeEvent.title}`}
@@ -702,8 +707,8 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
                 </div>
               </div>
 
-              <div className="p-3 bg-amber-50 dark:bg-[#14161F] border border-amber-300 dark:border-amber-900 rounded text-xs text-slate-800 dark:text-slate-200">
-                <strong className="block font-bold mb-1 text-[#DC2626]">
+              <div className="p-3 bg-amber-50 dark:bg-[#121622] border border-amber-300 dark:border-amber-900/60 rounded-xl text-xs text-slate-800 dark:text-slate-200">
+                <strong className="block font-bold mb-1 text-[#DC2626] dark:text-[#FACC15]">
                   Bagian Wajib Yang Harus Terlihat:
                 </strong>
                 <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed">
@@ -735,7 +740,7 @@ export default function EventRegistrationModal({ isOpen, onClose, event = null }
               <button
                 type="button"
                 onClick={() => setShowSampleModal(false)}
-                className="w-full btn py-2.5 bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-heading font-black text-xs uppercase border border-black shadow-[2px_2px_0px_#000]"
+                className="w-full btn py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-xs uppercase border border-amber-500/70 shadow-sm cursor-pointer"
               >
                 Saya Mengerti
               </button>

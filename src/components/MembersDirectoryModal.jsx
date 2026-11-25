@@ -446,10 +446,10 @@ export default function MembersDirectoryModal({
                 <button
                   type="button"
                   onClick={() => setJasraScopeFilter("ALL")}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-heading font-black border-2 border-black flex items-center gap-1 cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-heading font-black border flex items-center gap-1 cursor-pointer transition-all ${
                     jasraScopeFilter === "ALL"
-                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 shadow-[1.5px_1.5px_0px_#000]"
-                      : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                      : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
                   }`}
                 >
                   Semua ({totalJasraCount})
@@ -457,10 +457,10 @@ export default function MembersDirectoryModal({
                 <button
                   type="button"
                   onClick={() => setJasraScopeFilter("MEMBER")}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-heading font-black border-2 border-black flex items-center gap-1 cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-heading font-black border flex items-center gap-1 cursor-pointer transition-all ${
                     jasraScopeFilter === "MEMBER"
-                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 shadow-[1.5px_1.5px_0px_#000]"
-                      : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                      : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
                   }`}
                 >
                   <Users size={12} />
@@ -469,10 +469,10 @@ export default function MembersDirectoryModal({
                 <button
                   type="button"
                   onClick={() => setJasraScopeFilter("EXTERNAL")}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-heading font-black border-2 border-black flex items-center gap-1 cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-heading font-black border flex items-center gap-1 cursor-pointer transition-all ${
                     jasraScopeFilter === "EXTERNAL"
-                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 shadow-[1.5px_1.5px_0px_#000]"
-                      : "bg-white dark:bg-[#1A1D27] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white dark:bg-[#FACC15] dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                      : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
                   }`}
                 >
                   <HeartHandshake size={12} />
@@ -486,13 +486,9 @@ export default function MembersDirectoryModal({
           <div className="p-4 sm:p-6 overflow-y-auto flex-1">
             {isLoading ? (
               <div className="py-10 sm:py-14 flex flex-col items-center justify-center text-center px-4 animate-in fade-in duration-300">
-                {/* Unique Animated PPS Pizza Emblem - Logo besar, tegak (tidak muter), loncat bareng bingkainya */}
-                <div className="relative mb-5 animate-bounce" style={{ animationDuration: "1.8s" }}>
-                  {/* Subtle glowing halo */}
-                  <div className="absolute inset-0 rounded-full bg-[#FACC15] blur-xl opacity-40" />
-
-                  {/* Big brutalist circular logo badge (Tegak & jelas) */}
-                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white dark:bg-[#1F222C] border-[3.5px] border-black dark:border-[#475569] shadow-[5px_5px_0px_#000] flex items-center justify-center p-2">
+                {/* PPS Pizza Emblem */}
+                <div className="relative mb-5">
+                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 shadow-lg flex items-center justify-center p-2">
                     <img
                       src="/logo.png"
                       alt="PPS Logo"
@@ -502,8 +498,8 @@ export default function MembersDirectoryModal({
                 </div>
 
                 {/* Loading Status Pill */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2.5px_2.5px_0px_#000] font-heading font-black text-xs uppercase tracking-wider mb-2">
-                  <span className="w-2 h-2 rounded-full bg-[#DC2626] animate-ping" />
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FACC15] text-[#111827] border border-amber-500/70 shadow-sm font-heading font-black text-xs uppercase tracking-wider mb-2">
+                  <span className="w-2 h-2 rounded-full bg-[#DC2626]" />
                   <span>Memuat Data Anggota Resmi...</span>
                 </div>
 
@@ -519,7 +515,7 @@ export default function MembersDirectoryModal({
                   {[...Array(3)].map((_, i) => (
                     <div
                       key={i}
-                      className="card-brutal p-3.5 bg-slate-100 dark:bg-[#1A1D27] border-[2px] border-black/25 dark:border-white/10 flex flex-col gap-3 relative overflow-hidden"
+                      className="card-brutal p-3.5 bg-slate-100 dark:bg-[#121622] border border-black/15 dark:border-white/10 flex flex-col gap-3 relative overflow-hidden"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-slate-300 dark:bg-slate-700 animate-pulse shrink-0" />
@@ -535,7 +531,7 @@ export default function MembersDirectoryModal({
               </div>
             ) : displayedItems.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center text-center">
-                <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-950/60 border-2 border-black dark:border-amber-700 flex items-center justify-center text-amber-700 dark:text-amber-400 mb-3 shadow-[2px_2px_0px_#000]">
+                <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-400/70 dark:border-amber-700/60 flex items-center justify-center text-amber-700 dark:text-amber-400 mb-3 shadow-sm">
                   <Search size={24} />
                 </div>
                 <h4 className="font-heading font-black text-base uppercase text-slate-800 dark:text-slate-200">
@@ -550,7 +546,7 @@ export default function MembersDirectoryModal({
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
-                    className="btn text-xs py-1.5 px-4 bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-200 border-2 border-black shadow-[2px_2px_0px_#000] font-bold cursor-pointer"
+                    className="btn btn-secondary text-xs py-1.5 px-4 font-bold cursor-pointer"
                   >
                     Reset Pencarian
                   </button>
@@ -569,7 +565,7 @@ export default function MembersDirectoryModal({
                         <div>
                           {/* Top: Avatar & Name */}
                           <div className="flex items-center gap-3 pb-2.5 mb-2.5 border-b border-black/10 dark:border-white/10">
-                            <div className="w-12 h-12 rounded-full border-2 border-black dark:border-[#475569] overflow-hidden bg-blue-100 dark:bg-blue-950/60 shrink-0 shadow-sm flex items-center justify-center text-blue-700 dark:text-blue-300">
+                            <div className="w-12 h-12 rounded-full border border-blue-400/60 dark:border-blue-700/60 overflow-hidden bg-blue-100 dark:bg-blue-950/60 shrink-0 shadow-sm flex items-center justify-center text-blue-700 dark:text-blue-300">
                               <HeartHandshake size={22} />
                             </div>
 
@@ -639,7 +635,7 @@ export default function MembersDirectoryModal({
                             }
                           }}
                           disabled={!member.profilePhoto}
-                          className={`w-12 h-12 rounded-full border-2 border-black dark:border-[#475569] overflow-hidden bg-slate-100 dark:bg-[#14161F] shrink-0 shadow-sm flex items-center justify-center relative group ${
+                          className={`w-12 h-12 rounded-full border border-black/15 dark:border-white/15 overflow-hidden bg-slate-100 dark:bg-[#14161F] shrink-0 shadow-sm flex items-center justify-center relative group ${
                             member.profilePhoto ? "cursor-pointer hover:ring-2 hover:ring-[#FACC15] transition-all" : "cursor-default"
                           }`}
                           title={member.profilePhoto ? "Klik untuk melihat foto profil penuh" : "Belum ada foto profil"}
@@ -663,7 +659,7 @@ export default function MembersDirectoryModal({
           aria-modal="true"
         >
           <div
-            className="w-full max-w-md bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 text-slate-900 dark:text-slate-100"
+            className="w-full max-w-md bg-white dark:bg-[#0B0D14] border border-black/15 dark:border-white/15 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 text-slate-900 dark:text-slate-100"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/10">
@@ -881,13 +877,13 @@ export default function MembersDirectoryModal({
               <button
                 type="button"
                 onClick={() => setPreviewKtp(null)}
-                className="w-7 h-7 rounded border border-black flex items-center justify-center font-bold bg-slate-100 dark:bg-slate-800"
+                className="w-7 h-7 rounded-lg border border-black/15 dark:border-white/15 flex items-center justify-center font-bold bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="max-h-[70vh] overflow-hidden rounded-xl border-2 border-black flex items-center justify-center bg-black">
+            <div className="max-h-[70vh] overflow-hidden rounded-xl border border-black/15 dark:border-white/15 flex items-center justify-center bg-black">
               <img
                 src={previewKtp.image}
                 alt={previewKtp.name}
@@ -914,7 +910,7 @@ export default function MembersDirectoryModal({
           aria-modal="true"
         >
           <div
-            className="w-full max-w-md bg-white dark:bg-[#161820] border-2 border-black dark:border-white/20 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 text-slate-900 dark:text-slate-100"
+            className="w-full max-w-md bg-white dark:bg-[#0B0D14] border border-black/15 dark:border-white/15 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 text-slate-900 dark:text-slate-100"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-2 border-b border-black/15 dark:border-white/10">

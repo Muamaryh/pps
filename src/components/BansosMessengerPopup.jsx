@@ -114,14 +114,14 @@ export default function BansosMessengerPopup({
   const content = (
     <div className="select-none pointer-events-auto font-sans flex flex-col items-end">
       {isOpen ? (
-        /* Pop-up Window Card (Neo-Brutalist Messenger Style) */
-        <div className="w-[310px] sm:w-[350px] rounded-2xl border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_0px_#000000] bg-[#FFFDF9] dark:bg-[#1A1D27] overflow-hidden flex flex-col animate-slideUp">
+        /* Pop-up Window Card (Syndicate Noir Messenger Style) */
+        <div className="w-[310px] sm:w-[350px] rounded-2xl border border-black/15 dark:border-white/15 shadow-[0_20px_50px_-12px_rgba(15,23,42,0.28)] dark:shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)] bg-white dark:bg-[#0B0D14] overflow-hidden flex flex-col animate-slideUp">
           
           {/* Header Messenger Bar */}
-          <div className="px-3.5 py-2.5 bg-[#FACC15] dark:bg-[#EAB308] border-b-2 border-black flex items-center justify-between text-slate-950">
+          <div className="px-3.5 py-2.5 bg-[#FACC15] dark:bg-[#EAB308] border-b border-black/10 flex items-center justify-between text-slate-950">
             <div className="flex items-center gap-2">
               <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-white border border-black flex items-center justify-center p-0.5 shadow-sm overflow-hidden shrink-0">
+                <div className="w-8 h-8 rounded-full bg-white border border-black/15 flex items-center justify-center p-0.5 shadow-sm overflow-hidden shrink-0">
                   <img
                     src="/logo.png"
                     alt="Logo LSM PPS"
@@ -129,7 +129,7 @@ export default function BansosMessengerPopup({
                   />
                 </div>
                 {/* Active Green Dot */}
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-black bg-emerald-500" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-white bg-emerald-500" />
               </div>
 
               <div className="leading-tight">
@@ -137,7 +137,7 @@ export default function BansosMessengerPopup({
                   LSM Paguyuban Pizza
                 </span>
                 <span className="text-[10px] text-slate-800 font-mono flex items-center gap-1 font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                   {activeProgram.tagline || "Bansos Warga • Sandy Shores"}
                 </span>
               </div>
@@ -147,8 +147,9 @@ export default function BansosMessengerPopup({
               <button
                 type="button"
                 onClick={handleDismiss}
-                className="w-6 h-6 rounded border border-black/40 hover:border-black bg-white/70 hover:bg-white flex items-center justify-center text-slate-900 transition-colors cursor-pointer"
+                className="w-7 h-7 rounded-lg border border-black/15 hover:border-black/30 bg-white/80 hover:bg-white flex items-center justify-center text-slate-900 transition-colors cursor-pointer"
                 title="Sembunyikan pesan"
+                aria-label="Sembunyikan pesan"
               >
                 <X size={14} />
               </button>
@@ -158,12 +159,12 @@ export default function BansosMessengerPopup({
           {/* Chat Bubble Body */}
           <div className="p-3.5 flex flex-col gap-2.5">
             {/* Bubble Message */}
-            <div className="p-3 bg-white dark:bg-[#14161F] border-2 border-black/20 dark:border-white/10 rounded-xl shadow-sm flex flex-col gap-2">
+            <div className="p-3 bg-[#FAF8F3] dark:bg-[#121622] border border-black/10 dark:border-white/10 rounded-xl flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold text-slate-400">
+                <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">
                   Hari Ini • Bantuan Pokok
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black text-white border border-black shadow-[1px_1px_0px_#000] bg-emerald-600">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-black text-white border border-emerald-500/60 bg-emerald-600">
                   BANTUAN AKTIF
                 </span>
               </div>
@@ -187,9 +188,9 @@ export default function BansosMessengerPopup({
                   return (
                     <div
                       key={idx}
-                      className="flex items-center gap-2 p-1.5 bg-amber-50/60 dark:bg-amber-950/20 rounded border border-amber-300/80 dark:border-amber-700/40 text-amber-950 dark:text-amber-200"
+                      className="flex items-center gap-2 p-1.5 bg-amber-50/70 dark:bg-amber-950/20 rounded-lg border border-amber-300/70 dark:border-amber-700/40 text-amber-950 dark:text-amber-200"
                     >
-                      <div className="w-5 h-5 rounded bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <div className="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0">
                         <IconComp size={12} />
                       </div>
                       <div className="flex flex-col leading-tight">
@@ -208,7 +209,7 @@ export default function BansosMessengerPopup({
               </div>
 
               {/* Requirement Rule Notice */}
-              <div className="text-[10px] font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 p-2 rounded border border-black/10 dark:border-white/10 flex items-start gap-1.5">
+              <div className="text-[10px] font-mono text-slate-600 dark:text-slate-400 bg-white dark:bg-[#0B0D14] p-2 rounded-lg border border-black/10 dark:border-white/10 flex items-start gap-1.5">
                 <CheckCircle2 size={13} className="text-emerald-600 shrink-0 mt-0.5" />
                 <span>
                   Wajib unggah foto KTP IC valid. 1 Citizen ID = 1 kali klaim.
@@ -220,7 +221,7 @@ export default function BansosMessengerPopup({
             <button
               type="button"
               onClick={handleOpenClaim}
-              className="w-full btn py-2.5 px-3 text-white font-heading font-black text-xs uppercase tracking-wider border-2 border-black shadow-[2.5px_2.5px_0px_#000] flex items-center justify-center gap-1.5 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer bg-[#059669] hover:bg-[#047857] transition-all"
+              className="w-full py-2.5 px-3 rounded-xl text-white font-heading font-black text-xs uppercase tracking-wider border border-emerald-500/70 shadow-sm flex items-center justify-center gap-1.5 hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer bg-[#059669] hover:bg-[#047857] transition-all"
             >
               <Gift size={14} className="text-[#FACC15]" />
               <span>Klaim Paket Bansos Sekarang</span>
@@ -233,15 +234,15 @@ export default function BansosMessengerPopup({
         <button
           type="button"
           onClick={handleToggle}
-          className="group flex items-center gap-2.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_0px_#000] bg-[#FFFDF9] dark:bg-[#1A1D27] hover:bg-[#FACC15] dark:hover:bg-[#FACC15] hover:text-slate-950 text-slate-900 dark:text-slate-100 transition-all cursor-pointer active:translate-x-0.5 active:translate-y-0.5 pointer-events-auto"
+          className="group flex items-center gap-2.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-full border border-black/15 dark:border-white/15 shadow-[0_12px_28px_-6px_rgba(15,23,42,0.22)] dark:shadow-[0_14px_32px_-6px_rgba(0,0,0,0.85)] bg-white dark:bg-[#0E111B] hover:bg-[#FACC15] dark:hover:bg-[#FACC15] hover:text-slate-950 text-slate-900 dark:text-slate-100 transition-all cursor-pointer hover:-translate-y-0.5 active:translate-y-0.5 pointer-events-auto"
           title="Buka notifikasi bansos warga"
         >
           <div className="relative">
-            <div className="w-8 h-8 rounded-full text-white flex items-center justify-center border border-black shadow-sm bg-[#059669]">
+            <div className="w-8 h-8 rounded-full text-white flex items-center justify-center border border-emerald-500/70 shadow-sm bg-[#059669]">
               <Gift size={16} />
             </div>
             {/* Unread Red Notification Badge */}
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 border border-white dark:border-black text-[9px] font-black text-white flex items-center justify-center animate-pulse">
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#DC2626] border border-white dark:border-[#0E111B] text-[9px] font-black text-white flex items-center justify-center">
               1
             </span>
           </div>

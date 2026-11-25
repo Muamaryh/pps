@@ -240,19 +240,21 @@ export default function TransparencyModal({
   return (
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-xs overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-6xl bg-[#FBF8F2] dark:bg-[#131620] rounded-xl border-[3px] border-black dark:border-[#475569] shadow-[8px_8px_0px_#000] flex flex-col max-h-[94vh] overflow-hidden transition-colors"
+        className="w-full max-w-6xl bg-[#FAF8F3] dark:bg-[#0B0D14] rounded-2xl border border-black/15 dark:border-white/15 shadow-2xl flex flex-col max-h-[94vh] overflow-hidden transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Header Portal Transparansi - Government Document Grade */}
-        <header className="p-4 sm:p-5 border-b-[2.5px] border-black dark:border-[#475569] bg-white dark:bg-[#1A1D27] shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+        <header className="p-4 sm:p-5 border-b border-black/10 dark:border-white/10 bg-white dark:bg-[#0E111B] shrink-0 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
           <div className="flex items-start sm:items-center gap-3">
             {/* Government Seal & PPS Official Logo Collaboration (Gov x PPS) */}
             <div className="flex items-center gap-2 shrink-0">
               <div
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#181B22] border-2 border-[#8A7131] flex items-center justify-center p-1 shrink-0 shadow-[2px_2px_0px_#000]"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#181B22] border-2 border-[#8A7131] flex items-center justify-center p-1 shrink-0 shadow-sm"
                 title="Pemerintah Kota San Andreas"
               >
                 <img
@@ -267,7 +269,7 @@ export default function TransparencyModal({
               </span>
 
               <div
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#FACC15] border-2 border-black flex items-center justify-center p-1 shrink-0 shadow-[2px_2px_0px_#000]"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#FACC15] border border-amber-500/70 flex items-center justify-center p-1 shrink-0 shadow-sm"
                 title="LSM Paguyuban Pizza Sandy Shores"
               >
                 <img
@@ -279,15 +281,15 @@ export default function TransparencyModal({
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-blue-100 dark:bg-blue-950/80 text-blue-900 dark:text-blue-200 border border-blue-400">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-black bg-blue-100 dark:bg-blue-950/80 text-blue-900 dark:text-blue-200 border border-blue-400/60">
                   PORTAL TRANSPARANSI
                 </span>
                 {activeTab === "jasra" ? (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-[#FACC15] text-[#111827] border border-black shadow-xs">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-black bg-[#FACC15] text-[#111827] border border-amber-500/70">
                     SUBSIDI KESEHATAN JASRA
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-emerald-500 text-white border border-black shadow-xs">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-black bg-emerald-600 text-white border border-emerald-500/70">
                     PROGRAM BANSOS WARGA
                   </span>
                 )}
@@ -308,7 +310,7 @@ export default function TransparencyModal({
             <button
               type="button"
               onClick={onClose}
-              className="py-1.5 px-3.5 bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 text-red-900 dark:text-red-200 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 cursor-pointer rounded"
+              className="py-2 px-3.5 bg-red-50 hover:bg-[#DC2626] dark:bg-red-950/60 dark:hover:bg-[#DC2626] text-red-900 hover:text-white dark:text-red-200 dark:hover:text-white text-xs font-heading font-black border border-red-300 dark:border-red-800/70 shadow-sm flex items-center gap-1.5 cursor-pointer rounded-xl transition-colors"
               title="Tutup Halaman Transparansi"
             >
               <span>Tutup</span>
@@ -319,20 +321,20 @@ export default function TransparencyModal({
 
         {/* 2. Top Navigation Tabs: Hanya ditampilkan jika mode multi-tab/umum */}
         {!isDedicatedView && (
-          <div className="flex items-center justify-between border-b-2 border-black/15 dark:border-white/10 bg-slate-100/70 dark:bg-[#161822] px-4 pt-2.5 gap-2 overflow-x-auto shrink-0">
+          <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 bg-[#F6F4ED] dark:bg-[#0E111B] px-4 py-2.5 gap-2 overflow-x-auto shrink-0">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setActiveTab("jasra")}
-                className={`px-4 py-2.5 rounded-t-lg text-xs font-heading font-black border-t-2 border-x-2 border-black flex items-center gap-2 cursor-pointer transition-all ${
+                className={`px-4 py-2 rounded-xl text-xs font-heading font-black border flex items-center gap-2 cursor-pointer transition-all ${
                   activeTab === "jasra"
-                    ? "bg-[#FBF8F2] dark:bg-[#131620] text-slate-900 dark:text-[#FACC15] -mb-[2px] pb-3 border-b-0 shadow-[0_-2px_0px_#000]"
-                    : "bg-white/80 dark:bg-[#1D212E] text-slate-600 dark:text-slate-400 hover:bg-white border-b-2"
+                    ? "bg-[#FACC15] text-slate-950 border-amber-500/80 shadow-sm"
+                    : "bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-white/10"
                 }`}
               >
                 <HeartHandshake size={15} className="text-[#DC2626]" />
                 <span>Voucher Jasra Medis</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-[#FACC15] text-slate-950">
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-black/10 dark:bg-white/10 text-current">
                   {unifiedDistributions.length}
                 </span>
               </button>
@@ -340,15 +342,15 @@ export default function TransparencyModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("bansos")}
-                className={`px-4 py-2.5 rounded-t-lg text-xs font-heading font-black border-t-2 border-x-2 border-black flex items-center gap-2 cursor-pointer transition-all ${
+                className={`px-4 py-2 rounded-xl text-xs font-heading font-black border flex items-center gap-2 cursor-pointer transition-all ${
                   activeTab === "bansos"
-                    ? "bg-[#FBF8F2] dark:bg-[#131620] text-slate-900 dark:text-[#FACC15] -mb-[2px] pb-3 border-b-0 shadow-[0_-2px_0px_#000]"
-                    : "bg-white/80 dark:bg-[#1D212E] text-slate-600 dark:text-slate-400 hover:bg-white border-b-2"
+                    ? "bg-[#FACC15] text-slate-950 border-amber-500/80 shadow-sm"
+                    : "bg-white dark:bg-white/5 text-slate-600 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-50 dark:hover:bg-white/10"
                 }`}
               >
                 <Gift size={15} className="text-emerald-600" />
                 <span>Bansos Warga Sandy Shores</span>
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-emerald-500 text-white">
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-emerald-600 text-white">
                   {bansosClaims.length}
                 </span>
               </button>
@@ -362,9 +364,9 @@ export default function TransparencyModal({
           {activeTab === "jasra" && (
             <div className="flex flex-col gap-5">
               {/* Highlight Gelombang Aktif dari Pemerintah */}
-              <div className="card-brutal relative z-20 p-4 sm:p-5 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="card-brutal relative z-20 p-4 sm:p-5 bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-[#DC2626] border-2 border-black flex items-center justify-center text-[#FACC15] shadow-[2px_2px_0px_#000] shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-[#DC2626] border border-red-500/70 flex items-center justify-center text-[#FACC15] shadow-sm shrink-0">
                     <HeartHandshake size={26} />
                   </div>
                   <div>
@@ -372,10 +374,10 @@ export default function TransparencyModal({
                       <h3 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
                         {viewedBatch?.batchName || "Gelombang Alokasi Jasra"}
                       </h3>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border border-black ${
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold border ${
                         isViewingActiveBatch && !batchRemaining.isExpired
-                          ? "bg-emerald-500 text-white"
-                          : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                          ? "bg-emerald-600 text-white border-emerald-500/70"
+                          : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15"
                       }`}>
                         {isViewingActiveBatch && !batchRemaining.isExpired ? "GELOMBANG AKTIF" : "ARSIP GELOMBANG"}
                       </span>
@@ -405,7 +407,7 @@ export default function TransparencyModal({
 
               {/* 4 Stat Cards: Alokasi, Terdistribusi, Sisa Kuota, Realisasi */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="card-brutal p-3 sm:p-4 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                <div className="card-brutal p-3 sm:p-4 bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15">
                   <span className="text-[10px] font-mono font-bold uppercase text-slate-500 block">
                     Total Kuota Pemerintah
                   </span>
@@ -417,7 +419,7 @@ export default function TransparencyModal({
                   </span>
                 </div>
 
-                <div className="card-brutal p-3 sm:p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000]">
+                <div className="card-brutal p-3 sm:p-4 bg-emerald-50 dark:bg-emerald-950/35 border border-emerald-500/50">
                   <span className="text-[10px] font-mono font-bold uppercase text-emerald-800 dark:text-emerald-300 block">
                     Voucher Tersalurkan
                   </span>
@@ -429,7 +431,7 @@ export default function TransparencyModal({
                   </span>
                 </div>
 
-                <div className="card-brutal p-3 sm:p-4 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000]">
+                <div className="card-brutal p-3 sm:p-4 bg-amber-50 dark:bg-amber-950/35 border border-amber-400/60">
                   <span className="text-[10px] font-mono font-bold uppercase text-amber-800 dark:text-amber-300 block">
                     Sisa Kuota Tersedia
                   </span>
@@ -441,7 +443,7 @@ export default function TransparencyModal({
                   </span>
                 </div>
 
-                <div className="card-brutal p-3 sm:p-4 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                <div className="card-brutal p-3 sm:p-4 bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15">
                   <span className="text-[10px] font-mono font-bold uppercase text-slate-500 block">
                     Persentase Realisasi
                   </span>
@@ -459,8 +461,8 @@ export default function TransparencyModal({
                 </div>
               </div>
 
-              {/* Filter & Search Bar - Bergaya Neobrutalis konsisten dengan panel admin */}
-              <div className="card-brutal p-3.5 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              {/* Filter & Search Bar */}
+              <div className="card-brutal p-3.5 bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                 <div className="relative flex-1 sm:max-w-md">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
@@ -468,7 +470,7 @@ export default function TransparencyModal({
                     value={jasraSearch}
                     onChange={(e) => setJasraSearch(e.target.value)}
                     placeholder="Cari nama penerima, Citizen ID (CID), atau telepon..."
-                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border-2 border-black dark:border-[#475569] bg-slate-50 dark:bg-[#202534] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                    className="input-field w-full !pl-9 !pr-8 py-2 text-xs"
                   />
                   {jasraSearch && (
                     <button
@@ -481,7 +483,7 @@ export default function TransparencyModal({
                   )}
                 </div>
 
-                {/* Filter Pills bergaya Neobrutalis khas PPS */}
+                {/* Filter Pills */}
                 <div className="flex flex-wrap items-center gap-1.5">
                   {[
                     { id: "ALL", label: `Semua (${unifiedDistributions.length})` },
@@ -494,10 +496,10 @@ export default function TransparencyModal({
                       key={f.id}
                       type="button"
                       onClick={() => setJasraFilter(f.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-full text-xs font-heading font-black border transition-all cursor-pointer ${
                         jasraFilter === f.id
-                          ? "bg-[#FACC15] text-[#111827] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                          : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 border-black/30 dark:border-slate-700 hover:border-black"
+                          ? "bg-[#FACC15] text-[#111827] border-amber-500/80 shadow-sm"
+                          : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-[#FACC15]/70"
                       }`}
                     >
                       {f.label}
@@ -507,8 +509,8 @@ export default function TransparencyModal({
               </div>
 
               {/* Tabel Rekapitulasi Penyaluran Voucher Jasra */}
-              <div className="card-brutal bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] overflow-hidden">
-                <div className="p-3.5 border-b-2 border-black/10 dark:border-white/10 flex items-center justify-between">
+              <div className="card-brutal bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 overflow-hidden">
+                <div className="p-3.5 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
                   <span className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <span>DAFTAR LENGKAP PENERIMA MANFAAT JASRA</span>
                     <span className="text-[10px] font-mono text-slate-500">
@@ -523,7 +525,7 @@ export default function TransparencyModal({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-100 dark:bg-[#1E2230] border-b-2 border-black font-heading font-black uppercase text-[10px] text-slate-700 dark:text-slate-300">
+                      <tr className="bg-[#FAF8F3] dark:bg-[#161B29] border-b border-black/15 dark:border-white/10 font-heading font-black uppercase text-[10px] text-slate-700 dark:text-slate-300">
                         <th className="py-2.5 px-3 w-10">No</th>
                         <th className="py-2.5 px-3">Penerima Manfaat</th>
                         <th className="py-2.5 px-3">No. IC / Citizen ID</th>
@@ -548,17 +550,17 @@ export default function TransparencyModal({
                           return (
                             <tr
                               key={dist.id || idx}
-                              className="hover:bg-amber-50/50 dark:hover:bg-slate-800/40 transition-colors"
+                              className="hover:bg-amber-50/50 dark:hover:bg-white/5 transition-colors"
                             >
                               <td className="py-2.5 px-3 font-bold text-slate-500">{idx + 1}</td>
                               <td className="py-2.5 px-3 font-sans">
                                 <div className="flex items-center gap-1.5">
                                   {isMember ? (
-                                    <span className="w-4 h-4 rounded bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0" title="Anggota Resmi Paguyuban">
+                                    <span className="w-4 h-4 rounded bg-[#FACC15] text-[#111827] border border-amber-500/70 flex items-center justify-center shrink-0" title="Anggota Resmi Paguyuban">
                                       <UserCheck size={10} />
                                     </span>
                                   ) : (
-                                    <span className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-black/30 flex items-center justify-center shrink-0" title="Warga Luar Paguyuban">
+                                    <span className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-black/15 flex items-center justify-center shrink-0" title="Warga Luar Paguyuban">
                                       <UserX size={10} />
                                     </span>
                                   )}
@@ -577,7 +579,7 @@ export default function TransparencyModal({
                                 {dist.citizenId || "-"}
                               </td>
                               <td className="py-2.5 px-3">
-                                <span className="inline-block px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 border border-amber-400 text-amber-900 dark:text-amber-200 text-[10px] font-bold">
+                                <span className="inline-block px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/70 border border-amber-400/70 text-amber-900 dark:text-amber-200 text-[10px] font-bold">
                                   {dist.treatmentCount}T &bull; {dist.pingsanCount}P
                                 </span>
                               </td>
@@ -589,11 +591,11 @@ export default function TransparencyModal({
                               </td>
                               <td className="py-2.5 px-3">
                                 {rem.isExpired ? (
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-black/20">
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-black/15">
                                     KEDALUWARSA
                                   </span>
                                 ) : (
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500 text-white border border-black">
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-600 text-white border border-emerald-500/70">
                                     AKTIF
                                   </span>
                                 )}
@@ -616,9 +618,9 @@ export default function TransparencyModal({
           {activeTab === "bansos" && (
             <div className="flex flex-col gap-5">
               {/* Highlight Program Bansos */}
-              <div className="card-brutal p-4 sm:p-5 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="card-brutal p-4 sm:p-5 bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-emerald-600 border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_#000] shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-600 border border-emerald-500/70 flex items-center justify-center text-white shadow-sm shrink-0">
                     <Gift size={26} />
                   </div>
                   <div>
@@ -626,7 +628,7 @@ export default function TransparencyModal({
                       <h3 className="font-heading font-black text-base uppercase text-slate-900 dark:text-slate-100">
                         Bantuan Sosial Warga Sandy Shores
                       </h3>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#FACC15] text-slate-950 border border-black">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#FACC15] text-slate-950 border border-amber-500/70">
                         PROGRAM KEPEDULIAN
                       </span>
                     </div>
@@ -637,7 +639,7 @@ export default function TransparencyModal({
                 </div>
 
                 <div className="flex items-center gap-2 self-start lg:self-center">
-                  <div className="p-2.5 rounded-lg border-2 border-black bg-emerald-50 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100 shadow-[2px_2px_0px_#000]">
+                  <div className="p-2.5 rounded-xl border border-emerald-500/50 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-100">
                     <div className="text-[10px] font-heading font-black uppercase text-emerald-800 dark:text-emerald-300">
                       Total Dana Tunai Terealisasi
                     </div>
@@ -650,7 +652,7 @@ export default function TransparencyModal({
 
               {/* 3 Stat Cards Bansos */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                <div className="card-brutal p-4 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]">
+                <div className="card-brutal p-4 bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15">
                   <span className="text-[10px] font-mono font-bold uppercase text-slate-500 block">
                     Total Warga Terdata
                   </span>
@@ -662,7 +664,7 @@ export default function TransparencyModal({
                   </span>
                 </div>
 
-                <div className="card-brutal p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-600 dark:border-emerald-500 shadow-[2px_2px_0px_#000]">
+                <div className="card-brutal p-4 bg-emerald-50 dark:bg-emerald-950/35 border border-emerald-500/50">
                   <span className="text-[10px] font-mono font-bold uppercase text-emerald-800 dark:text-emerald-300 block">
                     Sudah Diserahkan (Realisasi)
                   </span>
@@ -674,7 +676,7 @@ export default function TransparencyModal({
                   </span>
                 </div>
 
-                <div className="card-brutal p-4 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-500 dark:border-amber-400 shadow-[2px_2px_0px_#000]">
+                <div className="card-brutal p-4 bg-amber-50 dark:bg-amber-950/35 border border-amber-400/60">
                   <span className="text-[10px] font-mono font-bold uppercase text-amber-800 dark:text-amber-300 block">
                     Menunggu Penyerahan Fisik
                   </span>
@@ -687,8 +689,8 @@ export default function TransparencyModal({
                 </div>
               </div>
 
-              {/* Filter & Search Bar Bansos - Bergaya Neobrutalis konsisten dengan panel admin */}
-              <div className="card-brutal p-3.5 bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              {/* Filter & Search Bar Bansos */}
+              <div className="card-brutal p-3.5 bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                 <div className="relative flex-1 sm:max-w-md">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
@@ -696,7 +698,7 @@ export default function TransparencyModal({
                     value={bansosSearch}
                     onChange={(e) => setBansosSearch(e.target.value)}
                     placeholder="Cari nama warga, Citizen ID (CID), atau kode kupon..."
-                    className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border-2 border-black dark:border-[#475569] bg-slate-50 dark:bg-[#202534] text-slate-900 dark:text-slate-100 shadow-[2px_2px_0px_#000] focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+                    className="input-field w-full !pl-9 !pr-8 py-2 text-xs"
                   />
                   {bansosSearch && (
                     <button
@@ -709,7 +711,7 @@ export default function TransparencyModal({
                   )}
                 </div>
 
-                {/* Filter Pills bergaya Neobrutalis khas PPS */}
+                {/* Filter Pills */}
                 <div className="flex flex-wrap items-center gap-1.5">
                   {[
                     { id: "ALL", label: `Semua (${bansosClaims.length})` },
@@ -720,10 +722,10 @@ export default function TransparencyModal({
                       key={f.id}
                       type="button"
                       onClick={() => setBansosFilter(f.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-heading font-black border-2 transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-full text-xs font-heading font-black border transition-all cursor-pointer ${
                         bansosFilter === f.id
-                          ? "bg-[#FACC15] text-[#111827] border-black shadow-[2px_2px_0px_#000] -translate-y-0.5"
-                          : "bg-white dark:bg-[#1A1D26] text-slate-700 dark:text-slate-300 border-black/30 dark:border-slate-700 hover:border-black"
+                          ? "bg-[#FACC15] text-[#111827] border-amber-500/80 shadow-sm"
+                          : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:border-[#FACC15]/70"
                       }`}
                     >
                       {f.label}
@@ -733,8 +735,8 @@ export default function TransparencyModal({
               </div>
 
               {/* Tabel Bansos */}
-              <div className="card-brutal bg-white dark:bg-[#181B26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000] overflow-hidden">
-                <div className="p-3.5 border-b-2 border-black/10 dark:border-white/10 flex items-center justify-between">
+              <div className="card-brutal bg-white dark:bg-[#121622] border border-black/15 dark:border-white/15 overflow-hidden">
+                <div className="p-3.5 border-b border-black/10 dark:border-white/10 flex items-center justify-between">
                   <span className="font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <span>DAFTAR PENYALURAN BANTUAN SOSIAL WARGA</span>
                     <span className="text-[10px] font-mono text-slate-500">
@@ -749,7 +751,7 @@ export default function TransparencyModal({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-100 dark:bg-[#1E2230] border-b-2 border-black font-heading font-black uppercase text-[10px] text-slate-700 dark:text-slate-300">
+                      <tr className="bg-[#FAF8F3] dark:bg-[#161B29] border-b border-black/15 dark:border-white/10 font-heading font-black uppercase text-[10px] text-slate-700 dark:text-slate-300">
                         <th className="py-2.5 px-3 w-10">No</th>
                         <th className="py-2.5 px-3">Kode Kupon</th>
                         <th className="py-2.5 px-3">Nama Penerima</th>
@@ -771,11 +773,11 @@ export default function TransparencyModal({
                         filteredBansosClaims.map((claim, idx) => (
                           <tr
                             key={claim.id || idx}
-                            className="hover:bg-amber-50/50 dark:hover:bg-slate-800/40 transition-colors"
+                            className="hover:bg-amber-50/50 dark:hover:bg-white/5 transition-colors"
                           >
                             <td className="py-2.5 px-3 font-bold text-slate-500">{idx + 1}</td>
                             <td className="py-2.5 px-3">
-                              <span className="px-2 py-0.5 rounded font-mono font-black text-xs bg-[#FACC15] text-slate-950 border border-black">
+                              <span className="px-2 py-0.5 rounded-md font-mono font-black text-xs bg-[#FACC15] text-slate-950 border border-amber-500/70">
                                 {claim.claimCode || "-"}
                               </span>
                             </td>
@@ -790,11 +792,11 @@ export default function TransparencyModal({
                             </td>
                             <td className="py-2.5 px-3">
                               {claim.claimed ? (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500 text-white border border-black">
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-600 text-white border border-emerald-500/70">
                                   SUDAH DIAMBIL
                                 </span>
                               ) : (
-                                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950 border border-black">
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-400 text-slate-950 border border-amber-500/70">
                                   MENUNGGU DIAMBIL
                                 </span>
                               )}
@@ -817,9 +819,9 @@ export default function TransparencyModal({
         </div>
 
         {/* 4. Footer Dokumen Resmi */}
-        <footer className="p-3.5 sm:p-4 border-t-2 border-black/15 dark:border-white/10 bg-white dark:bg-[#1A1D27] shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-mono text-slate-500">
+        <footer className="p-3.5 sm:p-4 border-t border-black/10 dark:border-white/10 bg-white dark:bg-[#0E111B] shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-mono text-slate-500">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
             <span>Scanning data menggunakan OCR. Kesalahan input nama/citizen id kemungkinan bisa terjadi.</span>
           </div>
           <div className="flex items-center gap-2">

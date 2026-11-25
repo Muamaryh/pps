@@ -8,7 +8,7 @@ export default function EventSection({ onOpenRegisterEvent }) {
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 sm:mb-10">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FACC15] border-2 border-black shadow-[2px_2px_0px_#000] mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FACC15] border border-amber-500/70 shadow-sm mb-3">
               <Trophy size={14} className="text-[#DC2626]" />
               <span className="font-heading font-black text-xs uppercase tracking-wider text-[#111827]">
                 TURNAMEN RESMI LSM PPS
@@ -25,17 +25,17 @@ export default function EventSection({ onOpenRegisterEvent }) {
           <button
             type="button"
             onClick={onOpenRegisterEvent}
-            className="self-start md:self-auto btn py-3 px-6 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-heading font-black text-sm uppercase tracking-wider border-2 border-black shadow-[3px_3px_0px_#000] flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all shrink-0"
+            className="self-start md:self-auto btn btn-red py-3 px-6 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-heading font-black text-sm uppercase tracking-wider border border-red-500/70 shadow-sm flex items-center gap-2 hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer transition-all shrink-0"
           >
             <span>Daftar UFC (Biaya 10K)</span>
             <ArrowRight size={16} className="text-[#FACC15]" />
           </button>
         </div>
 
-        {/* Main Event Card (Neo-Brutalist Sandy Shores Style) */}
-        <div className="card-brutal p-6 sm:p-8 bg-[#FFFDF9] dark:bg-[#1A1D27] border-[3px] border-black dark:border-[#475569] shadow-[6px_6px_0px_0px_#000] relative overflow-hidden">
+        {/* Main Event Card */}
+        <div className="card-brutal p-6 sm:p-8 bg-white dark:bg-[#0B0D14] border border-black/15 dark:border-white/15 relative overflow-hidden">
           {/* Accent Ribbon */}
-          <div className="absolute top-0 right-0 bg-[#FACC15] border-b-2 border-l-2 border-black font-heading font-black text-xs uppercase px-4 py-1.5 shadow-sm text-slate-950">
+          <div className="absolute top-0 right-0 bg-[#FACC15] border-b border-l border-amber-500/70 rounded-bl-xl font-heading font-black text-xs uppercase px-4 py-1.5 text-slate-950">
             PENDAFTARAN DIBUKA • BIAYA 10K
           </div>
 
@@ -57,8 +57,8 @@ export default function EventSection({ onOpenRegisterEvent }) {
 
               {/* Event Metadatas */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-xl flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#FACC15] border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                <div className="p-3 bg-[#F6F4ED] dark:bg-[#121622] border border-black/10 dark:border-white/10 rounded-xl flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#FACC15] border border-amber-500/60 flex items-center justify-center shrink-0">
                     <Calendar size={18} className="text-slate-900" />
                   </div>
                   <div>
@@ -67,8 +67,8 @@ export default function EventSection({ onOpenRegisterEvent }) {
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-xl flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-[#DC2626] border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                <div className="p-3 bg-[#F6F4ED] dark:bg-[#121622] border border-black/10 dark:border-white/10 rounded-xl flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#DC2626] border border-red-500/60 flex items-center justify-center shrink-0">
                     <Clock size={18} className="text-white" />
                   </div>
                   <div>
@@ -77,8 +77,8 @@ export default function EventSection({ onOpenRegisterEvent }) {
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-xl flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-500 border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                <div className="p-3 bg-[#F6F4ED] dark:bg-[#121622] border border-black/10 dark:border-white/10 rounded-xl flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500 border border-emerald-600/60 flex items-center justify-center shrink-0">
                     <MapPin size={18} className="text-white" />
                   </div>
                   <div>
@@ -87,8 +87,8 @@ export default function EventSection({ onOpenRegisterEvent }) {
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-100 dark:bg-[#14161F] border-2 border-black/15 dark:border-white/10 rounded-xl flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-amber-400 border border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                <div className="p-3 bg-[#F6F4ED] dark:bg-[#121622] border border-black/10 dark:border-white/10 rounded-xl flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-400 border border-amber-500/60 flex items-center justify-center shrink-0">
                     <Award size={18} className="text-slate-900" />
                   </div>
                   <div>
@@ -100,7 +100,7 @@ export default function EventSection({ onOpenRegisterEvent }) {
             </div>
 
             {/* Right Column: Benefits Box & Direct CTA */}
-            <div className="lg:col-span-5 flex flex-col justify-between h-full bg-amber-50/70 dark:bg-[#14161F] p-5 sm:p-6 rounded-2xl border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000]">
+            <div className="lg:col-span-5 flex flex-col justify-between h-full bg-[#FAF8F3] dark:bg-[#121622] p-5 sm:p-6 rounded-2xl border border-black/15 dark:border-white/10">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-black/10 dark:border-white/10">
                   <Users size={18} className="text-[#DC2626] dark:text-[#FACC15]" />
@@ -133,7 +133,7 @@ export default function EventSection({ onOpenRegisterEvent }) {
                 <button
                   type="button"
                   onClick={onOpenRegisterEvent}
-                  className="w-full btn py-3.5 px-4 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-sm uppercase tracking-wider border-2 border-black shadow-[3px_3px_0px_#000] flex items-center justify-center gap-2 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
+                  className="w-full btn py-3.5 px-4 bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 font-heading font-black text-sm uppercase tracking-wider border border-amber-500/70 shadow-sm flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer transition-all"
                 >
                   <Trophy size={16} className="text-[#DC2626]" />
                   <span>Daftar UFC Civilian (Biaya 10K)</span>

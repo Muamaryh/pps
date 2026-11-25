@@ -206,12 +206,12 @@ export default function KasPaymentModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs">
-      <div className="w-full max-w-lg bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-2xl shadow-[8px_8px_0px_#000] p-4 sm:p-5 flex flex-col gap-3.5 max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs" role="dialog" aria-modal="true">
+      <div className="w-full max-w-lg bg-white dark:bg-[#0B0D14] bg-[var(--modal-bg)] border border-black/15 dark:border-white/15 rounded-2xl shadow-2xl p-4 sm:p-5 flex flex-col gap-3.5 max-h-[92vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b-2 border-black dark:border-[#475569]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 border border-black flex items-center justify-center text-white shrink-0">
+        <div className="flex items-center justify-between pb-3 border-b border-black/10 dark:border-white/10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600 border border-emerald-500/70 flex items-center justify-center text-white shrink-0 shadow-sm">
               <DollarSign size={18} />
             </div>
             <div>
@@ -226,14 +226,14 @@ export default function KasPaymentModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer text-slate-500"
+            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 cursor-pointer text-slate-500 transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Status Masa Aktif Saat Ini */}
-        <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#161820] border border-black/20 text-xs flex items-center justify-between">
+        <div className="p-2.5 rounded-xl bg-[#F6F4ED] dark:bg-[#121622] border border-black/10 dark:border-white/10 text-xs flex items-center justify-between">
           <span className="text-slate-600 dark:text-slate-400">Status Saat Ini:</span>
           <span className={`font-mono font-bold ${currentSub.isActive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
             {currentSub.isActive
@@ -264,10 +264,10 @@ export default function KasPaymentModal({
                       setIsCustomMode(false);
                       setSelectedPresetMonths(preset.months);
                     }}
-                    className={`py-1.5 px-2 rounded-lg border font-mono text-[11px] font-bold text-center transition-colors cursor-pointer ${
+                    className={`py-1.5 px-2 rounded-lg border font-mono text-[11px] font-bold text-center transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-emerald-600 text-white border-black shadow-[1px_1px_0px_#000]"
-                        : "bg-white dark:bg-[#1E212B] border-black/30 text-slate-800 dark:text-slate-200 hover:bg-slate-50"
+                        ? "bg-emerald-600 text-white border-emerald-500 shadow-sm"
+                        : "bg-white dark:bg-[#141724] border-black/15 dark:border-white/15 text-slate-800 dark:text-slate-200 hover:border-emerald-500/60"
                     }`}
                   >
                     <div>{preset.months} Bulan</div>
@@ -288,10 +288,10 @@ export default function KasPaymentModal({
                 setIsCustomMode(true);
                 setSelectedPresetMonths(null);
               }}
-              className={`w-full py-2 px-3 rounded-xl border-2 font-mono text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors ${
+              className={`w-full py-2 px-3 rounded-xl border font-mono text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
                 isCustomMode
-                  ? "bg-amber-500 text-slate-950 border-black shadow-[1.5px_1.5px_0px_#000]"
-                  : "bg-slate-100 dark:bg-[#161820] text-slate-700 dark:text-slate-300 border-dashed border-black/40 hover:bg-amber-100 dark:hover:bg-amber-950/40"
+                  ? "bg-[#FACC15] text-slate-950 border-amber-500 shadow-sm"
+                  : "bg-[#F6F4ED] dark:bg-[#121622] text-slate-700 dark:text-slate-300 border-dashed border-black/25 dark:border-white/20 hover:bg-amber-100/60 dark:hover:bg-amber-950/30"
               }`}
             >
               <SlidersHorizontal size={14} />
@@ -301,7 +301,7 @@ export default function KasPaymentModal({
 
           {/* Area Input Custom Nominal & Mode Alokasi (Hanya muncul jika isCustomMode aktif) */}
           {isCustomMode && (
-            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500/60 flex flex-col gap-3">
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-400/60 flex flex-col gap-3">
               <div>
                 <label className="font-bold text-amber-900 dark:text-amber-200 block mb-1">
                   Masukkan Nominal Bebas ($)
@@ -319,7 +319,7 @@ export default function KasPaymentModal({
                     required={isCustomMode}
                     autoFocus
                     placeholder="Contoh: 50000"
-                    className="input-field pl-8 font-mono font-bold text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
+                    className="input-field !pl-8 font-mono font-bold text-xs w-full"
                   />
                 </div>
               </div>
@@ -331,10 +331,10 @@ export default function KasPaymentModal({
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <label
-                    className={`p-2.5 rounded border-2 cursor-pointer flex flex-col gap-1 transition-colors ${
+                    className={`p-2.5 rounded-xl border cursor-pointer flex flex-col gap-1 transition-all ${
                       allocationMode === "CONVERT_DURATION"
-                        ? "border-emerald-600 bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 shadow-[1px_1px_0px_#000]"
-                        : "border-black/20 bg-white/60 dark:bg-[#14161F] text-slate-600 dark:text-slate-400"
+                        ? "border-emerald-500 ring-1 ring-emerald-500/40 bg-white dark:bg-[#141724] text-slate-900 dark:text-slate-100 shadow-sm"
+                        : "border-black/15 dark:border-white/15 bg-white/60 dark:bg-[#0E111B] text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -356,10 +356,10 @@ export default function KasPaymentModal({
                   </label>
 
                   <label
-                    className={`p-2.5 rounded border-2 cursor-pointer flex flex-col gap-1 transition-colors ${
+                    className={`p-2.5 rounded-xl border cursor-pointer flex flex-col gap-1 transition-all ${
                       allocationMode === "CUSTOM_MONTHLY"
-                        ? "border-amber-600 bg-white dark:bg-[#1E212B] text-slate-900 dark:text-slate-100 shadow-[1px_1px_0px_#000]"
-                        : "border-black/20 bg-white/60 dark:bg-[#14161F] text-slate-600 dark:text-slate-400"
+                        ? "border-amber-500 ring-1 ring-amber-500/40 bg-white dark:bg-[#141724] text-slate-900 dark:text-slate-100 shadow-sm"
+                        : "border-black/15 dark:border-white/15 bg-white/60 dark:bg-[#0E111B] text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -385,10 +385,10 @@ export default function KasPaymentModal({
           )}
 
           {/* Opsi Sinkronisasi Data Lama (Tanpa Tambah Pemasukan Keuangan) */}
-          <div className={`p-3 rounded-xl border-2 transition-colors ${
+          <div className={`p-3 rounded-xl border transition-colors ${
             skipLedgerIncome
               ? "bg-amber-50 dark:bg-amber-950/30 border-amber-500/70"
-              : "bg-slate-50 dark:bg-[#14161F] border-black/15 dark:border-white/15"
+              : "bg-[#F6F4ED] dark:bg-[#121622] border-black/15 dark:border-white/15"
           }`}>
             <label className="flex items-start gap-2.5 cursor-pointer select-none">
               <input
@@ -425,7 +425,7 @@ export default function KasPaymentModal({
                     <button
                       type="button"
                       onClick={() => setCustomStartDate(memberJoinIso)}
-                      className="px-2 py-0.5 rounded bg-amber-200/80 hover:bg-amber-300 dark:bg-amber-900/60 dark:hover:bg-amber-800/70 text-amber-950 dark:text-amber-100 text-[10px] font-mono font-bold border border-amber-500/50 cursor-pointer transition-colors"
+                      className="px-2 py-0.5 rounded-md bg-amber-200/80 hover:bg-amber-300 dark:bg-amber-900/60 dark:hover:bg-amber-800/70 text-amber-950 dark:text-amber-100 text-[10px] font-mono font-bold border border-amber-500/50 cursor-pointer transition-colors"
                     >
                       Pakai Tgl Gabung ({formatKasDate(parseIsoDateNoon(memberJoinIso))})
                     </button>
@@ -435,14 +435,14 @@ export default function KasPaymentModal({
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="input-field font-mono text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
+                  className="input-field font-mono text-xs w-full"
                 />
               </div>
             )}
           </div>
 
           {/* Rincian Hasil Perhitungan */}
-          <div className="p-3 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/40 text-emerald-900 dark:text-emerald-200 flex flex-col gap-1">
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/40 text-emerald-900 dark:text-emerald-200 flex flex-col gap-1">
             <div className="flex items-center justify-between font-mono text-[11px]">
               <span>Durasi Bertambah:</span>
               <strong className="font-bold">{durationLabel}</strong>
@@ -476,10 +476,10 @@ export default function KasPaymentModal({
                   <button
                     type="button"
                     onClick={() => setWallet("Oita")}
-                    className={`p-2.5 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                       wallet === "Oita"
-                        ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] shadow-[2px_2px_0px_#000]"
-                        : "bg-white dark:bg-[#1E212B] border-black/20 dark:border-white/20 hover:border-black"
+                        ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] ring-1 ring-[#FACC15]/50 shadow-sm"
+                        : "bg-white dark:bg-[#141724] border-black/15 dark:border-white/15 hover:border-[#FACC15]/60"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -496,10 +496,10 @@ export default function KasPaymentModal({
                   <button
                     type="button"
                     onClick={() => setWallet("Darren")}
-                    className={`p-2.5 rounded-xl border-2 text-left cursor-pointer transition-all ${
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                       wallet === "Darren"
-                        ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] shadow-[2px_2px_0px_#000]"
-                        : "bg-white dark:bg-[#1E212B] border-black/20 dark:border-white/20 hover:border-black"
+                        ? "bg-amber-50 dark:bg-amber-950/40 border-[#FACC15] ring-1 ring-[#FACC15]/50 shadow-sm"
+                        : "bg-white dark:bg-[#141724] border-black/15 dark:border-white/15 hover:border-[#FACC15]/60"
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -525,26 +525,26 @@ export default function KasPaymentModal({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Contoh: Titipan kas tunai di stand pizza Sandy Shores"
-                  className="input-field text-xs bg-white dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] w-full"
+                  className="input-field text-xs w-full"
                 />
               </div>
             </>
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t-2 border-black/10 dark:border-white/10">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-black/10 dark:border-white/10">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="py-2.5 px-4 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all"
+              className="py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/15 shadow-sm active:translate-y-0.5 cursor-pointer transition-all"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isSubmitting || activeAmount <= 0}
-              className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-1.5"
+              className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-heading font-black border border-emerald-500/70 shadow-sm hover:-translate-y-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-1.5"
             >
               <DollarSign size={15} />
               <span>

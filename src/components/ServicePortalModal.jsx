@@ -734,7 +734,7 @@ export default function ServicePortalModal({
                   </p>
 
                   {/* Langkah Wajib Lanjutan dari Pihak LSM PPS */}
-                  <div className="w-full text-left p-4 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col gap-3.5 mb-4">
+                  <div className="w-full text-left p-4 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/15 shadow-sm flex flex-col gap-3.5 mb-4">
                     <div className="flex items-center gap-2 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] border-b pb-2 border-black/15 dark:border-white/15">
                       <ShieldCheck size={16} />
                       <span>ALUR VERIFIKASI & JAWABAN RESMI LSM PPS:</span>
@@ -767,7 +767,7 @@ export default function ServicePortalModal({
                           </div>
 
                           {/* Notifikasi Otomatis Card */}
-                          <div className="rounded border border-emerald-400 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/30 p-2.5 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+                          <div className="rounded-lg border border-emerald-400/70 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-950/30 p-2.5 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
                             <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                             <span>Notifikasi rincian {isLapak ? "Lapak UMKM" : "Permohonan Meeting"} #{submittedTicket.id} telah otomatis masuk ke Discord Pengurus untuk proses verifikasi role Visitor.</span>
                           </div>
@@ -794,7 +794,7 @@ export default function ServicePortalModal({
                         href={activeVisitorUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="btn py-2.5 px-4 bg-[#5865F2] hover:bg-[#4752C4] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                        className="btn py-2.5 px-4 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white border border-indigo-400/50 shadow-sm font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0.5 transition-all"
                       >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
@@ -813,7 +813,7 @@ export default function ServicePortalModal({
                     <button
                       type="button"
                       onClick={handleCopyTicket}
-                      className="btn btn-secondary text-xs py-2 px-4 border-2 border-black flex items-center gap-1.5"
+                      className="btn btn-secondary text-xs py-2 px-4 rounded-xl border border-black/15 dark:border-white/15 flex items-center gap-1.5"
                     >
                       {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
                       <span>{copied ? "Tersalin!" : "Salin Ringkasan Tiket"}</span>
@@ -822,7 +822,7 @@ export default function ServicePortalModal({
                     <button
                       type="button"
                       onClick={() => handleTrackCurrentTicket(submittedTicket.id)}
-                      className="btn text-xs py-2 px-4 bg-sky-500 hover:bg-sky-600 text-white border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black flex items-center gap-1.5"
+                      className="btn text-xs py-2 px-4 rounded-xl bg-sky-500 hover:bg-sky-600 text-white border border-sky-400/50 shadow-sm font-heading font-black flex items-center gap-1.5"
                     >
                       <Search size={14} />
                       <span>Lacak Status Tiket Ini</span>
@@ -831,7 +831,7 @@ export default function ServicePortalModal({
                     <button
                       type="button"
                       onClick={handleResetAndClose}
-                      className="btn text-xs py-2 px-5 bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black"
+                      className="btn text-xs py-2 px-5 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-black/20 shadow-sm font-heading font-black"
                     >
                       Selesai & Tutup
                     </button>
@@ -842,14 +842,14 @@ export default function ServicePortalModal({
           ) : (
             <>
               {/* Tab Switcher Pills */}
-              <div className="grid grid-cols-3 gap-2 p-1.5 rounded bg-slate-200/70 dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569]">
+              <div className="grid grid-cols-3 gap-2 p-1.5 rounded-xl bg-[#F6F4ED] dark:bg-[#141724] border border-black/15 dark:border-white/10">
                 <button
                   type="button"
                   onClick={() => setActiveTab("lapak")}
-                  className={`py-2 px-2 sm:px-3 rounded flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
+                  className={`py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
                     activeTab === "lapak"
-                      ? "bg-[#FACC15] text-[#111827] border-2 border-black shadow-[2px_2px_0px_#000]"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white"
+                      ? "bg-[#FACC15] text-[#111827] border border-black/20 shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white border border-transparent"
                   }`}
                 >
                   <Store size={15} />
@@ -859,10 +859,10 @@ export default function ServicePortalModal({
                 <button
                   type="button"
                   onClick={() => setActiveTab("meeting")}
-                  className={`py-2 px-2 sm:px-3 rounded flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
+                  className={`py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
                     activeTab === "meeting"
-                      ? "bg-[#DC2626] text-white border-2 border-black shadow-[2px_2px_0px_#000]"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white"
+                      ? "bg-[#DC2626] text-white border border-red-500/80 shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white border border-transparent"
                   }`}
                 >
                   <Users2 size={15} />
@@ -872,10 +872,10 @@ export default function ServicePortalModal({
                 <button
                   type="button"
                   onClick={() => setActiveTab("tracking")}
-                  className={`py-2 px-2 sm:px-3 rounded flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
+                  className={`py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 font-heading font-black text-xs sm:text-sm uppercase tracking-wide transition-all ${
                     activeTab === "tracking"
-                      ? "bg-sky-500 text-white border-2 border-black shadow-[2px_2px_0px_#000]"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white"
+                      ? "bg-sky-500 text-white border border-sky-400/80 shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white border border-transparent"
                   }`}
                 >
                   <Search size={15} />
@@ -891,7 +891,7 @@ export default function ServicePortalModal({
               {activeTab === "lapak" && (
                 <form onSubmit={handleSubmitLapak} className="flex flex-col gap-4">
                   {/* Banner Informasi Alur */}
-                  <div className="p-3 rounded bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-300 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2">
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-300/80 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2">
                     <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <strong>Pendaftaran Stan Lapak Sandy Shores:</strong> Isi data identitas KTP IC, Citizen ID, dan unggah foto wajah karakter. Setelah submit, Anda akan diarahkan ke Discord untuk melengkapi data visitor serta mengatur jadwal pertemuan (meeting) dengan pengurus.
@@ -899,20 +899,20 @@ export default function ServicePortalModal({
                   </div>
 
                   {/* Bagian Identitas KTP & Citizen ID IC */}
-                  <div className="p-3.5 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col gap-3.5">
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
+                  <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/15 shadow-sm flex flex-col gap-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1.5 border-b border-black/10 dark:border-white/10">
                       <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                         <CreditCard size={14} />
                         <span>1. Identitas Karakter Warga (KTP & Citizen ID)</span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] flex items-center gap-1">
+                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded-md border border-black/20 flex items-center gap-1">
                         <ScanLine size={12} />
                         <span>AUTO-SCAN OCR AKTIF</span>
                       </span>
                     </div>
 
                     {/* Area Unggah KTP dengan Auto-Scan OCR */}
-                    <div className="p-3 rounded bg-amber-50/70 dark:bg-[#181B24] border-2 border-dashed border-[#1A1A1A] dark:border-slate-600 flex flex-col gap-2.5">
+                    <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-[#181B24] border border-dashed border-black/25 dark:border-white/20 flex flex-col gap-2.5">
                       <div className="leading-tight">
                         <label className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5 uppercase">
                           <Upload size={15} className="text-[#DC2626]" />
@@ -926,7 +926,7 @@ export default function ServicePortalModal({
                       <div className="flex flex-wrap items-center gap-3">
                         {lapakForm.fotoWajahIc ? (
                           <div className="flex items-center gap-3 w-full sm:w-auto">
-                            <div className="relative w-28 h-18 sm:w-32 sm:h-20 rounded border-2 border-black shadow-[3px_3px_0px_#000] overflow-hidden bg-slate-900 shrink-0 group">
+                            <div className="relative w-28 h-18 sm:w-32 sm:h-20 rounded-lg border border-black/20 dark:border-white/15 shadow-sm overflow-hidden bg-slate-900 shrink-0 group">
                               <img
                                 src={lapakForm.fotoWajahIc}
                                 alt="Foto KTP IC"
@@ -943,7 +943,7 @@ export default function ServicePortalModal({
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                              <label className="px-3 py-1.5 rounded bg-white dark:bg-[#20232E] border-2 border-black dark:border-slate-600 text-xs font-heading font-black shadow-[2px_2px_0px_#000] hover:bg-[#FACC15] hover:text-black cursor-pointer inline-flex items-center gap-1.5 transition-colors">
+                              <label className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#20232E] border border-black/15 dark:border-white/15 text-xs font-heading font-black shadow-sm hover:bg-[#FACC15] hover:text-black cursor-pointer inline-flex items-center gap-1.5 transition-colors">
                                 <RefreshCw size={13} className={isScanningKtp ? "animate-spin" : ""} />
                                 <span>{isScanningKtp ? "Memindai..." : "Ganti Foto KTP"}</span>
                                 <input
@@ -968,8 +968,8 @@ export default function ServicePortalModal({
                             </div>
                           </div>
                         ) : (
-                          <label className="w-full py-4 px-3 rounded border-2 border-dashed border-black dark:border-slate-500 bg-white dark:bg-[#20232E] hover:bg-amber-50/50 dark:hover:bg-slate-800 flex flex-col items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer shadow-[2px_2px_0px_#000] transition-colors">
-                            <Upload size={24} className="text-[#DC2626] mb-1 animate-bounce" />
+                          <label className="w-full py-4 px-3 rounded-xl border border-dashed border-black/25 dark:border-white/20 bg-white dark:bg-[#20232E] hover:bg-amber-50/50 dark:hover:bg-slate-800/80 flex flex-col items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer transition-colors">
+                            <Upload size={22} className="text-[#DC2626] mb-1.5" />
                             <span className="font-heading font-black text-xs uppercase tracking-wide text-slate-900 dark:text-slate-100">
                               Klik untuk Pilih / Unggah Gambar KTP IC
                             </span>
@@ -992,7 +992,7 @@ export default function ServicePortalModal({
 
                       {/* Status / Indikator OCR Scan */}
                       {isScanningKtp && (
-                        <div className="p-2.5 rounded bg-amber-100 dark:bg-amber-950/40 border border-amber-500 text-xs font-mono text-amber-950 dark:text-amber-200 flex flex-col gap-1.5 animate-pulse">
+                        <div className="p-2.5 rounded-lg bg-amber-100 dark:bg-amber-950/40 border border-amber-400/70 text-xs font-mono text-amber-950 dark:text-amber-200 flex flex-col gap-1.5">
                           <div className="flex items-center justify-between font-bold">
                             <span className="flex items-center gap-1.5">
                               <RefreshCw size={13} className="animate-spin text-[#DC2626]" />
@@ -1010,14 +1010,14 @@ export default function ServicePortalModal({
                       )}
 
                       {!isScanningKtp && ocrSuccess === true && (
-                        <div className="p-2 rounded bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-500 text-[11px] font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                        <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-500/70 text-[11px] font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
                           <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
                           <span>✓ KTP berhasil dipindai otomatis! Silakan tinjau atau sesuaikan 6 data di bawah jika diperlukan.</span>
                         </div>
                       )}
 
                       {!isScanningKtp && ocrSuccess === false && (
-                        <div className="p-2 rounded bg-sky-100 dark:bg-sky-950/40 border border-sky-400 text-[11px] text-sky-950 dark:text-sky-200 flex items-center gap-1.5">
+                        <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-950/40 border border-sky-400/70 text-[11px] text-sky-950 dark:text-sky-200 flex items-center gap-1.5">
                           <AlertCircle size={15} className="text-sky-600 shrink-0" />
                           <span>Teks KTP belum terbaca sempurna. Anda dapat melengkapi 6 kolom di bawah secara manual.</span>
                         </div>
@@ -1050,7 +1050,7 @@ export default function ServicePortalModal({
                                 namaKtp: `${fName} ${lapakForm.lastName}`.trim(),
                               });
                             }}
-                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
 
@@ -1071,7 +1071,7 @@ export default function ServicePortalModal({
                                 namaKtp: `${lapakForm.firstName} ${lName}`.trim(),
                               });
                             }}
-                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
                       </div>
@@ -1088,7 +1088,7 @@ export default function ServicePortalModal({
                             placeholder="Contoh: 1995-04-12 atau 12/04/1995"
                             value={lapakForm.dob}
                             onChange={(e) => setLapakForm({ ...lapakForm, dob: e.target.value })}
-                            className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
 
@@ -1100,10 +1100,10 @@ export default function ServicePortalModal({
                             <button
                               type="button"
                               onClick={() => setLapakForm({ ...lapakForm, sex: "Male" })}
-                              className={`py-2 px-3 rounded text-xs font-heading font-black border-2 border-black transition-all ${
+                              className={`py-2 px-3 rounded-lg text-xs font-heading font-black border transition-all ${
                                 lapakForm.sex === "Male"
-                                  ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000]"
-                                  : "bg-white dark:bg-[#20232E] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  ? "bg-[#FACC15] text-[#111827] border-black/20 shadow-sm"
+                                  : "bg-white dark:bg-[#20232E] text-slate-600 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-slate-800"
                               }`}
                             >
                               ♂ Male (Laki-laki)
@@ -1111,10 +1111,10 @@ export default function ServicePortalModal({
                             <button
                               type="button"
                               onClick={() => setLapakForm({ ...lapakForm, sex: "Female" })}
-                              className={`py-2 px-3 rounded text-xs font-heading font-black border-2 border-black transition-all ${
+                              className={`py-2 px-3 rounded-lg text-xs font-heading font-black border transition-all ${
                                 lapakForm.sex === "Female"
-                                  ? "bg-[#DC2626] text-white shadow-[2px_2px_0px_#000]"
-                                  : "bg-white dark:bg-[#20232E] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  ? "bg-[#DC2626] text-white border-red-500/80 shadow-sm"
+                                  : "bg-white dark:bg-[#20232E] text-slate-600 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-slate-800"
                               }`}
                             >
                               ♀ Female (Perempuan)
@@ -1135,7 +1135,7 @@ export default function ServicePortalModal({
                             placeholder="Contoh: Sandy Shores / Blaine County / Los Santos"
                             value={lapakForm.nationality}
                             onChange={(e) => setLapakForm({ ...lapakForm, nationality: e.target.value })}
-                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
 
@@ -1149,7 +1149,7 @@ export default function ServicePortalModal({
                             placeholder="Contoh: CTZ-9481 atau 18942"
                             value={lapakForm.citizenId}
                             onChange={(e) => setLapakForm({ ...lapakForm, citizenId: e.target.value })}
-                            className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
                       </div>
@@ -1167,7 +1167,7 @@ export default function ServicePortalModal({
                           placeholder="Contoh: 555-0192 / 210499"
                           value={lapakForm.phoneNumber}
                           onChange={(e) => setLapakForm({ ...lapakForm, phoneNumber: e.target.value })}
-                          className="input-field w-full text-xs font-mono py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs font-mono py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                         />
                       </div>
 
@@ -1180,15 +1180,15 @@ export default function ServicePortalModal({
                           placeholder="Contoh: @jacksullivan"
                           value={lapakForm.discordTag}
                           onChange={(e) => setLapakForm({ ...lapakForm, discordTag: e.target.value })}
-                          className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* Bagian Detail Usaha Lapak */}
-                  <div className="p-3.5 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col gap-3">
-                    <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1 border-b border-black/10 dark:border-white/10">
+                  <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/15 shadow-sm flex flex-col gap-3">
+                    <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15] pb-1.5 border-b border-black/10 dark:border-white/10">
                       <Store size={14} />
                       <span>2. Rincian Usaha & Lokasi Sandy Shores</span>
                     </div>
@@ -1204,7 +1204,7 @@ export default function ServicePortalModal({
                           placeholder="Contoh: Pizza Gurun Sandy Shores"
                           value={lapakForm.businessName}
                           onChange={(e) => setLapakForm({ ...lapakForm, businessName: e.target.value })}
-                          className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                          className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                         />
                       </div>
 
@@ -1231,7 +1231,7 @@ export default function ServicePortalModal({
                               placeholder="Contoh: Toko Elektronik / Servis Radio / Hiburan Rakyat..."
                               value={lapakForm.businessTypeOther || ""}
                               onChange={(e) => setLapakForm({ ...lapakForm, businessTypeOther: e.target.value })}
-                              className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-[#DC2626] dark:border-[#FACC15] shadow-[2px_2px_0px_#000]"
+                              className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-[#DC2626]/80 dark:border-[#FACC15]/80 shadow-sm"
                             />
                           </div>
                         )}
@@ -1262,24 +1262,24 @@ export default function ServicePortalModal({
                         placeholder="Contoh: Butuh blast buat mainin lagu biar ga bosen..."
                         value={lapakForm.facilityNeeds}
                         onChange={(e) => setLapakForm({ ...lapakForm, facilityNeeds: e.target.value })}
-                        className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] leading-relaxed"
+                        className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 leading-relaxed"
                       />
                     </div>
                   </div>
 
                   {/* KOTAK MOU RESMI: KESEPAKATAN HAK PENGGUNAAN LAHAN VENDOR */}
-                  <div className="card-brutal p-3.5 bg-amber-50/70 dark:bg-[#1E212B] border-2 border-black dark:border-slate-600 rounded flex flex-col gap-2.5">
+                  <div className="p-3.5 bg-amber-50/70 dark:bg-[#1E212B] border border-black/15 dark:border-white/15 rounded-xl shadow-sm flex flex-col gap-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-1.5 pb-2 border-b border-black/15 dark:border-white/15">
                       <div className="flex items-center gap-1.5 font-heading font-black text-xs uppercase text-slate-900 dark:text-slate-100">
                         <FileText size={15} className="text-[#DC2626]" />
                         <span>MEMORANDUM OF UNDERSTANDING (MOU) • NO: 001/MOU/LPS/VENDOR/X/2026</span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000]">
+                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded-md border border-black/20">
                         DOKUMEN RESMI
                       </span>
                     </div>
 
-                    <div className="max-h-64 sm:max-h-72 overflow-y-auto p-3 rounded bg-white dark:bg-[#161820] border-2 border-black/20 dark:border-white/10 text-xs leading-relaxed text-slate-800 dark:text-slate-200 space-y-3 font-sans select-text">
+                    <div className="max-h-64 sm:max-h-72 overflow-y-auto p-3 rounded-xl bg-white dark:bg-[#161820] border border-black/15 dark:border-white/10 text-xs leading-relaxed text-slate-800 dark:text-slate-200 space-y-3 font-sans select-text">
                       {/* Title Header */}
                       <div className="text-center pb-2 border-b border-black/10 dark:border-white/10">
                         <h4 className="font-heading font-black text-sm uppercase text-slate-950 dark:text-slate-100 tracking-tight">
@@ -1440,7 +1440,7 @@ export default function ServicePortalModal({
                         required
                         checked={lapakForm.agreedMOU}
                         onChange={(e) => setLapakForm({ ...lapakForm, agreedMOU: e.target.checked })}
-                        className="mt-0.5 w-4 h-4 accent-[#DC2626] rounded border-black cursor-pointer"
+                        className="mt-0.5 w-4 h-4 accent-[#DC2626] rounded border-black/30 cursor-pointer"
                       />
                       <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-snug">
                         Saya telah membaca, memahami, dan MENYETUJUI seluruh ketentuan MOU No. 001/MOU/LPS/VENDOR/X/2026 Hak Penggunaan Lahan Vendor LSM Pizza Sandy Shores di atas.
@@ -1451,7 +1451,7 @@ export default function ServicePortalModal({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="btn w-full py-2.5 bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="btn w-full py-2.5 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-black/20 shadow-sm font-heading font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <Send size={15} className="text-[#DC2626]" />
                     <span>{isSubmitting ? "Mengirim Data & Berkas..." : "Kirim Formulir Lapak UMKM"}</span>
@@ -1462,7 +1462,7 @@ export default function ServicePortalModal({
               {/* TAB 2: FORMULIR REQUEST MEETING / AUDIENSI */}
               {activeTab === "meeting" && (
                 <form onSubmit={handleSubmitMeeting} className="flex flex-col gap-4">
-                  <div className="p-3 rounded bg-red-50 dark:bg-red-950/20 border-2 border-red-300 dark:border-red-700/60 text-xs text-red-950 dark:text-red-200 flex items-start gap-2">
+                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-300/80 dark:border-red-700/60 text-xs text-red-950 dark:text-red-200 flex items-start gap-2">
                     <ShieldCheck size={16} className="text-[#DC2626] shrink-0 mt-0.5" />
                     <div>
                       <strong>Pertemuan Resmi & Audiensi Terbuka:</strong> LSM Paguyuban Pizza Sandy Shores siap bermitra dialog dengan Government Ime City, instansi kepolisian/kesehatan, paguyuban warga, maupun perorangan demi kemajuan bersama.
@@ -1470,20 +1470,20 @@ export default function ServicePortalModal({
                   </div>
 
                   {/* Bagian Identitas KTP & Citizen ID Pemohon Pertemuan */}
-                  <div className="p-3.5 rounded bg-[#FFFDF9] dark:bg-[#1E212B] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col gap-3.5">
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1 border-b border-black/10 dark:border-white/10">
+                  <div className="p-3.5 rounded-xl bg-[#FFFDF9] dark:bg-[#1E212B] border border-black/15 dark:border-white/15 shadow-sm flex flex-col gap-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pb-1.5 border-b border-black/10 dark:border-white/10">
                       <div className="flex items-center gap-1.5 text-xs font-heading font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                         <CreditCard size={14} />
                         <span>1. Identitas Karakter & Berkas KTP (Pemohon Pertemuan)</span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded border border-black shadow-[1px_1px_0px_#000] flex items-center gap-1">
+                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-[#111827] px-2 py-0.5 rounded-md border border-black/20 flex items-center gap-1">
                         <ScanLine size={12} />
                         <span>AUTO-SCAN OCR AKTIF</span>
                       </span>
                     </div>
 
                     {/* Area Unggah KTP Pemohon Pertemuan dengan Auto-Scan OCR */}
-                    <div className="p-3 rounded bg-red-50/60 dark:bg-[#181B24] border-2 border-dashed border-[#1A1A1A] dark:border-slate-600 flex flex-col gap-2.5">
+                    <div className="p-3 rounded-xl bg-red-50/60 dark:bg-[#181B24] border border-dashed border-black/25 dark:border-white/20 flex flex-col gap-2.5">
                       <div className="leading-tight">
                         <label className="text-xs font-heading font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5 uppercase">
                           <Upload size={15} className="text-[#DC2626]" />
@@ -1497,7 +1497,7 @@ export default function ServicePortalModal({
                       <div className="flex flex-wrap items-center gap-3">
                         {meetingForm.fotoWajahIc ? (
                           <div className="flex items-center gap-3 w-full sm:w-auto">
-                            <div className="relative w-28 h-18 sm:w-32 sm:h-20 rounded border-2 border-black shadow-[3px_3px_0px_#000] overflow-hidden bg-slate-900 shrink-0 group">
+                            <div className="relative w-28 h-18 sm:w-32 sm:h-20 rounded-lg border border-black/20 dark:border-white/15 shadow-sm overflow-hidden bg-slate-900 shrink-0 group">
                               <img
                                 src={meetingForm.fotoWajahIc}
                                 alt="Foto KTP IC"
@@ -1514,7 +1514,7 @@ export default function ServicePortalModal({
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                              <label className="px-3 py-1.5 rounded bg-white dark:bg-[#20232E] border-2 border-black dark:border-slate-600 text-xs font-heading font-black shadow-[2px_2px_0px_#000] hover:bg-[#FACC15] hover:text-black cursor-pointer inline-flex items-center gap-1.5 transition-colors">
+                              <label className="px-3 py-1.5 rounded-lg bg-white dark:bg-[#20232E] border border-black/15 dark:border-white/15 text-xs font-heading font-black shadow-sm hover:bg-[#FACC15] hover:text-black cursor-pointer inline-flex items-center gap-1.5 transition-colors">
                                 <RefreshCw size={13} className={isScanningMeetingKtp ? "animate-spin" : ""} />
                                 <span>{isScanningMeetingKtp ? "Memindai..." : "Ganti Foto KTP"}</span>
                                 <input
@@ -1539,8 +1539,8 @@ export default function ServicePortalModal({
                             </div>
                           </div>
                         ) : (
-                          <label className="w-full py-4 px-3 rounded border-2 border-dashed border-black dark:border-slate-500 bg-white dark:bg-[#20232E] hover:bg-red-50/40 dark:hover:bg-slate-800 flex flex-col items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer shadow-[2px_2px_0px_#000] transition-colors">
-                            <Upload size={24} className="text-[#DC2626] mb-1 animate-bounce" />
+                          <label className="w-full py-4 px-3 rounded-xl border border-dashed border-black/25 dark:border-white/20 bg-white dark:bg-[#20232E] hover:bg-red-50/40 dark:hover:bg-slate-800/80 flex flex-col items-center justify-center text-slate-700 dark:text-slate-300 cursor-pointer transition-colors">
+                            <Upload size={22} className="text-[#DC2626] mb-1.5" />
                             <span className="font-heading font-black text-xs uppercase tracking-wide text-slate-900 dark:text-slate-100">
                               Klik untuk Pilih / Unggah Gambar KTP IC
                             </span>
@@ -1563,7 +1563,7 @@ export default function ServicePortalModal({
 
                       {/* Status / Indikator OCR Scan */}
                       {isScanningMeetingKtp && (
-                        <div className="p-2.5 rounded bg-red-100 dark:bg-red-950/40 border border-red-500 text-xs font-mono text-red-950 dark:text-red-200 flex flex-col gap-1.5 animate-pulse">
+                        <div className="p-2.5 rounded-lg bg-red-100 dark:bg-red-950/40 border border-red-400/70 text-xs font-mono text-red-950 dark:text-red-200 flex flex-col gap-1.5">
                           <div className="flex items-center justify-between font-bold">
                             <span className="flex items-center gap-1.5">
                               <RefreshCw size={13} className="animate-spin text-[#DC2626]" />
@@ -1581,14 +1581,14 @@ export default function ServicePortalModal({
                       )}
 
                       {!isScanningMeetingKtp && meetingOcrSuccess === true && (
-                        <div className="p-2 rounded bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-500 text-[11px] font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                        <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-500/70 text-[11px] font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
                           <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
                           <span>✓ KTP berhasil dipindai otomatis! Silakan tinjau atau sesuaikan 6 data di bawah jika diperlukan.</span>
                         </div>
                       )}
 
                       {!isScanningMeetingKtp && meetingOcrSuccess === false && (
-                        <div className="p-2 rounded bg-sky-100 dark:bg-sky-950/40 border border-sky-400 text-[11px] text-sky-950 dark:text-sky-200 flex items-center gap-1.5">
+                        <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-950/40 border border-sky-400/70 text-[11px] text-sky-950 dark:text-sky-200 flex items-center gap-1.5">
                           <AlertCircle size={15} className="text-sky-600 shrink-0" />
                           <span>Teks KTP belum terbaca sempurna. Anda dapat melengkapi 6 kolom di bawah secara manual.</span>
                         </div>
@@ -1621,7 +1621,7 @@ export default function ServicePortalModal({
                                 characterName: `${fName} ${meetingForm.lastName}`.trim(),
                               });
                             }}
-                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
 
@@ -1642,7 +1642,7 @@ export default function ServicePortalModal({
                                 characterName: `${meetingForm.firstName} ${lName}`.trim(),
                               });
                             }}
-                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
                       </div>
@@ -1659,7 +1659,7 @@ export default function ServicePortalModal({
                             placeholder="Contoh: 1995-04-12 atau 12/04/1995"
                             value={meetingForm.dob}
                             onChange={(e) => setMeetingForm({ ...meetingForm, dob: e.target.value })}
-                            className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
 
@@ -1671,10 +1671,10 @@ export default function ServicePortalModal({
                             <button
                               type="button"
                               onClick={() => setMeetingForm({ ...meetingForm, sex: "Male" })}
-                              className={`py-2 px-3 rounded text-xs font-heading font-black border-2 border-black transition-all ${
+                              className={`py-2 px-3 rounded-lg text-xs font-heading font-black border transition-all ${
                                 meetingForm.sex === "Male"
-                                  ? "bg-[#FACC15] text-[#111827] shadow-[2px_2px_0px_#000]"
-                                  : "bg-white dark:bg-[#20232E] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  ? "bg-[#FACC15] text-[#111827] border-black/20 shadow-sm"
+                                  : "bg-white dark:bg-[#20232E] text-slate-600 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-slate-800"
                               }`}
                             >
                               ♂ Male (Laki-laki)
@@ -1682,10 +1682,10 @@ export default function ServicePortalModal({
                             <button
                               type="button"
                               onClick={() => setMeetingForm({ ...meetingForm, sex: "Female" })}
-                              className={`py-2 px-3 rounded text-xs font-heading font-black border-2 border-black transition-all ${
+                              className={`py-2 px-3 rounded-lg text-xs font-heading font-black border transition-all ${
                                 meetingForm.sex === "Female"
-                                  ? "bg-[#DC2626] text-white shadow-[2px_2px_0px_#000]"
-                                  : "bg-white dark:bg-[#20232E] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  ? "bg-[#DC2626] text-white border-red-500/80 shadow-sm"
+                                  : "bg-white dark:bg-[#20232E] text-slate-600 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-slate-800"
                               }`}
                             >
                               ♀ Female (Perempuan)
@@ -1706,7 +1706,7 @@ export default function ServicePortalModal({
                             placeholder="Contoh: Sandy Shores / Blaine County / Los Santos"
                             value={meetingForm.nationality}
                             onChange={(e) => setMeetingForm({ ...meetingForm, nationality: e.target.value })}
-                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
 
@@ -1720,7 +1720,7 @@ export default function ServicePortalModal({
                             placeholder="Contoh: CTZ-9481 atau 18942"
                             value={meetingForm.citizenId}
                             onChange={(e) => setMeetingForm({ ...meetingForm, citizenId: e.target.value })}
-                            className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                            className="input-field w-full text-xs font-mono font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                           />
                         </div>
                       </div>
@@ -1752,7 +1752,7 @@ export default function ServicePortalModal({
                             placeholder="Contoh: Paguyuban Truk Sandy, Komunitas Pemancing, Klub Motor, dll."
                             value={meetingForm.agencyNameOther || ""}
                             onChange={(e) => setMeetingForm({ ...meetingForm, agencyNameOther: e.target.value })}
-                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-[#DC2626] dark:border-[#FACC15] shadow-[2px_2px_0px_#000]"
+                            className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-[#DC2626]/80 dark:border-[#FACC15]/80 shadow-sm"
                           />
                         </div>
                       )}
@@ -1770,7 +1770,7 @@ export default function ServicePortalModal({
                         placeholder="Contoh: 555-0192 / 210499"
                         value={meetingForm.phoneNumber}
                         onChange={(e) => setMeetingForm({ ...meetingForm, phoneNumber: e.target.value })}
-                        className="input-field w-full text-xs font-mono py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        className="input-field w-full text-xs font-mono py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                       />
                     </div>
 
@@ -1783,7 +1783,7 @@ export default function ServicePortalModal({
                         placeholder="Contoh: @jacksullivan"
                         value={meetingForm.discordTag}
                         onChange={(e) => setMeetingForm({ ...meetingForm, discordTag: e.target.value })}
-                        className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                       />
                     </div>
                   </div>
@@ -1811,7 +1811,7 @@ export default function ServicePortalModal({
                           placeholder="Tuliskan pokok topik khusus yang ingin dibahas bersama pengurus..."
                           value={meetingForm.meetingTopicOther || ""}
                           onChange={(e) => setMeetingForm({ ...meetingForm, meetingTopicOther: e.target.value })}
-                          className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-[#DC2626] dark:border-[#FACC15] shadow-[2px_2px_0px_#000]"
+                          className="input-field w-full text-xs font-bold py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-[#DC2626]/80 dark:border-[#FACC15]/80 shadow-sm"
                         />
                       </div>
                     )}
@@ -1827,7 +1827,7 @@ export default function ServicePortalModal({
                       placeholder="Jelaskan secara singkat apa saja yang ingin dibahas bersama jajaran pengurus LSM PPS..."
                       value={meetingForm.agendaDetail}
                       onChange={(e) => setMeetingForm({ ...meetingForm, agendaDetail: e.target.value })}
-                      className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] leading-relaxed"
+                      className="input-field w-full text-xs py-2 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15 leading-relaxed"
                     />
                   </div>
 
@@ -1854,7 +1854,7 @@ export default function ServicePortalModal({
                         placeholder="Contoh: 20:00 - 22:00 IC"
                         value={meetingForm.preferredTime}
                         onChange={(e) => setMeetingForm({ ...meetingForm, preferredTime: e.target.value })}
-                        className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569]"
+                        className="input-field w-full text-xs py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                       />
                     </div>
 
@@ -1868,7 +1868,7 @@ export default function ServicePortalModal({
                         placeholder="Cth: Resto Pizza Sandy Shores / Koordinat X: 1420, Y: 3620"
                         value={meetingForm.meetingLocation}
                         onChange={(e) => setMeetingForm({ ...meetingForm, meetingLocation: e.target.value })}
-                        className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]"
+                        className="input-field w-full text-xs font-bold py-1.5 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                       />
                     </div>
                   </div>
@@ -1876,7 +1876,7 @@ export default function ServicePortalModal({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="btn w-full py-2.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[3px_3px_0px_#000] font-heading font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="btn w-full py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/80 shadow-sm font-heading font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <Send size={15} />
                     <span>{isSubmitting ? "Mengajukan Jadwal..." : "Ajukan Permohonan Pertemuan"}</span>
@@ -1887,7 +1887,7 @@ export default function ServicePortalModal({
               {/* TAB 3: LACAK STATUS PENGAJUAN (TRACKING & DISCORD VISITOR LINK) */}
               {activeTab === "tracking" && (
                 <div className="flex flex-col gap-4">
-                  <div className="p-3 rounded bg-sky-50 dark:bg-sky-950/20 border-2 border-sky-300 dark:border-sky-700/60 text-xs text-sky-950 dark:text-sky-200 flex items-start gap-2">
+                  <div className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/20 border border-sky-300/80 dark:border-sky-700/60 text-xs text-sky-950 dark:text-sky-200 flex items-start gap-2">
                     <Search size={16} className="text-sky-600 shrink-0 mt-0.5" />
                     <div>
                       <strong>Lacak Status Tiket & Koordinasi Pertemuan:</strong> Masukkan kode tiket resmi (contoh: <code>#PPS-1234</code>) atau nomor telepon IC kamu untuk memeriksa apakah pengajuan telah disetujui serta mengecek instruksi pertemuan dari pengurus LSM PPS.
@@ -1896,7 +1896,7 @@ export default function ServicePortalModal({
 
                   {/* Riwayat Tiket di Browser Ini */}
                   {visitorTickets.length > 0 && (
-                    <div className="p-2.5 rounded bg-slate-100 dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 flex flex-wrap items-center gap-1.5 text-xs">
+                    <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#1A1D26] border border-black/15 dark:border-white/10 flex flex-wrap items-center gap-1.5 text-xs">
                       <span className="font-bold text-slate-500 text-[11px] block sm:inline">
                         Tiket Anda di Perangkat Ini:
                       </span>
@@ -1908,7 +1908,7 @@ export default function ServicePortalModal({
                             setSearchQuery(t.id);
                             handlePerformSearch(t.id);
                           }}
-                          className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-white dark:bg-[#20232E] border border-black dark:border-slate-600 hover:bg-[#FACC15] dark:hover:bg-[#FACC15] hover:text-black transition-colors"
+                          className="px-2 py-0.5 rounded-md font-mono font-bold text-xs bg-white dark:bg-[#20232E] border border-black/15 dark:border-white/15 hover:bg-[#FACC15] dark:hover:bg-[#FACC15] hover:text-black transition-colors"
                           title="Klik untuk langsung melacak tiket ini"
                         >
                           #{t.id}
@@ -1931,7 +1931,7 @@ export default function ServicePortalModal({
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Ketik Kode Tiket (cth: PPS-1234 atau 1234) / No. Telepon IC..."
-                        className="input-field w-full text-xs font-mono py-2.5 px-3 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000]"
+                        className="input-field w-full text-xs font-mono py-2.5 px-3 bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/15"
                       />
                       {searchQuery && (
                         <button
@@ -1946,7 +1946,7 @@ export default function ServicePortalModal({
                     <button
                       type="submit"
                       disabled={isSearching}
-                      className="btn py-2.5 px-5 bg-sky-500 hover:bg-sky-600 text-white border-2 border-black shadow-[2px_2px_0px_#000] font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      className="btn py-2.5 px-5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white border border-sky-400/50 shadow-sm font-heading font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {isSearching ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
                       <span>{isSearching ? "Mencari..." : "Cek Status"}</span>
@@ -1957,7 +1957,7 @@ export default function ServicePortalModal({
                   {hasSearched && (
                     <div className="flex flex-col gap-3 mt-1">
                       {searchResults.length === 0 ? (
-                        <div className="p-6 text-center rounded bg-slate-50 dark:bg-[#1E212B] border-2 border-dashed border-black/30 dark:border-slate-600 text-slate-500 text-xs space-y-1.5">
+                        <div className="p-6 text-center rounded-xl bg-slate-50 dark:bg-[#1E212B] border border-dashed border-black/20 dark:border-white/20 text-slate-500 text-xs space-y-1.5">
                           <AlertCircle size={24} className="mx-auto text-amber-500" />
                           <h4 className="font-heading font-black text-sm text-slate-800 dark:text-slate-200 uppercase">
                             Tiket Tidak Ditemukan
@@ -1971,28 +1971,28 @@ export default function ServicePortalModal({
                           const isLapak = ticket.type === "lapak";
                           const status = ticket.status || "pending";
 
-                          let badgeColor = "bg-amber-100 text-amber-900 border-amber-500";
+                          let badgeColor = "bg-amber-100 text-amber-900 border-amber-500/60";
                           let statusLabel = "⏳ MENUNGGU VERIFIKASI PENGURUS";
                           let statusDesc =
                             "Pengajuan kamu telah masuk ke sistem dan sedang dalam antrean evaluasi pengurus LSM PPS. Silakan isi data di channel Discord visitor untuk kelancaran verifikasi.";
 
                           if (status === "in_progress") {
-                            badgeColor = "bg-sky-100 text-sky-900 border-sky-500";
+                            badgeColor = "bg-sky-100 text-sky-900 border-sky-500/60";
                             statusLabel = "🔄 SEDANG DIPROSES PENGURUS";
                             statusDesc =
                               "Pengajuan kamu sudah dibuka dan sedang ditindaklanjuti oleh pengurus LSM PPS. Pantau terus catatan pengurus di bawah.";
                           } else if (status === "approved") {
-                            badgeColor = "bg-emerald-100 text-emerald-900 border-emerald-500";
+                            badgeColor = "bg-emerald-100 text-emerald-900 border-emerald-500/60";
                             statusLabel = "✅ RESMI DISETUJUI";
                             statusDesc =
                               "Selamat! Pengajuan kamu telah DISETUJUI oleh pengurus LSM PPS. Silakan cek catatan instruksi pengurus di bawah untuk detail pertemuan IC.";
                           } else if (status === "completed") {
-                            badgeColor = "bg-blue-100 text-blue-900 border-blue-500";
+                            badgeColor = "bg-blue-100 text-blue-900 border-blue-500/60";
                             statusLabel = "🎉 SELESAI / TEREALISASI";
                             statusDesc =
                               "Kegiatan / penggunaan stan lapak ini telah selesai terlaksana bersama pihak pengurus.";
                           } else if (status === "rejected") {
-                            badgeColor = "bg-red-100 text-red-900 border-red-500";
+                            badgeColor = "bg-red-100 text-red-900 border-red-500/60";
                             statusLabel = "❌ BELUM DISETUJUI / DITOLAK";
                             statusDesc =
                               "Mohon maaf, pengajuan ini saat ini belum dapat disetujui atau dibatalkan oleh pihak pengurus. Silakan cek catatan di bawah.";
@@ -2001,19 +2001,21 @@ export default function ServicePortalModal({
                           return (
                             <div
                               key={ticket.id}
-                              className="card-brutal p-4 rounded bg-[#FFFDF9] dark:bg-[#20232E] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000] flex flex-col gap-3 text-xs"
+                              className="p-4 rounded-xl bg-[#FFFDF9] dark:bg-[#20232E] border border-black/15 dark:border-white/15 shadow-sm flex flex-col gap-3 text-xs"
                             >
                               {/* Header Status Tiket */}
                               <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-black/15 dark:border-white/15">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span
-                                    className={`px-2.5 py-0.5 rounded text-[11px] font-heading font-black border uppercase ${badgeColor}`}
+                                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-heading font-black border uppercase ${badgeColor}`}
                                   >
                                     {statusLabel}
                                   </span>
                                   <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-heading font-black border border-black uppercase ${
-                                      isLapak ? "bg-[#FACC15] text-[#111827]" : "bg-[#DC2626] text-white"
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-heading font-black border uppercase ${
+                                      isLapak
+                                        ? "bg-[#FACC15] text-[#111827] border-black/20"
+                                        : "bg-[#DC2626] text-white border-red-500/80"
                                     }`}
                                   >
                                     {isLapak ? "🏪 Stan Lapak UMKM" : "🤝 Permohonan Pertemuan"}
@@ -2028,12 +2030,12 @@ export default function ServicePortalModal({
                               </div>
 
                               {/* Deskripsi Status */}
-                              <div className="p-2.5 rounded bg-slate-100 dark:bg-[#1A1D26] border border-black/10 dark:border-white/10 text-xs font-medium text-slate-800 dark:text-slate-200">
+                              <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-[#1A1D26] border border-black/10 dark:border-white/10 text-xs font-medium text-slate-800 dark:text-slate-200">
                                 {statusDesc}
                               </div>
 
                               {/* Arahan Discord Visitor Box */}
-                              <div className="p-3.5 rounded bg-indigo-50 dark:bg-indigo-950/25 border-2 border-indigo-200 dark:border-indigo-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                              <div className="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/25 border border-indigo-200 dark:border-indigo-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
                                 <div className="space-y-0.5">
                                   <div className="font-heading font-black text-xs uppercase text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
                                     <MessageSquare size={14} className="text-[#5865F2]" />
@@ -2047,7 +2049,7 @@ export default function ServicePortalModal({
                                   href={activeVisitorUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="btn shrink-0 py-2 px-3.5 bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-heading font-black border border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5"
+                                  className="btn shrink-0 py-2 px-3.5 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-heading font-black border border-indigo-400/50 shadow-sm flex items-center gap-1.5"
                                 >
                                   <span>Buka Channel Langsung</span>
                                   <ExternalLink size={12} />
@@ -2056,7 +2058,7 @@ export default function ServicePortalModal({
 
                               {/* Catatan / Balasan Khusus dari Pengurus LSM PPS */}
                               {ticket.adminNotes ? (
-                                <div className="p-3 rounded bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-600 flex flex-col gap-1">
+                                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-600/60 flex flex-col gap-1">
                                   <div className="flex items-center gap-1.5 font-heading font-black text-[11px] uppercase tracking-wider text-amber-900 dark:text-amber-300">
                                     <MessageSquare size={14} />
                                     <span>Pesan / Instruksi dari Pengurus LSM PPS:</span>
@@ -2178,9 +2180,9 @@ export default function ServicePortalModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="p-4 bg-white dark:bg-[#1E212B] border-[3px] border-black max-w-2xl w-full rounded-2xl overflow-hidden flex flex-col gap-3 shadow-[8px_8px_0px_#000] max-h-[92vh]"
+            className="p-4 bg-white dark:bg-[#1E212B] border border-black/20 dark:border-white/15 max-w-2xl w-full rounded-2xl overflow-hidden flex flex-col gap-3 shadow-2xl max-h-[92vh]"
           >
-            <div className="flex items-center justify-between w-full pb-2 border-b-2 border-black/15 dark:border-white/15">
+            <div className="flex items-center justify-between w-full pb-2 border-b border-black/15 dark:border-white/15">
               <div className="flex items-center gap-2">
                 <FileText size={18} className="text-[#DC2626] dark:text-[#FACC15]" />
                 <span className="font-heading font-black text-xs sm:text-sm uppercase tracking-wide">
@@ -2190,18 +2192,18 @@ export default function ServicePortalModal({
               <button
                 type="button"
                 onClick={() => setPreviewPhoto(null)}
-                className="w-8 h-8 rounded border-2 border-black bg-red-100 hover:bg-red-200 dark:bg-red-950 dark:hover:bg-red-900 flex items-center justify-center font-bold text-sm shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
+                className="w-8 h-8 rounded-lg border border-black/15 dark:border-white/15 bg-red-100 hover:bg-red-200 dark:bg-red-950/60 dark:hover:bg-red-900 flex items-center justify-center font-bold text-sm transition-colors cursor-pointer"
                 title="Tutup Preview"
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div className="bg-slate-950 rounded-lg p-2 flex items-center justify-center border-2 border-black/30 min-h-[260px] max-h-[60vh] overflow-hidden">
+            <div className="bg-slate-950 rounded-xl p-2 flex items-center justify-center border border-black/20 dark:border-white/10 min-h-[260px] max-h-[60vh] overflow-hidden">
               <img
                 src={previewPhoto}
                 alt="Dokumen KTP IC"
-                className="max-h-[58vh] w-auto max-w-full object-contain rounded"
+                className="max-h-[58vh] w-auto max-w-full object-contain rounded-lg"
               />
             </div>
 
@@ -2213,7 +2215,7 @@ export default function ServicePortalModal({
                 <button
                   type="button"
                   onClick={() => openImageSafely(previewPhoto, "KTP-IC-Sandy-Shores")}
-                  className="btn py-1.5 px-3 bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 text-xs font-bold border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 hover:bg-slate-100"
+                  className="btn py-1.5 px-3 rounded-lg bg-white dark:bg-[#161820] text-slate-900 dark:text-slate-100 text-xs font-bold border border-black/15 dark:border-white/15 shadow-sm flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-white/10"
                 >
                   <ExternalLink size={13} />
                   <span>Buka di Tab Baru</span>
@@ -2221,14 +2223,14 @@ export default function ServicePortalModal({
                 <a
                   href={previewPhoto}
                   download="KTP_IC_SandyShores.jpg"
-                  className="btn py-1.5 px-3 bg-[#FACC15] text-[#111827] text-xs font-black border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5 hover:bg-yellow-400"
+                  className="btn py-1.5 px-3 rounded-lg bg-[#FACC15] text-[#111827] text-xs font-black border border-black/20 shadow-sm flex items-center gap-1.5 hover:bg-yellow-400"
                 >
                   <span>Unduh Foto</span>
                 </a>
                 <button
                   type="button"
                   onClick={() => setPreviewPhoto(null)}
-                  className="btn py-1.5 px-3.5 bg-slate-800 text-white text-xs font-bold border-2 border-black shadow-[2px_2px_0px_#000]"
+                  className="btn py-1.5 px-3.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold border border-white/10 shadow-sm"
                 >
                   Tutup
                 </button>

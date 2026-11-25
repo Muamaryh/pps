@@ -106,14 +106,14 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
   return (
     <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
       {/* Tab Switcher Utama Dokumen Resmi */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b-2 border-black/10 dark:border-white/10">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-black/10 dark:border-white/10">
         <button
           type="button"
           onClick={() => setDocumentView("PERMIT_HD")}
-          className={`py-2 px-3.5 rounded text-xs font-heading font-black border-2 border-black cursor-pointer transition-all flex items-center gap-2 shrink-0 ${
+          className={`py-2 px-3.5 rounded-xl text-xs font-heading font-black border cursor-pointer transition-all flex items-center gap-2 shrink-0 ${
             documentView === "PERMIT_HD"
-              ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
-              : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+              ? "bg-[#FACC15] text-slate-950 border-amber-500/70 shadow-sm"
+              : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
           }`}
         >
           <FileCheck2 size={15} />
@@ -123,10 +123,10 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
         <button
           type="button"
           onClick={() => setDocumentView("CHARTER")}
-          className={`py-2 px-3.5 rounded text-xs font-heading font-black border-2 border-black cursor-pointer transition-all flex items-center gap-2 shrink-0 ${
+          className={`py-2 px-3.5 rounded-xl text-xs font-heading font-black border cursor-pointer transition-all flex items-center gap-2 shrink-0 ${
             documentView === "CHARTER"
-              ? "bg-[#FACC15] text-slate-950 shadow-[2px_2px_0px_#000]"
-              : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+              ? "bg-[#FACC15] text-slate-950 border-amber-500/70 shadow-sm"
+              : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
           }`}
         >
           <Scale size={15} />
@@ -140,7 +140,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
       {documentView === "PERMIT_HD" && (
         <div className="flex flex-col items-center gap-5">
           {/* Sertifikat Kertas Asli HD */}
-          <div className="w-full max-w-2xl rounded-2xl bg-[#EFECE6] text-slate-900 border-[3px] border-[#2C2925] shadow-[6px_6px_0px_#000000] p-6 sm:p-10 font-serif leading-relaxed relative overflow-hidden select-text">
+          <div className="w-full max-w-2xl rounded-2xl bg-[#EFECE6] text-slate-900 border border-[#2C2925]/40 shadow-[0_14px_34px_-10px_rgba(15,23,42,0.25)] p-6 sm:p-10 font-serif leading-relaxed relative overflow-hidden select-text">
             {/* Header Dokumen */}
             <div className="text-center space-y-1 pb-4">
               <div className="text-[10px] tracking-[0.25em] font-mono text-[#8C3A3A] font-black uppercase">
@@ -294,8 +294,8 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
       {documentView === "CHARTER" && (
         <div className="flex flex-col gap-6">
           {/* Kop Surat Dokumen Kenegaraan / Naskah Konstitusi */}
-          <div className="p-5 sm:p-7 rounded-2xl bg-gradient-to-b from-[#FFFDF9] to-[#F8F5EE] dark:from-[#1E212B] dark:to-[#171922] border-[2.5px] border-black dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col items-center text-center gap-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FACC15] text-slate-950 font-mono text-xs font-black uppercase tracking-wider border border-black shadow-[1.5px_1.5px_0px_#000]">
+          <div className="p-5 sm:p-7 rounded-2xl bg-gradient-to-b from-[#FAF8F3] to-white dark:from-[#121622] dark:to-[#0B0D14] border border-black/15 dark:border-white/15 shadow-sm flex flex-col items-center text-center gap-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FACC15] text-slate-950 font-mono text-xs font-black uppercase tracking-wider border border-amber-500/70">
               <Scale size={14} />
               <span>DOKUMEN KONSTITUSI INTERNAL ORGANISASI • {OFFICIAL_CHARTER_METADATA.edition}</span>
             </div>
@@ -312,13 +312,13 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
               </p>
             </div>
 
-            <div className="py-1 px-4 rounded-lg bg-slate-900 text-[#FACC15] font-mono text-xs font-black tracking-wider border border-black shadow-[2px_2px_0px_#000]">
+            <div className="py-1 px-4 rounded-lg bg-slate-900 text-[#FACC15] font-mono text-xs font-black tracking-wider border border-black/20 dark:border-white/15">
               NOMOR: {OFFICIAL_CHARTER_METADATA.documentNumber}
             </div>
 
             {/* 4 Metadata Legalitas */}
-            <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mt-2 pt-4 border-t-2 border-dashed border-black/20 dark:border-white/20 text-left font-mono">
-              <div className="p-2.5 rounded-xl bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mt-2 pt-4 border-t border-dashed border-black/15 dark:border-white/15 text-left font-mono">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/10 flex items-start gap-2.5">
                 <UserCheck size={16} className="text-[#DC2626] dark:text-[#FACC15] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Penanggung Jawab</span>
@@ -326,7 +326,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/10 flex items-start gap-2.5">
                 <MapPin size={16} className="text-[#DC2626] dark:text-[#FACC15] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Alamat Sekretariat</span>
@@ -334,7 +334,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/10 flex items-start gap-2.5">
                 <ShieldCheck size={16} className="text-[#DC2626] dark:text-[#FACC15] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Nomor Surat Izin</span>
@@ -342,7 +342,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white dark:bg-[#14161F] border border-black/20 dark:border-white/10 flex items-start gap-2.5">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/10 flex items-start gap-2.5">
                 <Calendar size={16} className="text-[#DC2626] dark:text-[#FACC15] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] text-slate-500 uppercase block font-bold">Tanggal Penetapan Izin</span>
@@ -353,7 +353,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
           </div>
 
           {/* Toolbar: Pencarian Kata Kunci & Tombol Salin Dokumen */}
-          <div className="card-brutal p-3 sm:p-4 bg-white dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000] flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="card-brutal p-3 sm:p-4 bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/15 flex flex-col md:flex-row md:items-center justify-between gap-3">
             {/* Search Box */}
             <div className="relative flex-1">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -362,10 +362,11 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 placeholder="Cari pasal atau kata kunci (contoh: sanksi, keuangan, ketua umum, bendahara)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs font-mono bg-slate-50 dark:bg-[#20232E] border-2 border-black dark:border-[#475569] rounded text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#DC2626]"
+                className="input-field w-full pl-9 pr-3 py-2 text-xs font-mono"
               />
               {searchQuery && (
                 <button
+                  type="button"
                   onClick={() => setSearchQuery("")}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-slate-400 hover:text-black dark:hover:text-white cursor-pointer"
                 >
@@ -379,10 +380,10 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
               <button
                 type="button"
                 onClick={handleCopyCharter}
-                className={`py-2 px-4 rounded text-xs font-heading font-black border-2 border-black shadow-[2px_2px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-2 ${
+                className={`py-2 px-4 rounded-xl text-xs font-heading font-black border shadow-sm active:translate-y-0.5 cursor-pointer transition-all flex items-center gap-2 ${
                   copiedCharter
-                    ? "bg-emerald-500 text-slate-950"
-                    : "bg-[#FACC15] hover:bg-[#EAB308] text-slate-950"
+                    ? "bg-emerald-500 text-slate-950 border-emerald-600/70"
+                    : "bg-[#FACC15] hover:bg-[#EAB308] text-slate-950 border-amber-500/70"
                 }`}
                 title="Salin seluruh teks naskah untuk ditempel ke Discord atau dokumen lainnya"
               >
@@ -406,10 +407,10 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
             <button
               type="button"
               onClick={() => setActiveChapterFilter("ALL")}
-              className={`px-3 py-1.5 rounded border-2 border-black font-bold whitespace-nowrap cursor-pointer transition-all ${
+              className={`px-3 py-1.5 rounded-lg border font-bold whitespace-nowrap cursor-pointer transition-all ${
                 activeChapterFilter === "ALL"
-                  ? "bg-slate-900 text-white shadow-[1.5px_1.5px_0px_#000]"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
               }`}
             >
               Semua Bab ({OFFICIAL_CHARTER_CHAPTERS.length})
@@ -418,10 +419,10 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
             <button
               type="button"
               onClick={() => setActiveChapterFilter("MUKADIMAH")}
-              className={`px-3 py-1.5 rounded border-2 border-black font-bold whitespace-nowrap cursor-pointer transition-all ${
+              className={`px-3 py-1.5 rounded-lg border font-bold whitespace-nowrap cursor-pointer transition-all ${
                 activeChapterFilter === "MUKADIMAH"
-                  ? "bg-slate-900 text-white shadow-[1.5px_1.5px_0px_#000]"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
               }`}
             >
               Mukadimah
@@ -432,10 +433,10 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 key={ch.id}
                 type="button"
                 onClick={() => setActiveChapterFilter(ch.id)}
-                className={`px-3 py-1.5 rounded border-2 border-black font-bold whitespace-nowrap cursor-pointer transition-all ${
+                className={`px-3 py-1.5 rounded-lg border font-bold whitespace-nowrap cursor-pointer transition-all ${
                   activeChapterFilter === ch.id
-                    ? "bg-[#FACC15] text-slate-950 shadow-[1.5px_1.5px_0px_#000] font-black"
-                    : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                    ? "bg-[#FACC15] text-slate-950 border-amber-500/80 shadow-sm font-black"
+                    : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
                 }`}
               >
                 {ch.roman}
@@ -445,10 +446,10 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
             <button
               type="button"
               onClick={() => setActiveChapterFilter("SIGNATURE")}
-              className={`px-3 py-1.5 rounded border-2 border-black font-bold whitespace-nowrap cursor-pointer transition-all ${
+              className={`px-3 py-1.5 rounded-lg border font-bold whitespace-nowrap cursor-pointer transition-all ${
                 activeChapterFilter === "SIGNATURE"
-                  ? "bg-slate-900 text-white shadow-[1.5px_1.5px_0px_#000]"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                  ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-slate-900 dark:border-amber-500 shadow-sm"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100 dark:hover:bg-white/10"
               }`}
             >
               Pengesahan
@@ -459,9 +460,9 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
           <div className="flex flex-col gap-6">
             {/* Mukadimah */}
             {showMukadimah && (
-              <div className="card-brutal p-5 sm:p-7 bg-[#FFFDF9] dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000]">
-                <div className="flex items-center gap-2 pb-2 mb-3 border-b-2 border-black dark:border-[#475569]">
-                  <span className="w-2.5 h-2.5 bg-[#DC2626]" />
+              <div className="card-brutal p-5 sm:p-7 bg-[#FAF8F3] dark:bg-[#0E111B] border border-black/15 dark:border-white/15">
+                <div className="flex items-center gap-2 pb-2 mb-3 border-b border-black/15 dark:border-white/10">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-[#DC2626]" />
                   <h4 className="font-heading font-black text-base uppercase text-slate-950 dark:text-slate-100">
                     MUKADIMAH
                   </h4>
@@ -481,12 +482,12 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
               <div
                 key={ch.id}
                 id={ch.id}
-                className="card-brutal p-5 sm:p-7 bg-[var(--card-bg)] border-[2.5px] border-black dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col gap-4"
+                className="card-brutal p-5 sm:p-7 bg-[var(--card-bg)] border border-black/15 dark:border-white/15 flex flex-col gap-4"
               >
                 {/* Header Bab */}
-                <div className="pb-3 border-b-2 border-black dark:border-[#475569]">
+                <div className="pb-3 border-b border-black/15 dark:border-white/10">
                   <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="font-mono text-xs font-black uppercase text-[#DC2626] dark:text-[#FACC15] px-2 py-0.5 rounded bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/40">
+                    <span className="font-mono text-xs font-black uppercase text-[#DC2626] dark:text-[#FACC15] px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/40">
                       {ch.roman}
                     </span>
                     <span className="text-[11px] font-mono text-slate-400">
@@ -503,10 +504,10 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                   {ch.articles.map((art) => (
                     <div
                       key={art.number}
-                      className="p-3.5 sm:p-4 rounded bg-[#FFFDF9] dark:bg-[#161822] border border-black/20 dark:border-white/10 hover:border-black transition-colors"
+                      className="p-3.5 sm:p-4 rounded-xl bg-[#FAF8F3] dark:bg-[#121622] border border-black/10 dark:border-white/10 hover:border-[#FACC15]/70 transition-colors"
                     >
                       <h5 className="font-heading font-black text-sm text-slate-950 dark:text-slate-100 mb-2 flex items-center gap-2">
-                        <span className="w-5 h-5 rounded bg-slate-900 text-white dark:bg-[#FACC15] dark:text-black flex items-center justify-center text-[11px] font-mono font-black">
+                        <span className="w-5 h-5 rounded-md bg-slate-900 text-white dark:bg-[#FACC15] dark:text-black flex items-center justify-center text-[11px] font-mono font-black">
                           {art.number}
                         </span>
                         <span>Pasal {art.number} - {art.title}</span>
@@ -531,15 +532,15 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
 
             {/* Jika Hasil Pencarian Kosong */}
             {filteredChapters.length === 0 && !showMukadimah && (
-              <div className="p-8 text-center rounded border-2 border-dashed border-black/30 dark:border-white/30 text-slate-500 font-mono text-xs">
+              <div className="p-8 text-center rounded-xl border border-dashed border-black/25 dark:border-white/25 text-slate-500 font-mono text-xs">
                 Tidak ditemukan pasal atau kata kunci yang cocok dengan &quot;{searchQuery}&quot;.
               </div>
             )}
 
             {/* Lembar Pengesahan & Stempel Resmi */}
             {showSignatures && (
-              <div className="card-brutal p-5 sm:p-7 bg-[#FFFDF9] dark:bg-[#1A1D26] border-2 border-black dark:border-[#475569] shadow-[4px_4px_0px_#000000] flex flex-col gap-5">
-                <div className="pb-3 border-b-2 border-black dark:border-[#475569] text-center">
+              <div className="card-brutal p-5 sm:p-7 bg-[#FAF8F3] dark:bg-[#0E111B] border border-black/15 dark:border-white/15 flex flex-col gap-5">
+                <div className="pb-3 border-b border-black/15 dark:border-white/10 text-center">
                   <h4 className="font-heading font-black text-lg uppercase text-slate-950 dark:text-slate-100">
                     LEMBAR PENGESAHAN DOKUMEN
                   </h4>
@@ -551,7 +552,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                 {/* Grid Tanda Tangan */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs font-mono">
                   {/* Pendiri & Ketua Umum */}
-                  <div className="p-3.5 rounded bg-white dark:bg-[#14161F] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between min-h-[110px]">
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 flex flex-col justify-between min-h-[110px]">
                     <span className="text-[10px] font-black uppercase text-[#DC2626] dark:text-[#FACC15]">
                       {OFFICIAL_CHARTER_SIGNATORIES.founderLeader.role}
                     </span>
@@ -564,7 +565,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                   </div>
 
                   {/* Penasihat Organisasi */}
-                  <div className="p-3.5 rounded bg-white dark:bg-[#14161F] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between min-h-[110px]">
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 flex flex-col justify-between min-h-[110px]">
                     <span className="text-[10px] font-black uppercase text-slate-500">
                       {OFFICIAL_CHARTER_SIGNATORIES.advisor.role}
                     </span>
@@ -577,7 +578,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                   </div>
 
                   {/* Sekretaris Jenderal */}
-                  <div className="p-3.5 rounded bg-white dark:bg-[#14161F] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between min-h-[110px]">
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 flex flex-col justify-between min-h-[110px]">
                     <span className="text-[10px] font-black uppercase text-slate-500">
                       {OFFICIAL_CHARTER_SIGNATORIES.secGen.role}
                     </span>
@@ -590,7 +591,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                   </div>
 
                   {/* Saksi I */}
-                  <div className="p-3.5 rounded bg-white dark:bg-[#14161F] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between min-h-[110px]">
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 flex flex-col justify-between min-h-[110px]">
                     <span className="text-[10px] font-black uppercase text-slate-500">
                       {OFFICIAL_CHARTER_SIGNATORIES.witness1.role}
                     </span>
@@ -603,7 +604,7 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                   </div>
 
                   {/* Saksi II */}
-                  <div className="p-3.5 rounded bg-white dark:bg-[#14161F] border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] flex flex-col justify-between min-h-[110px]">
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-[#121622] border border-black/15 dark:border-white/10 flex flex-col justify-between min-h-[110px]">
                     <span className="text-[10px] font-black uppercase text-slate-500">
                       {OFFICIAL_CHARTER_SIGNATORIES.witness2.role}
                     </span>
@@ -616,8 +617,8 @@ export default function OfficialCharterViewer({ initialView = "PERMIT_HD", onSho
                   </div>
 
                   {/* Stempel Resmi */}
-                  <div className="p-3.5 rounded bg-amber-50 dark:bg-amber-950/40 border-2 border-[#FACC15] shadow-[2px_2px_0px_#000] flex flex-col justify-between items-center text-center min-h-[110px]">
-                    <div className="w-8 h-8 rounded-full bg-[#FACC15] border border-black flex items-center justify-center text-black shadow-sm">
+                  <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/35 border border-amber-400/70 dark:border-amber-600/60 flex flex-col justify-between items-center text-center min-h-[110px]">
+                    <div className="w-8 h-8 rounded-full bg-[#FACC15] border border-amber-500/70 flex items-center justify-center text-black shadow-sm">
                       <Stamp size={16} />
                     </div>
                     <div>

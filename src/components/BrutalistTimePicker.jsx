@@ -151,12 +151,12 @@ export default function BrutalistTimePicker({
 
   return (
     <div className={`relative w-full ${isOpen ? "z-30" : ""}`} ref={containerRef}>
-      {/* Unified Neo-Brutalist Time Button Container */}
+      {/* Unified Time Button Container */}
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left rounded-xl bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000] hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:translate-x-[2px] active:translate-y-[2px] transition-all focus:outline-none focus:ring-2 focus:ring-[#FACC15] cursor-pointer ${
-          isOpen ? "ring-2 ring-[#DC2626] dark:ring-[#FACC15]" : ""
+        className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-xs font-bold text-left rounded-xl bg-white dark:bg-[#141724] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15 hover:border-[#FACC15]/80 shadow-sm active:translate-y-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] cursor-pointer ${
+          isOpen ? "ring-2 ring-[#FACC15] border-[#FACC15]" : ""
         }`}
         title="Buka Pemilih Jam & Menit"
         aria-label="Pilih jam"
@@ -167,25 +167,27 @@ export default function BrutalistTimePicker({
           </span>
         </div>
         <div
-          className={`w-6 h-6 rounded-lg bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0 shadow-[1px_1px_0px_#000] transition-colors duration-200 ${
-            isOpen ? "bg-[#DC2626] text-white" : ""
+          className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-200 border ${
+            isOpen
+              ? "bg-[#DC2626] text-white border-red-500/70"
+              : "bg-[#FACC15]/90 text-[#111827] border-amber-500/50"
           }`}
         >
           <ClockIcon size={14} />
         </div>
       </button>
 
-      {/* Brutalist Time Popover */}
+      {/* Time Popover */}
       {isOpen && (
         <div
           className={`absolute ${effectiveAlignRight ? "right-0" : "left-0"} ${
             effectiveDropUp ? "bottom-full mb-2" : "top-full mt-2"
-          } z-[90] w-72 bg-[#FFF9F2] dark:bg-[#161820] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] p-3.5 rounded-2xl animate-in fade-in zoom-in-95 duration-100 select-none`}
+          } z-[90] w-72 bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/15 shadow-[0_16px_38px_-6px_rgba(15,23,42,0.22)] dark:shadow-[0_20px_44px_-6px_rgba(0,0,0,0.85)] p-3.5 rounded-2xl animate-in fade-in zoom-in-95 duration-100 select-none`}
         >
           {/* Header Popover with Live Big Display */}
-          <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b-2 border-black/15 dark:border-slate-700/60">
+          <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-black/10 dark:border-white/10">
             <div className="flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded-lg bg-[#FACC15] border border-black flex items-center justify-center text-slate-950 font-black">
+              <div className="w-5 h-5 rounded-lg bg-[#FACC15] border border-amber-500/60 flex items-center justify-center text-slate-950 font-black">
                 <ClockIcon size={12} />
               </div>
               <span className="font-heading font-black text-xs uppercase tracking-wider text-slate-950 dark:text-slate-100">
@@ -194,7 +196,7 @@ export default function BrutalistTimePicker({
             </div>
 
             {/* Big Active Time Tag */}
-            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-white dark:bg-[#20232E] border-2 border-black shadow-[1.5px_1.5px_0px_#000]">
+            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#F6F4ED] dark:bg-[#141724] border border-black/15 dark:border-white/15">
               <span className="font-mono font-black text-sm text-[#DC2626] dark:text-[#FACC15]">
                 {tempHour}:{tempMinute}
               </span>
@@ -217,8 +219,8 @@ export default function BrutalistTimePicker({
                     onClick={() => handleSelectPreset(p.time)}
                     className={`py-1 px-0.5 rounded-lg border transition-all cursor-pointer text-center ${
                       isActive
-                        ? "bg-[#FACC15] text-[#111827] border-black shadow-[1.5px_1.5px_0px_#000] font-black scale-102"
-                        : "bg-white dark:bg-[#20232E] border-black/20 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-black hover:bg-amber-100 font-bold"
+                        ? "bg-[#FACC15] text-[#111827] border-amber-500 shadow-sm font-black"
+                        : "bg-[#F6F4ED] dark:bg-[#141724] border-black/10 dark:border-white/10 text-slate-800 dark:text-slate-200 hover:border-[#FACC15] hover:bg-[#FACC15]/15 font-bold"
                     }`}
                   >
                     <div className="font-mono text-[10px] leading-tight font-black">{p.time}</div>
@@ -237,7 +239,7 @@ export default function BrutalistTimePicker({
                 <span>Jam (00–23)</span>
                 <span className="font-mono font-black text-[#DC2626] dark:text-[#FACC15]">{tempHour}</span>
               </div>
-              <div className="grid grid-cols-3 gap-1 max-h-28 overflow-y-auto p-1 border-2 border-black/20 dark:border-white/10 rounded-xl bg-white dark:bg-[#1A1D27] scrollbar-thin">
+              <div className="grid grid-cols-3 gap-1 max-h-28 overflow-y-auto p-1 border border-black/15 dark:border-white/10 rounded-xl bg-[#F6F4ED] dark:bg-[#141724] scrollbar-thin">
                 {HOURS.map((h) => {
                   const isSelected = h === tempHour;
                   return (
@@ -247,8 +249,8 @@ export default function BrutalistTimePicker({
                       onClick={() => handleSelectHour(h)}
                       className={`py-1 text-center font-mono font-black text-xs rounded-lg border transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-[#FACC15] text-[#111827] border-2 border-black shadow-[1.5px_1.5px_0px_#000] scale-105"
-                          : "border-transparent hover:border-black hover:bg-amber-100 text-slate-800 dark:text-slate-200"
+                          ? "bg-[#FACC15] text-[#111827] border-amber-500 shadow-sm"
+                          : "border-transparent hover:border-[#FACC15]/70 hover:bg-[#FACC15]/15 text-slate-800 dark:text-slate-200"
                       }`}
                     >
                       {h}
@@ -266,7 +268,7 @@ export default function BrutalistTimePicker({
                   <button
                     type="button"
                     onClick={() => adjustMinute(-1)}
-                    className="w-4 h-4 rounded-md border border-black bg-white dark:bg-[#20232E] hover:bg-amber-200 text-slate-900 dark:text-slate-100 flex items-center justify-center cursor-pointer"
+                    className="w-4 h-4 rounded-md border border-black/20 dark:border-white/15 bg-white dark:bg-[#141724] hover:bg-[#FACC15]/30 text-slate-900 dark:text-slate-100 flex items-center justify-center cursor-pointer"
                     title="-1 Menit"
                   >
                     <ChevronDown size={11} />
@@ -275,14 +277,14 @@ export default function BrutalistTimePicker({
                   <button
                     type="button"
                     onClick={() => adjustMinute(1)}
-                    className="w-4 h-4 rounded-md border border-black bg-white dark:bg-[#20232E] hover:bg-amber-200 text-slate-900 dark:text-slate-100 flex items-center justify-center cursor-pointer"
+                    className="w-4 h-4 rounded-md border border-black/20 dark:border-white/15 bg-white dark:bg-[#141724] hover:bg-[#FACC15]/30 text-slate-900 dark:text-slate-100 flex items-center justify-center cursor-pointer"
                     title="+1 Menit"
                   >
                     <ChevronUp size={11} />
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-1 max-h-28 overflow-y-auto p-1 border-2 border-black/20 dark:border-white/10 rounded-xl bg-white dark:bg-[#1A1D27] scrollbar-thin">
+              <div className="grid grid-cols-2 gap-1 max-h-28 overflow-y-auto p-1 border border-black/15 dark:border-white/10 rounded-xl bg-[#F6F4ED] dark:bg-[#141724] scrollbar-thin">
                 {MINUTES.map((m) => {
                   const isSelected = m === tempMinute;
                   return (
@@ -292,8 +294,8 @@ export default function BrutalistTimePicker({
                       onClick={() => handleSelectMinute(m)}
                       className={`py-1 text-center font-mono font-black text-xs rounded-lg border transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-[#FACC15] text-[#111827] border-2 border-black shadow-[1.5px_1.5px_0px_#000] scale-105"
-                          : "border-transparent hover:border-black hover:bg-amber-100 text-slate-800 dark:text-slate-200"
+                          ? "bg-[#FACC15] text-[#111827] border-amber-500 shadow-sm"
+                          : "border-transparent hover:border-[#FACC15]/70 hover:bg-[#FACC15]/15 text-slate-800 dark:text-slate-200"
                       }`}
                     >
                       :{m}
@@ -305,7 +307,7 @@ export default function BrutalistTimePicker({
           </div>
 
           {/* Quick Footer Action */}
-          <div className="pt-2 border-t-2 border-dashed border-black/15 dark:border-slate-700/60 flex items-center justify-between">
+          <div className="pt-2 border-t border-black/10 dark:border-white/10 flex items-center justify-between">
             <button
               type="button"
               onClick={handleSelectNow}
@@ -318,7 +320,7 @@ export default function BrutalistTimePicker({
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="px-3.5 py-1 text-[11px] font-heading font-black rounded-lg bg-[#FACC15] text-slate-950 border-2 border-black shadow-[1.5px_1.5px_0px_#000] hover:bg-yellow-400 active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+              className="px-3.5 py-1 text-[11px] font-heading font-black rounded-lg bg-[#FACC15] text-slate-950 border border-amber-500/70 shadow-sm hover:bg-[#EAB308] active:translate-y-0.5 cursor-pointer transition-all"
             >
               Selesai
             </button>

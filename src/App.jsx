@@ -1687,9 +1687,9 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleOpenDoorprizeModal}
-                  className="group flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border-[2.5px] border-black bg-gradient-to-r from-[#DC2626] to-[#B91C1C] text-white shadow-[4px_4px_0px_#000] hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer"
+                  className="group flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border border-red-500/70 bg-gradient-to-r from-[#DC2626] to-[#B91C1C] text-white shadow-[0_12px_28px_-6px_rgba(220,38,38,0.45)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all cursor-pointer"
                 >
-                  <div className="w-8 h-8 rounded-xl bg-[#FACC15] text-black border-2 border-black flex items-center justify-center shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+                  <div className="w-8 h-8 rounded-xl bg-[#FACC15] text-black border border-amber-500/70 flex items-center justify-center shrink-0 shadow-sm">
                     <Ticket size={16} className="text-[#DC2626]" />
                   </div>
                   <div className="text-left">

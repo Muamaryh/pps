@@ -114,16 +114,18 @@ export default function KasLedgerModal({
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-white dark:bg-[#161820] bg-[var(--modal-bg)] border-[3px] border-black dark:border-[#475569] rounded-2xl shadow-[8px_8px_0px_#000] flex flex-col max-h-[92vh] overflow-hidden"
+        className="w-full max-w-4xl bg-white dark:bg-[#0B0D14] bg-[var(--modal-bg)] border border-black/15 dark:border-white/15 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Sticky di atas agar tidak tenggelam saat scroll */}
-        <div className="sticky top-0 z-20 flex items-center justify-between p-3.5 sm:p-4 border-b-2 border-black dark:border-[#475569] bg-white dark:bg-[#161820] bg-[var(--modal-bg)] shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-slate-700 border-2 border-black flex items-center justify-center text-white shrink-0 shadow-[1.5px_1.5px_0px_#000]">
+        <div className="sticky top-0 z-20 flex items-center justify-between p-3.5 sm:p-4 border-b border-black/10 dark:border-white/10 bg-white dark:bg-[#0B0D14] bg-[var(--modal-bg)] shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-slate-700 border border-black/15 dark:border-white/15 flex items-center justify-center text-white shrink-0 shadow-sm">
               <DollarSign size={18} />
             </div>
             <div>
@@ -139,7 +141,7 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={() => setIsCopyModalOpen(true)}
-              className="py-1.5 px-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-heading font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer flex items-center gap-1.5 rounded-lg active:translate-x-0.5 active:translate-y-0.5"
+              className="py-1.5 px-3 bg-[#5865F2] hover:bg-[#4752C4] text-white font-heading font-black text-xs border border-indigo-400/70 shadow-sm cursor-pointer flex items-center gap-1.5 rounded-lg active:translate-y-0.5 transition-all"
               title="Teruskan laporan kas ke Discord Keuangan"
             >
               <Send size={13} />
@@ -148,7 +150,7 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={handleExport}
-              className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer flex items-center gap-1.5 rounded-lg active:translate-x-0.5 active:translate-y-0.5"
+              className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-xs border border-emerald-500/70 shadow-sm cursor-pointer flex items-center gap-1.5 rounded-lg active:translate-y-0.5 transition-all"
               title="Unduh format Excel"
             >
               <FileSpreadsheet size={13} />
@@ -157,11 +159,11 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-lg bg-[#DC2626] hover:bg-[#B91C1C] text-white border-2 border-black shadow-[1.5px_1.5px_0px_#000] flex items-center justify-center shrink-0 cursor-pointer active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+              className="w-8 h-8 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white border border-red-500/70 shadow-sm flex items-center justify-center shrink-0 cursor-pointer active:translate-y-0.5 transition-all"
               aria-label="Tutup modal"
               title="Tutup (Esc)"
             >
-              <X size={16} className="stroke-[3]" />
+              <X size={16} className="stroke-[2.5]" />
             </button>
           </div>
         </div>
@@ -172,7 +174,7 @@ export default function KasLedgerModal({
         {/* 3 Kartu Saldo: Kas Oita, Kas Darren, dan Saldo Bersih */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
           {/* Kas Oita */}
-          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500/50 shadow-[1.5px_1.5px_0px_#000] flex flex-col gap-1">
+          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-400/60 dark:border-amber-700/50 flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase font-black text-amber-900 dark:text-amber-300">
                 Kas di Oita (Bendahara)
@@ -187,7 +189,7 @@ export default function KasLedgerModal({
           </div>
 
           {/* Kas Darren */}
-          <div className="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border-2 border-indigo-500/50 shadow-[1.5px_1.5px_0px_#000] flex flex-col gap-1">
+          <div className="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-400/60 dark:border-indigo-700/50 flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase font-black text-indigo-900 dark:text-indigo-300">
                 Kas di Darren (Bendahara)
@@ -202,7 +204,7 @@ export default function KasLedgerModal({
           </div>
 
           {/* Total Saldo Bersih */}
-          <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-600 dark:border-emerald-500 shadow-[1.5px_1.5px_0px_#000] flex flex-col gap-1">
+          <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/60 dark:border-emerald-700/50 flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase font-black text-emerald-900 dark:text-emerald-300">
                 Total Saldo Bersih LSM
@@ -223,10 +225,10 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={() => setFilterType("all")}
-              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border-2 transition-colors cursor-pointer ${
+              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border transition-colors cursor-pointer ${
                 filterType === "all"
-                  ? "bg-slate-900 text-white border-black"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 border-black/20"
+                  ? "bg-slate-900 dark:bg-[#FACC15] text-white dark:text-slate-950 border-slate-900 dark:border-amber-500"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15"
               }`}
             >
               Semua ({transactions.length})
@@ -234,10 +236,10 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={() => setFilterType("INCOME")}
-              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border-2 transition-colors cursor-pointer ${
+              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border transition-colors cursor-pointer ${
                 filterType === "INCOME"
-                  ? "bg-emerald-600 text-white border-black"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 border-black/20"
+                  ? "bg-emerald-600 text-white border-emerald-500/70"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15"
               }`}
             >
               Pemasukan ({summary.incomeCount})
@@ -245,10 +247,10 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={() => setFilterType("EXPENSE")}
-              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border-2 transition-colors cursor-pointer ${
+              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border transition-colors cursor-pointer ${
                 filterType === "EXPENSE"
-                  ? "bg-red-600 text-white border-black"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 border-black/20"
+                  ? "bg-red-600 text-white border-red-500/70"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15"
               }`}
             >
               Pengeluaran ({summary.expenseCount})
@@ -256,10 +258,10 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={() => setFilterType("OITA")}
-              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border-2 transition-colors cursor-pointer ${
+              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border transition-colors cursor-pointer ${
                 filterType === "OITA"
-                  ? "bg-amber-500 text-slate-950 border-black"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 border-black/20"
+                  ? "bg-amber-500 text-slate-950 border-amber-500"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15"
               }`}
             >
               Kas Oita
@@ -267,10 +269,10 @@ export default function KasLedgerModal({
             <button
               type="button"
               onClick={() => setFilterType("DARREN")}
-              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border-2 transition-colors cursor-pointer ${
+              className={`py-1 px-2.5 rounded-lg font-mono text-[11px] font-bold border transition-colors cursor-pointer ${
                 filterType === "DARREN"
-                  ? "bg-indigo-600 text-white border-black"
-                  : "bg-white dark:bg-[#1E212B] text-slate-700 dark:text-slate-300 border-black/20"
+                  ? "bg-indigo-600 text-white border-indigo-500/70"
+                  : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15"
               }`}
             >
               Kas Darren
@@ -285,7 +287,7 @@ export default function KasLedgerModal({
                 placeholder="Cari transaksi..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field pl-7 py-1 text-xs bg-white dark:bg-[#1E212B] border-2 border-black/30 w-full"
+                className="input-field !pl-7 py-1.5 text-xs w-full"
               />
             </div>
             {onOpenIncomeModal && (
@@ -295,7 +297,7 @@ export default function KasLedgerModal({
                   onClose();
                   onOpenIncomeModal();
                 }}
-                className="py-1 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer flex items-center gap-1 shrink-0 rounded-lg active:translate-x-0.5 active:translate-y-0.5"
+                className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-heading font-black text-xs border border-emerald-500/70 shadow-sm cursor-pointer flex items-center gap-1 shrink-0 rounded-lg active:translate-y-0.5 transition-all"
               >
                 <Plus size={13} />
                 <span>Pemasukan</span>
@@ -308,7 +310,7 @@ export default function KasLedgerModal({
                   onClose();
                   onOpenExpenseModal();
                 }}
-                className="py-1 px-3 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-heading font-black text-xs border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer flex items-center gap-1 shrink-0 rounded-lg active:translate-x-0.5 active:translate-y-0.5"
+                className="py-1.5 px-3 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-heading font-black text-xs border border-red-500/70 shadow-sm cursor-pointer flex items-center gap-1 shrink-0 rounded-lg active:translate-y-0.5 transition-all"
               >
                 <TrendingDown size={13} />
                 <span>Pengeluaran</span>
@@ -318,7 +320,7 @@ export default function KasLedgerModal({
         </div>
 
         {/* Tabel / Daftar Riwayat Transaksi */}
-        <div className="border-2 border-black dark:border-[#475569] rounded-xl overflow-hidden">
+        <div className="border border-black/15 dark:border-white/15 rounded-xl overflow-hidden">
           <div className="max-h-72 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-500 font-mono">
@@ -326,7 +328,7 @@ export default function KasLedgerModal({
               </div>
             ) : (
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100 dark:bg-[#161820] text-slate-600 dark:text-slate-400 font-mono text-[10px] uppercase border-b-2 border-black/20 sticky top-0 z-10">
+                <thead className="bg-[#FAF8F3] dark:bg-[#121622] text-slate-600 dark:text-slate-400 font-mono text-[10px] uppercase border-b border-black/15 dark:border-white/10 sticky top-0 z-10">
                   <tr>
                     <th className="py-2 px-3">Tanggal</th>
                     <th className="py-2 px-3">Pos Kas</th>

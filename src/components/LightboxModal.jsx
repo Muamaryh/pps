@@ -85,7 +85,7 @@ export default function LightboxModal({
         {/* Top Floating Bar: Counter & Close Button */}
         <div className="w-full flex items-center justify-between pb-1 px-1">
           {allPhotos.length > 1 ? (
-            <div className="badge-brutal text-xs py-1 px-3 bg-[#FACC15] text-[#111827] border-2 border-black font-black shadow-[2px_2px_0px_#000] flex items-center gap-1.5">
+            <div className="badge-brutal text-xs py-1 px-3 bg-[#FACC15] text-[#111827] border border-amber-500/70 font-black shadow-sm flex items-center gap-1.5">
               <ImageIcon size={14} />
               <span>
                 Foto {currentIndex + 1} dari {allPhotos.length}
@@ -96,8 +96,9 @@ export default function LightboxModal({
           )}
 
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border-2 border-black dark:border-[#475569] shadow-[2px_2px_0px_#000] bg-[#DC2626] hover:bg-[#B91C1C] text-white flex items-center justify-center font-bold cursor-pointer transition-transform active:translate-x-0.5 active:translate-y-0.5"
+            className="w-9 h-9 rounded-xl border border-red-500/70 shadow-md bg-[#DC2626] hover:bg-[#B91C1C] text-white flex items-center justify-center font-bold cursor-pointer transition-all active:translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
             aria-label="Tutup"
             title="Tutup (Esc)"
           >
@@ -112,7 +113,7 @@ export default function LightboxModal({
           onTouchEnd={handleTouchEnd}
         >
           {/* Active Image Frame */}
-          <div className="relative inline-block overflow-hidden rounded-2xl border-[3px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000] bg-white/5 max-w-full leading-none">
+          <div className="relative inline-block overflow-hidden rounded-2xl border border-white/20 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.85)] bg-black/30 max-w-full leading-none">
             <img
               key={currentIndex}
               src={currentPhoto}
@@ -129,11 +130,11 @@ export default function LightboxModal({
             <button
               type="button"
               onClick={handlePrev}
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2.5px_2.5px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 shrink-0"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-amber-500/70 shadow-md flex items-center justify-center cursor-pointer transition-all hover:-translate-y-0.5 active:translate-y-0.5 shrink-0"
               aria-label="Foto Sebelumnya"
               title="Foto Sebelumnya (Panah Kiri)"
             >
-              <ChevronLeft size={22} className="stroke-[3]" />
+              <ChevronLeft size={22} className="stroke-[2.5]" />
             </button>
 
             {/* Thumbnail Strip */}
@@ -145,10 +146,10 @@ export default function LightboxModal({
                     key={idx}
                     type="button"
                     onClick={() => setCurrentIndex(idx)}
-                    className={`w-14 h-11 sm:w-16 sm:h-12 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${
+                    className={`w-14 h-11 sm:w-16 sm:h-12 rounded-lg overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
                       isActive
-                        ? "border-[#FACC15] scale-110 shadow-[2px_2px_0px_#000] ring-2 ring-black"
-                        : "border-black/50 opacity-60 hover:opacity-100"
+                        ? "border-[#FACC15] scale-105 shadow-md ring-2 ring-[#FACC15]/40"
+                        : "border-white/25 opacity-65 hover:opacity-100"
                     }`}
                   >
                     <img src={p} alt="" className="w-full h-full object-cover" />
@@ -161,18 +162,18 @@ export default function LightboxModal({
             <button
               type="button"
               onClick={handleNext}
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border-2 border-black shadow-[2.5px_2.5px_0px_#000] flex items-center justify-center cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5 shrink-0"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#FACC15] hover:bg-[#EAB308] text-[#111827] border border-amber-500/70 shadow-md flex items-center justify-center cursor-pointer transition-all hover:-translate-y-0.5 active:translate-y-0.5 shrink-0"
               aria-label="Foto Berikutnya"
               title="Foto Berikutnya (Panah Kanan)"
             >
-              <ChevronRight size={22} className="stroke-[3]" />
+              <ChevronRight size={22} className="stroke-[2.5]" />
             </button>
           </div>
         )}
 
         {/* Details Card (Caption, Date, Location & Description) */}
         {(caption || desc || location || date) && (
-          <div className="p-4 sm:p-5 bg-[var(--card-bg)] rounded-xl text-[#111827] dark:text-slate-100 border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[4px_4px_0px_#000] w-full max-h-[30vh] overflow-y-auto">
+          <div className="p-4 sm:p-5 bg-white dark:bg-[#0B0D14] rounded-2xl text-[#111827] dark:text-slate-100 border border-black/15 dark:border-white/15 shadow-xl w-full max-h-[30vh] overflow-y-auto">
             {caption && (
               <h3 className="font-heading font-black text-sm sm:text-base text-slate-950 dark:text-slate-100 uppercase tracking-tight mb-2">
                 {caption}

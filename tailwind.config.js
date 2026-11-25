@@ -13,28 +13,19 @@ export default {
         mono: ["'JetBrains Mono'", "monospace"],
       },
       colors: {
-        // Pizza Sandy Shores signature Yellow & Red brutalism palette
+        // Pizza Sandy Shores signature Syndicate Noir / Tactical Dossier palette
         pizza: {
           yellow: "#FACC15",
           "yellow-hover": "#EAB308",
           red: "#DC2626",
           "red-hover": "#B91C1C",
           "red-dark": "#991B1B",
-          dark: "#0F1015",
-          "dark-card": "#181A22",
-          "dark-input": "#222531",
-          cream: "#FFF9F2",
+          dark: "#07080E",
+          "dark-card": "#0B0D14",
+          "dark-input": "#141724",
+          cream: "#ECE8DF",
           border: "#1A1A1A",
         },
-      },
-      boxShadow: {
-        brutal: "4px 4px 0px 0px #000000",
-        "brutal-sm": "2px 2px 0px 0px #000000",
-        "brutal-md": "3px 3px 0px 0px #000000",
-        "brutal-lg": "6px 6px 0px 0px #000000",
-        "brutal-xl": "8px 8px 0px 0px #000000",
-        "brutal-yellow": "4px 4px 0px 0px #FACC15",
-        "brutal-red": "4px 4px 0px 0px #DC2626",
       },
       borderRadius: {
         none: "0px",
@@ -46,7 +37,6 @@ export default {
         "2xl": "24px",
         "3xl": "32px",
         full: "9999px",
-        brutal: "16px",
       },
     },
   },

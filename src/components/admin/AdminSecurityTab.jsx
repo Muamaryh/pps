@@ -71,7 +71,7 @@ export default function AdminSecurityTab({
       <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded bg-amber-500/15 border-2 border-amber-500 flex items-center justify-center text-amber-700 dark:text-amber-300 shadow-[2px_2px_0px_#d97706] shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/60 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0">
               <Users size={20} />
             </div>
             <div className="min-w-0">
@@ -400,7 +400,7 @@ export default function AdminSecurityTab({
       <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-3.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b-2 border-black/10 dark:border-white/10 pb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded bg-sky-500/15 border-2 border-sky-600 flex items-center justify-center text-sky-700 dark:text-sky-300 shadow-[2px_2px_0px_#0284c7] shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/60 flex items-center justify-center text-sky-700 dark:text-sky-300 shrink-0">
               <Clock size={19} />
             </div>
             <div className="min-w-0">
@@ -585,7 +585,7 @@ export default function AdminSecurityTab({
       {/* Security Architecture Card */}
       <div className="card-brutal p-3.5 sm:p-5 bg-[var(--card-bg)] border border-black/15 dark:border-white/10 flex flex-col gap-4">
         <div className="flex items-center gap-3 border-b-2 border-black/10 dark:border-white/10 pb-3">
-          <div className="w-10 h-10 rounded bg-emerald-500/10 border-2 border-emerald-600 flex items-center justify-center text-emerald-600 shadow-[2px_2px_0px_#059669] shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/60 flex items-center justify-center text-emerald-600 shrink-0">
             <ShieldCheck size={20} />
           </div>
           <div>

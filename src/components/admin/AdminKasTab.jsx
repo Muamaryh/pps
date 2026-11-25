@@ -289,7 +289,7 @@ export default function AdminKasTab({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-100 dark:bg-[#20232E] border-b-2 border-black dark:border-[#475569] text-[10px] font-heading font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+              <tr className="bg-slate-100 dark:bg-[#20232E] border-b border-black/15 dark:border-white/10 text-[10px] font-heading font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 <th className="py-2.5 px-3">Tanggal / Waktu</th>
                 <th className="py-2.5 px-3">Pos Kas</th>
                 <th className="py-2.5 px-3">Jenis &amp; Kategori</th>

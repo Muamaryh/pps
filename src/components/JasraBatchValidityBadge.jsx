@@ -12,10 +12,10 @@ export default function JasraBatchValidityBadge({ batchRemaining }) {
 
   return (
     <div
-      className={`p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_#000] flex items-center gap-3 shrink-0 ${
+      className={`p-3 rounded-xl border shadow-sm flex items-center gap-3 shrink-0 ${
         isExpired
-          ? "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-          : "bg-[#FACC15] text-slate-950"
+          ? "bg-slate-100 dark:bg-white/5 border-black/15 dark:border-white/15 text-slate-700 dark:text-slate-300"
+          : "bg-[#FACC15] border-amber-500/70 text-slate-950"
       }`}
     >
       <Clock size={22} className={isExpired ? "text-slate-500" : "text-[#DC2626]"} />

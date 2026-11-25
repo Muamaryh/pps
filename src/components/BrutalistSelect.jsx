@@ -64,14 +64,16 @@ export default function BrutalistSelect({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={ariaLabel}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-left rounded bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border-2 border-black dark:border-[#475569] shadow-[3px_3px_0px_#000000] hover:translate-x-[0.5px] hover:translate-y-[0.5px] active:translate-x-[2px] active:translate-y-[2px] transition-all focus:outline-none focus:ring-2 focus:ring-[#FACC15]"
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-xs font-bold text-left rounded-xl bg-white dark:bg-[#141724] text-slate-900 dark:text-slate-100 border border-black/20 dark:border-white/15 hover:border-[#FACC15]/80 shadow-sm active:translate-y-0.5 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
       >
         <span className="truncate pr-1 text-slate-900 dark:text-slate-100">
           {selectedOption.label || placeholder}
         </span>
         <div
-          className={`w-6 h-6 rounded bg-[#FACC15] text-[#111827] border border-black flex items-center justify-center shrink-0 shadow-[1px_1px_0px_#000] transition-transform duration-200 ${
-            isOpen ? "rotate-180 bg-[#DC2626] text-white" : ""
+          className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200 border ${
+            isOpen
+              ? "rotate-180 bg-[#DC2626] text-white border-red-500/70"
+              : "bg-[#FACC15]/90 text-[#111827] border-amber-500/50"
           }`}
         >
           <ChevronDown size={14} strokeWidth={2.5} />
@@ -82,7 +84,7 @@ export default function BrutalistSelect({
       {isOpen && (
         <div
           role="listbox"
-          className="absolute left-0 top-full mt-1.5 w-full z-[90] rounded-xl bg-[#FFFDF9] dark:bg-[#1A1D26] border-[2.5px] border-[#1A1A1A] dark:border-[#475569] shadow-[6px_6px_0px_#000000] overflow-hidden max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
+          className="absolute left-0 top-full mt-1.5 w-full z-[90] rounded-xl bg-white dark:bg-[#0E111B] border border-black/15 dark:border-white/15 shadow-[0_14px_34px_-6px_rgba(15,23,42,0.22)] dark:shadow-[0_18px_40px_-6px_rgba(0,0,0,0.85)] overflow-hidden max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
         >
           {normalizedOptions.map((opt, idx) => {
             const isSelected = opt.value === value;

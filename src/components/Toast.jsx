@@ -18,7 +18,8 @@ export default function Toast({ message, type = "info", onClose }) {
   return (
     <div
       onClick={onClose}
-      className="cursor-pointer card-brutal flex items-center gap-2.5 px-4 py-2.5 bg-[var(--card-bg)] text-[#1A1A1A] dark:text-[#E3E5E8] font-heading font-black text-xs border-2 shadow-[3px_3px_0px_#1A1A1A] dark:shadow-[3px_3px_0px_#000] animate-in fade-in slide-in-from-bottom-3 duration-150"
+      role="status"
+      className="cursor-pointer flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white dark:bg-[#0E111B] text-slate-900 dark:text-slate-100 font-heading font-bold text-xs border border-black/15 dark:border-white/15 shadow-[0_12px_28px_-6px_rgba(15,23,42,0.2)] dark:shadow-[0_14px_34px_-6px_rgba(0,0,0,0.85)] animate-in fade-in slide-in-from-bottom-3 duration-150"
     >
       {icons[type] || icons.info}
       <span>{message}</span>
