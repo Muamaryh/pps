@@ -126,7 +126,7 @@ export default function Footer({
               </li>
               <li>
                 <a
-                  href="#/struktur"
+                  href="/struktur"
                   onClick={(e) => {
                     if (onNavigateToStructure) {
                       e.preventDefault();
@@ -143,7 +143,7 @@ export default function Footer({
               </li>
               <li>
                 <a
-                  href="#/dokumentasi"
+                  href="/dokumentasi"
                   onClick={(e) => {
                     if (onNavigateToGallery) {
                       e.preventDefault();

@@ -13,6 +13,8 @@ import {
   updateDoc,
   deleteDoc,
   onSnapshot,
+  query,
+  where,
 } from "firebase/firestore";
 
 const memberFirebaseConfig = {
@@ -49,8 +51,12 @@ const MEMBERS_COL_PATH = ["artifacts", APP_ID, "public", "data", "members"];
 const EXTERNAL_JASRA_COL_PATH = ["artifacts", APP_ID, "public", "data", "external_jasra"];
 const JASRA_DISTRIBUTIONS_COL_PATH = ["artifacts", APP_ID, "public", "data", "jasra_distributions"];
 const DISMISSED_MEMBERS_COL_PATH = ["artifacts", APP_ID, "public", "data", "dismissed_members"];
+const MEMBER_ACTIVITY_LOGS_COL_PATH = ["artifacts", APP_ID, "public", "data", "member_activity_logs"];
 const EXTERNAL_JASRA_STORAGE_KEY = "pps_external_jasra_cache";
 const DISMISSED_MEMBERS_STORAGE_KEY = "pps_dismissed_members_cache";
+
+export const ACTIVITY_TARGET_NONGKRONG = 7;
+export const ACTIVITY_TARGET_AGENDA = 4;
 
 /**
  * Fetch all external Jasra recipients (non-members) from cloud database
@@ -1433,4 +1439,192 @@ export async function purgeApprovedHudPhotosCloud() {
   }
 
   return { purgedCount, skippedPending };
+}
+
+/**
+ * Compute normalized activity verification summary from a member record
+ */
+export function getMemberActivitySummary(member) {
+  const raw = member?.activitySummary || {};
+  const nongkrongCount = Math.max(0, Number(raw.nongkrongCount) || 0);
+  const agendaCount = Math.max(0, Number(raw.agendaCount) || 0);
+  const isEligible =
+    nongkrongCount >= ACTIVITY_TARGET_NONGKRONG ||
+    agendaCount >= ACTIVITY_TARGET_AGENDA;
+
+  return {
+    nongkrongCount,
+    agendaCount,
+    totalCount: nongkrongCount + agendaCount,
+    isEligible,
+    lastActivityAt: raw.lastActivityAt || null,
+    lastMonitorName: raw.lastMonitorName || "",
+  };
+}
+
+/**
+ * Compress screenshot evidence (File or Blob from upload / Ctrl+V paste)
+ * Keeps image sharp for verification while staying ~45-100 KB for fast Firestore storage.
+ */
+export function compressActivityScreenshotFile(file, maxWidth = 1280, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error("File screenshot tidak ditemukan."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Gagal membaca file gambar."));
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Format gambar tidak didukung."));
+      img.onload = () => {
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        if (dataUrl.length > 420000) {
+          dataUrl = canvas.toDataURL("image/jpeg", 0.55);
+        }
+        const approxBytes = Math.round((dataUrl.length * 3) / 4);
+        resolve({
+          dataUrl,
+          sizeKb: Math.max(1, Math.round(approxBytes / 1024)),
+        });
+      };
+      img.src = ev.target?.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function syncMemberActivitySummaryFromLogs(memberId) {
+  const colRef = collection(getMemberDb(), ...MEMBER_ACTIVITY_LOGS_COL_PATH);
+  const q = query(colRef, where("memberId", "==", memberId));
+  const snap = await getDocs(q);
+
+  let nongkrongCount = 0;
+  let agendaCount = 0;
+  let lastActivityAt = null;
+  let lastMonitorName = "";
+
+  snap.forEach((d) => {
+    const item = d.data();
+    const kind = String(item.type || "").toUpperCase();
+    if (kind === "AGENDA") agendaCount += 1;
+    else nongkrongCount += 1;
+
+    const ts = Number(item.createdAt) || 0;
+    if (!lastActivityAt || ts > lastActivityAt) {
+      lastActivityAt = ts;
+      lastMonitorName = item.monitorName || "";
+    }
+  });
+
+  const activitySummary = {
+    nongkrongCount,
+    agendaCount,
+    totalCount: nongkrongCount + agendaCount,
+    isEligible:
+      nongkrongCount >= ACTIVITY_TARGET_NONGKRONG ||
+      agendaCount >= ACTIVITY_TARGET_AGENDA,
+    lastActivityAt,
+    lastMonitorName,
+    updatedAt: Date.now(),
+  };
+
+  await updateDoc(doc(getMemberDb(), ...MEMBERS_COL_PATH, memberId), {
+    activitySummary,
+  });
+
+  return activitySummary;
+}
+
+/**
+ * Load all activity verification logs for a specific member (sorted newest first)
+ */
+export async function loadMemberActivityLogsCloud(memberId) {
+  if (!memberId) return [];
+  const colRef = collection(getMemberDb(), ...MEMBER_ACTIVITY_LOGS_COL_PATH);
+  const q = query(colRef, where("memberId", "==", memberId));
+  const snap = await getDocs(q);
+  const logs = [];
+  snap.forEach((d) => {
+    logs.push({ id: d.id, ...d.data() });
+  });
+  logs.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+  return logs;
+}
+
+/**
+ * Add a new activity verification log (NONGKRONG or AGENDA) with required screenshot evidence & monitor name
+ */
+export async function addMemberActivityLogCloud(member, entry = {}) {
+  if (!member || !member.id) {
+    throw new Error("Data calon anggota tidak valid.");
+  }
+  const type = String(entry.type || "NONGKRONG").toUpperCase() === "AGENDA" ? "AGENDA" : "NONGKRONG";
+  const monitorName = String(entry.monitorName || "").trim();
+  const screenshotDataUrl = String(entry.screenshotDataUrl || "").trim();
+  const notes = String(entry.notes || "").trim();
+
+  if (!monitorName) {
+    throw new Error("Nama admin / korlap pemantau wajib diisi.");
+  }
+  if (!screenshotDataUrl) {
+    throw new Error("Bukti screenshot (SC) wajib dilampirkan.");
+  }
+
+  const now = Date.now();
+  const logId = `ACT_${member.id}_${now}_${Math.random().toString(36).substring(2, 6)}`;
+  const dateObj = new Date(now);
+  const activityDateLabel = dateObj.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const activityTimeLabel = dateObj.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const payload = {
+    id: logId,
+    memberId: member.id,
+    memberName: member.fullName || "",
+    memberCid: member.icNumber || "",
+    type,
+    monitorName,
+    notes,
+    screenshotUrl: screenshotDataUrl,
+    activityDateLabel,
+    activityTimeLabel: `${activityTimeLabel} WIB`,
+    createdAt: now,
+  };
+
+  await setDoc(doc(getMemberDb(), ...MEMBER_ACTIVITY_LOGS_COL_PATH, logId), payload);
+  const activitySummary = await syncMemberActivitySummaryFromLogs(member.id);
+
+  return { log: payload, activitySummary };
+}
+
+/**
+ * Delete a specific activity verification log and resync member's summary counters
+ */
+export async function deleteMemberActivityLogCloud(memberId, logId) {
+  if (!memberId || !logId) {
+    throw new Error("ID anggota dan ID catatan wajib disertakan.");
+  }
+  await deleteDoc(doc(getMemberDb(), ...MEMBER_ACTIVITY_LOGS_COL_PATH, logId));
+  const activitySummary = await syncMemberActivitySummaryFromLogs(memberId);
+  return { deletedId: logId, activitySummary };
 }

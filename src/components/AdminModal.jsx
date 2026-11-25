@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, LayoutDashboard, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, EyeOff, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, UserPlus, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight } from "lucide-react";
+import { X, Lock, Save, RotateCcw, Plus, Trash2, Shield, Layout, LayoutDashboard, FileText, Users, Camera, Compass, Target, LogOut, Inbox, Phone, MessageSquare, Tag, CheckCircle2, Maximize2, ExternalLink, ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Users2, User, FileSpreadsheet, Archive, Search, Download, Eye, EyeOff, Ticket, CheckSquare, Square, DollarSign, Gift, Check, Clock, Calendar, Edit2, Settings2, SlidersHorizontal, Dices, CreditCard, Fuel, Utensils, Wheat, ShoppingBag, Package, TrendingDown, TrendingUp, Copy, HeartHandshake, ScanLine, Menu, Landmark, Wallet, GitBranch, UserMinus, UserX, UserCheck, UserPlus, Briefcase, AlertCircle, Upload, Loader2, Layers, Send, ArrowLeftRight, ClipboardCheck } from "lucide-react";
 import { saveCloudData, resetCloudData, loadCloudData, loadSubmissions, updateSubmissions, loadAdminAccountsConfig, saveAdminAccountsConfig, loadAdminActivityLogsCloud, logAdminActivityCloud } from "../services/firebase";
 import {
   subscribeMembersCloud,
@@ -40,6 +40,9 @@ import {
   formatDismissedDateTime,
   cleanupDuplicateMembersCloud,
   updateMemberProfileCloud,
+  ACTIVITY_TARGET_NONGKRONG,
+  ACTIVITY_TARGET_AGENDA,
+  getMemberActivitySummary,
 } from "../services/memberService";
 import { scanKtpImage, getGeminiApiKey, resolveGeminiApiKey, setGeminiApiKey } from "../utils/ktpOcr";
 import {
@@ -93,6 +96,7 @@ const AdminOverviewTab = lazy(() => import("./admin/AdminOverviewTab"));
 const AdminSubmissionsTab = lazy(() => import("./admin/AdminSubmissionsTab"));
 const AdminKasTab = lazy(() => import("./admin/AdminKasTab"));
 const AdminSecurityTab = lazy(() => import("./admin/AdminSecurityTab"));
+const MemberActivityModal = lazy(() => import("./admin/MemberActivityModal"));
 import {
   loadJasraBatchesCloud,
   subscribeJasraBatchesCloud,
@@ -547,12 +551,13 @@ export default function AdminModal({
   });
 
   // Member Registration Verification State (Verifikasi Anggota Baru)
-  const [memberRegFilterTab, setMemberRegFilterTab] = useState("PENDING"); // 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'
+  const [memberRegFilterTab, setMemberRegFilterTab] = useState("PENDING"); // 'PENDING' | 'READY' | 'APPROVED' | 'REJECTED' | 'ALL'
   const [memberRegSearchQuery, setMemberRegSearchQuery] = useState("");
   const [previewImageDetail, setPreviewImageDetail] = useState(null); // { url, title, subtitle }
   const [rejectTargetMember, setRejectTargetMember] = useState(null);
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
   const [isProcessingRegAction, setIsProcessingRegAction] = useState(false);
+  const [activityTargetMember, setActivityTargetMember] = useState(null);
 
   // Event & Registration State
   const [eventsList, setEventsList] = useState(() => {
@@ -1586,15 +1591,16 @@ export default function AdminModal({
   }
 
   // Handlers for Member Registration Verification
-  async function handleApproveMemberRegistration(member) {
+  async function executeApproveMemberRegistration(member, isDispensation = false) {
     if (!member || !member.id) return;
     setIsProcessingRegAction(true);
     try {
       await approveMemberCloud(member.id, activeAdminName);
+      const act = getMemberActivitySummary(member);
       recordActivity(
         "ANGGOTA",
-        "ACC Pendaftaran Anggota",
-        `${member.fullName || "-"} (${member.icNumber || "-"})`
+        isDispensation ? "ACC Pendaftaran (Dispensasi)" : "ACC Pendaftaran Anggota",
+        `${member.fullName || "-"} (${member.icNumber || "-"}) • Keaktifan: ${act.nongkrongCount}/${ACTIVITY_TARGET_NONGKRONG} Nongkrong, ${act.agendaCount}/${ACTIVITY_TARGET_AGENDA} Agenda`
       );
       sendDiscordNotification("MEMBER_APPROVED", {
         fullName: member.fullName || "-",
@@ -1602,13 +1608,35 @@ export default function AdminModal({
         discordTag: member.discordTag || "-",
         verifiedBy: activeAdminName,
       }).catch(() => {});
-      onShowToast(`Pendaftaran ${member.fullName || "Anggota"} berhasil DISETUJUI menjadi Anggota Resmi!`, "success");
+      onShowToast(
+        isDispensation
+          ? `Pendaftaran ${member.fullName || "Anggota"} DISETUJUI (via Dispensasi Pengurus)!`
+          : `Pendaftaran ${member.fullName || "Anggota"} berhasil DISETUJUI menjadi Anggota Resmi!`,
+        "success"
+      );
     } catch (err) {
       console.error("Gagal menyetujui pendaftaran anggota:", err);
       onShowToast("Gagal menyetujui pendaftaran anggota.", "error");
     } finally {
       setIsProcessingRegAction(false);
     }
+  }
+
+  function handleApproveMemberRegistration(member) {
+    if (!member || !member.id) return;
+    const act = getMemberActivitySummary(member);
+    if (!act.isEligible) {
+      setConfirmModal({
+        isOpen: true,
+        title: "Syarat Keaktifan Belum Terpenuhi",
+        message: `Calon anggota ${member.fullName || "-"} baru tercatat ${act.nongkrongCount}/${ACTIVITY_TARGET_NONGKRONG}x Kumpul Nongkrong dan ${act.agendaCount}/${ACTIVITY_TARGET_AGENDA}x Agenda Aktivitas. Syarat verifikasi Korlap adalah minimal ${ACTIVITY_TARGET_NONGKRONG}x Nongkrong atau ${ACTIVITY_TARGET_AGENDA}x Agenda disertai bukti SC. Tetap paksa ACC sebagai dispensasi Ketua / Pengurus?`,
+        confirmText: "Ya, Tetap ACC (Dispensasi)",
+        variant: "warning",
+        onConfirm: () => executeApproveMemberRegistration(member, true),
+      });
+      return;
+    }
+    executeApproveMemberRegistration(member, false);
   }
 
   function handleOpenRejectModal(member) {
@@ -3673,12 +3701,17 @@ export default function AdminModal({
   const pendingMembersCount = membersList.filter((m) => m.status === "PENDING_VERIFIKASI").length;
 
   let pendingRegistrationsCount = 0;
+  let eligiblePendingRegistrationsCount = 0;
   let approvedRegistrationsCount = 0;
   let rejectedRegistrationsCount = 0;
 
   membersList.forEach((m) => {
-    if (m.status === "PENDING_VERIFIKASI") pendingRegistrationsCount++;
-    else if (m.status === "REJECTED") rejectedRegistrationsCount++;
+    if (m.status === "PENDING_VERIFIKASI") {
+      pendingRegistrationsCount++;
+      if (getMemberActivitySummary(m).isEligible) {
+        eligiblePendingRegistrationsCount++;
+      }
+    } else if (m.status === "REJECTED") rejectedRegistrationsCount++;
     else approvedRegistrationsCount++;
   });
 
@@ -3686,6 +3719,12 @@ export default function AdminModal({
 
   const memberRegistrationsList = membersList.filter((m) => {
     if (memberRegFilterTab === "PENDING" && m.status !== "PENDING_VERIFIKASI") return false;
+    if (
+      memberRegFilterTab === "READY" &&
+      (m.status !== "PENDING_VERIFIKASI" || !getMemberActivitySummary(m).isEligible)
+    ) {
+      return false;
+    }
     if (memberRegFilterTab === "APPROVED" && (m.status === "PENDING_VERIFIKASI" || m.status === "REJECTED")) return false;
     if (memberRegFilterTab === "REJECTED" && m.status !== "REJECTED") return false;
 
@@ -3709,6 +3748,12 @@ export default function AdminModal({
   memberRegistrationsList.sort((a, b) => {
     if (a.status === "PENDING_VERIFIKASI" && b.status !== "PENDING_VERIFIKASI") return -1;
     if (b.status === "PENDING_VERIFIKASI" && a.status !== "PENDING_VERIFIKASI") return 1;
+    if (a.status === "PENDING_VERIFIKASI" && b.status === "PENDING_VERIFIKASI") {
+      const aElig = getMemberActivitySummary(a).isEligible;
+      const bElig = getMemberActivitySummary(b).isEligible;
+      if (aElig && !bElig) return -1;
+      if (!aElig && bElig) return 1;
+    }
     const timeA = a.submittedAt || (a.regDate ? new Date(a.regDate).getTime() : 0);
     const timeB = b.submittedAt || (b.regDate ? new Date(b.regDate).getTime() : 0);
     return timeB - timeA;
@@ -5680,6 +5725,20 @@ export default function AdminModal({
 
                       <button
                         type="button"
+                        onClick={() => setMemberRegFilterTab("READY")}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                          memberRegFilterTab === "READY"
+                            ? "bg-emerald-600 text-white shadow-sm border border-emerald-500 font-black"
+                            : "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/35 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400/50 dark:border-emerald-700/60"
+                        }`}
+                        title="Calon anggota yang sudah memenuhi 7x Nongkrong atau 4x Agenda Aktivitas"
+                      >
+                        <ClipboardCheck size={13} />
+                        <span>Siap ACC ({eligiblePendingRegistrationsCount})</span>
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => setMemberRegFilterTab("ALL")}
                         className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-black flex items-center gap-1.5 cursor-pointer transition-all ${
                           memberRegFilterTab === "ALL"
@@ -6036,6 +6095,101 @@ export default function AdminModal({
                                 </div>
                               </div>
                             </div>
+
+                            {/* Panel Verifikasi Keaktifan Lapangan (khusus yang masih verifikasi, atau arsip jika pernah punya bukti SC) */}
+                            {(() => {
+                              const act = getMemberActivitySummary(applicant);
+                              if (!isPending && act.totalCount === 0) return null;
+                              const nongkrongPct = Math.min(100, Math.round((act.nongkrongCount / ACTIVITY_TARGET_NONGKRONG) * 100));
+                              const agendaPct = Math.min(100, Math.round((act.agendaCount / ACTIVITY_TARGET_AGENDA) * 100));
+
+                              return (
+                                <div
+                                  className={`p-3.5 rounded-xl border flex flex-col lg:flex-row lg:items-center justify-between gap-3 ${
+                                    act.isEligible
+                                      ? "bg-emerald-50/70 dark:bg-emerald-950/25 border-emerald-400/60 dark:border-emerald-500/40"
+                                      : "bg-[#FAF8F3] dark:bg-[#121622] border-black/10 dark:border-white/10"
+                                  }`}
+                                >
+                                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {/* Bar Nongkrong */}
+                                    <div className="space-y-1">
+                                      <div className="flex items-center justify-between text-[11px] font-heading font-black uppercase">
+                                        <span className="text-slate-700 dark:text-slate-300">Kumpul Nongkrong</span>
+                                        <span
+                                          className={`font-mono ${
+                                            act.nongkrongCount >= ACTIVITY_TARGET_NONGKRONG
+                                              ? "text-emerald-700 dark:text-emerald-300"
+                                              : "text-amber-700 dark:text-[#FACC15]"
+                                          }`}
+                                        >
+                                          {act.nongkrongCount}/{ACTIVITY_TARGET_NONGKRONG}x
+                                        </span>
+                                      </div>
+                                      <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full transition-all ${
+                                            act.nongkrongCount >= ACTIVITY_TARGET_NONGKRONG ? "bg-emerald-500" : "bg-[#FACC15]"
+                                          }`}
+                                          style={{ width: `${nongkrongPct}%` }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Bar Agenda Aktivitas */}
+                                    <div className="space-y-1">
+                                      <div className="flex items-center justify-between text-[11px] font-heading font-black uppercase">
+                                        <span className="text-slate-700 dark:text-slate-300">Agenda Aktivitas</span>
+                                        <span
+                                          className={`font-mono ${
+                                            act.agendaCount >= ACTIVITY_TARGET_AGENDA
+                                              ? "text-emerald-700 dark:text-emerald-300"
+                                              : "text-[#DC2626] dark:text-rose-400"
+                                          }`}
+                                        >
+                                          {act.agendaCount}/{ACTIVITY_TARGET_AGENDA}x
+                                        </span>
+                                      </div>
+                                      <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full transition-all ${
+                                            act.agendaCount >= ACTIVITY_TARGET_AGENDA ? "bg-emerald-500" : "bg-[#DC2626]"
+                                          }`}
+                                          style={{ width: `${agendaPct}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Status & Tombol Buka Panel Catat + Bukti SC */}
+                                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                                    {act.isEligible ? (
+                                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-heading font-black uppercase bg-emerald-600 text-white flex items-center gap-1 shadow-xs">
+                                        <CheckCircle2 size={12} />
+                                        <span>Layak ACC</span>
+                                      </span>
+                                    ) : (
+                                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-heading font-black uppercase bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-500/40">
+                                        Belum Memenuhi
+                                      </span>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setActivityTargetMember(applicant)}
+                                      className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white/10 dark:hover:bg-white/15 text-white border border-black/20 dark:border-white/15 font-heading font-black text-[11px] uppercase flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors"
+                                    >
+                                      <ClipboardCheck size={13} className="text-[#FACC15]" />
+                                      <span>
+                                        {isPending
+                                          ? `Catat & Bukti SC (${act.totalCount})`
+                                          : `Arsip Bukti SC (${act.totalCount})`}
+                                      </span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Info Kontak & Persetujuan MOU */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-100/80 dark:bg-slate-800/40 border border-black/10 dark:border-white/10 text-xs">
@@ -6840,13 +6994,29 @@ export default function AdminModal({
                                         citizenId: member.icNumber || "",
                                       })
                                     }
-                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-sans font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/30 dark:border-slate-600 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-sans font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-black/15 dark:border-white/15 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                                     title="Lihat foto profil resolusi penuh"
                                   >
                                     <Eye size={12} className="shrink-0" />
                                     <span>Foto</span>
                                   </button>
                                 )}
+
+                                {(() => {
+                                  const act = getMemberActivitySummary(member);
+                                  if (act.totalCount === 0) return null;
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => setActivityTargetMember(member)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-sans font-bold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 border border-indigo-300/70 dark:border-indigo-700/60 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                                      title={`Arsip bukti SC verifikasi: ${act.nongkrongCount}/${ACTIVITY_TARGET_NONGKRONG} Nongkrong, ${act.agendaCount}/${ACTIVITY_TARGET_AGENDA} Agenda`}
+                                    >
+                                      <ClipboardCheck size={12} className="shrink-0" />
+                                      <span>Arsip SC ({act.totalCount})</span>
+                                    </button>
+                                  );
+                                })()}
                               </div>
 
                               {/* Right: Tombol Edit, Keluarkan & Hapus */}
@@ -7006,6 +7176,37 @@ export default function AdminModal({
                                   </span>
                                 </div>
                               </div>
+
+                              {/* Ringkasan Keaktifan Korlap di Sub-Tab Pending */}
+                              {(() => {
+                                const act = getMemberActivitySummary(member);
+                                return (
+                                  <div className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-[#FAF8F3] dark:bg-[#141724] border border-black/10 dark:border-white/10 text-[10px] font-mono">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className={act.nongkrongCount >= ACTIVITY_TARGET_NONGKRONG ? "text-emerald-600 dark:text-emerald-400 font-black" : "text-slate-700 dark:text-slate-300 font-bold"}>
+                                        Nongkrong {act.nongkrongCount}/{ACTIVITY_TARGET_NONGKRONG}
+                                      </span>
+                                      <span className="text-slate-400">•</span>
+                                      <span className={act.agendaCount >= ACTIVITY_TARGET_AGENDA ? "text-emerald-600 dark:text-emerald-400 font-black" : "text-slate-700 dark:text-slate-300 font-bold"}>
+                                        Agenda {act.agendaCount}/{ACTIVITY_TARGET_AGENDA}
+                                      </span>
+                                      {act.isEligible && (
+                                        <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-heading font-black text-[9px] uppercase">
+                                          Layak
+                                        </span>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setActivityTargetMember(member)}
+                                      className="px-2 py-1 rounded-md bg-slate-900 hover:bg-slate-800 dark:bg-[#FACC15] dark:hover:bg-yellow-400 text-white dark:text-slate-950 font-heading font-black text-[10px] uppercase flex items-center gap-1 cursor-pointer shrink-0"
+                                    >
+                                      <ClipboardCheck size={11} />
+                                      <span>Catat SC</span>
+                                    </button>
+                                  </div>
+                                );
+                              })()}
 
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {member.icPhoto && (
@@ -9714,6 +9915,50 @@ export default function AdminModal({
               loadKasLedgerCloud().then((list) => {
                 if (Array.isArray(list)) setKasTransactions(list);
               });
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* Modal Verifikasi Keaktifan & Bukti SC Korlap */}
+      {activityTargetMember && (
+        <Suspense fallback={null}>
+          <MemberActivityModal
+            key={activityTargetMember.id}
+            isOpen={Boolean(activityTargetMember)}
+            member={activityTargetMember}
+            defaultMonitorName={activeAdminName}
+            onClose={() => setActivityTargetMember(null)}
+            onShowToast={onShowToast}
+            onPreviewImage={(detail) => setPreviewImageDetail(detail)}
+            onRequestApprove={(m) => handleApproveMemberRegistration(m)}
+            onActivityChanged={(targetMember, nextSummary, meta) => {
+              setMembersList((prev) =>
+                prev.map((item) =>
+                  item.id === targetMember.id
+                    ? { ...item, activitySummary: nextSummary }
+                    : item
+                )
+              );
+              setActivityTargetMember((prev) =>
+                prev && prev.id === targetMember.id
+                  ? { ...prev, activitySummary: nextSummary }
+                  : prev
+              );
+              if (meta?.action === "ADD" && meta?.log) {
+                const label = meta.log.type === "AGENDA" ? "Agenda Aktivitas" : "Kumpul Nongkrong";
+                recordActivity(
+                  "ANGGOTA",
+                  "Catat Keaktifan Calon Anggota",
+                  `${targetMember.fullName || "-"} (${label} • Pemantau: ${meta.log.monitorName || activeAdminName}) -> ${nextSummary.nongkrongCount}/${ACTIVITY_TARGET_NONGKRONG} Nongkrong, ${nextSummary.agendaCount}/${ACTIVITY_TARGET_AGENDA} Agenda`
+                );
+              } else if (meta?.action === "DELETE") {
+                recordActivity(
+                  "ANGGOTA",
+                  "Hapus Catatan Keaktifan",
+                  `${targetMember.fullName || "-"} -> ${nextSummary.nongkrongCount}/${ACTIVITY_TARGET_NONGKRONG} Nongkrong, ${nextSummary.agendaCount}/${ACTIVITY_TARGET_AGENDA} Agenda`
+                );
+              }
             }}
           />
         </Suspense>

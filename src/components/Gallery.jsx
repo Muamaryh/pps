@@ -39,8 +39,8 @@ export default function Gallery({
     if (onNavigateToGallery) {
       onNavigateToGallery();
     } else {
-      window.history.pushState(null, "", "#/galeri");
-      window.dispatchEvent(new Event("hashchange"));
+      window.history.pushState(null, "", "/dokumentasi");
+      window.dispatchEvent(new Event("popstate"));
     }
   }
 

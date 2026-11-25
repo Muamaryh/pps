@@ -24,8 +24,8 @@ export default function Navbar({
     { name: "Beranda", url: "#home" },
     { name: "Tentang", url: "#about" },
     { name: "Program", url: "#program" },
-    { name: "Struktur", url: "#/struktur" },
-    { name: "Dokumentasi", url: "#/dokumentasi" },
+    { name: "Struktur", url: "/struktur" },
+    { name: "Dokumentasi", url: "/dokumentasi" },
   ];
 
   const parsedLinks = navLinks
@@ -35,12 +35,22 @@ export default function Navbar({
           const parts = item.split("|");
           if (parts.length === 2) {
             let name = parts[0].trim();
-            const url = parts[1].trim();
+            let url = parts[1].trim();
             if (name.toLowerCase().includes("discord") || name.toLowerCase().includes("daftar")) {
               return null;
             }
             if (name.toLowerCase().includes("galeri") || name.toLowerCase().includes("gallery")) {
               name = "Dokumentasi";
+            }
+            const lowerUrl = url.toLowerCase();
+            if (lowerUrl.includes("struktur") || lowerUrl.includes("structure")) {
+              url = "/struktur";
+            } else if (
+              lowerUrl.includes("dokumentasi") ||
+              lowerUrl.includes("galeri") ||
+              lowerUrl.includes("gallery")
+            ) {
+              url = "/dokumentasi";
             }
             return { name, url };
           }
@@ -98,8 +108,8 @@ export default function Navbar({
       } else if (onNavigateToStructure) {
         onNavigateToStructure();
       } else {
-        window.history.pushState(null, "", "#/struktur");
-        window.dispatchEvent(new Event("hashchange"));
+        window.history.pushState(null, "", "/struktur");
+        window.dispatchEvent(new Event("popstate"));
       }
       return;
     }
@@ -119,8 +129,8 @@ export default function Navbar({
       } else if (onNavigateToGallery) {
         onNavigateToGallery();
       } else {
-        window.history.pushState(null, "", "#/dokumentasi");
-        window.dispatchEvent(new Event("hashchange"));
+        window.history.pushState(null, "", "/dokumentasi");
+        window.dispatchEvent(new Event("popstate"));
       }
       return;
     }

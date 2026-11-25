@@ -500,7 +500,7 @@ export default function App() {
     return path === "/donasi" || path.endsWith("/donasi") || hash === "#/donasi" || hash === "#donasi";
   });
 
-  // Dedicated Page Routing (default 'home', can be 'gallery' for #/dokumentasi or 'structure' for #/struktur)
+  // Dedicated Page Routing (default 'home', can be 'gallery' for /dokumentasi or 'structure' for /struktur)
   const [currentPage, setCurrentPage] = useState(() => {
     if (typeof window === "undefined") return "home";
     const path = window.location.pathname.toLowerCase();
@@ -682,8 +682,14 @@ export default function App() {
 
       if (isStructureRoute) {
         setCurrentPage("structure");
+        if (hash.includes("struktur") || hash.includes("structure")) {
+          window.history.replaceState(null, "", "/struktur");
+        }
       } else if (isGalleryRoute) {
         setCurrentPage("gallery");
+        if (hash.includes("dokumentasi") || hash.includes("galeri") || hash.includes("gallery")) {
+          window.history.replaceState(null, "", "/dokumentasi");
+        }
       } else {
         setCurrentPage("home");
       }
@@ -985,8 +991,9 @@ export default function App() {
   // Dedicated Structure Page navigation handlers
   function handleNavigateToStructure() {
     setCurrentPage("structure");
-    if (!window.location.hash.includes("struktur") && !window.location.pathname.includes("struktur")) {
-      window.history.pushState(null, "", "#/struktur");
+    const currentPath = window.location.pathname.toLowerCase().replace(/\/+$/, "");
+    if (currentPath !== "/struktur" || window.location.hash) {
+      window.history.pushState(null, "", "/struktur");
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -994,8 +1001,9 @@ export default function App() {
   // Dedicated Gallery / Dokumentasi Page navigation handlers
   function handleNavigateToGallery() {
     setCurrentPage("gallery");
-    if (!window.location.hash.includes("dokumentasi") && !window.location.pathname.includes("dokumentasi")) {
-      window.history.pushState(null, "", "#/dokumentasi");
+    const currentPath = window.location.pathname.toLowerCase().replace(/\/+$/, "");
+    if (currentPath !== "/dokumentasi" || window.location.hash) {
+      window.history.pushState(null, "", "/dokumentasi");
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1003,9 +1011,10 @@ export default function App() {
   function handleNavigateToHome(targetAnchor = "") {
     setCurrentPage("home");
     if (targetAnchor && targetAnchor !== "#home") {
-      window.history.pushState(null, "", targetAnchor);
+      const cleanAnchor = targetAnchor.startsWith("#") ? targetAnchor : `#${targetAnchor}`;
+      window.history.pushState(null, "", `/${cleanAnchor}`);
       setTimeout(() => {
-        const elem = document.getElementById(targetAnchor.replace("#", ""));
+        const elem = document.getElementById(cleanAnchor.replace("#", ""));
         if (elem) elem.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 70);
     } else {
