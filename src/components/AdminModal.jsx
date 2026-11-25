@@ -551,7 +551,7 @@ export default function AdminModal({
   });
 
   // Member Registration Verification State (Verifikasi Anggota Baru)
-  const [memberRegFilterTab, setMemberRegFilterTab] = useState("PENDING"); // 'PENDING' | 'READY' | 'APPROVED' | 'REJECTED' | 'ALL'
+  const [memberRegFilterTab, setMemberRegFilterTab] = useState("PENDING"); // 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'
   const [memberRegSearchQuery, setMemberRegSearchQuery] = useState("");
   const [previewImageDetail, setPreviewImageDetail] = useState(null); // { url, title, subtitle }
   const [rejectTargetMember, setRejectTargetMember] = useState(null);
@@ -3719,12 +3719,6 @@ export default function AdminModal({
 
   const memberRegistrationsList = membersList.filter((m) => {
     if (memberRegFilterTab === "PENDING" && m.status !== "PENDING_VERIFIKASI") return false;
-    if (
-      memberRegFilterTab === "READY" &&
-      (m.status !== "PENDING_VERIFIKASI" || !getMemberActivitySummary(m).isEligible)
-    ) {
-      return false;
-    }
     if (memberRegFilterTab === "APPROVED" && (m.status === "PENDING_VERIFIKASI" || m.status === "REJECTED")) return false;
     if (memberRegFilterTab === "REJECTED" && m.status !== "REJECTED") return false;
 
@@ -5682,6 +5676,12 @@ export default function AdminModal({
                               {pendingRegistrationsCount} Menunggu Tindakan
                             </span>
                           )}
+                          {eligiblePendingRegistrationsCount > 0 && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-heading font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 border border-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 size={11} />
+                              {eligiblePendingRegistrationsCount} Lulus 7x/4x
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           Tinjau berkas pendaftaran calon anggota: Foto Profil IC, Dokumen KTP IC, dan Screenshot Status HUD IC.
@@ -5721,20 +5721,6 @@ export default function AdminModal({
                       >
                         <Clock size={13} />
                         <span>Menunggu Verifikasi ({pendingRegistrationsCount})</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setMemberRegFilterTab("READY")}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-heading font-black flex items-center gap-1.5 cursor-pointer transition-all ${
-                          memberRegFilterTab === "READY"
-                            ? "bg-emerald-600 text-white shadow-sm border border-emerald-500 font-black"
-                            : "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/35 dark:hover:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-400/50 dark:border-emerald-700/60"
-                        }`}
-                        title="Calon anggota yang sudah memenuhi 7x Nongkrong atau 4x Agenda Aktivitas"
-                      >
-                        <ClipboardCheck size={13} />
-                        <span>Siap ACC ({eligiblePendingRegistrationsCount})</span>
                       </button>
 
                       <button
