@@ -10,10 +10,6 @@ export const DEFAULT_ADMIN_PIN = "114123";
 export const DEFAULT_ADMIN_HASH = "2d7cf6e415d67c0f7997c17bd757cd331f2f66e32c75c4f8d7dda6a4657a4b68";
 export const DEFAULT_PIN_HASH = "b99066b359329d84e3dc5aa09933ed3cd4dc7359a8d3b6661a590a19bbe42aa2";
 
-// Legacy hashes kept for seamless transition
-const LEGACY_ADMIN_HASH = "259ccb1e006f68032bb7659d2b4d941132d0492e6530073a15271665dd29284e";
-const LEGACY_PIN_HASH = "96cae35ce8a9b0244178bf28e4966c2ce1b8385723a96a6b838858cdd6ca0a1e";
-
 /**
  * Hashes a string using standard browser Web Crypto API (SHA-256)
  * @param {string} text
@@ -28,8 +24,9 @@ export async function hashPassword(text) {
 }
 
 /**
- * Verifies if input password/PIN matches the stored hash or legacy plain text
- * Also accepts master fallbacks (PIN: 114123 & PW: @adminpps22h6) and handles mobile auto-capitalization
+ * Verifies if input password/PIN matches the stored activation hash or plain text.
+ * Default PIN/password fallbacks are ONLY accepted when the stored hash is still the default
+ * (once changed by Master, old default codes are completely rejected).
  * @param {string} inputPassword
  * @param {string} storedHashOrPlain
  * @returns {Promise<boolean>}
@@ -40,42 +37,45 @@ export async function verifyPassword(inputPassword, storedHashOrPlain) {
   const inputHash = await hashPassword(inputTrimmed);
   const inputLowerHash = await hashPassword(inputTrimmed.toLowerCase());
 
-  // Master / default PIN & password always accepted as fallback emergency access!
-  if (
-    inputTrimmed === DEFAULT_ADMIN_PIN ||
-    inputTrimmed === DEFAULT_ADMIN_PASSWORD ||
-    inputTrimmed.toLowerCase() === DEFAULT_ADMIN_PASSWORD.toLowerCase() ||
-    inputHash === DEFAULT_PIN_HASH ||
-    inputHash === DEFAULT_ADMIN_HASH ||
-    inputLowerHash === DEFAULT_ADMIN_HASH ||
-    inputTrimmed === "123123" ||
-    inputTrimmed === "pps123123" ||
-    inputTrimmed.toLowerCase() === "pps123123" ||
-    inputHash === LEGACY_PIN_HASH ||
-    inputHash === LEGACY_ADMIN_HASH
-  ) {
-    return true;
-  }
+  const trimmedStored =
+    storedHashOrPlain && typeof storedHashOrPlain === "string"
+      ? storedHashOrPlain.trim()
+      : "";
 
-  // If stored credential exists in config
-  if (storedHashOrPlain && typeof storedHashOrPlain === "string" && storedHashOrPlain.trim().length > 0) {
-    const trimmedStored = storedHashOrPlain.trim();
-    // If stored is SHA-256 hash (64 hex characters)
-    if (trimmedStored.length === 64 && /^[0-9a-fA-F]+$/.test(trimmedStored)) {
-      if (inputHash.toLowerCase() === trimmedStored.toLowerCase()) return true;
-      // Case-insensitive match for mobile keyboards (auto-capitalization)
-      if (inputLowerHash.toLowerCase() === trimmedStored.toLowerCase()) return true;
-      return false;
+  const isUsingDefaultStored =
+    !trimmedStored ||
+    trimmedStored.toLowerCase() === DEFAULT_ADMIN_HASH.toLowerCase() ||
+    trimmedStored.toLowerCase() === DEFAULT_PIN_HASH.toLowerCase();
+
+  // Only allow default PIN/password pair if Master hasn't changed it from default yet
+  if (isUsingDefaultStored) {
+    if (
+      inputTrimmed === DEFAULT_ADMIN_PIN ||
+      inputTrimmed === DEFAULT_ADMIN_PASSWORD ||
+      inputTrimmed.toLowerCase() === DEFAULT_ADMIN_PASSWORD.toLowerCase() ||
+      inputHash === DEFAULT_PIN_HASH ||
+      inputHash === DEFAULT_ADMIN_HASH ||
+      inputLowerHash === DEFAULT_ADMIN_HASH
+    ) {
+      return true;
     }
-    // If stored is legacy plain text (backward compatibility for existing databases)
-    return (
-      inputTrimmed === trimmedStored ||
-      inputTrimmed.toLowerCase() === trimmedStored.toLowerCase()
-    );
+    return false;
   }
 
-  // Fallback to default hash ONLY if no stored password exists at all
-  return inputHash === DEFAULT_ADMIN_HASH;
+  // Strict match against custom SHA-256 hash stored in Firestore
+  if (trimmedStored.length === 64 && /^[0-9a-fA-F]+$/.test(trimmedStored)) {
+    if (inputHash.toLowerCase() === trimmedStored.toLowerCase()) return true;
+    if (!/^\d+$/.test(inputTrimmed) && inputLowerHash.toLowerCase() === trimmedStored.toLowerCase()) {
+      return true;
+    }
+    return false;
+  }
+
+  // Legacy plain text match (only if non-hashed custom string exists)
+  return (
+    inputTrimmed === trimmedStored ||
+    inputTrimmed.toLowerCase() === trimmedStored.toLowerCase()
+  );
 }
 
 /**

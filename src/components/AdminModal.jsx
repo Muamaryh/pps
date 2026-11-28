@@ -78,6 +78,15 @@ import {
   DEFAULT_BANSOS_PROGRAM,
 } from "../services/bansosService";
 import { hashPassword, verifyPassword, verifyPersonalCredential, getLockoutState, recordFailedAttempt, resetLockoutState, DEFAULT_ADMIN_HASH, DEFAULT_ADMIN_PIN, DEFAULT_PIN_HASH, MAX_ATTEMPTS, LOCKOUT_DURATION_SECONDS } from "../utils/security";
+import {
+  NON_MASTER_ACCESS_ROLE_LIST,
+  getAdminRoleConfig,
+  resolveAdminAccessLevel,
+  isMasterAdmin,
+  canAccessAdminTab,
+  getDefaultTabForAdmin,
+  getTabAccessDeniedMessage,
+} from "../utils/adminPermissions";
 import BrutalistDatePicker from "./BrutalistDatePicker";
 import BrutalistSelect from "./BrutalistSelect";
 import BrutalistConfirmModal from "./BrutalistConfirmModal";
@@ -194,7 +203,14 @@ export default function AdminModal({
 }) {
   const [currentAdmin, setCurrentAdmin] = useState(() => {
     const sess = readStoredAdminSession();
-    return sess ? { id: sess.accountId, name: sess.name, role: sess.role || "Pengurus LSM" } : null;
+    return sess
+      ? {
+          id: sess.accountId,
+          name: sess.name,
+          role: sess.role || "Pengurus LSM",
+          accessLevel: sess.accessLevel || resolveAdminAccessLevel(sess),
+        }
+      : null;
   });
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(readStoredAdminSession()));
   const [adminAccounts, setAdminAccounts] = useState([]);
@@ -213,6 +229,7 @@ export default function AdminModal({
   const [onboardingForm, setOnboardingForm] = useState({
     name: "",
     role: "",
+    accessLevel: "sekretaris",
     password: "",
     pin: "",
   });
@@ -349,17 +366,37 @@ export default function AdminModal({
   );
 
   useEffect(() => {
-    if (!isOpen || !isAuthenticated || (activeTab !== "security" && activeTab !== "overview")) return;
+    if (!isOpen || !isAuthenticated) return;
+    if (!canAccessAdminTab(currentAdmin, activeTab)) {
+      setActiveTab(getDefaultTabForAdmin(currentAdmin));
+    }
+  }, [isOpen, isAuthenticated, currentAdmin, activeTab]);
+
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated || !isMasterAdmin(currentAdmin) || (activeTab !== "security" && activeTab !== "overview")) return;
     refreshActivityLogs();
-  }, [isOpen, isAuthenticated, activeTab]);
+  }, [isOpen, isAuthenticated, currentAdmin, activeTab]);
 
   useEffect(() => {
     if (!isOpen) return;
     const requestedTab = resolveAdminTabFromQuery();
     if (requestedTab) {
-      setActiveTab(requestedTab);
+      if (!isAuthenticated || canAccessAdminTab(currentAdmin, requestedTab)) {
+        setActiveTab(requestedTab);
+      } else {
+        setActiveTab(getDefaultTabForAdmin(currentAdmin));
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isAuthenticated, currentAdmin]);
+
+  function handleSelectTab(nextTabId) {
+    if (!canAccessAdminTab(currentAdmin, nextTabId)) {
+      onShowToast(getTabAccessDeniedMessage(nextTabId), "warning");
+      return false;
+    }
+    setActiveTab(nextTabId);
+    return true;
+  }
 
   // Keep active admin tab standby across page refresh (sync to sessionStorage + URL ?tab=...)
   useEffect(() => {
@@ -516,7 +553,8 @@ export default function AdminModal({
 
   // Tabs that modify formData and require manual saving (Umum & Konten group)
   const CONTENT_CONFIG_TABS = ["identity", "hero", "about", "org", "gallery"];
-  const isContentConfigTab = CONTENT_CONFIG_TABS.includes(activeTab);
+  const isContentConfigTab =
+    CONTENT_CONFIG_TABS.includes(activeTab) && canAccessAdminTab(currentAdmin, activeTab);
 
   // Track if any content configuration fields have unsaved modifications
   const isDirty = React.useMemo(() => {
@@ -1087,10 +1125,17 @@ export default function AdminModal({
       ? `${INDO_DAYS[d.getDay()]}, ${d.getDate()} ${INDO_MONTHS[d.getMonth()]} ${d.getFullYear()}`
       : tx.date || "";
 
+    const titleStr = tx.title || "";
+    const dariMatch = titleStr.match(/\(\s*Dari\s*:\s*([^)]+)\)/i);
+    const resolvedMemberName =
+      (dariMatch && dariMatch[1] ? dariMatch[1].trim() : "") ||
+      String(tx.memberName || "").trim();
+
     setEditKasTxModal({
       isOpen: true,
       tx,
-      title: tx.title || "",
+      title: titleStr,
+      memberName: resolvedMemberName,
       amount: String(Number(tx.amount) || ""),
       wallet: initialWallet,
       category: tx.category || (isTransfer ? "Pindah Kas Antar Bendahara" : "Lainnya"),
@@ -1107,7 +1152,7 @@ export default function AdminModal({
     if (!targetTx || !targetTx.id) return;
 
     const numericAmount = Number(editKasTxModal.amount) || 0;
-    const cleanTitle = (editKasTxModal.title || "").trim();
+    let cleanTitle = (editKasTxModal.title || "").trim();
     if (!cleanTitle) {
       onShowToast("Judul / keterangan transaksi wajib diisi.", "warning");
       return;
@@ -1121,9 +1166,31 @@ export default function AdminModal({
     try {
       const typeUpper = String(targetTx.type || "INCOME").toUpperCase();
       const isTransfer = typeUpper === "TRANSFER";
+
+      // Sinkronkan dua arah antara nama di "(Dari: ...)" pada judul dan field memberName
+      const oldTitleDariMatch = String(targetTx.title || "").match(/\(\s*Dari\s*:\s*([^)]+)\)/i);
+      const oldResolvedMemberName =
+        (oldTitleDariMatch && oldTitleDariMatch[1] ? oldTitleDariMatch[1].trim() : "") ||
+        String(targetTx.memberName || "").trim();
+      const inputMemberName = (editKasTxModal.memberName || "").trim();
+      const newTitleDariMatch = cleanTitle.match(/\(\s*Dari\s*:\s*([^)]+)\)/i);
+      const titleDariName = newTitleDariMatch && newTitleDariMatch[1] ? newTitleDariMatch[1].trim() : "";
+
+      let finalMemberName = inputMemberName;
+      if (inputMemberName !== oldResolvedMemberName) {
+        // Admin mengubah kolom Nama Donatur/Anggota -> ikut perbarui "(Dari: ...)" di judul jika ada
+        if (newTitleDariMatch && inputMemberName) {
+          cleanTitle = cleanTitle.replace(/\(\s*Dari\s*:\s*[^)]+\)/i, `(Dari: ${inputMemberName})`);
+        }
+      } else if (titleDariName && titleDariName !== inputMemberName) {
+        // Admin mengubah teks "(Dari: ...)" di judul -> ikut perbarui memberName
+        finalMemberName = titleDariName;
+      }
+
       await updateKasTransactionCloud(targetTx.id, {
         type: typeUpper,
         title: cleanTitle,
+        memberName: isTransfer ? undefined : finalMemberName,
         amount: numericAmount,
         wallet: editKasTxModal.wallet,
         fromWallet: isTransfer ? editKasTxModal.wallet : undefined,
@@ -1150,6 +1217,7 @@ export default function AdminModal({
         isOpen: false,
         tx: null,
         title: "",
+        memberName: "",
         amount: "",
         wallet: "Oita",
         category: "",
@@ -2363,10 +2431,12 @@ export default function AdminModal({
             (matchedAcc.pinHash && matchedAcc.pinHash.toLowerCase() === tokenHash));
 
         if (isValidSession) {
+          const resolvedLevel = resolveAdminAccessLevel(matchedAcc);
           setCurrentAdmin({
             id: matchedAcc.id,
             name: matchedAcc.name,
-            role: matchedAcc.role || "Pengurus LSM",
+            role: matchedAcc.role || getAdminRoleConfig(resolvedLevel).shortLabel,
+            accessLevel: resolvedLevel,
           });
           setIsAuthenticated(true);
         } else {
@@ -2483,21 +2553,29 @@ export default function AdminModal({
           setLockoutState(getLockoutState());
 
           const matchedTokenHash = matchPass ? targetAccount.passwordHash : targetAccount.pinHash;
+          const resolvedLevel = resolveAdminAccessLevel(targetAccount);
+          const displayRole = targetAccount.role || getAdminRoleConfig(resolvedLevel).shortLabel;
           writeStoredAdminSession(
             {
               accountId: targetAccount.id,
               name: targetAccount.name,
-              role: targetAccount.role || "Pengurus LSM",
+              role: displayRole,
+              accessLevel: resolvedLevel,
               tokenHash: matchedTokenHash,
             },
             rememberMe
           );
-          setCurrentAdmin({
+          const nextAdminObj = {
             id: targetAccount.id,
             name: targetAccount.name,
-            role: targetAccount.role || "Pengurus LSM",
-          });
+            role: displayRole,
+            accessLevel: resolvedLevel,
+          };
+          setCurrentAdmin(nextAdminObj);
           setIsAuthenticated(true);
+          if (!canAccessAdminTab(nextAdminObj, activeTab)) {
+            setActiveTab(getDefaultTabForAdmin(nextAdminObj));
+          }
           setPasswordInput("");
 
           // Update lastLoginAt in background
@@ -2528,7 +2606,13 @@ export default function AdminModal({
           resetLockoutState();
           setLockoutState(getLockoutState());
           setPasswordInput("");
-          setOnboardingForm({ name: "", role: "", password: "", pin: "" });
+          setOnboardingForm({
+            name: "",
+            role: "",
+            accessLevel: freshAccounts.length === 0 ? "master" : "sekretaris",
+            password: "",
+            pin: "",
+          });
           setShowOnboardingPassword(false);
           setShowOnboardingPin(false);
           setLoginStep("onboarding");
@@ -2563,11 +2647,15 @@ export default function AdminModal({
     }
   }
 
-  // Handle First-Time Pengurus Account Activation (after Master Password/PIN verified)
+  // Handle First-Time Pengurus Account Activation (after Activation Code verified)
   async function handleCompleteOnboarding(e) {
     e?.preventDefault();
     const cleanName = (onboardingForm.name || "").trim();
-    const cleanRole = (onboardingForm.role || "").trim() || "Pengurus LSM";
+    // Pengurus baru tidak boleh memilih level Master sendiri (hanya founder atau penetapan oleh Master)
+    const rawLevel = onboardingForm.accessLevel || "sekretaris";
+    const selectedLevel = rawLevel === "master" ? "sekretaris" : rawLevel;
+    const roleCfg = getAdminRoleConfig(selectedLevel);
+    const cleanRole = (onboardingForm.role || "").trim() || roleCfg.shortLabel;
     const cleanPassword = (onboardingForm.password || "").trim();
     const cleanPin = (onboardingForm.pin || "").replace(/\D/g, "").trim();
 
@@ -2612,6 +2700,7 @@ export default function AdminModal({
         id: `adm-${now}-${Math.random().toString(36).slice(2, 6)}`,
         name: cleanName,
         role: cleanRole,
+        accessLevel: resolveAdminAccessLevel({ name: cleanName, accessLevel: roleCfg.id }),
         passwordHash,
         pinHash,
         createdAt: now,
@@ -2633,18 +2722,22 @@ export default function AdminModal({
           accountId: newAccount.id,
           name: newAccount.name,
           role: newAccount.role,
+          accessLevel: newAccount.accessLevel,
           tokenHash: passwordHash,
         },
         rememberMe
       );
-      setCurrentAdmin({
+      const nextAdminObj = {
         id: newAccount.id,
         name: newAccount.name,
         role: newAccount.role,
-      });
+        accessLevel: newAccount.accessLevel,
+      };
+      setCurrentAdmin(nextAdminObj);
       setIsAuthenticated(true);
+      setActiveTab(getDefaultTabForAdmin(nextAdminObj));
       setLoginStep("login");
-      setOnboardingForm({ name: "", role: "", password: "", pin: "" });
+      setOnboardingForm({ name: "", role: "", accessLevel: "sekretaris", password: "", pin: "" });
       recordActivity(
         "KEAMANAN",
         "Aktivasi Akun Pengurus Baru",
@@ -2726,6 +2819,7 @@ export default function AdminModal({
           accountId: me.id,
           name: me.name,
           role: me.role || "Pengurus LSM",
+          accessLevel: resolveAdminAccessLevel(me),
           tokenHash: updatedPassHash,
         },
         persist
@@ -2743,34 +2837,99 @@ export default function AdminModal({
     }
   }
 
-  // Handle Master-Password-protected admin account actions (delete, reset, toggle onboarding)
+  // Handle Master-only admin account actions (verified strictly with logged-in Master's personal Password/PIN)
   async function handleExecuteAdminAccountAction(e) {
     e?.preventDefault();
     if (!adminAccountAction) return;
+    if (!isMasterAdmin(currentAdmin)) {
+      onShowToast("Akses ditolak: aksi ini khusus akun Master.", "error");
+      return;
+    }
 
     const masterInput = (adminAccountAction.masterInput || "").trim();
     if (!masterInput) {
-      onShowToast("Masukkan Kode Akses Utama (Master Password) untuk konfirmasi.", "warning");
+      onShowToast("Masukkan Password atau PIN pribadi Master Anda untuk konfirmasi.", "warning");
       return;
     }
 
     setIsProcessingAccountAction(true);
     try {
-      let credentialSource = formData || initialData;
-      try {
-        const fresh = await loadCloudData();
-        if (fresh) credentialSource = fresh;
-      } catch {}
-
-      const masterCred = credentialSource?.adminPassHash || credentialSource?.adminPass || DEFAULT_ADMIN_HASH;
-      const isMasterOk = await verifyPassword(masterInput, masterCred);
-      if (!isMasterOk) {
-        onShowToast("Kode Akses Utama salah! Aksi dibatalkan.", "error");
+      const freshCfg = await loadAdminAccountsConfig();
+      const freshAccounts = Array.isArray(freshCfg.accounts) ? freshCfg.accounts : [];
+      const meAcc = freshAccounts.find((a) => a.id === currentAdmin?.id);
+      if (!meAcc || !isMasterAdmin(meAcc)) {
+        onShowToast("Verifikasi akun Master gagal. Silakan login ulang.", "error");
         return;
       }
 
-      const freshCfg = await loadAdminAccountsConfig();
-      const freshAccounts = Array.isArray(freshCfg.accounts) ? freshCfg.accounts : [];
+      const validPass = await verifyPersonalCredential(masterInput, meAcc.passwordHash);
+      const validPin = !validPass && (await verifyPersonalCredential(masterInput, meAcc.pinHash));
+      if (!validPass && !validPin) {
+        onShowToast("Password / PIN pribadi Master Anda salah! Aksi dibatalkan.", "error");
+        return;
+      }
+
+      if (adminAccountAction.type === "set_role" && adminAccountAction.account) {
+        const target = adminAccountAction.account;
+        const nextLevelCfg = getAdminRoleConfig(adminAccountAction.nextAccessLevel || "sekretaris");
+        const nextRoleLabel = (adminAccountAction.nextRoleLabel || "").trim() || nextLevelCfg.shortLabel;
+
+        // Cegah menghapus satu-satunya Master yang tersisa
+        const remainingMasters = freshAccounts.filter(
+          (a) => a.id !== target.id && resolveAdminAccessLevel(a) === "master"
+        );
+        if (resolveAdminAccessLevel(target) === "master" && nextLevelCfg.id !== "master" && remainingMasters.length === 0) {
+          onShowToast("Minimal harus ada 1 akun Master agar sistem tidak terkunci.", "warning");
+          return;
+        }
+
+        const nextAccounts = freshAccounts.map((a) =>
+          a.id === target.id
+            ? {
+                ...a,
+                accessLevel: nextLevelCfg.id,
+                role: nextRoleLabel,
+                updatedAt: Date.now(),
+              }
+            : a
+        );
+        await saveAdminAccountsConfig({
+          accounts: nextAccounts,
+          allowMasterOnboarding: freshCfg.allowMasterOnboarding !== false,
+        });
+        setAdminAccounts(nextAccounts);
+        setAdminAccountAction(null);
+        recordActivity(
+          "KEAMANAN",
+          "Ubah Hak Akses Pengurus",
+          `${target.name} -> ${nextLevelCfg.label} (${nextRoleLabel})`
+        );
+
+        if (currentAdmin?.id === target.id) {
+          const persist = Boolean(localStorage.getItem(ADMIN_ACCOUNT_SESSION_KEY));
+          const oldSess = readStoredAdminSession();
+          const updatedMe = {
+            id: target.id,
+            name: target.name,
+            role: nextRoleLabel,
+            accessLevel: nextLevelCfg.id,
+          };
+          writeStoredAdminSession(
+            {
+              accountId: target.id,
+              name: target.name,
+              role: nextRoleLabel,
+              accessLevel: nextLevelCfg.id,
+              tokenHash: oldSess?.tokenHash || target.passwordHash,
+            },
+            persist
+          );
+          setCurrentAdmin(updatedMe);
+        }
+
+        onShowToast(`Hak akses ${target.name} berhasil diubah ke ${nextLevelCfg.label}.`, "success");
+        return;
+      }
 
       if (adminAccountAction.type === "toggle_onboarding") {
         const nextAllow = !freshCfg.allowMasterOnboarding;
@@ -3762,7 +3921,8 @@ export default function AdminModal({
     (s) => !s.status || s.status === "pending" || s.status === "in_progress"
   ).length;
 
-  const tabGroups = [
+  const isMaster = isMasterAdmin(currentAdmin);
+  const allTabGroups = [
     {
       group: "Umum & Konten",
       shortLabel: "Umum",
@@ -3805,17 +3965,19 @@ export default function AdminModal({
       ],
     },
     {
-      group: "Sistem & Keamanan",
-      shortLabel: "Sistem",
+      group: isMaster ? "Sistem & Keamanan" : "Akun Saya",
+      shortLabel: isMaster ? "Sistem" : "Akun",
       icon: Shield,
       badgeCount: null,
       tabs: [
-        { id: "security", label: "Keamanan", icon: Shield },
+        { id: "security", label: isMaster ? "Keamanan" : "Akun & Keamanan", icon: Shield },
       ],
     },
   ];
 
+  const tabGroups = allTabGroups;
   const tabs = tabGroups.flatMap((g) => g.tabs);
+  const allowedTabsCount = tabs.filter((t) => canAccessAdminTab(currentAdmin, t.id)).length;
   const activeGroup = tabGroups.find((g) => g.tabs.some((t) => t.id === activeTab)) || tabGroups[0];
   const activeTabObj = tabs.find((t) => t.id === activeTab) || tabs[0];
 
@@ -4145,13 +4307,41 @@ export default function AdminModal({
 
                       <div className="flex flex-col gap-1">
                         <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                          Jabatan <span className="text-slate-400 font-normal normal-case">(Opsional)</span>
+                          Divisi / Hak Akses Panel <span className="text-[#DC2626]">*</span>
+                        </label>
+                        <select
+                          value={onboardingForm.accessLevel || "sekretaris"}
+                          onChange={(e) => {
+                            const nextLvl = e.target.value;
+                            const cfg = getAdminRoleConfig(nextLvl);
+                            setOnboardingForm((prev) => ({
+                              ...prev,
+                              accessLevel: nextLvl,
+                              role: prev.role ? prev.role : cfg.shortLabel,
+                            }));
+                          }}
+                          className="input-field text-xs font-bold bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10 py-2.5 px-3 rounded-xl"
+                        >
+                          {NON_MASTER_ACCESS_ROLE_LIST.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          {getAdminRoleConfig(onboardingForm.accessLevel || "sekretaris").description}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-heading font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                          Label Jabatan <span className="text-slate-400 font-normal normal-case">(Opsional)</span>
                         </label>
                         <input
                           type="text"
                           value={onboardingForm.role}
                           onChange={(e) => setOnboardingForm((prev) => ({ ...prev, role: e.target.value }))}
-                          placeholder="Contoh: Ketua, Bendahara, Humas"
+                          placeholder="Contoh: Sekretaris, Korlap, Humas, Bendahara, Logistik"
                           className="input-field text-sm bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
                         />
                       </div>
@@ -4551,8 +4741,8 @@ export default function AdminModal({
                       <span className="text-[10px] font-heading font-black uppercase text-slate-600 dark:text-slate-400 tracking-wider">
                         Menu Navigasi
                       </span>
-                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-black px-1.5 py-0.5 rounded border border-black shadow-xs">
-                        {tabs.length} Tab
+                      <span className="text-[10px] font-mono font-bold bg-[#FACC15] text-black px-1.5 py-0.5 rounded border border-black/20 shadow-xs">
+                        {isMaster ? `${tabs.length} Tab` : `${allowedTabsCount}/${tabs.length} Tab`}
                       </span>
                     </div>
 
@@ -4573,26 +4763,43 @@ export default function AdminModal({
                             {group.tabs.map((tab) => {
                               const Icon = tab.icon;
                               const isActive = activeTab === tab.id;
+                              const isAllowed = canAccessAdminTab(currentAdmin, tab.id);
                               const { cleanTitle, countText } = parseTabLabel(tab.label);
 
                               return (
                                 <button
                                   key={tab.id}
                                   type="button"
-                                  onClick={() => setActiveTab(tab.id)}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border border-black/15 dark:border-white/10 font-heading font-black text-xs transition-all text-left cursor-pointer ${
+                                  onClick={() => handleSelectTab(tab.id)}
+                                  title={isAllowed ? cleanTitle : getTabAccessDeniedMessage(tab.id)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border font-heading font-black text-xs transition-all text-left cursor-pointer ${
                                     isActive
-                                      ? "bg-[#FACC15] text-[#111827] shadow-sm -translate-y-0.5 border-black ring-1 ring-black/20"
-                                      : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-slate-800 shadow-xs"
+                                      ? "bg-[#FACC15] text-[#111827] shadow-sm -translate-y-0.5 border-black/30 ring-1 ring-black/15"
+                                      : isAllowed
+                                      ? "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-black/15 dark:border-white/10 hover:bg-amber-50 dark:hover:bg-slate-800 shadow-xs"
+                                      : "bg-slate-100/80 dark:bg-[#131622] text-slate-500 dark:text-slate-500 border-black/10 dark:border-white/5 opacity-70 hover:opacity-95"
                                   }`}
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <Icon size={15} className={isActive ? "text-[#DC2626]" : "text-slate-600 dark:text-slate-400"} />
+                                    <Icon
+                                      size={15}
+                                      className={
+                                        isActive
+                                          ? "text-[#DC2626]"
+                                          : isAllowed
+                                          ? "text-slate-600 dark:text-slate-400"
+                                          : "text-slate-400 dark:text-slate-600"
+                                      }
+                                    />
                                     <span className="truncate">{cleanTitle}</span>
                                   </div>
-                                  {Boolean(countText) && (
+                                  {!isAllowed ? (
+                                    <span className="text-slate-400 dark:text-slate-500 shrink-0" aria-label="Terkunci">
+                                      <Lock size={12} />
+                                    </span>
+                                  ) : Boolean(countText) ? (
                                     <span
-                                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-xs ${
+                                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black/20 shadow-xs ${
                                         isActive
                                           ? "bg-black text-[#FACC15]"
                                           : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
@@ -4600,7 +4807,7 @@ export default function AdminModal({
                                     >
                                       {countText}
                                     </span>
-                                  )}
+                                  ) : null}
                                 </button>
                               );
                             })}
@@ -4662,22 +4869,28 @@ export default function AdminModal({
                       {activeGroup.tabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
+                        const isAllowed = canAccessAdminTab(currentAdmin, tab.id);
                         const { cleanTitle, countText } = parseTabLabel(tab.label);
 
                         return (
                           <button
                             key={tab.id}
                             type="button"
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-1.5 text-xs py-1.5 px-2.5 rounded-md shrink-0 border-2 font-heading font-black transition-all cursor-pointer min-h-[34px] ${
+                            onClick={() => handleSelectTab(tab.id)}
+                            title={isAllowed ? cleanTitle : getTabAccessDeniedMessage(tab.id)}
+                            className={`flex items-center gap-1.5 text-xs py-1.5 px-2.5 rounded-lg shrink-0 border font-heading font-black transition-all cursor-pointer min-h-[34px] ${
                               isActive
-                                ? "bg-slate-900 text-white border-black shadow-xs -translate-y-0.5"
-                                : "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/20 dark:border-[#475569] hover:bg-slate-100"
+                                ? "bg-slate-900 text-white border-black/30 shadow-xs -translate-y-0.5"
+                                : isAllowed
+                                ? "bg-white dark:bg-[#20232E] text-slate-700 dark:text-slate-300 border-black/15 dark:border-white/15 hover:bg-slate-100"
+                                : "bg-slate-100/80 dark:bg-[#131622] text-slate-400 dark:text-slate-500 border-black/10 dark:border-white/5 opacity-70"
                             }`}
                           >
-                            <Icon size={12} className={isActive ? "text-[#FACC15]" : "text-slate-500"} />
+                            <Icon size={12} className={isActive ? "text-[#FACC15]" : isAllowed ? "text-slate-500" : "text-slate-400"} />
                             <span className="whitespace-nowrap">{cleanTitle}</span>
-                            {Boolean(countText) && (
+                            {!isAllowed ? (
+                              <Lock size={10} className="text-slate-400 shrink-0" />
+                            ) : Boolean(countText) ? (
                               <span
                                 className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded ${
                                   isActive
@@ -4687,7 +4900,7 @@ export default function AdminModal({
                               >
                                 {countText}
                               </span>
-                            )}
+                            ) : null}
                           </button>
                         );
                       })}
@@ -4706,6 +4919,8 @@ export default function AdminModal({
                       </div>
                     }
                   >
+                  {canAccessAdminTab(currentAdmin, activeTab) && (
+                    <>
                   {activeTab === "overview" && (
                     <AdminOverviewTab
                       activeAdminName={activeAdminName}
@@ -4722,7 +4937,7 @@ export default function AdminModal({
                       activityLogs={activityLogs}
                       formatCurrency={formatCurrency}
                       formatKasDate={formatKasDate}
-                      setActiveTab={setActiveTab}
+                      setActiveTab={handleSelectTab}
                       setKasMemberStatusFilter={setKasMemberStatusFilter}
                       setIsKasExpenseModalOpen={setIsKasExpenseModalOpen}
                     />
@@ -6494,29 +6709,33 @@ export default function AdminModal({
                             </div>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab("kas_db")}
-                          className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white font-mono text-[10px] font-bold border border-black shadow-xs cursor-pointer flex items-center gap-1"
-                          title="Buka tab Keuangan & Kas LSM"
-                        >
-                          <DollarSign size={12} />
-                          <span>Keuangan →</span>
-                        </button>
+                        {canAccessAdminTab(currentAdmin, "kas_db") && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectTab("kas_db")}
+                            className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white font-mono text-[10px] font-bold border border-black shadow-xs cursor-pointer flex items-center gap-1"
+                            title="Buka tab Keuangan & Kas LSM"
+                          >
+                            <DollarSign size={12} />
+                            <span>Keuangan →</span>
+                          </button>
+                        )}
                       </div>
                       <div className="flex items-center justify-between pt-1.5 border-t border-emerald-200 dark:border-emerald-800/40 text-[10px] font-mono">
                         <span className="text-emerald-800 dark:text-emerald-300 font-bold">
                           Terkumpul: +{formatCurrency(totalKasRupiah)}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab("member_kas")}
-                          className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-xs cursor-pointer text-[10px] flex items-center gap-1"
-                          title="Buka tab Catat Uang Kas untuk mengelola pembayaran kas anggota"
-                        >
-                          <DollarSign size={11} className="text-[#DC2626]" />
-                          <span>Kelola Kas &rarr;</span>
-                        </button>
+                        {canAccessAdminTab(currentAdmin, "member_kas") && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectTab("member_kas")}
+                            className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-xs cursor-pointer text-[10px] flex items-center gap-1"
+                            title="Buka tab Catat Uang Kas untuk mengelola pembayaran kas anggota"
+                          >
+                            <DollarSign size={11} className="text-[#DC2626]" />
+                            <span>Kelola Kas &rarr;</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -6545,15 +6764,17 @@ export default function AdminModal({
                         <span className="text-amber-800 dark:text-amber-300 flex items-center gap-1 font-bold" title="Jatah 7 hari: 10 Tritmen + 10 Pingsan">
                           <Clock size={11} /> 10 Tritmen + 10 Pingsan (7 Hari)
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab("jasra_panel")}
-                          className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-xs cursor-pointer text-[10px] flex items-center gap-1"
-                          title="Buka panel Voucher Jasra untuk mengelola jatah dan distribusi voucher"
-                        >
-                          <Gift size={11} className="text-[#DC2626]" />
-                          <span>Kelola di Panel Jasra &rarr;</span>
-                        </button>
+                        {canAccessAdminTab(currentAdmin, "jasra_panel") && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectTab("jasra_panel")}
+                            className="px-2 py-0.5 rounded bg-[#FACC15] hover:bg-yellow-400 text-slate-950 font-bold border border-black shadow-xs cursor-pointer text-[10px] flex items-center gap-1"
+                            title="Buka panel Voucher Jasra untuk mengelola jatah dan distribusi voucher"
+                          >
+                            <Gift size={11} className="text-[#DC2626]" />
+                            <span>Kelola di Panel Jasra &rarr;</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -6869,18 +7090,20 @@ export default function AdminModal({
                                       </span>
                                     </div>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedKasMember(member);
-                                        setActiveTab("member_kas");
-                                      }}
-                                      className="text-[10px] font-heading font-black text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
-                                      title="Kelola pembayaran kas anggota ini di tab Catat Uang Kas"
-                                    >
-                                      <DollarSign size={11} />
-                                      <span>Kelola Kas &rarr;</span>
-                                    </button>
+                                    {canAccessAdminTab(currentAdmin, "member_kas") && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedKasMember(member);
+                                          handleSelectTab("member_kas");
+                                        }}
+                                        className="text-[10px] font-heading font-black text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
+                                        title="Kelola pembayaran kas anggota ini di tab Catat Uang Kas"
+                                      >
+                                        <DollarSign size={11} />
+                                        <span>Kelola Kas &rarr;</span>
+                                      </button>
+                                    )}
                                   </div>
                                 );
                               })()}
@@ -6931,15 +7154,17 @@ export default function AdminModal({
                                       <span className="font-mono text-slate-500">
                                         {isVoucherActive ? "Status: Kuota Terdistribusi" : "Status: Belum Menerima"}
                                       </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => setActiveTab("jasra_panel")}
-                                        className="text-[10px] font-heading font-black text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
-                                        title="Buka panel Voucher Jasra untuk mengelola alokasi voucher"
-                                      >
-                                        <Gift size={11} className="text-[#DC2626]" />
-                                        <span>Kelola di Panel Jasra &rarr;</span>
-                                      </button>
+                                      {canAccessAdminTab(currentAdmin, "jasra_panel") && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSelectTab("jasra_panel")}
+                                          className="text-[10px] font-heading font-black text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 shrink-0 cursor-pointer"
+                                          title="Buka panel Voucher Jasra untuk mengelola alokasi voucher"
+                                        >
+                                          <Gift size={11} className="text-[#DC2626]" />
+                                          <span>Kelola di Panel Jasra &rarr;</span>
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 );
@@ -7509,25 +7734,29 @@ export default function AdminModal({
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("kas_db")}
-                        className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/10 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Buka menu Keuangan & mutasi kas"
-                      >
-                        <Landmark size={15} className="text-[#DC2626]" />
-                        <span>Keuangan</span>
-                      </button>
+                      {canAccessAdminTab(currentAdmin, "kas_db") && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTab("kas_db")}
+                          className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/10 shadow-xs flex items-center gap-2 transition-all cursor-pointer rounded"
+                          title="Buka menu Keuangan & mutasi kas"
+                        >
+                          <Landmark size={15} className="text-[#DC2626]" />
+                          <span>Keuangan</span>
+                        </button>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("members_db")}
-                        className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/10 shadow-xs flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer rounded"
-                        title="Kembali ke Database Anggota & Foto KTP"
-                      >
-                        <Users2 size={15} className="text-[#DC2626]" />
-                        <span>Database Anggota</span>
-                      </button>
+                      {canAccessAdminTab(currentAdmin, "members_db") && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTab("members_db")}
+                          className="py-2 px-3.5 bg-white dark:bg-[#20232E] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-heading font-black border border-black/15 dark:border-white/10 shadow-xs flex items-center gap-2 transition-all cursor-pointer rounded"
+                          title="Kembali ke Database Anggota & Foto KTP"
+                        >
+                          <Users2 size={15} className="text-[#DC2626]" />
+                          <span>Database Anggota</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -8930,6 +9159,8 @@ export default function AdminModal({
               {activeTab === "doorprize_db" && (
                 <DoorprizeAdminPanel onShowToast={onShowToast} />
               )}
+                    </>
+                  )}
                   </Suspense>
 
                 </div>
@@ -10010,6 +10241,21 @@ export default function AdminModal({
                   />
                 </div>
 
+                {!isTransfer && (
+                  <div>
+                    <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
+                      Nama Donatur / Anggota Terkait (Opsional)
+                    </label>
+                    <input
+                      type="text"
+                      value={editKasTxModal.memberName || ""}
+                      onChange={(e) => setEditKasTxModal((prev) => ({ ...prev, memberName: e.target.value }))}
+                      placeholder="Contoh: Katarina (otomatis sinkron ke daftar Orang Baik)"
+                      className="input-field w-full text-xs bg-white dark:bg-[#20232E] text-slate-900 dark:text-slate-100 border border-black/15 dark:border-white/10"
+                    />
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-heading font-black uppercase text-slate-700 dark:text-slate-300 block mb-1">
@@ -10465,7 +10711,7 @@ export default function AdminModal({
                     Navigasi Menu Admin
                   </h4>
                   <p className="text-[10px] text-slate-500 font-mono">
-                    {activeAdminName} • {tabs.length} Menu
+                    {activeAdminName} • {isMaster ? `${tabs.length} Menu` : `${allowedTabsCount}/${tabs.length} Menu Terbuka`}
                   </p>
                 </div>
               </div>
@@ -10499,6 +10745,7 @@ export default function AdminModal({
                       {group.tabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
+                        const isAllowed = canAccessAdminTab(currentAdmin, tab.id);
                         const { cleanTitle, countText } = parseTabLabel(tab.label);
 
                         return (
@@ -10506,23 +10753,31 @@ export default function AdminModal({
                             key={tab.id}
                             type="button"
                             onClick={() => {
-                              setActiveTab(tab.id);
-                              setMobileMenuOpen(false);
+                              if (handleSelectTab(tab.id)) {
+                                setMobileMenuOpen(false);
+                              }
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border-2 font-heading font-black text-xs transition-all text-left cursor-pointer min-h-[44px] ${
+                            title={isAllowed ? cleanTitle : getTabAccessDeniedMessage(tab.id)}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border font-heading font-black text-xs transition-all text-left cursor-pointer min-h-[44px] ${
                               isActive
-                                ? "bg-[#FACC15] text-[#111827] border-black shadow-sm -translate-y-0.5"
-                                : "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-black/20 dark:border-[#475569] hover:bg-amber-50 dark:hover:bg-slate-800 shadow-xs"
+                                ? "bg-[#FACC15] text-[#111827] border-black/30 shadow-sm -translate-y-0.5"
+                                : isAllowed
+                                ? "bg-white dark:bg-[#20232E] text-slate-800 dark:text-slate-200 border-black/15 dark:border-white/10 hover:bg-amber-50 dark:hover:bg-slate-800 shadow-xs"
+                                : "bg-slate-100/80 dark:bg-[#131622] text-slate-500 dark:text-slate-500 border-black/10 dark:border-white/5 opacity-70"
                             }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <Icon size={16} className={isActive ? "text-[#DC2626]" : "text-slate-500"} />
+                              <Icon size={16} className={isActive ? "text-[#DC2626]" : isAllowed ? "text-slate-500" : "text-slate-400"} />
                               <span className="truncate">{cleanTitle}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              {Boolean(countText) && (
+                              {!isAllowed ? (
+                                <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+                                  <Lock size={12} />
+                                </span>
+                              ) : Boolean(countText) ? (
                                 <span
-                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black shadow-xs ${
+                                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded border border-black/20 shadow-xs ${
                                     isActive
                                       ? "bg-black text-[#FACC15]"
                                       : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
@@ -10530,7 +10785,7 @@ export default function AdminModal({
                                 >
                                   {countText}
                                 </span>
-                              )}
+                              ) : null}
                               {isActive && (
                                 <span className="text-xs font-black text-[#DC2626] bg-black/10 px-1 rounded">
                                   ✓

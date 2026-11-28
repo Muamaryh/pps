@@ -512,6 +512,15 @@ export async function updateKasTransactionCloud(transactionId, updates = {}) {
     updatedAt: Date.now(),
   };
 
+  if (updates.memberName !== undefined) {
+    patch.memberName = String(updates.memberName || "").trim() || null;
+  } else {
+    const dariMatch = patch.title.match(/\(\s*Dari\s*:\s*([^)]+)\)/i);
+    if (dariMatch && dariMatch[1]) {
+      patch.memberName = dariMatch[1].trim();
+    }
+  }
+
   if (!patch.title) throw new Error("Judul / keterangan transaksi wajib diisi");
 
   if (isTransfer) {

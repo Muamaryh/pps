@@ -99,9 +99,15 @@ function extractDonorMonthInfo(tx) {
 }
 
 function parseDonorFromKasTx(tx) {
-  let name = (tx.memberName || "").trim();
-  if (!name && tx.title) {
-    name = tx.title
+  const titleStr = String(tx.title || "").trim();
+  const dariMatch = titleStr.match(/\(\s*Dari\s*:\s*([^)]+)\)/i);
+  const nameFromDari = dariMatch && dariMatch[1] ? dariMatch[1].trim() : "";
+
+  // Jika judul secara eksplisit memiliki "(Dari: ...)" (termasuk hasil revisi Edit Transaksi Kas),
+  // prioritaskan agar selalu sinkron dengan teks transaksi yang terlihat di buku kas.
+  let name = nameFromDari || (tx.memberName || "").trim();
+  if (!name && titleStr) {
+    name = titleStr
       .replace(/^Donasi\s*(Sukarela)?\s*(-|\(Dari:)?\s*/i, "")
       .replace(/^Sumbangan\s*(Sukarela)?\s*(-|\(Dari:)?\s*/i, "")
       .replace(/\)$/, "")
